@@ -1,7 +1,7 @@
 ---
 title: "feat: Adapty CLI Developer API Client"
 type: feat
-status: active
+status: completed
 date: 2026-02-19
 brainstorm: docs/brainstorms/2026-02-19-adapty-cli-brainstorm.md
 backend_plan: adapty-dashboard-api/docs/plans/2026-02-17-feat-developer-quick-start-api-plan.md
@@ -433,37 +433,37 @@ Priority tests:
 ## Acceptance Criteria
 
 ### Auth
-- [ ] `adapty auth login` completes device flow, stores token to config file
-- [ ] `adapty auth login` auto-opens browser, prints URL as fallback
-- [ ] `adapty auth login` handles slow_down (increase interval), expired_token, access_denied
-- [ ] `adapty auth login` when already authenticated: warns then proceeds
-- [ ] `adapty auth login` Ctrl+C exits cleanly
-- [ ] `adapty auth logout` removes token from config, prints server-side note
-- [ ] `adapty auth status` shows email + masked token prefix (no network call)
-- [ ] `adapty auth whoami` calls GET /me, shows user + companies
-- [ ] `ADAPTY_TOKEN` env var takes precedence over config file
+- [x] `adapty auth login` completes device flow, stores token to config file
+- [x] `adapty auth login` auto-opens browser, prints URL as fallback
+- [x] `adapty auth login` handles slow_down (increase interval), expired_token, access_denied
+- [x] `adapty auth login` when already authenticated: warns then proceeds
+- [x] `adapty auth login` Ctrl+C exits cleanly
+- [x] `adapty auth logout` removes token from config, prints server-side note
+- [x] `adapty auth status` shows email + masked token prefix (no network call)
+- [x] `adapty auth whoami` calls GET /me, shows user + companies
+- [x] `ADAPTY_TOKEN` env var takes precedence over config file
 
 ### Resource Commands
-- [ ] All create commands require flags (no prompts), fail with usage help if missing
-- [ ] All list commands support `--page` and `--page-size`
-- [ ] All app-scoped commands require `--app` (UUID, validated client-side)
-- [ ] `apps create` validates platform-conditional bundle IDs
-- [ ] `products create` supports `--period` enum with all 7 values
-- [ ] `paywalls create` supports repeated `--product-id` flag
-- [ ] `placements create` passes all three required fields
+- [x] All create commands require flags (no prompts), fail with usage help if missing
+- [x] All list commands support `--page` and `--page-size`
+- [x] All app-scoped commands require `--app` (UUID, validated client-side)
+- [x] `apps create` validates platform-conditional bundle IDs
+- [x] `products create` supports `--period` enum with all 7 values
+- [x] `paywalls create` supports repeated `--product-id` flag
+- [x] `placements create` passes all three required fields
 
 ### Dual-Mode Output
-- [ ] All commands (except `auth login`) support `--json` via oclif `enableJsonFlag`
-- [ ] Human output: simple key:value lines
-- [ ] JSON output: raw API response for data, normalized envelope for errors
-- [ ] Exit codes: 0=success, 1=API error, 2=usage error, 3=network, 4=auth required
+- [x] All commands (except `auth login`) support `--json` via oclif `enableJsonFlag`
+- [x] Human output: simple key:value lines
+- [x] JSON output: raw API response for data, normalized envelope for errors
+- [x] Exit codes: 0=success, 1=API error, 2=usage error, 3=network, 4=auth required
 
 ### Infrastructure
-- [ ] `ADAPTY_API_URL` env var overrides default base URL
-- [ ] Config file created with 0600 permissions
-- [ ] `User-Agent` header sent on every request
-- [ ] Corrupt config file handled gracefully (treat as empty)
-- [ ] Scaffold cleanup: remove hello commands + tests
+- [x] `ADAPTY_API_URL` env var overrides default base URL
+- [x] Config file created with 0600 permissions
+- [x] `User-Agent` header sent on every request
+- [x] Corrupt config file handled gracefully (treat as empty)
+- [x] Scaffold cleanup: remove hello commands + tests
 
 ## Dependencies
 
