@@ -1,8 +1,9 @@
 name: publish
 
 on:
-  release:
-    types: [released]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   id-token: write
