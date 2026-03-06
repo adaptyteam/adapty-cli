@@ -21,6 +21,7 @@
     "@types/chai": "^4",
     "@types/mocha": "^10",
     "@types/node": "^18",
+    "@types/sinon": "^21.0.0",
     "chai": "^4",
     "eslint": "^9",
     "eslint-config-oclif": "^6",
@@ -28,6 +29,7 @@
     "mocha": "^10",
     "oclif": "^4",
     "shx": "^0.3.3",
+    "sinon": "^21.0.2",
     "ts-node": "^10",
     "typescript": "^5"
   },
