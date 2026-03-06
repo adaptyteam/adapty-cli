@@ -1,12 +1,14 @@
 {
-  "name": "adapty-cli",
+  "name": "@adapty/cli",
   "description": "Adapty command line interface",
-  "version": "0.0.0",
-  "author": "adaptyteam",
+  "version": "0.1.0",
+  "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
   },
-  "bugs": "https://github.com/Developer/adapty-cli/issues",
+  "bugs": {
+    "url": "https://github.com/adaptyteam/adapty-cli/issues"
+  },
   "dependencies": {
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
@@ -37,9 +39,13 @@
     "./dist",
     "./oclif.manifest.json"
   ],
-  "homepage": "https://github.com/Developer/adapty-cli",
+  "homepage": "https://github.com/adaptyteam/adapty-cli",
   "keywords": [
-    "oclif"
+    "adapty",
+    "cli",
+    "subscriptions",
+    "in-apps",
+    "purchases"
   ],
   "license": "MIT",
   "main": "dist/index.js",
@@ -73,13 +79,20 @@
       }
     }
   },
-  "repository": "Developer/adapty-cli",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adaptyteam/adapty-cli.git"
+  },
   "scripts": {
     "build": "shx rm -rf dist && tsc -b",
     "lint": "eslint",
     "postpack": "shx rm -f oclif.manifest.json",
     "posttest": "pnpm run lint",
     "prepack": "oclif manifest && oclif readme",
+    "prepublishOnly": "pnpm build && oclif manifest",
     "test": "mocha --forbid-only \"test/**/*.test.ts\"",
     "version": "oclif readme && git add README.md"
   },
