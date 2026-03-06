@@ -1,397 +1,110 @@
-adapty-cli
-=================
+# adapty-cli
 
-Adapty command line interface
+CLI for the [Adapty Developer API](https://docs.adapty.io/docs/developer-api). Manage apps, products, paywalls, placements, and access levels from your terminal.
 
+## Installation
 
-[![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
-[![Version](https://img.shields.io/npm/v/adapty-cli.svg)](https://npmjs.org/package/adapty-cli)
-[![Downloads/week](https://img.shields.io/npm/dw/adapty-cli.svg)](https://npmjs.org/package/adapty-cli)
-
-
-<!-- toc -->
-* [Usage](#usage)
-* [Commands](#commands)
-<!-- tocstop -->
-# Usage
-<!-- usage -->
-```sh-session
-$ npm install -g adapty-cli
-$ adapty COMMAND
-running command...
-$ adapty (--version)
-adapty-cli/0.0.0 darwin-arm64 node-v24.12.0
-$ adapty --help [COMMAND]
-USAGE
-  $ adapty COMMAND
-...
-```
-<!-- usagestop -->
-# Commands
-<!-- commands -->
-* [`adapty hello PERSON`](#adapty-hello-person)
-* [`adapty hello world`](#adapty-hello-world)
-* [`adapty help [COMMAND]`](#adapty-help-command)
-* [`adapty plugins`](#adapty-plugins)
-* [`adapty plugins add PLUGIN`](#adapty-plugins-add-plugin)
-* [`adapty plugins:inspect PLUGIN...`](#adapty-pluginsinspect-plugin)
-* [`adapty plugins install PLUGIN`](#adapty-plugins-install-plugin)
-* [`adapty plugins link PATH`](#adapty-plugins-link-path)
-* [`adapty plugins remove [PLUGIN]`](#adapty-plugins-remove-plugin)
-* [`adapty plugins reset`](#adapty-plugins-reset)
-* [`adapty plugins uninstall [PLUGIN]`](#adapty-plugins-uninstall-plugin)
-* [`adapty plugins unlink [PLUGIN]`](#adapty-plugins-unlink-plugin)
-* [`adapty plugins update`](#adapty-plugins-update)
-
-## `adapty hello PERSON`
-
-Say hello
-
-```
-USAGE
-  $ adapty hello PERSON -f <value>
-
-ARGUMENTS
-  PERSON  Person to say hello to
-
-FLAGS
-  -f, --from=<value>  (required) Who is saying hello
-
-DESCRIPTION
-  Say hello
-
-EXAMPLES
-  $ adapty hello friend --from oclif
-  hello friend from oclif! (./src/commands/hello/index.ts)
+```sh
+npm install -g adapty-cli
 ```
 
-_See code: [src/commands/hello/index.ts](https://github.com/Developer/adapty-cli/blob/v0.0.0/src/commands/hello/index.ts)_
+Requires Node.js >= 18.
 
-## `adapty hello world`
+## Authentication
 
-Say hello world
-
-```
-USAGE
-  $ adapty hello world
-
-DESCRIPTION
-  Say hello world
-
-EXAMPLES
-  $ adapty hello world
-  hello world! (./src/commands/hello/world.ts)
+```sh
+adapty auth login
 ```
 
-_See code: [src/commands/hello/world.ts](https://github.com/Developer/adapty-cli/blob/v0.0.0/src/commands/hello/world.ts)_
+Opens browser for OAuth device flow. Token is stored in `~/.config/adapty/config.json`.
 
-## `adapty help [COMMAND]`
+Override with `ADAPTY_TOKEN` environment variable:
 
-Display help for adapty.
-
-```
-USAGE
-  $ adapty help [COMMAND...] [-n]
-
-ARGUMENTS
-  [COMMAND...]  Command to show help for.
-
-FLAGS
-  -n, --nested-commands  Include all nested commands in the output.
-
-DESCRIPTION
-  Display help for adapty.
+```sh
+ADAPTY_TOKEN=your-token adapty apps list
 ```
 
-_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v6.2.37/src/commands/help.ts)_
+Other auth commands:
 
-## `adapty plugins`
-
-List installed plugins.
-
-```
-USAGE
-  $ adapty plugins [--json] [--core]
-
-FLAGS
-  --core  Show core plugins.
-
-GLOBAL FLAGS
-  --json  Format output as json.
-
-DESCRIPTION
-  List installed plugins.
-
-EXAMPLES
-  $ adapty plugins
+```sh
+adapty auth whoami     # verify token, show user info
+adapty auth status     # show local auth state
+adapty auth logout     # clear stored token
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/index.ts)_
+## Commands
 
-## `adapty plugins add PLUGIN`
+All resource commands require `--app APP_ID` (UUID). Use `adapty apps list` to find your app ID.
 
-Installs a plugin into adapty.
+### Apps
 
-```
-USAGE
-  $ adapty plugins add PLUGIN... [--json] [-f] [-h] [-s | -v]
-
-ARGUMENTS
-  PLUGIN...  Plugin to install.
-
-FLAGS
-  -f, --force    Force npm to fetch remote resources even if a local copy exists on disk.
-  -h, --help     Show CLI help.
-  -s, --silent   Silences npm output.
-  -v, --verbose  Show verbose npm output.
-
-GLOBAL FLAGS
-  --json  Format output as json.
-
-DESCRIPTION
-  Installs a plugin into adapty.
-
-  Uses npm to install plugins.
-
-  Installation of a user-installed plugin will override a core plugin.
-
-  Use the ADAPTY_NPM_LOG_LEVEL environment variable to set the npm loglevel.
-  Use the ADAPTY_NPM_REGISTRY environment variable to set the npm registry.
-
-ALIASES
-  $ adapty plugins add
-
-EXAMPLES
-  Install a plugin from npm registry.
-
-    $ adapty plugins add myplugin
-
-  Install a plugin from a github url.
-
-    $ adapty plugins add https://github.com/someuser/someplugin
-
-  Install a plugin from a github slug.
-
-    $ adapty plugins add someuser/someplugin
+```sh
+adapty apps list [--page N] [--page-size N]
+adapty apps get APP_ID
+adapty apps create --name "My App" --platform ios --ios-bundle-id com.example.app
+adapty apps update APP_ID [flags]
 ```
 
-## `adapty plugins:inspect PLUGIN...`
+### Products
 
-Displays installation properties of a plugin.
-
-```
-USAGE
-  $ adapty plugins inspect PLUGIN...
-
-ARGUMENTS
-  PLUGIN...  [default: .] Plugin to inspect.
-
-FLAGS
-  -h, --help     Show CLI help.
-  -v, --verbose
-
-GLOBAL FLAGS
-  --json  Format output as json.
-
-DESCRIPTION
-  Displays installation properties of a plugin.
-
-EXAMPLES
-  $ adapty plugins inspect myplugin
+```sh
+adapty products list --app UUID [--page N] [--page-size N]
+adapty products get --app UUID PRODUCT_ID
+adapty products create --app UUID [flags]
+adapty products update --app UUID PRODUCT_ID [flags]
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/inspect.ts)_
+### Paywalls
 
-## `adapty plugins install PLUGIN`
-
-Installs a plugin into adapty.
-
-```
-USAGE
-  $ adapty plugins install PLUGIN... [--json] [-f] [-h] [-s | -v]
-
-ARGUMENTS
-  PLUGIN...  Plugin to install.
-
-FLAGS
-  -f, --force    Force npm to fetch remote resources even if a local copy exists on disk.
-  -h, --help     Show CLI help.
-  -s, --silent   Silences npm output.
-  -v, --verbose  Show verbose npm output.
-
-GLOBAL FLAGS
-  --json  Format output as json.
-
-DESCRIPTION
-  Installs a plugin into adapty.
-
-  Uses npm to install plugins.
-
-  Installation of a user-installed plugin will override a core plugin.
-
-  Use the ADAPTY_NPM_LOG_LEVEL environment variable to set the npm loglevel.
-  Use the ADAPTY_NPM_REGISTRY environment variable to set the npm registry.
-
-ALIASES
-  $ adapty plugins add
-
-EXAMPLES
-  Install a plugin from npm registry.
-
-    $ adapty plugins install myplugin
-
-  Install a plugin from a github url.
-
-    $ adapty plugins install https://github.com/someuser/someplugin
-
-  Install a plugin from a github slug.
-
-    $ adapty plugins install someuser/someplugin
+```sh
+adapty paywalls list --app UUID [--page N] [--page-size N]
+adapty paywalls get --app UUID PAYWALL_ID
+adapty paywalls create --app UUID --name "Name" --product-id UUID1 [--product-id UUID2]
+adapty paywalls update --app UUID PAYWALL_ID [flags]
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/install.ts)_
+### Placements
 
-## `adapty plugins link PATH`
-
-Links a plugin into the CLI for development.
-
-```
-USAGE
-  $ adapty plugins link PATH [-h] [--install] [-v]
-
-ARGUMENTS
-  PATH  [default: .] path to plugin
-
-FLAGS
-  -h, --help          Show CLI help.
-  -v, --verbose
-      --[no-]install  Install dependencies after linking the plugin.
-
-DESCRIPTION
-  Links a plugin into the CLI for development.
-
-  Installation of a linked plugin will override a user-installed or core plugin.
-
-  e.g. If you have a user-installed or core plugin that has a 'hello' command, installing a linked plugin with a 'hello'
-  command will override the user-installed or core plugin implementation. This is useful for development work.
-
-
-EXAMPLES
-  $ adapty plugins link myplugin
+```sh
+adapty placements list --app UUID [--page N] [--page-size N]
+adapty placements get --app UUID PLACEMENT_ID
+adapty placements create --app UUID [flags]
+adapty placements update --app UUID PLACEMENT_ID [flags]
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/link.ts)_
+### Access Levels
 
-## `adapty plugins remove [PLUGIN]`
-
-Removes a plugin from the CLI.
-
-```
-USAGE
-  $ adapty plugins remove [PLUGIN...] [-h] [-v]
-
-ARGUMENTS
-  [PLUGIN...]  plugin to uninstall
-
-FLAGS
-  -h, --help     Show CLI help.
-  -v, --verbose
-
-DESCRIPTION
-  Removes a plugin from the CLI.
-
-ALIASES
-  $ adapty plugins unlink
-  $ adapty plugins remove
-
-EXAMPLES
-  $ adapty plugins remove myplugin
+```sh
+adapty access-levels list --app UUID [--page N] [--page-size N]
+adapty access-levels get --app UUID ACCESS_LEVEL_ID
+adapty access-levels create --app UUID [flags]
+adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 ```
 
-## `adapty plugins reset`
+### Global Flags
 
-Remove all user-installed and linked plugins.
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON |
+| `--help` | Show help |
+| `--page` | Page number (default: 1) |
+| `--page-size` | Items per page (default: 20, max: 100) |
 
-```
-USAGE
-  $ adapty plugins reset [--hard] [--reinstall]
+## Environment Variables
 
-FLAGS
-  --hard       Delete node_modules and package manager related files in addition to uninstalling plugins.
-  --reinstall  Reinstall all plugins after uninstalling.
-```
+| Variable | Description |
+|----------|-------------|
+| `ADAPTY_TOKEN` | Override stored auth token |
+| `ADAPTY_API_URL` | Override API base URL (default: `https://api.adapty.io/api/v1/developer`) |
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/reset.ts)_
+## Development
 
-## `adapty plugins uninstall [PLUGIN]`
-
-Removes a plugin from the CLI.
-
-```
-USAGE
-  $ adapty plugins uninstall [PLUGIN...] [-h] [-v]
-
-ARGUMENTS
-  [PLUGIN...]  plugin to uninstall
-
-FLAGS
-  -h, --help     Show CLI help.
-  -v, --verbose
-
-DESCRIPTION
-  Removes a plugin from the CLI.
-
-ALIASES
-  $ adapty plugins unlink
-  $ adapty plugins remove
-
-EXAMPLES
-  $ adapty plugins uninstall myplugin
+```sh
+pnpm install
+pnpm build
+./bin/run.js apps list
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/uninstall.ts)_
+## License
 
-## `adapty plugins unlink [PLUGIN]`
-
-Removes a plugin from the CLI.
-
-```
-USAGE
-  $ adapty plugins unlink [PLUGIN...] [-h] [-v]
-
-ARGUMENTS
-  [PLUGIN...]  plugin to uninstall
-
-FLAGS
-  -h, --help     Show CLI help.
-  -v, --verbose
-
-DESCRIPTION
-  Removes a plugin from the CLI.
-
-ALIASES
-  $ adapty plugins unlink
-  $ adapty plugins remove
-
-EXAMPLES
-  $ adapty plugins unlink myplugin
-```
-
-## `adapty plugins update`
-
-Update installed plugins.
-
-```
-USAGE
-  $ adapty plugins update [-h] [-v]
-
-FLAGS
-  -h, --help     Show CLI help.
-  -v, --verbose
-
-DESCRIPTION
-  Update installed plugins.
-```
-
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.56/src/commands/plugins/update.ts)_
-<!-- commandsstop -->
+MIT
