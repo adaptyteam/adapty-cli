@@ -30,8 +30,6 @@ jobs:
       - run: pnpm build
       - run: pnpm exec oclif manifest
       - run: npm publish --provenance --tag latest --ignore-scripts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           echo "Published @adapty/cli@${PACKAGE_VERSION}"
