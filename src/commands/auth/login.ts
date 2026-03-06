@@ -2,6 +2,7 @@ import {Command} from '@oclif/core'
 import open from 'open'
 
 import {ApiClient} from '../../lib/api-client.js'
+import {buildUserAgent} from '../../lib/client-from-config.js'
 import {readConfig, writeConfig} from '../../lib/config.js'
 
 interface DeviceResponse {
@@ -41,7 +42,7 @@ static examples = ['<%= config.bin %> auth login']
     }
 
     const client = new ApiClient({
-      userAgent: `adapty-cli/${this.config.version} node/${process.version} ${process.platform}/${process.arch}`,
+      userAgent: buildUserAgent(this.config),
     })
 
     let device: DeviceResponse
@@ -64,6 +65,7 @@ static examples = ['<%= config.bin %> auth login']
 
     let interval = device.interval * 1000
     const deadline = Date.now() + device.expires_in * 1000
+    let consecutiveErrors = 0
 
     // Handle Ctrl+C
     const onSignal = (): void => {
@@ -83,9 +85,20 @@ static examples = ['<%= config.bin %> auth login']
             device_code: device.device_code,
             grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
           })
-        } catch {
-          continue // network blip, retry
+        } catch (error) {
+          consecutiveErrors++
+          if (consecutiveErrors >= 10) {
+            this.error('Too many consecutive network errors. Check your connection and try again.', {exit: 1})
+          }
+
+          if (consecutiveErrors >= 3) {
+            process.stderr.write(`Warning: ${consecutiveErrors} consecutive network errors (${error instanceof Error ? error.message : 'unknown'})\n`)
+          }
+
+          continue
         }
+
+        consecutiveErrors = 0
 
         if ('error' in result) {
           switch (result.error) {

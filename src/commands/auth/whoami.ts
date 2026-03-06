@@ -1,8 +1,6 @@
 import {Command} from '@oclif/core'
 
-import {ApiClient} from '../../lib/api-client.js'
-import {resolveToken} from '../../lib/auth.js'
-import {AuthRequiredError} from '../../lib/errors.js'
+import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 
 interface MeResponse {
   companies: Array<{id: string; title: string}>
@@ -17,14 +15,7 @@ static examples = ['<%= config.bin %> auth whoami']
 
   async run(): Promise<MeResponse> {
     await this.parse(AuthWhoami)
-    const token = await resolveToken(this.config.configDir)
-    if (!token) throw new AuthRequiredError()
-
-    const client = new ApiClient({
-      token,
-      userAgent: `adapty-cli/${this.config.version} node/${process.version} ${process.platform}/${process.arch}`,
-    })
-
+    const client = await createAuthenticatedClient(this.config)
     const me = await client.get<MeResponse>('/me')
 
     this.log(`Email: ${me.email}`)

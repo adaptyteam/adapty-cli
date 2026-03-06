@@ -1,8 +1,8 @@
 import {Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {appFlag, paginationFlags, paginationParams} from '../../lib/flags.js'
-import {isValidUuid, printList} from '../../lib/output.js'
+import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
+import {printList} from '../../lib/output.js'
 
 interface VendorProducts {
   android?: {base_plan_id?: string; id: string; product_id: string}
@@ -15,11 +15,6 @@ interface ProductItem {
   vendor_products: VendorProducts
 }
 
-interface PaginatedResponse {
-  data: ProductItem[]
-  meta: {pagination: {count: number; page: number; pages: number}}
-}
-
 export default class ProductsList extends Command {
   static description = 'List products for an app'
 static enableJsonFlag = true
@@ -29,15 +24,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse> {
+  async run(): Promise<PaginatedResponse<ProductItem>> {
     const {flags} = await this.parse(ProductsList)
-
-    if (!isValidUuid(flags.app)) {
-      this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', {exit: 2})
-    }
-
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse>(
+    const result = await client.get<PaginatedResponse<ProductItem>>(
       `/apps/${flags.app}/products`,
       paginationParams(flags),
     )

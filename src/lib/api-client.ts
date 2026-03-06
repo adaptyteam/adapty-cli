@@ -15,6 +15,10 @@ export class ApiClient {
 
   constructor(opts: ApiClientOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? process.env.ADAPTY_API_URL ?? DEFAULT_API_URL).replace(/\/$/, '')
+    if (this.baseUrl !== DEFAULT_API_URL) {
+      process.stderr.write(`Warning: using non-default API URL: ${this.baseUrl}\n`)
+    }
+
     this.token = opts.token ?? null
     this.userAgent = opts.userAgent ?? 'adapty-cli'
   }
@@ -36,11 +40,21 @@ export class ApiClient {
     })
   }
 
+  async put<T = unknown>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(`${this.baseUrl}${path}`, {
+      body: body ? JSON.stringify(body) : undefined,
+      method: 'PUT',
+    })
+  }
+
   // eslint-disable-next-line no-undef
   private async request<T>(url: string, init: RequestInit): Promise<T> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       'User-Agent': this.userAgent,
+    }
+
+    if (init.body) {
+      headers['Content-Type'] = 'application/json'
     }
 
     if (this.token) {

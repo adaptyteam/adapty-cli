@@ -1,7 +1,7 @@
-import {Command, Flags} from '@oclif/core'
+import {Args, Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {appFlag} from '../../lib/flags.js'
+import {appFlag, isValidUuid} from '../../lib/flags.js'
 
 interface PlacementResponse {
   developer_id: string
@@ -9,11 +9,14 @@ interface PlacementResponse {
   name: string
 }
 
-export default class PlacementsCreate extends Command {
-  static description = 'Create a placement with a paywall'
+export default class PlacementsUpdate extends Command {
+  static args = {
+    placement_id: Args.string({description: 'Placement ID (UUID)', required: true}),
+  }
+static description = 'Update a placement'
 static enableJsonFlag = true
 static examples = [
-    '<%= config.bin %> placements create --app UUID --name "Default" --developer-id default --paywall-id UUID',
+    '<%= config.bin %> placements update --app UUID 550e8400-... --name "Default" --developer-id default --paywall-id UUID',
   ]
 static flags = {
     ...appFlag,
@@ -23,15 +26,20 @@ static flags = {
   }
 
   async run(): Promise<PlacementResponse> {
-    const {flags} = await this.parse(PlacementsCreate)
+    const {args, flags} = await this.parse(PlacementsUpdate)
+
+    if (!isValidUuid(args.placement_id)) {
+      this.error('Invalid placement ID format.', {exit: 2})
+    }
+
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.post<PlacementResponse>(`/apps/${flags.app}/placements`, {
+    const result = await client.put<PlacementResponse>(`/apps/${flags.app}/placements/${args.placement_id}`, {
       developer_id: flags['developer-id'],
       name: flags.name,
       paywall_id: flags['paywall-id'],
     })
 
-    this.log('Placement created!')
+    this.log('Placement updated!')
     this.log(`ID: ${result.id}`)
     this.log(`Developer ID: ${result.developer_id}`)
     this.log(`Name: ${result.name}`)

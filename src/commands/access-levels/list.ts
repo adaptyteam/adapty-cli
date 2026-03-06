@@ -1,18 +1,13 @@
 import {Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {appFlag, paginationFlags, paginationParams} from '../../lib/flags.js'
-import {isValidUuid, printList} from '../../lib/output.js'
+import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
+import {printList} from '../../lib/output.js'
 
 interface AccessLevelItem {
   id: string
   sdk_id: string
   title: string
-}
-
-interface PaginatedResponse {
-  data: AccessLevelItem[]
-  meta: {pagination: {count: number; page: number; pages: number}}
 }
 
 export default class AccessLevelsList extends Command {
@@ -24,15 +19,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse> {
+  async run(): Promise<PaginatedResponse<AccessLevelItem>> {
     const {flags} = await this.parse(AccessLevelsList)
-
-    if (!isValidUuid(flags.app)) {
-      this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', {exit: 2})
-    }
-
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse>(
+    const result = await client.get<PaginatedResponse<AccessLevelItem>>(
       `/apps/${flags.app}/access-levels`,
       paginationParams(flags),
     )

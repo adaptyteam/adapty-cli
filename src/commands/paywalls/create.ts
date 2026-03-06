@@ -2,7 +2,6 @@ import {Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
-import {isValidUuid} from '../../lib/output.js'
 
 interface PaywallResponse {
   id: string
@@ -27,11 +26,6 @@ static flags = {
 
   async run(): Promise<PaywallResponse> {
     const {flags} = await this.parse(PaywallsCreate)
-
-    if (!isValidUuid(flags.app)) {
-      this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', {exit: 2})
-    }
-
     const client = await createAuthenticatedClient(this.config)
     const result = await client.post<PaywallResponse>(`/apps/${flags.app}/paywalls`, {
       name: flags.name,

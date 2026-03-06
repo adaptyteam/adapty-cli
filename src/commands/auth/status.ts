@@ -16,8 +16,7 @@ static examples = ['<%= config.bin %> auth status']
       return {authenticated: false}
     }
 
-    const prefix = config.access_token.split('.')[0] ?? ''
-    const masked = `${prefix}****.****`
+    const masked = config.access_token.slice(0, 8) + '****'
     const configPath = `${this.config.configDir}/config.json`
 
     this.log(`Email: ${config.user.email}`)
@@ -28,7 +27,7 @@ static examples = ['<%= config.bin %> auth status']
       authenticated: true,
       config_path: configPath,
       email: config.user.email,
-      token_prefix: prefix,
+      token_prefix: config.access_token.slice(0, 8),
     }
   }
 }

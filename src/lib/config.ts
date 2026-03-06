@@ -1,4 +1,4 @@
-import {chmod, mkdir, readFile, writeFile} from 'node:fs/promises'
+import {mkdir, readFile, writeFile} from 'node:fs/promises'
 import {homedir} from 'node:os'
 import {dirname, join} from 'node:path'
 
@@ -26,6 +26,5 @@ export async function readConfig(configDir?: string): Promise<AdaptyConfig> {
 export async function writeConfig(config: AdaptyConfig, configDir?: string): Promise<void> {
   const path = configPath(configDir)
   await mkdir(dirname(path), {recursive: true})
-  await writeFile(path, JSON.stringify(config, null, 2) + '\n', 'utf8')
-  await chmod(path, 0o600)
+  await writeFile(path, JSON.stringify(config, null, 2) + '\n', {encoding: 'utf8', mode: 0o600})
 }

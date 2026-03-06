@@ -2,7 +2,6 @@ import {Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
-import {isValidUuid} from '../../lib/output.js'
 
 interface AccessLevelResponse {
   id: string
@@ -24,11 +23,6 @@ static flags = {
 
   async run(): Promise<AccessLevelResponse> {
     const {flags} = await this.parse(AccessLevelsCreate)
-
-    if (!isValidUuid(flags.app)) {
-      this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', {exit: 2})
-    }
-
     const client = await createAuthenticatedClient(this.config)
     const result = await client.post<AccessLevelResponse>(`/apps/${flags.app}/access-levels`, {
       sdk_id: flags['sdk-id'],

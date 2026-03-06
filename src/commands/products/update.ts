@@ -1,7 +1,7 @@
-import {Command, Flags} from '@oclif/core'
+import {Args, Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {appFlag} from '../../lib/flags.js'
+import {appFlag, isValidUuid} from '../../lib/flags.js'
 
 interface VendorProducts {
   android?: {base_plan_id?: string; id: string; product_id: string}
@@ -16,11 +16,14 @@ interface ProductResponse {
 
 const VALID_PERIODS = ['weekly', 'monthly', '2_months', '3_months', '6_months', 'yearly', 'lifetime']
 
-export default class ProductsCreate extends Command {
-  static description = 'Create a product with vendor products per platform'
+export default class ProductsUpdate extends Command {
+  static args = {
+    product_id: Args.string({description: 'Product ID (UUID)', required: true}),
+  }
+static description = 'Update a product'
 static enableJsonFlag = true
 static examples = [
-    '<%= config.bin %> products create --app UUID --name "Monthly" --access-level-id UUID --period monthly --ios-product-id com.example.monthly',
+    '<%= config.bin %> products update --app UUID 550e8400-... --name "Monthly" --access-level-id UUID --period monthly --ios-product-id com.example.monthly',
   ]
 static flags = {
     ...appFlag,
@@ -36,7 +39,11 @@ static flags = {
   }
 
   async run(): Promise<ProductResponse> {
-    const {flags} = await this.parse(ProductsCreate)
+    const {args, flags} = await this.parse(ProductsUpdate)
+
+    if (!isValidUuid(args.product_id)) {
+      this.error('Invalid product ID format.', {exit: 2})
+    }
 
     if (!VALID_PERIODS.includes(flags.period)) {
       this.error(`Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}`, {exit: 2})
@@ -62,9 +69,9 @@ static flags = {
     if (flags['android-product-id']) body.android_product_id = flags['android-product-id']
     if (flags['android-base-plan-id']) body.android_base_plan_id = flags['android-base-plan-id']
 
-    const result = await client.post<ProductResponse>(`/apps/${flags.app}/products`, body)
+    const result = await client.put<ProductResponse>(`/apps/${flags.app}/products/${args.product_id}`, body)
 
-    this.log('Product created!')
+    this.log('Product updated!')
     this.log(`ID: ${result.id}`)
     this.log(`Name: ${result.name}`)
     if (result.vendor_products.ios) {

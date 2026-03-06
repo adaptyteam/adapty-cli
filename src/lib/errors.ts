@@ -62,6 +62,10 @@ export class AuthRequiredError extends Error {
 }
 
 export function parseApiError(statusCode: number, body: unknown): ApiError {
+  if (!body || typeof body !== 'object') {
+    return new ApiError(statusCode, `http_${statusCode}`, {})
+  }
+
   const parsed = body as ApiErrorBody
   if (parsed.error_code) {
     return new ApiError(statusCode, parsed.error_code, parsed.errors ?? {})

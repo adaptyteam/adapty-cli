@@ -21,9 +21,3 @@ export function printList(
     log(`Page ${pagination.page} of ${pagination.pages} (${pagination.count} total)`)
   }
 }
-
-const UUID_REGEX = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i
-
-export function isValidUuid(value: string): boolean {
-  return UUID_REGEX.test(value)
-}

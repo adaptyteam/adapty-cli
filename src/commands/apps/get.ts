@@ -1,7 +1,7 @@
 import {Args, Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {isValidUuid} from '../../lib/output.js'
+import {isValidUuid} from '../../lib/flags.js'
 
 interface AppDetailResponse {
   android_bundle_id?: string

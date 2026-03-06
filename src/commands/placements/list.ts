@@ -1,18 +1,13 @@
 import {Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {appFlag, paginationFlags, paginationParams} from '../../lib/flags.js'
-import {isValidUuid, printList} from '../../lib/output.js'
+import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
+import {printList} from '../../lib/output.js'
 
 interface PlacementItem {
   developer_id: string
   id: string
   name: string
-}
-
-interface PaginatedResponse {
-  data: PlacementItem[]
-  meta: {pagination: {count: number; page: number; pages: number}}
 }
 
 export default class PlacementsList extends Command {
@@ -24,15 +19,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse> {
+  async run(): Promise<PaginatedResponse<PlacementItem>> {
     const {flags} = await this.parse(PlacementsList)
-
-    if (!isValidUuid(flags.app)) {
-      this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', {exit: 2})
-    }
-
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse>(
+    const result = await client.get<PaginatedResponse<PlacementItem>>(
       `/apps/${flags.app}/placements`,
       paginationParams(flags),
     )
