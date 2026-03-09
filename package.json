@@ -1,5 +1,5 @@
 {
-  "name": "@adapty/cli",
+  "name": "adapty",
   "description": "Adapty command line interface",
   "version": "0.1.0",
   "author": "Adapty team <support@adapty.io>",
@@ -81,9 +81,6 @@
         "description": "Manage placements"
       }
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "repository": {
     "type": "git",

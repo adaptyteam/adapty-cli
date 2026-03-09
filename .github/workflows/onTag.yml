@@ -31,5 +31,6 @@ jobs:
       - run: pnpm exec oclif manifest
       - run: npm publish --provenance --tag latest --ignore-scripts
       - run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          echo "Published @adapty/cli@${PACKAGE_VERSION}"
+          echo "Published ${PACKAGE_NAME}@${PACKAGE_VERSION}"
