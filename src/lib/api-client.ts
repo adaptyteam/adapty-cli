@@ -2,6 +2,10 @@ import {ApiError, NetworkError, parseApiError} from './errors.js'
 
 const DEFAULT_API_URL = 'https://api.adapty.io/api/v1/developer'
 
+function ensureTrailingSlash(path: string): string {
+  return path.endsWith('/') ? path : `${path}/`
+}
+
 export interface ApiClientOptions {
   baseUrl?: string
   token?: null | string
@@ -24,7 +28,7 @@ export class ApiClient {
   }
 
   async get<T = unknown>(path: string, params?: Record<string, string>): Promise<T> {
-    let url = `${this.baseUrl}${path}`
+    let url = `${this.baseUrl}${ensureTrailingSlash(path)}`
     if (params) {
       const qs = new URLSearchParams(params)
       url += `?${qs.toString()}`
@@ -34,14 +38,14 @@ export class ApiClient {
   }
 
   async post<T = unknown>(path: string, body?: unknown): Promise<T> {
-    return this.request<T>(`${this.baseUrl}${path}`, {
+    return this.request<T>(`${this.baseUrl}${ensureTrailingSlash(path)}`, {
       body: body ? JSON.stringify(body) : undefined,
       method: 'POST',
     })
   }
 
   async put<T = unknown>(path: string, body?: unknown): Promise<T> {
-    return this.request<T>(`${this.baseUrl}${path}`, {
+    return this.request<T>(`${this.baseUrl}${ensureTrailingSlash(path)}`, {
       body: body ? JSON.stringify(body) : undefined,
       method: 'PUT',
     })

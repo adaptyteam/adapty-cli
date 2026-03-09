@@ -18,6 +18,6 @@ describe('auth whoami', () => {
 
   it('calls GET /me', async () => {
     await runCommand('auth whoami')
-    assertFetch({callIndex: 0, method: 'GET', path: '/me', stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: '/me/', stub: fetchStub})
   })
 })

@@ -34,7 +34,7 @@ describe('auth login', () => {
   it('calls POST /auth/device then POST /auth/token', async () => {
     await runCommand('auth login')
     expect(fetchStub.callCount).to.equal(2)
-    assertFetch({body: {client_id: 'adapty-cli'}, callIndex: 0, method: 'POST', path: '/auth/device', stub: fetchStub})
+    assertFetch({body: {client_id: 'adapty-cli'}, callIndex: 0, method: 'POST', path: '/auth/device/', stub: fetchStub})
     assertFetch({
       body: {
         device_code: 'test-device-code',
@@ -42,7 +42,7 @@ describe('auth login', () => {
       },
       callIndex: 1,
       method: 'POST',
-      path: '/auth/token',
+      path: '/auth/token/',
       stub: fetchStub,
     })
   })

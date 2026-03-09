@@ -24,14 +24,14 @@ describe('products', () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
     await runCommand(`products list --app ${TEST_APP_ID}`)
-    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/products`, stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/products/`, stub: fetchStub})
   })
 
   it('get calls GET /apps/{app}/products/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([{...PRODUCT_RESPONSE, access_level_id: 'al', period: 'monthly'}])
     await runCommand(`products get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
-    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}`, stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}/`, stub: fetchStub})
   })
 
   it('create calls POST /apps/{app}/products', async () => {
@@ -42,7 +42,7 @@ describe('products', () => {
       body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', name: 'Monthly', period: 'monthly'},
       callIndex: 0,
       method: 'POST',
-      path: `/apps/${TEST_APP_ID}/products`,
+      path: `/apps/${TEST_APP_ID}/products/`,
       stub: fetchStub,
     })
   })
@@ -55,7 +55,7 @@ describe('products', () => {
       body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', name: 'Monthly', period: 'monthly'},
       callIndex: 0,
       method: 'PUT',
-      path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}`,
+      path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}/`,
       stub: fetchStub,
     })
   })

@@ -24,14 +24,14 @@ describe('paywalls', () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
     await runCommand(`paywalls list --app ${TEST_APP_ID}`)
-    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/paywalls`, stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/paywalls/`, stub: fetchStub})
   })
 
   it('get calls GET /apps/{app}/paywalls/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([{...PAYWALL_RESPONSE, product_ids: []}])
     await runCommand(`paywalls get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
-    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}`, stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}/`, stub: fetchStub})
   })
 
   it('create calls POST /apps/{app}/paywalls', async () => {
@@ -42,7 +42,7 @@ describe('paywalls', () => {
       body: {name: 'Default Paywall', product_ids: [TEST_RESOURCE_ID]},
       callIndex: 0,
       method: 'POST',
-      path: `/apps/${TEST_APP_ID}/paywalls`,
+      path: `/apps/${TEST_APP_ID}/paywalls/`,
       stub: fetchStub,
     })
   })
@@ -55,7 +55,7 @@ describe('paywalls', () => {
       body: {name: 'Default Paywall', product_ids: [TEST_RESOURCE_ID]},
       callIndex: 0,
       method: 'PUT',
-      path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}`,
+      path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}/`,
       stub: fetchStub,
     })
   })

@@ -24,14 +24,14 @@ describe('access-levels', () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
     await runCommand(`access-levels list --app ${TEST_APP_ID}`)
-    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/access-levels`, stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/access-levels/`, stub: fetchStub})
   })
 
   it('get calls GET /apps/{app}/access-levels/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([ACCESS_LEVEL_RESPONSE])
     await runCommand(`access-levels get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
-    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/access-levels/${TEST_RESOURCE_ID}`, stub: fetchStub})
+    assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/access-levels/${TEST_RESOURCE_ID}/`, stub: fetchStub})
   })
 
   it('create calls POST /apps/{app}/access-levels', async () => {
@@ -42,7 +42,7 @@ describe('access-levels', () => {
       body: {sdk_id: 'premium', title: 'Premium'},
       callIndex: 0,
       method: 'POST',
-      path: `/apps/${TEST_APP_ID}/access-levels`,
+      path: `/apps/${TEST_APP_ID}/access-levels/`,
       stub: fetchStub,
     })
   })
@@ -55,7 +55,7 @@ describe('access-levels', () => {
       body: {title: 'Premium'},
       callIndex: 0,
       method: 'PUT',
-      path: `/apps/${TEST_APP_ID}/access-levels/${TEST_RESOURCE_ID}`,
+      path: `/apps/${TEST_APP_ID}/access-levels/${TEST_RESOURCE_ID}/`,
       stub: fetchStub,
     })
   })
