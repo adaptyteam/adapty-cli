@@ -2,9 +2,9 @@ import {Command} from '@oclif/core'
 import open from 'open'
 
 import {ApiClient} from '../../lib/api-client.js'
-import {ApiError} from '../../lib/errors.js'
 import {buildUserAgent} from '../../lib/client-from-config.js'
 import {readConfig, writeConfig} from '../../lib/config.js'
+import {ApiError} from '../../lib/errors.js'
 
 interface DeviceResponse {
   device_code: string
@@ -89,17 +89,25 @@ static examples = ['<%= config.bin %> auth login']
         } catch (error) {
           if (error instanceof ApiError) {
             switch (error.errorCode) {
-              case 'authorization_pending':
+              case 'authorization_pending': {
                 continue
-              case 'slow_down':
+              }
+
+              case 'slow_down': {
                 interval += 5000
                 continue
-              case 'access_denied':
+              }
+
+              case 'access_denied': {
                 this.error('Authorization denied.', {exit: 1})
                 break
-              case 'expired_token':
+              }
+
+              case 'expired_token': {
                 this.error('Code expired. Run `adapty auth login` again.', {exit: 1})
                 break
+              }
+
               default:
                 // unexpected API error — fall through to network error handling
             }
