@@ -2,6 +2,7 @@ import {Command} from '@oclif/core'
 import open from 'open'
 
 import {ApiClient} from '../../lib/api-client.js'
+import {ApiError} from '../../lib/errors.js'
 import {buildUserAgent} from '../../lib/client-from-config.js'
 import {readConfig, writeConfig} from '../../lib/config.js'
 
@@ -63,7 +64,7 @@ static examples = ['<%= config.bin %> auth login']
 
     this.log('Waiting for authorization...')
 
-    let interval = device.interval * 1000
+    let interval = Math.max((device.interval || 5) * 1000, 5000)
     const deadline = Date.now() + device.expires_in * 1000
     let consecutiveErrors = 0
 
@@ -86,6 +87,24 @@ static examples = ['<%= config.bin %> auth login']
             grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
           })
         } catch (error) {
+          if (error instanceof ApiError) {
+            switch (error.errorCode) {
+              case 'authorization_pending':
+                continue
+              case 'slow_down':
+                interval += 5000
+                continue
+              case 'access_denied':
+                this.error('Authorization denied.', {exit: 1})
+                break
+              case 'expired_token':
+                this.error('Code expired. Run `adapty auth login` again.', {exit: 1})
+                break
+              default:
+                // unexpected API error — fall through to network error handling
+            }
+          }
+
           consecutiveErrors++
           if (consecutiveErrors >= 10) {
             this.error('Too many consecutive network errors. Check your connection and try again.', {exit: 1})
@@ -99,33 +118,6 @@ static examples = ['<%= config.bin %> auth login']
         }
 
         consecutiveErrors = 0
-
-        if ('error' in result) {
-          switch (result.error) {
-            case 'access_denied': {
-              this.error('Authorization denied.', {exit: 1})
-              break
-            }
-
-            case 'authorization_pending': {
-              continue
-            }
-
-            case 'slow_down': {
-              interval += 5000
-              continue
-            }
-
-            case 'expired_token': {
-              this.error('Code expired. Run `adapty auth login` again.', {exit: 1})
-              break // unreachable but satisfies linter
-            }
-
-            default: {
-              this.error(`Unexpected error: ${result.error}`, {exit: 1})
-            }
-          }
-        }
 
         if ('access_token' in result) {
           await writeConfig(
