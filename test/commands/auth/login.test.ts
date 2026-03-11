@@ -37,6 +37,7 @@ describe('auth login', () => {
     assertFetch({body: {client_id: 'adapty-cli'}, callIndex: 0, method: 'POST', path: '/auth/device/', stub: fetchStub})
     assertFetch({
       body: {
+        client_id: 'adapty-cli',
         device_code: 'test-device-code',
         grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
       },

@@ -29,7 +29,8 @@ Other auth commands:
 ```sh
 adapty auth whoami     # verify token, show user info
 adapty auth status     # show local auth state
-adapty auth logout     # clear stored token
+adapty auth logout     # clear stored token (local only)
+adapty auth revoke     # revoke token server-side and clear local
 ```
 
 ## Commands
@@ -41,7 +42,7 @@ All resource commands require `--app APP_ID` (UUID). Use `adapty apps list` to f
 ```sh
 adapty apps list [--page N] [--page-size N]
 adapty apps get APP_ID
-adapty apps create --name "My App" --platform ios --ios-bundle-id com.example.app
+adapty apps create --title "My App" --platform ios --apple-bundle-id com.example.app
 adapty apps update APP_ID [flags]
 ```
 
@@ -59,7 +60,7 @@ adapty products update --app UUID PRODUCT_ID [flags]
 ```sh
 adapty paywalls list --app UUID [--page N] [--page-size N]
 adapty paywalls get --app UUID PAYWALL_ID
-adapty paywalls create --app UUID --name "Name" --product-id UUID1 [--product-id UUID2]
+adapty paywalls create --app UUID --title "Name" --product-id UUID1 [--product-id UUID2]
 adapty paywalls update --app UUID PAYWALL_ID [flags]
 ```
 

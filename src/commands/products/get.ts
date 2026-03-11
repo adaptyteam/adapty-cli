@@ -2,18 +2,14 @@ import {Args, Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
-
-interface VendorProducts {
-  android?: {base_plan_id?: string; id: string; product_id: string}
-  ios?: {id: string; product_id: string}
-}
+import {printResponse} from '../../lib/output.js'
 
 interface ProductDetailResponse {
   access_level_id: string
   id: string
-  name: string
   period: string
-  vendor_products: VendorProducts
+  title: string
+  vendor_products: Record<string, unknown>
 }
 
 export default class ProductsGet extends Command {
@@ -37,20 +33,7 @@ static flags = {
     const client = await createAuthenticatedClient(this.config)
     const result = await client.get<ProductDetailResponse>(`/apps/${flags.app}/products/${args.product_id}`)
 
-    this.log(`ID: ${result.id}`)
-    this.log(`Name: ${result.name}`)
-    this.log(`Period: ${result.period}`)
-    this.log(`Access Level ID: ${result.access_level_id}`)
-    if (result.vendor_products.ios) {
-      this.log(`iOS Product: ${result.vendor_products.ios.product_id}`)
-    }
-
-    if (result.vendor_products.android) {
-      const bp = result.vendor_products.android.base_plan_id
-      this.log(
-        `Android Product: ${result.vendor_products.android.product_id}${bp ? ` (base plan: ${bp})` : ''}`,
-      )
-    }
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

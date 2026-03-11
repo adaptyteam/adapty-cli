@@ -4,15 +4,10 @@ import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
 
-interface VendorProducts {
-  android?: {base_plan_id?: string; id: string; product_id: string}
-  ios?: {id: string; product_id: string}
-}
-
 interface ProductItem {
   id: string
-  name: string
-  vendor_products: VendorProducts
+  title: string
+  vendor_products: Record<string, unknown>
 }
 
 export default class ProductsList extends Command {
@@ -32,22 +27,7 @@ static flags = {
       paginationParams(flags),
     )
 
-    printList(
-      result.data.map((p) => {
-        const row: Record<string, unknown> = {ID: p.id, Name: p.name}
-        if (p.vendor_products.ios) row['iOS Product'] = p.vendor_products.ios.product_id
-        if (p.vendor_products.android) {
-          const bp = p.vendor_products.android.base_plan_id
-          row['Android Product'] = bp
-            ? `${p.vendor_products.android.product_id} (base plan: ${bp})`
-            : p.vendor_products.android.product_id
-        }
-
-        return row
-      }),
-      this.log.bind(this),
-      result.meta.pagination,
-    )
+    printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)
 
     return result
   }

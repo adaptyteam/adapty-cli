@@ -27,11 +27,7 @@ static flags = {
       paginationParams(flags),
     )
 
-    printList(
-      result.data.map((al) => ({ID: al.id, 'SDK ID': al.sdk_id, Title: al.title})),
-      this.log.bind(this),
-      result.meta.pagination,
-    )
+    printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)
 
     return result
   }

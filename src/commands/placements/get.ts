@@ -2,12 +2,13 @@ import {Args, Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
+import {printResponse} from '../../lib/output.js'
 
 interface PlacementDetailResponse {
   developer_id: string
   id: string
-  name: string
   paywall_id: string
+  title: string
 }
 
 export default class PlacementsGet extends Command {
@@ -31,10 +32,7 @@ static flags = {
     const client = await createAuthenticatedClient(this.config)
     const result = await client.get<PlacementDetailResponse>(`/apps/${flags.app}/placements/${args.placement_id}`)
 
-    this.log(`ID: ${result.id}`)
-    this.log(`Name: ${result.name}`)
-    this.log(`Developer ID: ${result.developer_id}`)
-    this.log(`Paywall ID: ${result.paywall_id}`)
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

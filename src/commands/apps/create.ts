@@ -1,9 +1,10 @@
 import {Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
+import {printResponse} from '../../lib/output.js'
 
 interface AppCreateResponse {
-  app: {id: string; name: string; sdk_key: string}
+  app: {id: string; sdk_key: string; title: string}
   default_access_level: {id: string; sdk_id: string}
 }
 
@@ -11,50 +12,46 @@ export default class AppsCreate extends Command {
   static description = 'Create a new Adapty app'
 static enableJsonFlag = true
 static examples = [
-    '<%= config.bin %> apps create --name "My App" --platform ios --ios-bundle-id com.example.app',
-    '<%= config.bin %> apps create --name "My App" --platform ios --platform android --ios-bundle-id com.example.app --android-bundle-id com.example.app',
+    '<%= config.bin %> apps create --title "My App" --platform ios --apple-bundle-id com.example.app',
+    '<%= config.bin %> apps create --title "My App" --platform ios --platform android --apple-bundle-id com.example.app --google-bundle-id com.example.app',
   ]
 static flags = {
-    'android-bundle-id': Flags.string({description: 'Android bundle ID (required with --platform android)'}),
-    'ios-bundle-id': Flags.string({description: 'iOS bundle ID (required with --platform ios)'}),
-    name: Flags.string({description: 'App name', required: true}),
+    'apple-bundle-id': Flags.string({description: 'Apple bundle ID (required with --platform ios)'}),
+    'google-bundle-id': Flags.string({description: 'Google bundle ID (required with --platform android)'}),
     platform: Flags.string({
       description: 'Platform (ios, android). Repeat for multiple.',
       multiple: true,
       options: ['ios', 'android'],
       required: true,
     }),
+    title: Flags.string({description: 'App title', required: true}),
   }
 
   async run(): Promise<AppCreateResponse> {
     const {flags} = await this.parse(AppsCreate)
 
-    if (flags.platform.includes('ios') && !flags['ios-bundle-id']) {
-      this.error('--ios-bundle-id is required when --platform ios is specified', {exit: 2})
+    if (flags.platform.includes('ios') && !flags['apple-bundle-id']) {
+      this.error('--apple-bundle-id is required when --platform ios is specified', {exit: 2})
     }
 
-    if (flags.platform.includes('android') && !flags['android-bundle-id']) {
-      this.error('--android-bundle-id is required when --platform android is specified', {exit: 2})
+    if (flags.platform.includes('android') && !flags['google-bundle-id']) {
+      this.error('--google-bundle-id is required when --platform android is specified', {exit: 2})
     }
 
     const client = await createAuthenticatedClient(this.config)
 
     const body: Record<string, unknown> = {
-      app_name: flags.name,
       platforms: flags.platform,
+      title: flags.title,
     }
 
-    if (flags['ios-bundle-id']) body.ios_bundle_id = flags['ios-bundle-id']
-    if (flags['android-bundle-id']) body.android_bundle_id = flags['android-bundle-id']
+    if (flags['apple-bundle-id']) body.apple_bundle_id = flags['apple-bundle-id']
+    if (flags['google-bundle-id']) body.google_bundle_id = flags['google-bundle-id']
 
     const result = await client.post<AppCreateResponse>('/apps', body)
 
     this.log('App created!')
-    this.log(`ID: ${result.app.id}`)
-    this.log(`Name: ${result.app.name}`)
-    this.log(`SDK Key: ${result.app.sdk_key}`)
-    this.log(`Default Access Level ID: ${result.default_access_level.id}`)
-    this.log(`Default Access Level SDK ID: ${result.default_access_level.sdk_id}`)
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

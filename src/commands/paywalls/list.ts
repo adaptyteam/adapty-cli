@@ -6,7 +6,7 @@ import {printList} from '../../lib/output.js'
 
 interface PaywallItem {
   id: string
-  name: string
+  title: string
 }
 
 export default class PaywallsList extends Command {
@@ -26,11 +26,7 @@ static flags = {
       paginationParams(flags),
     )
 
-    printList(
-      result.data.map((pw) => ({ID: pw.id, Name: pw.name})),
-      this.log.bind(this),
-      result.meta.pagination,
-    )
+    printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)
 
     return result
   }

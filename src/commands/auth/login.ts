@@ -9,7 +9,7 @@ import {ApiError} from '../../lib/errors.js'
 interface DeviceResponse {
   device_code: string
   expires_in: number
-  interval: number
+  interval_seconds: number
   user_code: string
   verification_uri: string
   verification_uri_complete: string
@@ -64,7 +64,7 @@ static examples = ['<%= config.bin %> auth login']
 
     this.log('Waiting for authorization...')
 
-    let interval = Math.max((device.interval || 5) * 1000, 5000)
+    let interval = Math.max((device.interval_seconds || 5) * 1000, 5000)
     const deadline = Date.now() + device.expires_in * 1000
     let consecutiveErrors = 0
 
@@ -83,6 +83,7 @@ static examples = ['<%= config.bin %> auth login']
         let result: TokenErrorResponse | TokenSuccessResponse
         try {
           result = await client.post<TokenErrorResponse | TokenSuccessResponse>('/auth/token', {
+            client_id: 'adapty-cli',
             device_code: device.device_code,
             grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
           })

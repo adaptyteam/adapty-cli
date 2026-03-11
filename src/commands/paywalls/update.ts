@@ -2,11 +2,7 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
-
-interface PaywallResponse {
-  id: string
-  name: string
-}
+import {printResponse} from '../../lib/output.js'
 
 export default class PaywallsUpdate extends Command {
   static args = {
@@ -15,19 +11,19 @@ export default class PaywallsUpdate extends Command {
 static description = 'Update a paywall'
 static enableJsonFlag = true
 static examples = [
-    '<%= config.bin %> paywalls update --app UUID 550e8400-... --name "Default Paywall" --product-id UUID1 --product-id UUID2',
+    '<%= config.bin %> paywalls update --app UUID 550e8400-... --title "Default Paywall" --product-id UUID1 --product-id UUID2',
   ]
 static flags = {
     ...appFlag,
-    name: Flags.string({description: 'Paywall name', required: true}),
     'product-id': Flags.string({
       description: 'Product ID (UUID). Repeat for multiple.',
       multiple: true,
       required: true,
     }),
+    title: Flags.string({description: 'Paywall title', required: true}),
   }
 
-  async run(): Promise<PaywallResponse> {
+  async run(): Promise<Record<string, unknown>> {
     const {args, flags} = await this.parse(PaywallsUpdate)
 
     if (!isValidUuid(args.paywall_id)) {
@@ -35,14 +31,13 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.put<PaywallResponse>(`/apps/${flags.app}/paywalls/${args.paywall_id}`, {
-      name: flags.name,
+    const result = await client.put<Record<string, unknown>>(`/apps/${flags.app}/paywalls/${args.paywall_id}`, {
       product_ids: flags['product-id'],
+      title: flags.title,
     })
 
     this.log('Paywall updated!')
-    this.log(`ID: ${result.id}`)
-    this.log(`Name: ${result.name}`)
+    printResponse(result, this.log.bind(this))
 
     return result
   }

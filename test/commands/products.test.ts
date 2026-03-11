@@ -10,7 +10,7 @@ import {
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const PRODUCT_RESPONSE = {id: TEST_RESOURCE_ID, name: 'Monthly', vendor_products: {}}
+const PRODUCT_RESPONSE = {id: TEST_RESOURCE_ID, title: 'Monthly', vendor_products: {}}
 
 describe('products', () => {
   let fetchStub: sinon.SinonStub
@@ -37,9 +37,9 @@ describe('products', () => {
   it('create calls POST /apps/{app}/products', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PRODUCT_RESPONSE])
-    await runCommand(`products create --app ${TEST_APP_ID} --name Monthly --access-level-id ${TEST_RESOURCE_ID} --period monthly --ios-product-id com.example.monthly`)
+    await runCommand(`products create --app ${TEST_APP_ID} --title Monthly --access-level-id ${TEST_RESOURCE_ID} --period monthly --ios-product-id com.example.monthly`)
     assertFetch({
-      body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', name: 'Monthly', period: 'monthly'},
+      body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', period: 'monthly', title: 'Monthly'},
       callIndex: 0,
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/products/`,
@@ -50,9 +50,9 @@ describe('products', () => {
   it('update calls PUT /apps/{app}/products/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PRODUCT_RESPONSE])
-    await runCommand(`products update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --name Monthly --access-level-id ${TEST_RESOURCE_ID} --period monthly --ios-product-id com.example.monthly`)
+    await runCommand(`products update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Monthly --access-level-id ${TEST_RESOURCE_ID} --period monthly --ios-product-id com.example.monthly`)
     assertFetch({
-      body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', name: 'Monthly', period: 'monthly'},
+      body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', period: 'monthly', title: 'Monthly'},
       callIndex: 0,
       method: 'PUT',
       path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}/`,

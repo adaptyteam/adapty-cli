@@ -2,12 +2,7 @@ import {Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
-
-interface AccessLevelResponse {
-  id: string
-  sdk_id: string
-  title: string
-}
+import {printResponse} from '../../lib/output.js'
 
 export default class AccessLevelsCreate extends Command {
   static description = 'Create a custom access level'
@@ -21,18 +16,16 @@ static flags = {
     title: Flags.string({description: 'Access level title', required: true}),
   }
 
-  async run(): Promise<AccessLevelResponse> {
+  async run(): Promise<Record<string, unknown>> {
     const {flags} = await this.parse(AccessLevelsCreate)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.post<AccessLevelResponse>(`/apps/${flags.app}/access-levels`, {
+    const result = await client.post<Record<string, unknown>>(`/apps/${flags.app}/access-levels`, {
       sdk_id: flags['sdk-id'],
       title: flags.title,
     })
 
     this.log('Access level created!')
-    this.log(`ID: ${result.id}`)
-    this.log(`SDK ID: ${result.sdk_id}`)
-    this.log(`Title: ${result.title}`)
+    printResponse(result, this.log.bind(this))
 
     return result
   }

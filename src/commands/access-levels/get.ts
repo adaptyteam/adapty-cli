@@ -2,6 +2,7 @@ import {Args, Command} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
+import {printResponse} from '../../lib/output.js'
 
 interface AccessLevelDetailResponse {
   id: string
@@ -30,9 +31,7 @@ static flags = {
     const client = await createAuthenticatedClient(this.config)
     const result = await client.get<AccessLevelDetailResponse>(`/apps/${flags.app}/access-levels/${args.access_level_id}`)
 
-    this.log(`ID: ${result.id}`)
-    this.log(`SDK ID: ${result.sdk_id}`)
-    this.log(`Title: ${result.title}`)
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

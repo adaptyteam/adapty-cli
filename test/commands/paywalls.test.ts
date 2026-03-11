@@ -10,7 +10,7 @@ import {
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const PAYWALL_RESPONSE = {id: TEST_RESOURCE_ID, name: 'Default Paywall'}
+const PAYWALL_RESPONSE = {id: TEST_RESOURCE_ID, title: 'Default Paywall'}
 
 describe('paywalls', () => {
   let fetchStub: sinon.SinonStub
@@ -37,9 +37,9 @@ describe('paywalls', () => {
   it('create calls POST /apps/{app}/paywalls', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PAYWALL_RESPONSE])
-    await runCommand(`paywalls create --app ${TEST_APP_ID} --name "Default Paywall" --product-id ${TEST_RESOURCE_ID}`)
+    await runCommand(`paywalls create --app ${TEST_APP_ID} --title "Default Paywall" --product-id ${TEST_RESOURCE_ID}`)
     assertFetch({
-      body: {name: 'Default Paywall', product_ids: [TEST_RESOURCE_ID]},
+      body: {product_ids: [TEST_RESOURCE_ID], title: 'Default Paywall'},
       callIndex: 0,
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/paywalls/`,
@@ -50,9 +50,9 @@ describe('paywalls', () => {
   it('update calls PUT /apps/{app}/paywalls/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PAYWALL_RESPONSE])
-    await runCommand(`paywalls update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --name "Default Paywall" --product-id ${TEST_RESOURCE_ID}`)
+    await runCommand(`paywalls update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title "Default Paywall" --product-id ${TEST_RESOURCE_ID}`)
     assertFetch({
-      body: {name: 'Default Paywall', product_ids: [TEST_RESOURCE_ID]},
+      body: {product_ids: [TEST_RESOURCE_ID], title: 'Default Paywall'},
       callIndex: 0,
       method: 'PUT',
       path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}/`,

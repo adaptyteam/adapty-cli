@@ -6,8 +6,8 @@ import {printList} from '../../lib/output.js'
 
 interface AppItem {
   id: string
-  name: string
   sdk_key: string
+  title: string
 }
 
 export default class AppsList extends Command {
@@ -23,11 +23,7 @@ static flags = {
     const client = await createAuthenticatedClient(this.config)
     const result = await client.get<PaginatedResponse<AppItem>>('/apps', paginationParams(flags))
 
-    printList(
-      result.data.map((app) => ({ID: app.id, Name: app.name, 'SDK Key': app.sdk_key})),
-      this.log.bind(this),
-      result.meta.pagination,
-    )
+    printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)
 
     return result
   }

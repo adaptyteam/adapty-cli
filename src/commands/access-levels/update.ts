@@ -2,12 +2,7 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
-
-interface AccessLevelResponse {
-  id: string
-  sdk_id: string
-  title: string
-}
+import {printResponse} from '../../lib/output.js'
 
 export default class AccessLevelsUpdate extends Command {
   static args = {
@@ -23,7 +18,7 @@ static flags = {
     title: Flags.string({description: 'Access level title', required: true}),
   }
 
-  async run(): Promise<AccessLevelResponse> {
+  async run(): Promise<Record<string, unknown>> {
     const {args, flags} = await this.parse(AccessLevelsUpdate)
 
     if (!isValidUuid(args.access_level_id)) {
@@ -31,14 +26,12 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.put<AccessLevelResponse>(`/apps/${flags.app}/access-levels/${args.access_level_id}`, {
+    const result = await client.put<Record<string, unknown>>(`/apps/${flags.app}/access-levels/${args.access_level_id}`, {
       title: flags.title,
     })
 
     this.log('Access level updated!')
-    this.log(`ID: ${result.id}`)
-    this.log(`SDK ID: ${result.sdk_id}`)
-    this.log(`Title: ${result.title}`)
+    printResponse(result, this.log.bind(this))
 
     return result
   }

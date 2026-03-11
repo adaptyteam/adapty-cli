@@ -2,17 +2,7 @@ import {Command, Flags} from '@oclif/core'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
-
-interface VendorProducts {
-  android?: {base_plan_id?: string; id: string; product_id: string}
-  ios?: {id: string; product_id: string}
-}
-
-interface ProductResponse {
-  id: string
-  name: string
-  vendor_products: VendorProducts
-}
+import {printResponse} from '../../lib/output.js'
 
 const VALID_PERIODS = ['weekly', 'monthly', '2_months', '3_months', '6_months', 'yearly', 'lifetime']
 
@@ -20,7 +10,7 @@ export default class ProductsCreate extends Command {
   static description = 'Create a product with vendor products per platform'
 static enableJsonFlag = true
 static examples = [
-    '<%= config.bin %> products create --app UUID --name "Monthly" --access-level-id UUID --period monthly --ios-product-id com.example.monthly',
+    '<%= config.bin %> products create --app UUID --title "Monthly" --access-level-id UUID --period monthly --ios-product-id com.example.monthly',
   ]
 static flags = {
     ...appFlag,
@@ -28,14 +18,14 @@ static flags = {
     'android-base-plan-id': Flags.string({description: 'Android base plan ID'}),
     'android-product-id': Flags.string({description: 'Android product ID'}),
     'ios-product-id': Flags.string({description: 'iOS product ID'}),
-    name: Flags.string({description: 'Product name', required: true}),
     period: Flags.string({
       description: 'Subscription period (weekly, monthly, 2_months, 3_months, 6_months, yearly, lifetime)',
       required: true,
     }),
+    title: Flags.string({description: 'Product title', required: true}),
   }
 
-  async run(): Promise<ProductResponse> {
+  async run(): Promise<Record<string, unknown>> {
     const {flags} = await this.parse(ProductsCreate)
 
     if (!VALID_PERIODS.includes(flags.period)) {
@@ -54,29 +44,18 @@ static flags = {
 
     const body: Record<string, unknown> = {
       access_level_id: flags['access-level-id'],
-      name: flags.name,
       period: flags.period,
+      title: flags.title,
     }
 
     if (flags['ios-product-id']) body.ios_product_id = flags['ios-product-id']
     if (flags['android-product-id']) body.android_product_id = flags['android-product-id']
     if (flags['android-base-plan-id']) body.android_base_plan_id = flags['android-base-plan-id']
 
-    const result = await client.post<ProductResponse>(`/apps/${flags.app}/products`, body)
+    const result = await client.post<Record<string, unknown>>(`/apps/${flags.app}/products`, body)
 
     this.log('Product created!')
-    this.log(`ID: ${result.id}`)
-    this.log(`Name: ${result.name}`)
-    if (result.vendor_products.ios) {
-      this.log(`iOS Product: ${result.vendor_products.ios.product_id}`)
-    }
-
-    if (result.vendor_products.android) {
-      const bp = result.vendor_products.android.base_plan_id
-      this.log(
-        `Android Product: ${result.vendor_products.android.product_id}${bp ? ` (base plan: ${bp})` : ''}`,
-      )
-    }
+    printResponse(result, this.log.bind(this))
 
     return result
   }

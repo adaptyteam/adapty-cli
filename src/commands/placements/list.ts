@@ -7,7 +7,7 @@ import {printList} from '../../lib/output.js'
 interface PlacementItem {
   developer_id: string
   id: string
-  name: string
+  title: string
 }
 
 export default class PlacementsList extends Command {
@@ -27,11 +27,7 @@ static flags = {
       paginationParams(flags),
     )
 
-    printList(
-      result.data.map((pl) => ({'Developer ID': pl.developer_id, ID: pl.id, Name: pl.name})),
-      this.log.bind(this),
-      result.meta.pagination,
-    )
+    printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)
 
     return result
   }

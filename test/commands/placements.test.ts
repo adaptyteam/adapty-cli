@@ -10,7 +10,7 @@ import {
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const PLACEMENT_RESPONSE = {developer_id: 'default', id: TEST_RESOURCE_ID, name: 'Default'}
+const PLACEMENT_RESPONSE = {developer_id: 'default', id: TEST_RESOURCE_ID, title: 'Default'}
 const PAYWALL_ID = '770e8400-e29b-41d4-a716-446655440002'
 
 describe('placements', () => {
@@ -38,9 +38,9 @@ describe('placements', () => {
   it('create calls POST /apps/{app}/placements', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
-    await runCommand(`placements create --app ${TEST_APP_ID} --name Default --developer-id default --paywall-id ${PAYWALL_ID}`)
+    await runCommand(`placements create --app ${TEST_APP_ID} --title Default --developer-id default --paywall-id ${PAYWALL_ID}`)
     assertFetch({
-      body: {developer_id: 'default', name: 'Default', paywall_id: PAYWALL_ID},
+      body: {developer_id: 'default', paywall_id: PAYWALL_ID, title: 'Default'},
       callIndex: 0,
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/placements/`,
@@ -51,9 +51,9 @@ describe('placements', () => {
   it('update calls PUT /apps/{app}/placements/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
-    await runCommand(`placements update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --name Default --developer-id default --paywall-id ${PAYWALL_ID}`)
+    await runCommand(`placements update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Default --developer-id default --paywall-id ${PAYWALL_ID}`)
     assertFetch({
-      body: {developer_id: 'default', name: 'Default', paywall_id: PAYWALL_ID},
+      body: {developer_id: 'default', paywall_id: PAYWALL_ID, title: 'Default'},
       callIndex: 0,
       method: 'PUT',
       path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
