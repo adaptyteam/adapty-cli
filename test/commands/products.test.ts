@@ -50,9 +50,9 @@ describe('products', () => {
   it('update calls PUT /apps/{app}/products/{id}', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PRODUCT_RESPONSE])
-    await runCommand(`products update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Monthly --access-level-id ${TEST_RESOURCE_ID} --period monthly --ios-product-id com.example.monthly`)
+    await runCommand(`products update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Monthly --access-level-id ${TEST_RESOURCE_ID}`)
     assertFetch({
-      body: {access_level_id: TEST_RESOURCE_ID, ios_product_id: 'com.example.monthly', period: 'monthly', title: 'Monthly'},
+      body: {access_level_id: TEST_RESOURCE_ID, title: 'Monthly'},
       callIndex: 0,
       method: 'PUT',
       path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}/`,
