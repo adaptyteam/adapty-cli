@@ -4,7 +4,7 @@ import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
 
-const VALID_PERIODS = ['weekly', 'monthly', '2_months', '3_months', '6_months', 'yearly', 'lifetime']
+const VALID_PERIODS = ['weekly', 'monthly', 'two_months', 'trimonthly', 'semiannual', 'annual', 'lifetime']
 
 export default class ProductsCreate extends Command {
   static description = 'Create a product with vendor products per platform'
@@ -19,7 +19,7 @@ static flags = {
     'android-product-id': Flags.string({description: 'Android product ID'}),
     'ios-product-id': Flags.string({description: 'iOS product ID'}),
     period: Flags.string({
-      description: 'Subscription period (weekly, monthly, 2_months, 3_months, 6_months, yearly, lifetime)',
+      description: 'Subscription period (weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime)',
       required: true,
     }),
     title: Flags.string({description: 'Product title', required: true}),
