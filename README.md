@@ -97,10 +97,18 @@ adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 
 ## Environment Variables
 
-| Variable         | Description                                                               |
-| ---------------- | ------------------------------------------------------------------------- |
-| `ADAPTY_TOKEN`   | Override stored auth token                                                |
-| `ADAPTY_API_URL` | Override API base URL (default: `https://api.adapty.io/api/v1/developer`) |
+| Variable         | Description                                                                     |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `ADAPTY_TOKEN`   | Override stored auth token                                                      |
+| `ADAPTY_API_URL` | Override API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
+
+## Claude Code Skill
+
+Install the Adapty CLI skill for Claude Code:
+
+```sh
+npx skills add adaptyteam/adapty-cli --skill adapty-cli
+```
 
 ## Development
 
