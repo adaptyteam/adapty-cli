@@ -1,6 +1,6 @@
 import {ApiError, NetworkError, parseApiError} from './errors.js'
 
-const DEFAULT_API_URL = 'https://api.adapty.io/api/v1/developer'
+const DEFAULT_API_URL = 'https://api-admin.adapty.io/api/v1/developer'
 
 function ensureTrailingSlash(path: string): string {
   return path.endsWith('/') ? path : `${path}/`

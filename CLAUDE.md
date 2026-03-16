@@ -42,7 +42,7 @@ src/
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
-- API base: `https://api.adapty.io/api/v1/developer`
+- API base: `https://api-admin.adapty.io/api/v1/developer`
 
 ## Key Patterns
 
