@@ -5,6 +5,20 @@ description: Use when setting up or managing Adapty in-app subscriptions, paywal
 
 # Adapty CLI Skill
 
+## Installation
+
+```sh
+npm install -g adapty
+```
+
+Or run without installing:
+
+```sh
+npx adapty@latest
+```
+
+---
+
 Two modes: **Setup** (new users, quiz-driven) and **Manage** (existing users, direct commands).
 
 ## Mode: Setup (New to Adapty)
