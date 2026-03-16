@@ -42,7 +42,7 @@
     "./dist",
     "./oclif.manifest.json"
   ],
-  "homepage": "https://github.com/adaptyteam/adapty-cli",
+  "homepage": "https://adapty.io/docs/developer-cli",
   "keywords": [
     "adapty",
     "cli",

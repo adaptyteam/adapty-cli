@@ -1,11 +1,15 @@
-# adapty-cli
+<a href="https://adapty.io/?utm_source=github&utm_medium=referral&utm_campaign=adapty-cli">
+    <img src="https://adapty-portal-media-production.s3.amazonaws.com/github/logo-adapty-new.svg">
+</a>
 
-CLI for the [Adapty Developer API](https://docs.adapty.io/docs/developer-api). Manage apps, products, paywalls, placements, and access levels from your terminal.
+# Adapty CLI
+
+[Adapty Developer CLI](https://adapty.io/docs/developer-cli). Manage apps, products, paywalls, placements, and access levels from your terminal.
 
 ## Installation
 
 ```sh
-npm install -g adapty-cli
+npm install -g adapty
 ```
 
 Requires Node.js >= 18.
@@ -84,18 +88,18 @@ adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 
 ### Global Flags
 
-| Flag | Description |
-|------|-------------|
-| `--json` | Output as JSON |
-| `--help` | Show help |
-| `--page` | Page number (default: 1) |
+| Flag          | Description                            |
+| ------------- | -------------------------------------- |
+| `--json`      | Output as JSON                         |
+| `--help`      | Show help                              |
+| `--page`      | Page number (default: 1)               |
 | `--page-size` | Items per page (default: 20, max: 100) |
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ADAPTY_TOKEN` | Override stored auth token |
+| Variable         | Description                                                               |
+| ---------------- | ------------------------------------------------------------------------- |
+| `ADAPTY_TOKEN`   | Override stored auth token                                                |
 | `ADAPTY_API_URL` | Override API base URL (default: `https://api.adapty.io/api/v1/developer`) |
 
 ## Development
