@@ -1,6 +1,6 @@
 import sinon from 'sinon'
 
-const API_BASE = 'https://api.adapty.io/api/v1/developer'
+const API_BASE = 'https://api-admin.adapty.io/api/v1/developer'
 
 export const TEST_APP_ID = '550e8400-e29b-41d4-a716-446655440000'
 export const TEST_RESOURCE_ID = '660e8400-e29b-41d4-a716-446655440001'
