@@ -10,9 +10,11 @@
     "url": "https://github.com/adaptyteam/adapty-cli/issues"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
-    "open": "^11.0.0"
+    "open": "^11.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/compat": "^1",
@@ -79,6 +81,9 @@
       },
       "placements": {
         "description": "Manage placements"
+      },
+      "mcp": {
+        "description": "MCP server"
       }
     }
   },
