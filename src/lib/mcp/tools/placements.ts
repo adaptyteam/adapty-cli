@@ -47,7 +47,7 @@ export function registerPlacementsTools(server: McpServer, config: Config): void
     {
       app_id: z.string().uuid().describe('App ID (UUID)'),
       title: z.string().min(1).describe('Placement title'),
-      developer_id: z.string().min(1).describe('Developer ID used by the SDK to fetch this placement at runtime'),
+      developer_id: z.string().min(1).describe('Developer ID used by the SDK to fetch this placement at runtime — must match the string literal in your app source code. IMMUTABLE after creation.'),
       paywall_id: z.string().uuid().describe('Paywall ID (UUID) to link to this placement'),
     },
     async ({app_id, title, developer_id, paywall_id}) => {

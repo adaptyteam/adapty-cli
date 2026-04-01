@@ -76,7 +76,7 @@ export function registerProductsTools(server: McpServer, config: Config): void {
 
   server.tool(
     'adapty_products_update',
-    'Update a product title and access level. Note: period, ios_product_id, android_product_id, and android_base_plan_id cannot be changed after creation.',
+    'Update a product. WARNING: Both title and access_level_id are required — fetch the current product first if you only want to change one field. Note: period, ios_product_id, android_product_id, and android_base_plan_id cannot be changed after creation.',
     {
       app_id: z.string().uuid().describe('App ID (UUID)'),
       product_id: z.string().uuid().describe('Product ID (UUID)'),

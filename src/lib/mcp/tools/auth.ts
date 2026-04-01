@@ -19,12 +19,7 @@ export function registerAuthTools(server: McpServer, config: Config): void {
     try {
       const cfg = await readConfig(config.configDir)
       if (!cfg.access_token || !cfg.user) return ok({authenticated: false})
-      return ok({
-        authenticated: true,
-        email: cfg.user.email,
-        token_prefix: cfg.access_token.slice(0, 8),
-        config_path: `${config.configDir}/config.json`,
-      })
+      return ok({authenticated: true, email: cfg.user.email})
     } catch (err) {
       return fail(err)
     }

@@ -12,9 +12,13 @@ export default class Mcp extends Command {
     const server = new McpServer({name: 'adapty-mcp', version: this.config.version})
     registerAllTools(server, this.config)
     const transport = new StdioServerTransport()
-    await server.connect(transport)
     process.stderr.write('Adapty MCP server running on stdio\n')
-    // Keep alive — the stdio transport holds the connection
-    await new Promise<void>(() => {})
+    await server.connect(transport)
+    // Keep alive until the MCP client disconnects or the process is signalled.
+    await new Promise<void>((resolve) => {
+      process.stdin.once('close', () => server.close().finally(resolve))
+      process.once('SIGTERM', () => server.close().finally(resolve))
+      process.once('SIGINT', () => server.close().finally(resolve))
+    })
   }
 }
