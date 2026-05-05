@@ -64,11 +64,11 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
   --audiences '[{"segment_ids":["<SEG_VIP>"],"paywall_id":"<PW_VIP>","priority":0},{"segment_ids":[],"paywall_id":"<PW_DEFAULT>","priority":1}]'
 ```
 
-**`--paywall-id` is deprecated.** CLI wraps it client-side into a single default audience and emits stderr warnings:
+**`--paywall-id` is deprecated.** CLI sends it as `paywall_id` in the request body unchanged; server translates it into a single default audience. CLI emits stderr warnings:
 - Always: `--paywall-id is deprecated. Use --audiences instead.`
-- On `update` only (additional): `--paywall-id will rewrite all audiences on this placement.` — full replace; segment-specific paywalls are dropped.
+- On `update` only (additional): `--paywall-id will rewrite all audiences on this placement.` — full replace; segment-specific paywalls are dropped (server-side).
 
-**`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id` from the server). The CLI's human output additionally surfaces a derived `Paywall ID` line (the default-audience paywall) for convenience; `--json` returns the raw API shape unchanged.
+**`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id`). To get the default paywall, read the entry with `segment_ids: []`.
 
 **Workflow — swap a paywall across placements:**
 1. `paywalls placements <PAYWALL_ID> --app <APP>` → list affected placements.

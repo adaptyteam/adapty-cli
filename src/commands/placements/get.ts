@@ -27,13 +27,7 @@ static flags = {
     const client = await createAuthenticatedClient(this.config)
     const result = await client.get<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`)
 
-    const defaultPaywallId = result.audiences?.find((a) => (a.segment_ids ?? []).length === 0)?.paywall_id
-    const display: Record<string, unknown> = {...result}
-    if (defaultPaywallId) {
-      display.paywall_id = defaultPaywallId
-    }
-
-    printResponse(display, this.log.bind(this))
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

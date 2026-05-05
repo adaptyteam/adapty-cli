@@ -37,7 +37,13 @@ static flags = {
       this.error('Invalid placement ID format.', {exit: 2})
     }
 
-    let audiences: PlacementAudienceEntryDTO[]
+    const body: PlacementWriteRequestDTO = {
+      audiences: null,
+      developer_id: flags['developer-id'],
+      paywall_id: null,
+      title: flags.title,
+    }
+
     if (flags['paywall-id']) {
       process.stderr.write(
         '⚠️  --paywall-id is deprecated. Use --audiences instead.\n' +
@@ -48,20 +54,13 @@ static flags = {
           '    If the placement has segment-specific paywalls, they will be replaced\n' +
           '    by a single default audience. Use --audiences to preserve them.\n',
       )
-      audiences = [{paywall_id: flags['paywall-id'], priority: 0, segment_ids: []}]
+      body.paywall_id = flags['paywall-id']
     } else {
       try {
-        audiences = JSON.parse(flags.audiences!) as PlacementAudienceEntryDTO[]
+        body.audiences = JSON.parse(flags.audiences!) as PlacementAudienceEntryDTO[]
       } catch (error) {
         this.error(`Invalid --audiences JSON: ${error instanceof Error ? error.message : String(error)}`, {exit: 2})
       }
-    }
-
-    const body: PlacementWriteRequestDTO = {
-      audiences,
-      developer_id: flags['developer-id'],
-      paywall_id: null,
-      title: flags.title,
     }
 
     const client = await createAuthenticatedClient(this.config)

@@ -41,14 +41,15 @@ describe('placements', () => {
     assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`, stub: fetchStub})
   })
 
-  it('create with --paywall-id wraps into audiences[]', async () => {
+  it('create with --paywall-id sends paywall_id directly', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
     await runCommand(`placements create --app ${TEST_APP_ID} --title Default --developer-id default --paywall-id ${PAYWALL_ID}`)
     assertFetch({
       body: {
-        audiences: [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}],
+        audiences: null,
         developer_id: 'default',
+        paywall_id: PAYWALL_ID,
         title: 'Default',
       },
       callIndex: 0,
@@ -78,7 +79,7 @@ describe('placements', () => {
       JSON.stringify(audiences),
     ])
     assertFetch({
-      body: {audiences, developer_id: 'default', title: 'Default'},
+      body: {audiences, developer_id: 'default', paywall_id: null, title: 'Default'},
       callIndex: 0,
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/placements/`,
@@ -86,14 +87,15 @@ describe('placements', () => {
     })
   })
 
-  it('update with --paywall-id wraps into audiences[]', async () => {
+  it('update with --paywall-id sends paywall_id directly', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
     await runCommand(`placements update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Default --developer-id default --paywall-id ${PAYWALL_ID}`)
     assertFetch({
       body: {
-        audiences: [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}],
+        audiences: null,
         developer_id: 'default',
+        paywall_id: PAYWALL_ID,
         title: 'Default',
       },
       callIndex: 0,
@@ -121,7 +123,7 @@ describe('placements', () => {
       JSON.stringify(audiences),
     ])
     assertFetch({
-      body: {audiences, developer_id: 'default', title: 'Default'},
+      body: {audiences, developer_id: 'default', paywall_id: null, title: 'Default'},
       callIndex: 0,
       method: 'PUT',
       path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,

@@ -30,26 +30,25 @@ static flags = {
   async run(): Promise<PlacementDetailDTO> {
     const {flags} = await this.parse(PlacementsCreate)
 
-    let audiences: PlacementAudienceEntryDTO[]
+    const body: PlacementWriteRequestDTO = {
+      audiences: null,
+      developer_id: flags['developer-id'],
+      paywall_id: null,
+      title: flags.title,
+    }
+
     if (flags['paywall-id']) {
       process.stderr.write(
         '⚠️  --paywall-id is deprecated. Use --audiences instead.\n' +
           '    `paywall_id` will be removed from the API in a future release.\n',
       )
-      audiences = [{paywall_id: flags['paywall-id'], priority: 0, segment_ids: []}]
+      body.paywall_id = flags['paywall-id']
     } else {
       try {
-        audiences = JSON.parse(flags.audiences!) as PlacementAudienceEntryDTO[]
+        body.audiences = JSON.parse(flags.audiences!) as PlacementAudienceEntryDTO[]
       } catch (error) {
         this.error(`Invalid --audiences JSON: ${error instanceof Error ? error.message : String(error)}`, {exit: 2})
       }
-    }
-
-    const body: PlacementWriteRequestDTO = {
-      audiences,
-      developer_id: flags['developer-id'],
-      paywall_id: null,
-      title: flags.title,
     }
 
     const client = await createAuthenticatedClient(this.config)
