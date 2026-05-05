@@ -1,15 +1,10 @@
 import {Args, Command, Flags} from '@oclif/core'
 
+import type {AppDetailDTO, AppUpdateRequestDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface AppResponse {
-  apple_bundle_id?: string
-  google_bundle_id?: string
-  id: string
-  title: string
-}
 
 export default class AppsUpdate extends Command {
   static args = {
@@ -24,7 +19,7 @@ static flags = {
     title: Flags.string({description: 'App title'}),
   }
 
-  async run(): Promise<AppResponse> {
+  async run(): Promise<AppDetailDTO> {
     const {args, flags} = await this.parse(AppsUpdate)
 
     if (!isValidUuid(args.app_id)) {
@@ -37,12 +32,12 @@ static flags = {
 
     const client = await createAuthenticatedClient(this.config)
 
-    const body: Record<string, unknown> = {}
+    const body: AppUpdateRequestDTO = {}
     if (flags.title) body.title = flags.title
     if (flags['apple-bundle-id']) body.apple_bundle_id = flags['apple-bundle-id']
     if (flags['google-bundle-id']) body.google_bundle_id = flags['google-bundle-id']
 
-    const result = await client.put<AppResponse>(`/apps/${args.app_id}`, body)
+    const result = await client.put<AppDetailDTO>(`/apps/${args.app_id}`, body)
 
     this.log('App updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))

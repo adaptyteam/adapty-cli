@@ -1,15 +1,10 @@
 import {Args, Command} from '@oclif/core'
 
+import type {PlacementDetailDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface PlacementDetailResponse {
-  developer_id: string
-  id: string
-  paywall_id: string
-  title: string
-}
 
 export default class PlacementsGet extends Command {
   static args = {
@@ -22,7 +17,7 @@ static flags = {
     ...appFlag,
   }
 
-  async run(): Promise<PlacementDetailResponse> {
+  async run(): Promise<PlacementDetailDTO> {
     const {args, flags} = await this.parse(PlacementsGet)
 
     if (!isValidUuid(args.placement_id)) {
@@ -30,7 +25,7 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PlacementDetailResponse>(`/apps/${flags.app}/placements/${args.placement_id}`)
+    const result = await client.get<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 

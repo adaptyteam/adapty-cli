@@ -1,10 +1,20 @@
 import {Command, Flags} from '@oclif/core'
 
+import type {ProductCreateRequestDTO, ProductDTO, ProductPeriod} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
 
-const VALID_PERIODS = ['weekly', 'monthly', 'two_months', 'trimonthly', 'semiannual', 'annual', 'lifetime']
+const VALID_PERIODS = [
+  'weekly',
+  'monthly',
+  'two_months',
+  'trimonthly',
+  'semiannual',
+  'annual',
+  'lifetime',
+] as const satisfies readonly ProductPeriod[]
 
 export default class ProductsCreate extends Command {
   static description = 'Create a product with vendor products per platform'
@@ -25,10 +35,10 @@ static flags = {
     title: Flags.string({description: 'Product title', required: true}),
   }
 
-  async run(): Promise<Record<string, unknown>> {
+  async run(): Promise<ProductDTO> {
     const {flags} = await this.parse(ProductsCreate)
 
-    if (!VALID_PERIODS.includes(flags.period)) {
+    if (!(VALID_PERIODS as readonly string[]).includes(flags.period)) {
       this.error(`Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}`, {exit: 2})
     }
 
@@ -42,9 +52,9 @@ static flags = {
 
     const client = await createAuthenticatedClient(this.config)
 
-    const body: Record<string, unknown> = {
+    const body: ProductCreateRequestDTO = {
       access_level_id: flags['access-level-id'],
-      period: flags.period,
+      period: flags.period as ProductPeriod,
       title: flags.title,
     }
 
@@ -52,10 +62,10 @@ static flags = {
     if (flags['android-product-id']) body.android_product_id = flags['android-product-id']
     if (flags['android-base-plan-id']) body.android_base_plan_id = flags['android-base-plan-id']
 
-    const result = await client.post<Record<string, unknown>>(`/apps/${flags.app}/products`, body)
+    const result = await client.post<ProductDTO>(`/apps/${flags.app}/products`, body)
 
     this.log('Product created!')
-    printResponse(result, this.log.bind(this))
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

@@ -1,14 +1,10 @@
 import {Args, Command} from '@oclif/core'
 
+import type {PaywallDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface PaywallDetailResponse {
-  id: string
-  product_ids: string[]
-  title: string
-}
 
 export default class PaywallsGet extends Command {
   static args = {
@@ -21,7 +17,7 @@ static flags = {
     ...appFlag,
   }
 
-  async run(): Promise<PaywallDetailResponse> {
+  async run(): Promise<PaywallDTO> {
     const {args, flags} = await this.parse(PaywallsGet)
 
     if (!isValidUuid(args.paywall_id)) {
@@ -29,7 +25,7 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaywallDetailResponse>(`/apps/${flags.app}/paywalls/${args.paywall_id}`)
+    const result = await client.get<PaywallDTO>(`/apps/${flags.app}/paywalls/${args.paywall_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 

@@ -1,25 +1,25 @@
 import {Command} from '@oclif/core'
 
-import type {AccessLevelDTO} from '../../lib/api-schemas.js'
+import type {SegmentDTO} from '../../lib/api-schemas.js'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
 
-export default class AccessLevelsList extends Command {
-  static description = 'List access levels for an app'
+export default class SegmentsList extends Command {
+  static description = 'List segments for an app'
 static enableJsonFlag = true
-static examples = ['<%= config.bin %> access-levels list --app 550e8400-e29b-41d4-a716-446655440000']
+static examples = ['<%= config.bin %> segments list --app 550e8400-...']
 static flags = {
     ...appFlag,
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse<AccessLevelDTO>> {
-    const {flags} = await this.parse(AccessLevelsList)
+  async run(): Promise<PaginatedResponse<SegmentDTO>> {
+    const {flags} = await this.parse(SegmentsList)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse<AccessLevelDTO>>(
-      `/apps/${flags.app}/access-levels`,
+    const result = await client.get<PaginatedResponse<SegmentDTO>>(
+      `/apps/${flags.app}/segments`,
       paginationParams(flags),
     )
 

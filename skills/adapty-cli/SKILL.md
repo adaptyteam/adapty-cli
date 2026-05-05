@@ -83,7 +83,8 @@ Execution order (each step uses output from previous):
 2. `adapty apps create --title "..." --platform ... --apple-bundle-id/--google-bundle-id ...` → save output: `id` (use as `--app`), `sdk_key` (use in SDK), plus the default access level `id` and `sdk_id` printed after creation
 3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions (non-lifetime) require `--android-base-plan-id`.
 4. `adapty paywalls create --app <APP_ID> --title "..." --product-id <ID1> --product-id <ID2> ...` → save paywall ID
-5. For each placement: `adapty placements create --app <APP_ID> --title "..." --developer-id ... --paywall-id <PAYWALL_ID>`
+5. For each placement: `adapty placements create --app <APP_ID> --title "..." --developer-id ... --audiences '[{"segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'`
+   - `--paywall-id <PAYWALL_ID>` is still accepted as legacy shorthand but emits a stderr deprecation warning. Prefer `--audiences` for the canonical default-audience shape.
 
 Print progress as you go (e.g. "Created app ✓", "Created product 'Monthly' ✓").
 If a step fails, stop and ask the user how to proceed — don't retry blindly.
@@ -161,9 +162,10 @@ Key notes:
 
 - **Product** — subscription or one-time purchase mapped to store product IDs. Has a period, grants an access level.
 - **Paywall** — screen showing products. Can use Paywall Builder (visual editor) or remote config (custom JSON).
-- **Placement** — location in app where paywall appears. Identified by `developer_id`. Links to one paywall per audience.
+- **Placement** — location in app where paywall appears. Identified by `developer_id`. Holds one or more audiences; each audience routes a segment to a paywall by priority. Default audience (`segment_ids: []`) is the fallback and must have max priority.
 - **Access Level** — permission gate (e.g. "premium"). Products grant access levels on purchase. Identified by `sdk_id`.
-- **Audience** — user segment. Different audiences at same placement can see different paywalls.
+- **Segment** — filter rule (e.g. "VIP users"). Read-only via CLI: `adapty segments list --app <APP_ID>`. Compose into placement audiences to give different segments different paywalls at the same placement.
+- **Audience** — `(segments, paywall, priority)` tuple inside a placement. Auto-materialized from segment composition. CLI exposes audiences as the `--audiences` JSON shape on `placements create`/`update`.
 
 ---
 
