@@ -4,10 +4,16 @@ import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
 
+interface PlacementAudience {
+  paywall_id: string
+  priority: number
+  segment_ids: string[]
+}
+
 interface PlacementDetailResponse {
+  audiences: PlacementAudience[]
   developer_id: string
   id: string
-  paywall_id: string
   title: string
 }
 
@@ -32,7 +38,13 @@ static flags = {
     const client = await createAuthenticatedClient(this.config)
     const result = await client.get<PlacementDetailResponse>(`/apps/${flags.app}/placements/${args.placement_id}`)
 
-    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
+    const defaultPaywallId = result.audiences?.find((a) => a.segment_ids.length === 0)?.paywall_id
+    const display: Record<string, unknown> = {...result}
+    if (defaultPaywallId) {
+      display.paywall_id = defaultPaywallId
+    }
+
+    printResponse(display, this.log.bind(this))
 
     return result
   }

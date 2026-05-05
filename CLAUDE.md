@@ -20,8 +20,9 @@ src/
     auth/            # login (device flow OAuth), logout, revoke, whoami, status
     apps/            # list, get, create, update
     products/        # list, get, create, update
-    paywalls/        # list, get, create, update
-    placements/      # list, get, create, update
+    paywalls/        # list, get, create, update, placements (placements using a paywall)
+    placements/      # list, get, create, update (audiences[]; --paywall-id deprecated)
+    segments/        # list, get
     access-levels/   # list, get, create, update
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)

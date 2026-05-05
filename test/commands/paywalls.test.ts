@@ -59,4 +59,16 @@ describe('paywalls', () => {
       stub: fetchStub,
     })
   })
+
+  it('placements calls GET /apps/{app}/paywalls/{id}/placements', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([{data: []}])
+    await runCommand(`paywalls placements ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
+    assertFetch({
+      callIndex: 0,
+      method: 'GET',
+      path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}/placements/`,
+      stub: fetchStub,
+    })
+  })
 })

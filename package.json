@@ -79,6 +79,9 @@
       },
       "placements": {
         "description": "Manage placements"
+      },
+      "segments": {
+        "description": "List segments"
       }
     }
   },

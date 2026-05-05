@@ -36,12 +36,13 @@ All commands support `--json` for machine-readable output.
 
 ## Paywalls
 
-| Command                      | Required flags                  |
-|-----------------------------|---------------------------------|
-| `paywalls list`              | `--app`                         |
-| `paywalls get <paywall_id>`  | `--app`                         |
-| `paywalls create`            | `--app`, `--title`, `--product-id` (repeatable) |
-| `paywalls update <paywall_id>` | `--app`, `--title`, `--product-id` (repeatable) |
+| Command                              | Required flags                  |
+|-------------------------------------|---------------------------------|
+| `paywalls list`                      | `--app`                         |
+| `paywalls get <paywall_id>`          | `--app`                         |
+| `paywalls create`                    | `--app`, `--title`, `--product-id` (repeatable) |
+| `paywalls update <paywall_id>`       | `--app`, `--title`, `--product-id` (repeatable) |
+| `paywalls placements <paywall_id>`   | `--app` — lists placements that currently use this paywall (slim summary; no `audiences`) |
 
 ## Placements
 
@@ -49,8 +50,40 @@ All commands support `--json` for machine-readable output.
 |----------------------------------|--------------------------------------------------|
 | `placements list`                 | `--app`                                           |
 | `placements get <placement_id>`   | `--app`                                           |
-| `placements create`               | `--app`, `--title`, `--developer-id`, `--paywall-id` |
-| `placements update <placement_id>` | `--app`, `--title`, `--developer-id`, `--paywall-id` |
+| `placements create`               | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
+| `placements update <placement_id>` | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
+
+**`--audiences` JSON shape** — array of `{segment_ids: string[], paywall_id: string, priority: number}`:
+- Default audience uses `segment_ids: []` and must have max priority (last evaluated). Exactly one default required.
+- `segment_ids` capped at length 0 or 1 (UI/API convention; legacy multi-segment data is read-only).
+- `priority` is 0-based, unique per placement.
+
+Example:
+```sh
+adapty placements update <id> --app <APP> --title "Default" --developer-id default \
+  --audiences '[{"segment_ids":["<SEG_VIP>"],"paywall_id":"<PW_VIP>","priority":0},{"segment_ids":[],"paywall_id":"<PW_DEFAULT>","priority":1}]'
+```
+
+**`--paywall-id` is deprecated.** CLI wraps it client-side into a single default audience and emits stderr warnings:
+- Always: `--paywall-id is deprecated. Use --audiences instead.`
+- On `update` only (additional): `--paywall-id will rewrite all audiences on this placement.` — full replace; segment-specific paywalls are dropped.
+
+**`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id` from the server). The CLI's human output additionally surfaces a derived `Paywall ID` line (the default-audience paywall) for convenience; `--json` returns the raw API shape unchanged.
+
+**Workflow — swap a paywall across placements:**
+1. `paywalls placements <PAYWALL_ID> --app <APP>` → list affected placements.
+2. For each: `placements get <ID> --app <APP> --json` → read full `audiences[]`.
+3. Mutate the matching entries client-side.
+4. `placements update <ID> --app <APP> --title ... --developer-id ... --audiences '...'` → write back.
+
+## Segments
+
+| Command                           | Required flags |
+|----------------------------------|----------------|
+| `segments list`                   | `--app`        |
+| `segments get <segment_id>`       | `--app`        |
+
+Read-only. Response shape: `{segment_id, title, description}`. Filters are not exposed via this API.
 
 ## Access Levels
 
@@ -70,3 +103,5 @@ All commands support `--json` for machine-readable output.
 - `--platform ios` requires `--apple-bundle-id`; `--platform android` requires `--google-bundle-id`
 - Android non-lifetime products require `--android-base-plan-id` with `--android-product-id`
 - `--page` min 1, `--page-size` max 100
+- `--audiences` must be a valid JSON array; each entry's `segment_ids` array length 0 or 1
+- On `placements create`/`update`: exactly one of `--audiences` or `--paywall-id` (passing both or neither errors)
