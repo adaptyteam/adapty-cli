@@ -10,7 +10,7 @@ import {
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const SEGMENT_RESPONSE = {description: 'High-value users', segment_id: TEST_RESOURCE_ID, title: 'VIP'}
+const SEGMENT_RESPONSE = {description: 'High-value users', id: TEST_RESOURCE_ID, title: 'VIP'}
 
 describe('segments', () => {
   let fetchStub: sinon.SinonStub

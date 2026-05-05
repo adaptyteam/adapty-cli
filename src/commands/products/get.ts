@@ -1,16 +1,10 @@
 import {Args, Command} from '@oclif/core'
 
+import type {ProductDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface ProductDetailResponse {
-  access_level_id: string
-  id: string
-  period: string
-  title: string
-  vendor_products: Record<string, unknown>
-}
 
 export default class ProductsGet extends Command {
   static args = {
@@ -23,7 +17,7 @@ static flags = {
     ...appFlag,
   }
 
-  async run(): Promise<ProductDetailResponse> {
+  async run(): Promise<ProductDTO> {
     const {args, flags} = await this.parse(ProductsGet)
 
     if (!isValidUuid(args.product_id)) {
@@ -31,7 +25,7 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<ProductDetailResponse>(`/apps/${flags.app}/products/${args.product_id}`)
+    const result = await client.get<ProductDTO>(`/apps/${flags.app}/products/${args.product_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 

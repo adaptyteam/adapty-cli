@@ -1,14 +1,10 @@
 import {Args, Command} from '@oclif/core'
 
+import type {SegmentDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface SegmentDetailResponse {
-  description: string
-  segment_id: string
-  title: string
-}
 
 export default class SegmentsGet extends Command {
   static args = {
@@ -21,7 +17,7 @@ static flags = {
     ...appFlag,
   }
 
-  async run(): Promise<SegmentDetailResponse> {
+  async run(): Promise<SegmentDTO> {
     const {args, flags} = await this.parse(SegmentsGet)
 
     if (!isValidUuid(args.segment_id)) {
@@ -29,7 +25,7 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<SegmentDetailResponse>(`/apps/${flags.app}/segments/${args.segment_id}`)
+    const result = await client.get<SegmentDTO>(`/apps/${flags.app}/segments/${args.segment_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 

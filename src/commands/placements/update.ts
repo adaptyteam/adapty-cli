@@ -1,14 +1,10 @@
 import {Args, Command, Flags} from '@oclif/core'
 
+import type {PlacementAudienceEntryDTO, PlacementDetailDTO, PlacementWriteRequestDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface AudienceEntry {
-  paywall_id: string
-  priority: number
-  segment_ids: string[]
-}
 
 export default class PlacementsUpdate extends Command {
   static args = {
@@ -34,14 +30,14 @@ static flags = {
     title: Flags.string({description: 'Placement title', required: true}),
   }
 
-  async run(): Promise<Record<string, unknown>> {
+  async run(): Promise<PlacementDetailDTO> {
     const {args, flags} = await this.parse(PlacementsUpdate)
 
     if (!isValidUuid(args.placement_id)) {
       this.error('Invalid placement ID format.', {exit: 2})
     }
 
-    let audiences: AudienceEntry[]
+    let audiences: PlacementAudienceEntryDTO[]
     if (flags['paywall-id']) {
       process.stderr.write(
         '⚠️  --paywall-id is deprecated. Use --audiences instead.\n' +
@@ -55,21 +51,24 @@ static flags = {
       audiences = [{paywall_id: flags['paywall-id'], priority: 0, segment_ids: []}]
     } else {
       try {
-        audiences = JSON.parse(flags.audiences!) as AudienceEntry[]
+        audiences = JSON.parse(flags.audiences!) as PlacementAudienceEntryDTO[]
       } catch (error) {
         this.error(`Invalid --audiences JSON: ${error instanceof Error ? error.message : String(error)}`, {exit: 2})
       }
     }
 
-    const client = await createAuthenticatedClient(this.config)
-    const result = await client.put<Record<string, unknown>>(`/apps/${flags.app}/placements/${args.placement_id}`, {
+    const body: PlacementWriteRequestDTO = {
       audiences,
       developer_id: flags['developer-id'],
+      paywall_id: null,
       title: flags.title,
-    })
+    }
+
+    const client = await createAuthenticatedClient(this.config)
+    const result = await client.put<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`, body)
 
     this.log('Placement updated!')
-    printResponse(result, this.log.bind(this))
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

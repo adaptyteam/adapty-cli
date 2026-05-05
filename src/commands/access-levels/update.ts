@@ -1,5 +1,7 @@
 import {Args, Command, Flags} from '@oclif/core'
 
+import type {AccessLevelDTO, AccessLevelUpdateRequestDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
@@ -18,7 +20,7 @@ static flags = {
     title: Flags.string({description: 'Access level title', required: true}),
   }
 
-  async run(): Promise<Record<string, unknown>> {
+  async run(): Promise<AccessLevelDTO> {
     const {args, flags} = await this.parse(AccessLevelsUpdate)
 
     if (!isValidUuid(args.access_level_id)) {
@@ -26,12 +28,15 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.put<Record<string, unknown>>(`/apps/${flags.app}/access-levels/${args.access_level_id}`, {
+
+    const body: AccessLevelUpdateRequestDTO = {
       title: flags.title,
-    })
+    }
+
+    const result = await client.put<AccessLevelDTO>(`/apps/${flags.app}/access-levels/${args.access_level_id}`, body)
 
     this.log('Access level updated!')
-    printResponse(result, this.log.bind(this))
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

@@ -1,5 +1,7 @@
 import {Command, Flags} from '@oclif/core'
 
+import type {PaywallDTO, PaywallWriteRequestDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
@@ -20,16 +22,19 @@ static flags = {
     title: Flags.string({description: 'Paywall title', required: true}),
   }
 
-  async run(): Promise<Record<string, unknown>> {
+  async run(): Promise<PaywallDTO> {
     const {flags} = await this.parse(PaywallsCreate)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.post<Record<string, unknown>>(`/apps/${flags.app}/paywalls`, {
+
+    const body: PaywallWriteRequestDTO = {
       product_ids: flags['product-id'],
       title: flags.title,
-    })
+    }
+
+    const result = await client.post<PaywallDTO>(`/apps/${flags.app}/paywalls`, body)
 
     this.log('Paywall created!')
-    printResponse(result, this.log.bind(this))
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
   }

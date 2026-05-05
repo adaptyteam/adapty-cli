@@ -1,22 +1,12 @@
 import {Command, Flags} from '@oclif/core'
 
+import type {AccessLevelDTO, AppCreateRequestDTO, AppSummaryDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {printResponse} from '../../lib/output.js'
 
-interface AppCreateResponse {
-  id: string
-  sdk_key: string
-  title: string
-}
-
-interface AccessLevel {
-  id: string
-  sdk_id: string
-  title: string
-}
-
 interface AccessLevelsResponse {
-  items: AccessLevel[]
+  items?: AccessLevelDTO[]
 }
 
 export default class AppsCreate extends Command {
@@ -38,7 +28,7 @@ static flags = {
     title: Flags.string({description: 'App title', required: true}),
   }
 
-  async run(): Promise<Record<string, unknown>> {
+  async run(): Promise<AppSummaryDTO> {
     const {flags} = await this.parse(AppsCreate)
 
     if (flags.platform.includes('ios') && !flags['apple-bundle-id']) {
@@ -51,7 +41,7 @@ static flags = {
 
     const client = await createAuthenticatedClient(this.config)
 
-    const body: Record<string, unknown> = {
+    const body: AppCreateRequestDTO & {platforms: string[]} = {
       platforms: flags.platform,
       title: flags.title,
     }
@@ -59,15 +49,14 @@ static flags = {
     if (flags['apple-bundle-id']) body.apple_bundle_id = flags['apple-bundle-id']
     if (flags['google-bundle-id']) body.google_bundle_id = flags['google-bundle-id']
 
-    const result = await client.post<AppCreateResponse>('/apps', body)
+    const result = await client.post<AppSummaryDTO>('/apps', body)
 
     this.log('App created!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
-    // Fetch default access level for the new app
     try {
       const accessLevels = await client.get<AccessLevelsResponse>(`/apps/${result.id}/access-levels`)
-      if (accessLevels.items?.length > 0) {
+      if (accessLevels.items?.length) {
         this.log('\nDefault access level:')
         printResponse(accessLevels.items[0] as unknown as Record<string, unknown>, this.log.bind(this))
       }
@@ -75,6 +64,6 @@ static flags = {
       this.warn('Could not fetch access levels for new app')
     }
 
-    return result as unknown as Record<string, unknown>
+    return result
   }
 }

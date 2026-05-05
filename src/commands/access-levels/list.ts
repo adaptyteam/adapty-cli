@@ -1,14 +1,10 @@
 import {Command} from '@oclif/core'
 
+import type {AccessLevelDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
-
-interface AccessLevelItem {
-  id: string
-  sdk_id: string
-  title: string
-}
 
 export default class AccessLevelsList extends Command {
   static description = 'List access levels for an app'
@@ -19,10 +15,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse<AccessLevelItem>> {
+  async run(): Promise<PaginatedResponse<AccessLevelDTO>> {
     const {flags} = await this.parse(AccessLevelsList)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse<AccessLevelItem>>(
+    const result = await client.get<PaginatedResponse<AccessLevelDTO>>(
       `/apps/${flags.app}/access-levels`,
       paginationParams(flags),
     )

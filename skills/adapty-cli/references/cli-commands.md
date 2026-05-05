@@ -83,7 +83,7 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 | `segments list`                   | `--app`        |
 | `segments get <segment_id>`       | `--app`        |
 
-Read-only. Response shape: `{segment_id, title, description}`. Filters are not exposed via this API.
+Read-only. Response shape: `{id, title, description}`. Filters are not exposed via this API.
 
 ## Access Levels
 

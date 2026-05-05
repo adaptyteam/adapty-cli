@@ -1,14 +1,10 @@
 import {Command} from '@oclif/core'
 
+import type {SegmentDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
-
-interface SegmentItem {
-  description: string
-  segment_id: string
-  title: string
-}
 
 export default class SegmentsList extends Command {
   static description = 'List segments for an app'
@@ -19,10 +15,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse<SegmentItem>> {
+  async run(): Promise<PaginatedResponse<SegmentDTO>> {
     const {flags} = await this.parse(SegmentsList)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse<SegmentItem>>(
+    const result = await client.get<PaginatedResponse<SegmentDTO>>(
       `/apps/${flags.app}/segments`,
       paginationParams(flags),
     )

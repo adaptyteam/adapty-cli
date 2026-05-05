@@ -1,17 +1,13 @@
 import {Args, Command} from '@oclif/core'
 
+import type {PlacementSummaryDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
 
-interface PlacementSummary {
-  developer_id: string
-  id: string
-  title: string
-}
-
 interface PlacementsByPaywallResponse {
-  data: PlacementSummary[]
+  data: PlacementSummaryDTO[]
 }
 
 export default class PaywallsPlacements extends Command {

@@ -1,14 +1,10 @@
 import {Command} from '@oclif/core'
 
+import type {PlacementSummaryDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
-
-interface PlacementItem {
-  developer_id: string
-  id: string
-  title: string
-}
 
 export default class PlacementsList extends Command {
   static description = 'List placements for an app'
@@ -19,10 +15,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse<PlacementItem>> {
+  async run(): Promise<PaginatedResponse<PlacementSummaryDTO>> {
     const {flags} = await this.parse(PlacementsList)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse<PlacementItem>>(
+    const result = await client.get<PaginatedResponse<PlacementSummaryDTO>>(
       `/apps/${flags.app}/placements`,
       paginationParams(flags),
     )

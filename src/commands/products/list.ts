@@ -1,14 +1,10 @@
 import {Command} from '@oclif/core'
 
+import type {ProductDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, type PaginatedResponse, paginationFlags, paginationParams} from '../../lib/flags.js'
 import {printList} from '../../lib/output.js'
-
-interface ProductItem {
-  id: string
-  title: string
-  vendor_products: Record<string, unknown>
-}
 
 export default class ProductsList extends Command {
   static description = 'List products for an app'
@@ -19,10 +15,10 @@ static flags = {
     ...paginationFlags,
   }
 
-  async run(): Promise<PaginatedResponse<ProductItem>> {
+  async run(): Promise<PaginatedResponse<ProductDTO>> {
     const {flags} = await this.parse(ProductsList)
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PaginatedResponse<ProductItem>>(
+    const result = await client.get<PaginatedResponse<ProductDTO>>(
       `/apps/${flags.app}/products`,
       paginationParams(flags),
     )

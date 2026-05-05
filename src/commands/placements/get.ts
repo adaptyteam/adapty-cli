@@ -1,21 +1,10 @@
 import {Args, Command} from '@oclif/core'
 
+import type {PlacementDetailDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface PlacementAudience {
-  paywall_id: string
-  priority: number
-  segment_ids: string[]
-}
-
-interface PlacementDetailResponse {
-  audiences: PlacementAudience[]
-  developer_id: string
-  id: string
-  title: string
-}
 
 export default class PlacementsGet extends Command {
   static args = {
@@ -28,7 +17,7 @@ static flags = {
     ...appFlag,
   }
 
-  async run(): Promise<PlacementDetailResponse> {
+  async run(): Promise<PlacementDetailDTO> {
     const {args, flags} = await this.parse(PlacementsGet)
 
     if (!isValidUuid(args.placement_id)) {
@@ -36,9 +25,9 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<PlacementDetailResponse>(`/apps/${flags.app}/placements/${args.placement_id}`)
+    const result = await client.get<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`)
 
-    const defaultPaywallId = result.audiences?.find((a) => a.segment_ids.length === 0)?.paywall_id
+    const defaultPaywallId = result.audiences?.find((a) => (a.segment_ids ?? []).length === 0)?.paywall_id
     const display: Record<string, unknown> = {...result}
     if (defaultPaywallId) {
       display.paywall_id = defaultPaywallId

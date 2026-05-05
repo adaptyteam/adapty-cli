@@ -1,14 +1,10 @@
 import {Args, Command} from '@oclif/core'
 
+import type {AccessLevelDTO} from '../../lib/api-schemas.js'
+
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-interface AccessLevelDetailResponse {
-  id: string
-  sdk_id: string
-  title: string
-}
 
 export default class AccessLevelsGet extends Command {
   static args = {
@@ -21,7 +17,7 @@ static flags = {
     ...appFlag,
   }
 
-  async run(): Promise<AccessLevelDetailResponse> {
+  async run(): Promise<AccessLevelDTO> {
     const {args, flags} = await this.parse(AccessLevelsGet)
 
     if (!isValidUuid(args.access_level_id)) {
@@ -29,7 +25,7 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.get<AccessLevelDetailResponse>(`/apps/${flags.app}/access-levels/${args.access_level_id}`)
+    const result = await client.get<AccessLevelDTO>(`/apps/${flags.app}/access-levels/${args.access_level_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
