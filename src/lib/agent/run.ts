@@ -62,6 +62,14 @@ export async function runActionWithFollowUp(
   command: Command,
   {action, ctx, driver, env, interactive, noTelemetry}: RunActionOptions,
 ): Promise<RunActionResult> {
+  // Superwall-style disclosure: mention it once right at the start, then stay quiet.
+  const sendTelemetry = !noTelemetry && !telemetryDisabled()
+  if (sendTelemetry) {
+    command.log(
+      'Anonymous usage stats are shared with Adapty (platform, outcome, duration - never your code or keys). Disable with --no-telemetry or ADAPTY_TELEMETRY_DISABLED=1.\n',
+    )
+  }
+
   const spin = spinner()
   spin.start(`Running ${driver.displayName} - this can take a few minutes`)
   const started = Date.now()
@@ -80,7 +88,6 @@ export async function runActionWithFollowUp(
 
   spin.stop(result.ok ? `${capitalize(action.title)} complete` : 'The agent stopped before finishing.')
 
-  const sendTelemetry = !noTelemetry && !telemetryDisabled()
   const track = async (rating: null | number) => {
     if (!sendTelemetry) return
     await trackAgentRun({
@@ -95,10 +102,6 @@ export async function runActionWithFollowUp(
       rating,
       version: command.config.version,
     })
-    // Superwall-style disclosure: say what was sent and how to turn it off, every time.
-    command.log(
-      '\nShared anonymous usage stats with Adapty (platform, outcome, duration - never your code or keys). Disable with --no-telemetry or ADAPTY_TELEMETRY_DISABLED=1.',
-    )
   }
 
   if (!result.ok) {

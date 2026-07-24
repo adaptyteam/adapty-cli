@@ -6,7 +6,7 @@ import {DRIVER_IDS, DRIVERS} from '../lib/agent/drivers/index.js'
 import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {billingLabel, detectBilling} from '../lib/project/billing.js'
-import {confirm, select} from '../lib/ui/ask.js'
+import {confirm, isInteractive, select} from '../lib/ui/ask.js'
 
 export default class Integrate extends Command {
   static description = `Set up the Adapty SDK in your app using your coding agent (${DRIVERS.map(
@@ -33,16 +33,33 @@ static flags = {
     const {flags} = await this.parse(Integrate)
     const path = resolve(flags.path ?? process.cwd())
 
+    // A project that already has a billing SDK is a migration, not a fresh
+    // integration - offer the switch BEFORE the wizard so no question runs twice.
+    const billing = await detectBilling(path)
+    if (billing) {
+      if (isInteractive()) {
+        const wantsMigrate = await confirm(
+          `Found ${billingLabel(billing)} in this project - \`adapty migrate\` replaces it with Adapty end-to-end. Switch to migrate?`,
+        )
+        if (wantsMigrate === null) return this.log('Cancelled.')
+        if (wantsMigrate) {
+          const passthrough = ['--path', path]
+          if (flags.app) passthrough.push('--app', flags.app)
+          if (flags.driver) passthrough.push('--driver', flags.driver)
+          if (flags.copy) passthrough.push('--copy')
+          if (flags['no-telemetry']) passthrough.push('--no-telemetry')
+          return this.config.runCommand('migrate', passthrough)
+        }
+      } else {
+        this.log(
+          `Found ${billingLabel(billing)} in this project - \`adapty migrate\` is built for replacing it. Continuing with a fresh integration.`,
+        )
+      }
+    }
+
     const setup = await prepareWizard(this, {...flags, path})
     if (!setup) return
     const {driver, interactive, project, token} = setup
-
-    const billing = await detectBilling(path)
-    if (billing) {
-      this.log(
-        `Found ${billingLabel(billing)} in this project - \`adapty migrate\` is built for replacing it. Continuing with a fresh integration.`,
-      )
-    }
 
     // Paywall approach - the one product question the skill needs answered upfront.
     const approach = await select(
