@@ -10,6 +10,7 @@
     "url": "https://github.com/adaptyteam/adapty-cli/issues"
   },
   "dependencies": {
+    "@clack/prompts": "^1.7.0",
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
     "open": "^11.0.0"
