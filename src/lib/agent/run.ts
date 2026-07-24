@@ -8,7 +8,7 @@ import {copyToClipboard} from '../ui/clipboard.js'
 import {type AgentDriver, type AgentResult, runAgent} from './drivers.js'
 import {type AgentAction, buildActionPrompt, buildCopyPrompt, type PromptContext} from './prompt.js'
 import {installAgentSkills} from './skills-install.js'
-import {trackAgentRun} from './telemetry.js'
+import {telemetryDisabled, trackAgentRun} from './telemetry.js'
 
 const DASHBOARD_URL = 'https://app.adapty.io'
 
@@ -48,6 +48,8 @@ export interface RunActionOptions {
   /** Extra env for the agent process only (e.g. ADAPTY_TOKEN) - keeps secrets out of the global process.env. */
   env?: Record<string, string>
   interactive: boolean
+  /** --no-telemetry: skip the usage event entirely (also honored: ADAPTY_TELEMETRY_DISABLED=1, DO_NOT_TRACK=1). */
+  noTelemetry?: boolean
 }
 
 /**
@@ -58,7 +60,7 @@ export interface RunActionOptions {
  */
 export async function runActionWithFollowUp(
   command: Command,
-  {action, ctx, driver, env, interactive}: RunActionOptions,
+  {action, ctx, driver, env, interactive, noTelemetry}: RunActionOptions,
 ): Promise<RunActionResult> {
   const spin = spinner()
   spin.start(`Running ${driver.displayName} - this can take a few minutes`)
@@ -78,8 +80,10 @@ export async function runActionWithFollowUp(
 
   spin.stop(result.ok ? `${capitalize(action.title)} complete` : 'The agent stopped before finishing.')
 
-  const track = (rating: null | number) =>
-    trackAgentRun({
+  const sendTelemetry = !noTelemetry && !telemetryDisabled()
+  const track = async (rating: null | number) => {
+    if (!sendTelemetry) return
+    await trackAgentRun({
       appId: ctx.appId,
       command: action.id,
       driver: driver.id,
@@ -91,6 +95,11 @@ export async function runActionWithFollowUp(
       rating,
       version: command.config.version,
     })
+    // Superwall-style disclosure: say what was sent and how to turn it off, every time.
+    command.log(
+      '\nShared anonymous usage stats with Adapty (platform, outcome, duration - never your code or keys). Disable with --no-telemetry or ADAPTY_TELEMETRY_DISABLED=1.',
+    )
+  }
 
   if (!result.ok) {
     if (result.finalText) command.log(`\n${result.finalText.slice(0, 1500)}`)

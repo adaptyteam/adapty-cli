@@ -23,6 +23,9 @@ static flags = {
       description: 'Print the migration prompt instead of running an agent (paste it into any coding agent)',
     }),
     driver: Flags.string({description: 'Force a specific coding agent', options: ['claude', 'codex']}),
+    'no-telemetry': Flags.boolean({
+      description: 'Do not send anonymous usage stats (also honored: ADAPTY_TELEMETRY_DISABLED=1, DO_NOT_TRACK=1)',
+    }),
     path: Flags.string({description: 'App directory (defaults to the current directory)'}),
     'rc-key': Flags.string({
       description:
@@ -126,6 +129,7 @@ static flags = {
       driver: driver!,
       env: token ? {ADAPTY_TOKEN: token} : undefined,
       interactive,
+      noTelemetry: flags['no-telemetry'],
     })
     if (!result.ok) reportActionFailure(this, driver!, result)
   }
