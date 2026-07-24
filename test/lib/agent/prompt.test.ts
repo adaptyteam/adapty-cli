@@ -114,13 +114,14 @@ describe('agent prompts', () => {
     })
 
     it('redirects bin/dev.js to its run.js sibling (dev.js needs its shebang loader)', () => {
-      process.argv[1] = '/checkout/bin/dev.js'
-      expect(resolveCliCommand()).to.equal('node "/checkout/bin/run.js"')
+      // Build paths with node:path so the expectation matches the platform's separators (CI runs on Windows too).
+      process.argv[1] = join('checkout', 'bin', 'dev.js')
+      expect(resolveCliCommand()).to.equal(`node "${join('checkout', 'bin', 'run.js')}"`)
     })
 
     it('uses the entry script as-is otherwise', () => {
-      process.argv[1] = '/checkout/bin/run.js'
-      expect(resolveCliCommand()).to.equal('node "/checkout/bin/run.js"')
+      process.argv[1] = join('checkout', 'bin', 'run.js')
+      expect(resolveCliCommand()).to.equal(`node "${join('checkout', 'bin', 'run.js')}"`)
     })
   })
 
