@@ -2,13 +2,16 @@ import {Command, Flags} from '@oclif/core'
 import {resolve} from 'node:path'
 
 import {integrateAction} from '../lib/agent/actions/integrate.js'
+import {DRIVER_IDS, DRIVERS} from '../lib/agent/drivers/index.js'
 import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {billingLabel, detectBilling} from '../lib/project/billing.js'
 import {confirm, select} from '../lib/ui/ask.js'
 
 export default class Integrate extends Command {
-  static description = 'Set up the Adapty SDK in your app using your coding agent (Claude Code or Codex)'
+  static description = `Set up the Adapty SDK in your app using your coding agent (${DRIVERS.map(
+    (d) => d.displayName,
+  ).join(', ')})`
 static examples = [
     '<%= config.bin %> integrate',
     '<%= config.bin %> integrate --path ./apps/mobile',
@@ -19,7 +22,7 @@ static flags = {
     copy: Flags.boolean({
       description: 'Print the integration prompt instead of running an agent (paste it into any coding agent)',
     }),
-    driver: Flags.string({description: 'Force a specific coding agent', options: ['claude', 'codex']}),
+    driver: Flags.string({description: 'Force a specific coding agent', options: DRIVER_IDS}),
     'no-telemetry': Flags.boolean({
       description: 'Do not send anonymous usage stats (also honored: ADAPTY_TELEMETRY_DISABLED=1, DO_NOT_TRACK=1)',
     }),

@@ -8,7 +8,7 @@ import {createAuthenticatedClient} from '../client-from-config.js'
 import {isValidUuid, type PaginatedResponse, paginationParams} from '../flags.js'
 import {type DetectedProject, scanProject} from '../project/scan.js'
 import {confirm, isInteractive, select, spinner, text} from '../ui/ask.js'
-import {type AgentDriver, detectDrivers} from './drivers.js'
+import {type AgentDriver, detectDrivers, DRIVERS} from './drivers/index.js'
 import {type PromptContext, resolveCliCommand} from './prompt.js'
 import {loadPlatformReference} from './skill-source.js'
 
@@ -52,29 +52,15 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
   command.log(`Detected ${project.platformLabel} app "${project.name}"`)
 
   // 2. Which agent will do the work?
+  const interactive = isInteractive()
   let driver: AgentDriver | null = null
   if (!flags.copy) {
-    const drivers = await detectDrivers()
-    driver = flags.driver ? (drivers.find((d) => d.id === flags.driver) ?? null) : (drivers[0] ?? null)
-    if (flags.driver && !driver) {
-      command.error(
-        `Agent "${flags.driver}" not found on PATH. Detected: ${drivers.map((d) => d.id).join(', ') || 'none'}.`,
-      )
-    }
-
-    if (!driver) {
-      command.log('\nNo coding agent found (looked for Claude Code and Codex).')
-      command.log(`Install one and re-run, or use \`adapty ${commandName} --copy\` to get a prompt for any agent:`)
-      command.log('  Claude Code: npm install --global @anthropic-ai/claude-code')
-      command.log('  Codex:       npm install --global @openai/codex')
-      return null
-    }
-
+    driver = await resolveDriver(command, commandName, interactive, flags.driver)
+    if (!driver) return null
     command.log(`Using ${driver.displayName} as the coding agent`)
   }
 
   // 3. Auth - needed to pick/create the app and for the agent's `adapty` CLI calls.
-  const interactive = isInteractive()
   let token = await resolveToken(command.config.configDir)
   if (!token && interactive) {
     const wantsLogin = await confirm('You are not logged in to Adapty. Log in now?')
@@ -137,6 +123,53 @@ export async function preparePromptContext(setup: WizardSetup, paywallApproach: 
     project: setup.project,
     sdkKey: setup.sdkKey,
   }
+}
+
+/**
+ * Pick the coding agent: --driver wins, a single detected agent is used
+ * as-is, several detected agents become an interactive choice (first =
+ * default; headless runs also take the first). Returns null when nothing is
+ * installed or the user cancels (already logged).
+ */
+async function resolveDriver(
+  command: Command,
+  commandName: string,
+  interactive: boolean,
+  driverFlag?: string,
+): Promise<AgentDriver | null> {
+  const drivers = await detectDrivers()
+
+  if (driverFlag) {
+    const driver = drivers.find((d) => d.id === driverFlag)
+    if (!driver) {
+      command.error(`Agent "${driverFlag}" not found on PATH. Detected: ${drivers.map((d) => d.id).join(', ') || 'none'}.`)
+    }
+
+    return driver
+  }
+
+  if (drivers.length === 0) {
+    const longestName = Math.max(...DRIVERS.map((d) => d.displayName.length))
+    command.log(`\nNo coding agent found (looked for ${DRIVERS.map((d) => d.displayName).join(', ')}).`)
+    command.log(`Install one and re-run, or use \`adapty ${commandName} --copy\` to get a prompt for any agent:`)
+    for (const d of DRIVERS) command.log(`  ${`${d.displayName}:`.padEnd(longestName + 1)} ${d.installHint}`)
+    return null
+  }
+
+  if (drivers.length === 1 || !interactive) return drivers[0]
+
+  const choice = await select(
+    'Which coding agent should do the work?',
+    drivers.map((d) => ({label: d.displayName, value: d.id})),
+    drivers[0].id,
+  )
+  if (!choice) {
+    command.log('Cancelled.')
+    return null
+  }
+
+  // choice comes from options built from this same drivers list, so the lookup always succeeds.
+  return drivers.find((d) => d.id === choice)!
 }
 
 async function createApp(

@@ -5,7 +5,7 @@ import {join} from 'node:path'
 
 import {spinner, text} from '../ui/ask.js'
 import {copyToClipboard} from '../ui/clipboard.js'
-import {type AgentDriver, type AgentResult, runAgent} from './drivers.js'
+import {type AgentDriver, type AgentResult, runAgent} from './drivers/index.js'
 import {type AgentAction, buildActionPrompt, buildCopyPrompt, type PromptContext} from './prompt.js'
 import {installAgentSkills} from './skills-install.js'
 import {telemetryDisabled, trackAgentRun} from './telemetry.js'
@@ -132,7 +132,7 @@ export async function runActionWithFollowUp(
   if (existsSync(join(ctx.project.path, 'ADAPTY_SETUP.md'))) {
     command.log(
       'The remaining steps are in ADAPTY_SETUP.md - work through it yourself, or hand it to your agent:\n' +
-        '  claude "work through ADAPTY_SETUP.md"',
+        `  ${driver.resumeHint}`,
     )
   }
 

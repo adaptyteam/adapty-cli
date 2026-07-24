@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {promisify} from 'node:util'
 
 import {buildMigrateAction} from '../lib/agent/actions/migrate.js'
+import {DRIVER_IDS} from '../lib/agent/drivers/index.js'
 import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {BILLING_LABELS, type BillingId, billingLabel, detectBilling} from '../lib/project/billing.js'
@@ -22,7 +23,7 @@ static flags = {
     copy: Flags.boolean({
       description: 'Print the migration prompt instead of running an agent (paste it into any coding agent)',
     }),
-    driver: Flags.string({description: 'Force a specific coding agent', options: ['claude', 'codex']}),
+    driver: Flags.string({description: 'Force a specific coding agent', options: DRIVER_IDS}),
     'no-telemetry': Flags.boolean({
       description: 'Do not send anonymous usage stats (also honored: ADAPTY_TELEMETRY_DISABLED=1, DO_NOT_TRACK=1)',
     }),
