@@ -79,8 +79,12 @@ export interface ProductCreateRequestDTO {
   android_base_plan_id?: null | string
   android_product_id?: null | string
   ios_product_id?: null | string
+  paddle_price_id?: null | string
+  paddle_product_id?: null | string
   period: ProductPeriod
   price_usd?: null | number
+  stripe_price_id?: null | string
+  stripe_product_id?: null | string
   title: string
 }
 

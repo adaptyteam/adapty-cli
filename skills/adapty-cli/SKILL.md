@@ -81,7 +81,7 @@ After collecting all answers, confirm the plan with the user in a summary table,
 Execution order (each step uses output from previous):
 1. `adapty auth login` (if not already authenticated, check with `adapty auth whoami`)
 2. `adapty apps create --title "..." --platform ... --apple-bundle-id/--google-bundle-id ...` → save output: `id` (use as `--app`), `sdk_key` (use in SDK), plus the default access level `id` and `sdk_id` printed after creation
-3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions (non-lifetime) require `--android-base-plan-id`.
+3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions (non-lifetime) require `--android-base-plan-id`. Web products bind Stripe/Paddle instead: `--stripe-product-id`+`--stripe-price-id` or `--paddle-product-id`+`--paddle-price-id` (each pair required together).
 4. `adapty paywalls create --app <APP_ID> --title "..." --product-id <ID1> --product-id <ID2> ...` → save paywall ID
 5. For each placement: `adapty placements create --app <APP_ID> --title "..." --developer-id ... --audiences '[{"segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'`
    - `--paywall-id <PAYWALL_ID>` is still accepted as legacy shorthand but emits a stderr deprecation warning. Prefer `--audiences` for the canonical default-audience shape.
