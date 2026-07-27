@@ -9,6 +9,7 @@ import {isValidUuid, type PaginatedResponse, paginationParams} from '../flags.js
 import {type DetectedProject, scanProject} from '../project/scan.js'
 import {confirm, isInteractive, select, spinner, text} from '../ui/ask.js'
 import {type AgentDriver, detectDrivers, DRIVERS} from './drivers/index.js'
+import {renderStoreProducts, type StoreProduct} from './products.js'
 import {type PromptContext, resolveCliCommand} from './prompt.js'
 import {loadPlatformReference} from './skill-source.js'
 
@@ -24,6 +25,8 @@ export interface WizardSetup {
   /** null only in --copy mode. */
   driver: AgentDriver | null
   interactive: boolean
+  /** Playbook fetch started during the wizard so its latency hides behind the user's answers. */
+  playbook: Promise<{error: unknown; ok: false} | {ok: true; reference: string}>
   project: DetectedProject
   sdkKey: string
   /** Adapty session token, for scoping into the agent's environment. Empty in keyless --copy runs. */
@@ -50,6 +53,13 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
   }
 
   command.log(`Detected ${project.platformLabel} app "${project.name}"`)
+
+  // Kick off the GitHub fetch now; the .catch keeps a failure from becoming
+  // an unhandled rejection while the user is still answering questions.
+  const playbook = loadPlatformReference(project.platform).then(
+    (reference) => ({ok: true as const, reference}),
+    (error: unknown) => ({error, ok: false as const}),
+  )
 
   // 2. Which agent will do the work?
   const interactive = isInteractive()
@@ -105,23 +115,33 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
     }
   }
 
-  return {appId, driver, interactive, project, sdkKey, token: token ?? ''}
+  return {appId, driver, interactive, playbook, project, sdkKey, token: token ?? ''}
 }
 
-/** Fetch the platform playbook and assemble the PromptContext - identical for every agent-driven command. */
-export async function preparePromptContext(setup: WizardSetup, paywallApproach: string): Promise<PromptContext> {
+/** Await the prefetched playbook and assemble the PromptContext - identical for every agent-driven command. */
+export async function preparePromptContext(
+  setup: WizardSetup,
+  paywallApproach: string,
+  storeProducts?: StoreProduct[],
+): Promise<PromptContext> {
   const spin = spinner()
   spin.start('Fetching the integration playbook')
-  const platformReference = await loadPlatformReference(setup.project.platform)
+  const playbook = await setup.playbook
+  if (!playbook.ok) {
+    spin.stop('Could not fetch the integration playbook')
+    throw playbook.error instanceof Error ? playbook.error : new Error(String(playbook.error))
+  }
+
   spin.stop('Integration playbook ready')
 
   return {
     appId: setup.appId,
     cliCommand: resolveCliCommand(),
     paywallApproach,
-    platformReference,
+    platformReference: playbook.reference,
     project: setup.project,
     sdkKey: setup.sdkKey,
+    storeProducts: storeProducts && storeProducts.length > 0 ? renderStoreProducts(storeProducts) : undefined,
   }
 }
 

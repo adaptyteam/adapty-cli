@@ -1,20 +1,9 @@
 import {Command, Flags} from '@oclif/core'
 
-import type {ProductCreateRequestDTO, ProductDTO, ProductPeriod} from '../../lib/api-schemas.js'
-
+import {type ProductCreateRequestDTO, type ProductDTO, type ProductPeriod, VALID_PERIODS} from '../../lib/api-schemas.js'
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-const VALID_PERIODS = [
-  'weekly',
-  'monthly',
-  'two_months',
-  'trimonthly',
-  'semiannual',
-  'annual',
-  'lifetime',
-] as const satisfies readonly ProductPeriod[]
 
 export default class ProductsCreate extends Command {
   static description = 'Create a product with vendor products per platform'
@@ -29,7 +18,7 @@ static flags = {
     'android-product-id': Flags.string({description: 'Android product ID'}),
     'ios-product-id': Flags.string({description: 'iOS product ID'}),
     period: Flags.string({
-      description: 'Subscription period (weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime)',
+      description: `Subscription period (${VALID_PERIODS.join(', ')})`,
       required: true,
     }),
     title: Flags.string({description: 'Product title', required: true}),

@@ -1,5 +1,4 @@
 import {expect} from 'chai'
-import {mkdir, writeFile} from 'node:fs/promises'
 import {join} from 'node:path'
 
 import {buildMigrateAction} from '../../../src/lib/agent/actions/migrate.js'
@@ -11,7 +10,6 @@ import {
   resolveCliCommand,
 } from '../../../src/lib/agent/prompt.js'
 import {preparePromptContext} from '../../../src/lib/agent/wizard.js'
-import {useTmpDir} from '../../helpers/tmp-dir.js'
 
 const ACTION: AgentAction = {id: 'integrate', task: () => 'DO THE TASK', title: 'integration'}
 
@@ -70,34 +68,26 @@ describe('agent prompts', () => {
   })
 
   describe('session-token isolation', () => {
-    const dir = useTmpDir('adapty-skill-')
-
     it('preparePromptContext never carries the wizard token into the prompt', async () => {
       // Real seam: the token lives on WizardSetup; the contract is that no
       // PromptContext field (and therefore no prompt text) derives from it.
       const secret = 'secret-session-token-xyz'
-      await mkdir(join(dir(), 'references'), {recursive: true})
-      await writeFile(join(dir(), 'references', 'flutter.md'), '# playbook')
-      process.env.ADAPTY_SKILL_DIR = dir()
-      try {
-        const promptCtx = await preparePromptContext(
-          {
-            appId: 'app-1',
-            driver: null,
-            interactive: false,
-            project: {name: 'demo', path: '/apps/demo', platform: 'flutter', platformLabel: 'Flutter'},
-            sdkKey: 'public_live_abc123',
-            token: secret,
-          },
-          'flow_builder',
-        )
-        expect(JSON.stringify(promptCtx)).to.not.include(secret)
-        const prompt = buildCopyPrompt(ACTION, promptCtx)
-        expect(prompt).to.not.include(secret)
-        expect(prompt).to.include('public_live_abc123')
-      } finally {
-        delete process.env.ADAPTY_SKILL_DIR
-      }
+      const promptCtx = await preparePromptContext(
+        {
+          appId: 'app-1',
+          driver: null,
+          interactive: false,
+          playbook: Promise.resolve({ok: true as const, reference: '# playbook'}),
+          project: {name: 'demo', path: '/apps/demo', platform: 'flutter', platformLabel: 'Flutter'},
+          sdkKey: 'public_live_abc123',
+          token: secret,
+        },
+        'flow_builder',
+      )
+      expect(JSON.stringify(promptCtx)).to.not.include(secret)
+      const prompt = buildCopyPrompt(ACTION, promptCtx)
+      expect(prompt).to.not.include(secret)
+      expect(prompt).to.include('public_live_abc123')
     })
   })
 

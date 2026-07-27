@@ -5,6 +5,7 @@ import {promisify} from 'node:util'
 
 import {buildMigrateAction} from '../lib/agent/actions/migrate.js'
 import {DRIVER_IDS} from '../lib/agent/drivers/index.js'
+import {collectStoreProducts} from '../lib/agent/products.js'
 import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {BILLING_LABELS, type BillingId, billingLabel, detectBilling} from '../lib/project/billing.js'
@@ -105,23 +106,30 @@ static flags = {
     )
     if (!approach) return this.log('Cancelled.')
 
-    const promptCtx = await preparePromptContext(setup, approach)
+    // Cheap, deterministic gates come BEFORE the product interview - never
+    // collect answers that a declined confirm would throw away.
+    if (!flags.copy) {
+      // A migration rewrites many files - a clean tree makes it reviewable and revertable.
+      if (await hasDirtyWorkingTree(path)) {
+        this.warn('This project has uncommitted changes. Commit or stash them so `git diff` shows only the migration.')
+        if (interactive && !(await confirm('Proceed on the dirty working tree anyway?', false))) {
+          return this.log('Commit your changes and re-run `adapty migrate`.')
+        }
+      }
+
+      if (interactive && !(await confirm(`Migrate "${project.name}" from ${providerLabel} to Adapty now?`))) {
+        return this.log('No problem - run `adapty migrate` again anytime, or use --copy to drive your own agent.')
+      }
+    }
+
+    // Without the RC catalog the user's own store IDs are the only ground truth available.
+    const products = rcCatalog ? [] : await collectStoreProducts(project.platform)
+    if (products === null) return this.log('Cancelled.')
+    const promptCtx = await preparePromptContext(setup, approach, products)
     const action = buildMigrateAction(providerLabel, rcCatalog)
 
     if (flags.copy) {
       return emitCopyPrompt(this, action, promptCtx)
-    }
-
-    // A migration rewrites many files - a clean tree makes it reviewable and revertable.
-    if (await hasDirtyWorkingTree(path)) {
-      this.warn('This project has uncommitted changes. Commit or stash them so `git diff` shows only the migration.')
-      if (interactive && !(await confirm('Proceed on the dirty working tree anyway?', false))) {
-        return this.log('Commit your changes and re-run `adapty migrate`.')
-      }
-    }
-
-    if (interactive && !(await confirm(`Migrate "${project.name}" from ${providerLabel} to Adapty now?`))) {
-      return this.log('No problem - run `adapty migrate` again anytime, or use --copy to drive your own agent.')
     }
 
     const result = await runActionWithFollowUp(this, {

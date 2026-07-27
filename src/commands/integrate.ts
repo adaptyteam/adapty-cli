@@ -3,6 +3,7 @@ import {resolve} from 'node:path'
 
 import {integrateAction} from '../lib/agent/actions/integrate.js'
 import {DRIVER_IDS, DRIVERS} from '../lib/agent/drivers/index.js'
+import {collectStoreProducts} from '../lib/agent/products.js'
 import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {billingLabel, detectBilling} from '../lib/project/billing.js'
@@ -73,14 +74,19 @@ static flags = {
     )
     if (!approach) return this.log('Cancelled.')
 
-    const promptCtx = await preparePromptContext(setup, approach)
+    // The go/no-go gate comes BEFORE the product interview - never collect
+    // answers that a declined confirm would throw away.
+    if (!flags.copy && interactive && !(await confirm(`Integrate the Adapty SDK into "${project.name}" now?`))) {
+      return this.log('No problem - run `adapty integrate` again anytime, or use --copy to drive your own agent.')
+    }
+
+    // Real store IDs turn "defer everything to ADAPTY_SETUP.md" into a full dashboard setup.
+    const products = await collectStoreProducts(project.platform)
+    if (products === null) return this.log('Cancelled.')
+    const promptCtx = await preparePromptContext(setup, approach, products)
 
     if (flags.copy) {
       return emitCopyPrompt(this, integrateAction, promptCtx)
-    }
-
-    if (interactive && !(await confirm(`Integrate the Adapty SDK into "${project.name}" now?`))) {
-      return this.log('No problem - run `adapty integrate` again anytime, or use --copy to drive your own agent.')
     }
 
     const result = await runActionWithFollowUp(this, {

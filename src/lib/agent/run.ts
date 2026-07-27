@@ -114,7 +114,7 @@ export async function runActionWithFollowUp(
 
   let rating: null | number = null
   if (interactive) {
-    const answer = await text(`How was the ${action.title}? Rate 1-5 (enter to skip)`)
+    const answer = (await text(`How was the ${action.title}? Rate 1-5 (enter to skip)`)) ?? ''
     const parsed = Number.parseInt(answer, 10)
     if (parsed >= 1 && parsed <= 5) rating = parsed
   }

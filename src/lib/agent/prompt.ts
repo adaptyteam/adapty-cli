@@ -14,6 +14,8 @@ export interface PromptContext {
   platformReference: string
   project: DetectedProject
   sdkKey: string
+  /** Rendered user-provided store product IDs (see products.ts) - ground truth when present. */
+  storeProducts?: string
 }
 
 /**

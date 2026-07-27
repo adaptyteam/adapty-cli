@@ -3,12 +3,16 @@ import type {AgentAction, PromptContext} from '../prompt.js'
 export const integrateAction: AgentAction = {
   id: 'integrate',
   task(ctx: PromptContext): string {
-    const {appId, cliCommand, paywallApproach, platformReference} = ctx
+    const {appId, cliCommand, paywallApproach, platformReference, storeProducts} = ctx
     return `You are integrating the Adapty SDK into the user's app, end-to-end:
 
 1. Dashboard setup via \`${cliCommand}\` (app already exists - see context):
    a. Get the access level ID: \`access-levels list --app ${appId || '<APP_ID>'} --json\` (default is usually "premium").
-   b. Products: run \`products list\` first. Create products ONLY when you know their real store product IDs (from the code, a .storekit file, or store config found in the project) - store IDs are immutable after creation, so a guessed ID is unfixable junk. Real IDs unknown -> create no products; put the ready-to-run \`products create\` commands in ADAPTY_SETUP.md instead (Android subscriptions also need --android-base-plan-id, and Google Play product IDs can only exist after an AAB with billing permission is uploaded).
+   b. ${
+     storeProducts
+       ? `Products: run \`products list\` first (skip ones that already exist), then create each product below with \`products create\` (Android subscriptions need --android-base-plan-id). If any of these products do not exist in the stores yet, add that store-side work to ADAPTY_SETUP.md: create them in App Store Connect / Google Play Console with these EXACT IDs (Google Play only allows creating products after an AAB with the billing permission has been uploaded).\n\n<store_products>\n${storeProducts}\n</store_products>\n`
+       : 'Products: run `products list` first. Create products ONLY when you know their real store product IDs (from the code, a .storekit file, or store config found in the project) - store IDs are immutable after creation, so a guessed ID is unfixable junk. Real IDs unknown -> create no products; put the ready-to-run `products create` commands in ADAPTY_SETUP.md instead (Android subscriptions also need --android-base-plan-id, and Google Play product IDs can only exist after an AAB with billing permission is uploaded).'
+   }
    c. ONLY if step (b) actually created products - without them a paywall/placement is an empty shell, so skip creation and put the whole command sequence in ADAPTY_SETUP.md right after the products create commands: ${
      paywallApproach === 'flow_builder'
        ? 'Flow Builder flows are dashboard-only and can NOT be created from the CLI. Create the placement(s) only (`placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences \'[]\'`), and add to ADAPTY_SETUP.md: create a flow at https://app.adapty.io/flows and attach it to the placement(s).'

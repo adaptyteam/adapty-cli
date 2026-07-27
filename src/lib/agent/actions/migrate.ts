@@ -26,6 +26,11 @@ export function buildMigrateAction(label: string, rcCatalog?: string): AgentActi
       }
 
 2. Dashboard setup via \`${cliCommand}\` (app already exists - see context; scope every command with --app ${appId || '<APP_ID>'}).
+${
+  !rcCatalog && ctx.storeProducts
+    ? `\nThe user also typed in their store product IDs below. Identifiers you find in the code are trustworthy as-is - do not second-guess or replace them. Treat the user's list as a COMPLEMENT: create every product from it that the code does not already cover, and when the same product appears in both with a different identifier, keep the code's identifier and flag the mismatch in ADAPTY_SETUP.md for the user to double-check.\n\n<store_products>\n${ctx.storeProducts}\n</store_products>\n`
+    : ''
+}
 
 <mapping_rules>
 The prime rule: an entity that does not map cleanly must NOT be created. Creating junk in the user's Adapty account is worse than skipping - when in doubt, create nothing and describe exactly what to do (and why you skipped it) in ADAPTY_SETUP.md.

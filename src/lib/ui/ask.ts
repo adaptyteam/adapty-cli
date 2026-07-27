@@ -41,10 +41,17 @@ export async function confirm(message: string, defaultYes = true): Promise<boole
   return clack.isCancel(result) ? null : result
 }
 
-export async function text(message: string, defaultValue?: string): Promise<string> {
+/** Free-text input. Returns null on cancel (Esc/Ctrl-C) - distinct from an empty answer. */
+export async function text(message: string, defaultValue?: string): Promise<null | string> {
   if (!isInteractive()) return defaultValue ?? ''
   const result = await clack.text({defaultValue: defaultValue ?? '', message, placeholder: defaultValue})
-  return clack.isCancel(result) ? '' : (result ?? '')
+  return clack.isCancel(result) ? null : (result ?? '')
+}
+
+/** One-line warning in the prompt flow (clack-styled in TTY, stderr otherwise). */
+export function notice(message: string): void {
+  if (isInteractive()) clack.log.warn(message)
+  else console.error(message)
 }
 
 export interface Spinner {

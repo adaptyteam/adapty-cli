@@ -17,6 +17,17 @@ export type ProductPeriod =
   | 'uncategorised'
   | 'weekly'
 
+/** The user-creatable subset of ProductPeriod accepted by `products create --period`. */
+export const VALID_PERIODS = [
+  'weekly',
+  'monthly',
+  'two_months',
+  'trimonthly',
+  'semiannual',
+  'annual',
+  'lifetime',
+] as const satisfies readonly ProductPeriod[]
+
 export interface VendorProductDTO {
   base_plan_id: null | string
   id: null | string
