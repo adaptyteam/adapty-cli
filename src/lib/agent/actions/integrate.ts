@@ -18,8 +18,9 @@ export const integrateAction: AgentAction = {
        ? 'Flow Builder flows are dashboard-only and can NOT be created from the CLI. Create the placement(s) only (`placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences \'[]\'`), and add to ADAPTY_SETUP.md: create a flow at https://app.adapty.io/flows and attach it to the placement(s).'
        : 'Create a paywall and a placement: `paywalls create --app <APP_ID> --title "Main Paywall" --json`, then `placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences \'[{"segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]\'`.'
    }
-2. Implement the SDK following the platform playbook below, stage by stage, fetching the listed docs pages before writing each stage's code.
-3. If a build command exists for this project, build to verify it compiles. Fix what you broke; do not chase pre-existing failures.
+2. Decide where the paywall belongs in THIS app before creating the placement. Read the project and look for the natural spots: onboarding, entry points of premium features, a settings/upgrade screen, locked content. Pick the one that fits the app best, name the placement after it (\`--developer-id\` like "onboarding" or "premium_feature", not a generic "main"), and show the paywall from that spot in the code. In ADAPTY_SETUP.md, say which spot you chose and list the other candidates you found, so the user can move it without hunting.
+3. Implement the SDK following the platform playbook below, stage by stage, fetching the listed docs pages before writing each stage's code.
+4. If a build command exists for this project, build to verify it compiles. Fix what you broke; do not chase pre-existing failures.
 
 --- PLATFORM PLAYBOOK (from the adapty-sdk-integration skill) ---
 
