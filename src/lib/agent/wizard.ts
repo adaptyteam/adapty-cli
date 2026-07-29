@@ -12,11 +12,13 @@ import {type AgentDriver, detectDrivers, DRIVERS} from './drivers/index.js'
 import {renderStoreProducts, type StoreProduct} from './products.js'
 import {type PromptContext, resolveCliCommand} from './prompt.js'
 import {loadPlatformReference} from './skill-source.js'
+import {telemetryDisabled} from './telemetry.js'
 
 export interface WizardFlags {
   app?: string
   copy?: boolean
   driver?: string
+  'no-telemetry'?: boolean
   path: string
 }
 
@@ -87,6 +89,15 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
 
   if (!token && !flags.copy) {
     command.error('This command needs an authenticated session. Run `adapty auth login` and try again.')
+  }
+
+  // Disclose telemetry here, right after sign-in: said once among the other
+  // setup lines it scrolls away, whereas saying it last would leave it pinned
+  // above the run spinner for the whole integration. --copy sends nothing.
+  if (!flags.copy && !flags['no-telemetry'] && !telemetryDisabled()) {
+    command.log(
+      'Anonymous usage stats are shared with Adapty (platform, outcome, duration - never your code or keys). Disable with --no-telemetry or ADAPTY_TELEMETRY_DISABLED=1.',
+    )
   }
 
   // 4. Connect to an Adapty app and get its public SDK key. With --copy this

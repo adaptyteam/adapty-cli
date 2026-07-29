@@ -62,13 +62,8 @@ export async function runActionWithFollowUp(
   command: Command,
   {action, ctx, driver, env, interactive, noTelemetry}: RunActionOptions,
 ): Promise<RunActionResult> {
-  // Superwall-style disclosure: mention it once right at the start, then stay quiet.
+  // Disclosed once during setup (see prepareWizard) - nothing to print here.
   const sendTelemetry = !noTelemetry && !telemetryDisabled()
-  if (sendTelemetry) {
-    command.log(
-      'Anonymous usage stats are shared with Adapty (platform, outcome, duration - never your code or keys). Disable with --no-telemetry or ADAPTY_TELEMETRY_DISABLED=1.\n',
-    )
-  }
 
   const spin = spinner()
   spin.start(`Running ${driver.displayName} - this can take a few minutes`)
