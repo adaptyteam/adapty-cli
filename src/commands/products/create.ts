@@ -27,17 +27,17 @@ static examples = [
 static flags = {
     ...appFlag,
     'access-level-id': Flags.string({description: 'Access level ID (UUID)', required: true}),
-    'android-base-plan-id': Flags.string({description: 'Android base plan ID'}),
-    'android-product-id': Flags.string({description: 'Android product ID'}),
-    'ios-product-id': Flags.string({description: 'iOS product ID'}),
-    'paddle-price-id': Flags.string({description: 'Paddle price ID (requires --paddle-product-id)'}),
-    'paddle-product-id': Flags.string({description: 'Paddle product ID (requires --paddle-price-id)'}),
+    'android-base-plan-id': Flags.string({description: 'Android base plan ID', helpGroup: 'STORE BINDINGS'}),
+    'android-product-id': Flags.string({description: 'Android product ID', helpGroup: 'STORE BINDINGS'}),
+    'ios-product-id': Flags.string({description: 'iOS product ID', helpGroup: 'STORE BINDINGS'}),
+    'paddle-price-id': Flags.string({description: 'Paddle price ID (requires --paddle-product-id)', helpGroup: 'STORE BINDINGS'}),
+    'paddle-product-id': Flags.string({description: 'Paddle product ID (requires --paddle-price-id)', helpGroup: 'STORE BINDINGS'}),
     period: Flags.string({
       description: 'Subscription period (weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime)',
       required: true,
     }),
-    'stripe-price-id': Flags.string({description: 'Stripe price ID (requires --stripe-product-id)'}),
-    'stripe-product-id': Flags.string({description: 'Stripe product ID (requires --stripe-price-id)'}),
+    'stripe-price-id': Flags.string({description: 'Stripe price ID (requires --stripe-product-id)', helpGroup: 'STORE BINDINGS'}),
+    'stripe-product-id': Flags.string({description: 'Stripe product ID (requires --stripe-price-id)', helpGroup: 'STORE BINDINGS'}),
     title: Flags.string({description: 'Product title', required: true}),
   }
 
