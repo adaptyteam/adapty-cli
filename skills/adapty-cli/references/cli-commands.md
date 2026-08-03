@@ -29,10 +29,10 @@ All commands support `--json` for machine-readable output.
 |-----------------------------|--------------------------------------------------|
 | `products list`              | `--app`                                           |
 | `products get <product_id>`  | `--app`                                           |
-| `products create`            | `--app`, `--title`, `--period`, `--access-level-id`, at least one of `--ios-product-id` / `--android-product-id`. Android subscriptions also need `--android-base-plan-id` |
+| `products create`            | `--app`, `--title`, `--period`, `--access-level-id`, at least one store binding (`--ios-product-id` / `--android-product-id` / `--stripe-product-id` / `--paddle-product-id`). Android subscriptions also need `--android-base-plan-id`. Stripe/Paddle each require the product+price pair together: `--stripe-product-id` + `--stripe-price-id`, `--paddle-product-id` + `--paddle-price-id` |
 | `products update <product_id>` | `--app`, `--title`, `--access-level-id`         |
 
-**Immutable on create:** `--period`, `--ios-product-id`, `--android-product-id`, `--android-base-plan-id` cannot be changed after creation.
+**Immutable on create:** `--period` and all store bindings (`--ios-product-id`, `--android-product-id`, `--android-base-plan-id`, `--stripe-product-id`, `--stripe-price-id`, `--paddle-product-id`, `--paddle-price-id`) cannot be changed after creation.
 
 ## Paywalls
 
