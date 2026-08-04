@@ -43,7 +43,35 @@ async function loadSkillFile(rel: string): Promise<string> {
   return stripFrontmatter(content.replaceAll('\r\n', '\n'))
 }
 
+/**
+ * A skill file that may legitimately not exist. Only some migration sources
+ * have a dedicated references/migration-<source>.md; a missing one means "use
+ * the spine's unknown-source path", not an error. Every other failure still
+ * throws, so a network problem is never mistaken for an absent file.
+ */
+async function loadOptionalSkillFile(rel: string): Promise<string | undefined> {
+  try {
+    return await loadSkillFile(rel)
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('HTTP 404')) return undefined
+    if ((error as {code?: string}).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
 /** The platform-specific integration playbook (references/<platform>.md). */
 export async function loadPlatformReference(platform: Platform): Promise<string> {
   return loadSkillFile(`references/${platform}.md`)
+}
+
+/**
+ * The migration playbook: the source-agnostic spine, plus the source-specific
+ * file when the skill ships one. The spine is REQUIRED - it carries the
+ * mapping rules and the ADAPTY_SETUP.md contract that the migrate prompt no
+ * longer inlines, so a run without it would silently lose them.
+ */
+export async function loadMigrationReference(source?: string): Promise<string> {
+  const spine = await loadSkillFile('references/migration.md')
+  const specific = source ? await loadOptionalSkillFile(`references/migration-${source}.md`) : undefined
+  return specific ? `${spine}\n\n---\n\n${specific}` : spine
 }

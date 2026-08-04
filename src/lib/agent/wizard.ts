@@ -134,6 +134,7 @@ export async function preparePromptContext(
   setup: WizardSetup,
   paywallApproach: string,
   storeProducts?: StoreProduct[],
+  migrationReference?: string,
 ): Promise<PromptContext> {
   const spin = spinner()
   spin.start('Fetching the integration playbook')
@@ -148,6 +149,7 @@ export async function preparePromptContext(
   return {
     appId: setup.appId,
     cliCommand: resolveCliCommand(),
+    migrationReference,
     paywallApproach,
     platformReference: playbook.reference,
     project: setup.project,

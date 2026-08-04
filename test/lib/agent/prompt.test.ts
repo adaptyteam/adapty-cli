@@ -116,26 +116,52 @@ describe('agent prompts', () => {
   })
 
   describe('migrate action', () => {
-    it('names the source and carries the mapping rules and the playbook', () => {
-      const prompt = buildActionPrompt(buildMigrateAction('the in_app_purchase plugin'), ctx())
+    it('names the source and carries both playbooks', () => {
+      const prompt = buildActionPrompt(
+        buildMigrateAction('the in_app_purchase plugin'),
+        ctx({migrationReference: 'MIGRATION RULES'}),
+      )
       expect(prompt).to.include('from the in_app_purchase plugin to Adapty')
       expect(prompt).to.include('every call site of the in_app_purchase plugin')
-      expect(prompt).to.include('<mapping_rules>')
-      expect(prompt).to.include('create NOTHING for it')
+      expect(prompt).to.include('MIGRATION PLAYBOOK')
+      expect(prompt).to.include('MIGRATION RULES')
       expect(prompt).to.include('PLAYBOOK CONTENT')
+    })
+
+    // The rules live in the skill's references/migration.md. Inlining them here
+    // again would reintroduce the drift this indirection exists to prevent.
+    it('does not inline the mapping rules it used to carry', () => {
+      const prompt = buildActionPrompt(buildMigrateAction('RevenueCat'), ctx({migrationReference: 'MIGRATION RULES'}))
+      expect(prompt).to.not.include('<mapping_rules>')
+      expect(prompt).to.not.include('create NOTHING for it')
+    })
+
+    it('tells the agent to map conservatively when the migration playbook is unavailable', () => {
+      const prompt = buildActionPrompt(buildMigrateAction('Qonversion'), ctx())
+      expect(prompt).to.include('not available')
+      expect(prompt).to.include('create nothing you cannot verify')
     })
 
     it('embeds the RC catalog as ground truth when provided', () => {
       const prompt = buildActionPrompt(buildMigrateAction('RevenueCat', 'CATALOG SNAPSHOT'), ctx())
       expect(prompt).to.include('<revenuecat_catalog')
       expect(prompt).to.include('CATALOG SNAPSHOT')
-      expect(prompt).to.not.include('Verify against your RevenueCat dashboard')
+      expect(prompt).to.not.include("verify against your source's dashboard")
+      expect(prompt).to.not.include('--rc-key')
     })
 
-    it('demands a verify-against-dashboard section when run without the catalog', () => {
-      const prompt = buildActionPrompt(buildMigrateAction('RevenueCat'), ctx())
-      expect(prompt).to.include('Verify against your RevenueCat dashboard')
+    it('demands the verify-against-dashboard checklist when run without the catalog', () => {
+      const prompt = buildActionPrompt(buildMigrateAction('RevenueCat'), ctx({migrationReference: 'MIGRATION RULES'}))
+      expect(prompt).to.include("verify against your source's dashboard")
       expect(prompt).to.include('--rc-key')
+    })
+
+    // --rc-key is a RevenueCat-only automation; offering it for another source
+    // would send the user looking for a flag that cannot help them.
+    it('does not offer --rc-key for a non-RevenueCat source', () => {
+      const prompt = buildActionPrompt(buildMigrateAction('Superwall'), ctx({migrationReference: 'MIGRATION RULES'}))
+      expect(prompt).to.include("verify against your source's dashboard")
+      expect(prompt).to.not.include('--rc-key')
     })
   })
 })

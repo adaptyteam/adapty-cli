@@ -10,6 +10,8 @@ export interface PromptContext {
   appId: string
   /** How the agent invokes this exact CLI build (never `npx adapty@latest` - version skew). */
   cliCommand: string
+  /** Rendered migration playbook (spine + source file) - set only by `migrate`. */
+  migrationReference?: string
   paywallApproach: string
   platformReference: string
   project: DetectedProject

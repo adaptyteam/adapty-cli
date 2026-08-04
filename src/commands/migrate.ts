@@ -7,6 +7,7 @@ import {buildMigrateAction} from '../lib/agent/actions/migrate.js'
 import {DRIVER_IDS} from '../lib/agent/drivers/index.js'
 import {collectStoreProducts} from '../lib/agent/products.js'
 import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
+import {loadMigrationReference} from '../lib/agent/skill-source.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {BILLING_LABELS, type BillingId, billingLabel, detectBilling} from '../lib/project/billing.js'
 import {fetchRcCatalog, renderRcCatalog} from '../lib/project/revenuecat.js'
@@ -45,6 +46,8 @@ static flags = {
 
     // With an RC key the source is a given; otherwise auto-detect and let the user correct.
     let providerLabel = 'RevenueCat'
+    // The label is for humans; the id picks references/migration-<id>.md.
+    let sourceId: BillingId | undefined = 'revenuecat'
     let rcCatalog: string | undefined
     if (flags['rc-key']) {
       const rcSpin = spinner()
@@ -85,6 +88,7 @@ static flags = {
         if (!choice) return this.log('Cancelled.')
         // Prefer the detected detail ("the in_app_purchase plugin") when the user confirms the detected kind.
         providerLabel = detected && detected.id === choice ? billingLabel(detected) : BILLING_LABELS[choice as BillingId]
+        sourceId = choice as BillingId
         if (choice === 'revenuecat') {
           this.log(
             'Tip: pass --rc-key <v2 secret key> to recreate your RC entitlements, products, and offerings exactly.',
@@ -93,6 +97,7 @@ static flags = {
       } else {
         // Headless: never dead-end on a missing answer - fall back to a generic label.
         providerLabel = detected ? billingLabel(detected) : 'the current billing SDK'
+        sourceId = detected?.id
       }
     }
 
@@ -125,7 +130,17 @@ static flags = {
     // Without the RC catalog the user's own store IDs are the only ground truth available.
     const products = rcCatalog ? [] : await collectStoreProducts(project.platform)
     if (products === null) return this.log('Cancelled.')
-    const promptCtx = await preparePromptContext(setup, approach, products)
+    // The spine carries the mapping rules and the ADAPTY_SETUP.md contract the
+    // prompt no longer inlines, so a failure here must stop the run, not warn.
+    const mSpin = spinner()
+    mSpin.start('Fetching the migration playbook')
+    const migrationReference = await loadMigrationReference(sourceId).catch((error: unknown) => {
+      mSpin.stop('Could not fetch the migration playbook')
+      return this.error(error instanceof Error ? error.message : String(error))
+    })
+    mSpin.stop('Migration playbook ready')
+
+    const promptCtx = await preparePromptContext(setup, approach, products, migrationReference)
     const action = buildMigrateAction(providerLabel, rcCatalog)
 
     if (flags.copy) {
