@@ -4,7 +4,7 @@ import {resolve} from 'node:path'
 import {integrateAction} from '../lib/agent/actions/integrate.js'
 import {DRIVER_IDS, DRIVERS} from '../lib/agent/drivers/index.js'
 import {collectStoreProducts} from '../lib/agent/products.js'
-import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
+import {emitCopyPrompt, prepareWorkBranch, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {billingLabel, detectBilling} from '../lib/project/billing.js'
 import {confirm, isInteractive, select} from '../lib/ui/ask.js'
@@ -89,8 +89,13 @@ static flags = {
       return emitCopyPrompt(this, integrateAction, promptCtx, {installSkill})
     }
 
+    // Every run gets its own branch; no git at all is the one case that stops us.
+    const branch = await prepareWorkBranch(this, project.path, 'integrate', interactive)
+    if (branch === null) return this.log('Run `git init` and commit what you have, then re-run `adapty integrate`.')
+
     const result = await runActionWithFollowUp(this, {
       action: integrateAction,
+      branch,
       ctx: promptCtx,
       driver: driver!,
       env: token ? {ADAPTY_TOKEN: token} : undefined,

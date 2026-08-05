@@ -3,7 +3,8 @@ import type {Command} from '@oclif/core'
 import {existsSync} from 'node:fs'
 import {join} from 'node:path'
 
-import {spinner, text} from '../ui/ask.js'
+import {availableBranchName, createBranch, isGitRepo} from '../project/git.js'
+import {confirm, spinner, text} from '../ui/ask.js'
 import {copyToClipboard} from '../ui/clipboard.js'
 import {type AgentDriver, type AgentResult, runAgent} from './drivers/index.js'
 import {type AgentAction, buildActionPrompt, buildCopyPrompt, type PromptContext} from './prompt.js'
@@ -66,8 +67,48 @@ export function reportActionFailure(command: Command, driver: AgentDriver, resul
   )
 }
 
+/**
+ * Put the run on a branch of its own. An agent rewrites files all over the
+ * project; on its own branch that is one `git switch -` away from undone, and
+ * the diff reviews like any other PR. Not a question - the branch costs the
+ * user nothing and its absence costs them a lot, so it just happens.
+ *
+ * No git at all is the case worth stopping for: there is then no way to see
+ * what changed or to undo it, and that is the user's call to make.
+ *
+ * Returns the branch name, undefined when there is none (no repo, or git
+ * refused), or null when the user chose not to continue without git.
+ */
+export async function prepareWorkBranch(
+  command: Command,
+  dir: string,
+  actionId: string,
+  interactive: boolean,
+): Promise<null | string | undefined> {
+  if (!(await isGitRepo(dir))) {
+    command.warn(
+      'This project is not a git repository - there will be no way to review the agent\'s changes with `git diff` or undo them.',
+    )
+    // Headless has nobody to ask; warning them is all we can do.
+    if (!interactive) return undefined
+    const proceed = await confirm('Continue anyway?', false)
+    return proceed ? undefined : null
+  }
+
+  const name = await availableBranchName(dir, `adapty-${actionId}`)
+  if (await createBranch(dir, name)) {
+    command.log(`Working on branch ${name}`)
+    return name
+  }
+
+  command.warn(`Could not create branch ${name} - continuing on the current branch.`)
+  return undefined
+}
+
 export interface RunActionOptions {
   action: AgentAction
+  /** Branch created for this run, if any - named in the closing message. */
+  branch?: string
   ctx: PromptContext
   driver: AgentDriver
   /** Extra env for the agent process only (e.g. ADAPTY_TOKEN) - keeps secrets out of the global process.env. */
@@ -85,7 +126,7 @@ export interface RunActionOptions {
  */
 export async function runActionWithFollowUp(
   command: Command,
-  {action, ctx, driver, env, interactive, noTelemetry}: RunActionOptions,
+  {action, branch, ctx, driver, env, interactive, noTelemetry}: RunActionOptions,
 ): Promise<RunActionResult> {
   // Disclosed once during setup (see prepareWizard) - nothing to print here.
   const sendTelemetry = !noTelemetry && !telemetryDisabled()
@@ -143,7 +184,9 @@ export async function runActionWithFollowUp(
 
   await installSkill()
 
-  command.log(`\nDone. Review the changes with \`git diff\`, then finish up in the dashboard: ${DASHBOARD_URL}`)
+  command.log(
+    `\nDone. Review the changes with \`git diff\`${branch ? ` on branch ${branch}` : ''}, then finish up in the dashboard: ${DASHBOARD_URL}`,
+  )
   if (existsSync(join(ctx.project.path, 'ADAPTY_SETUP.md'))) {
     command.log(
       'The remaining steps are in ADAPTY_SETUP.md - work through it yourself, or hand it to your agent:\n' +

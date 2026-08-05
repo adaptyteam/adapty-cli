@@ -1,15 +1,14 @@
 import {Command, Flags} from '@oclif/core'
-import {execFile} from 'node:child_process'
 import {resolve} from 'node:path'
-import {promisify} from 'node:util'
 
 import {buildMigrateAction} from '../lib/agent/actions/migrate.js'
 import {DRIVER_IDS} from '../lib/agent/drivers/index.js'
 import {collectStoreProducts} from '../lib/agent/products.js'
-import {emitCopyPrompt, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
+import {emitCopyPrompt, prepareWorkBranch, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {loadMigrationReference} from '../lib/agent/skill-source.js'
 import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
 import {BILLING_LABELS, type BillingId, billingLabel, detectBilling} from '../lib/project/billing.js'
+import {hasUncommittedChanges} from '../lib/project/git.js'
 import {fetchRcCatalog, renderRcCatalog} from '../lib/project/revenuecat.js'
 import {confirm, select, spinner} from '../lib/ui/ask.js'
 
@@ -115,7 +114,7 @@ static flags = {
     // collect answers that a declined confirm would throw away.
     if (!copyOnly) {
       // A migration rewrites many files - a clean tree makes it reviewable and revertable.
-      if (await hasDirtyWorkingTree(path)) {
+      if (await hasUncommittedChanges(path)) {
         this.warn('This project has uncommitted changes. Commit or stash them so `git diff` shows only the migration.')
         if (interactive && !(await confirm('Proceed on the dirty working tree anyway?', false))) {
           return this.log('Commit your changes and re-run `adapty migrate`.')
@@ -147,8 +146,13 @@ static flags = {
       return emitCopyPrompt(this, action, promptCtx, {installSkill})
     }
 
+    // Every run gets its own branch; no git at all is the one case that stops us.
+    const branch = await prepareWorkBranch(this, project.path, 'migrate', interactive)
+    if (branch === null) return this.log('Run `git init` and commit what you have, then re-run `adapty migrate`.')
+
     const result = await runActionWithFollowUp(this, {
       action,
+      branch,
       ctx: promptCtx,
       driver: driver!,
       env: token ? {ADAPTY_TOKEN: token} : undefined,
@@ -159,14 +163,3 @@ static flags = {
   }
 }
 
-const execFileAsync = promisify(execFile)
-
-/** Uncommitted changes present? Outside a git repo -> false (nothing to protect). */
-async function hasDirtyWorkingTree(dir: string): Promise<boolean> {
-  try {
-    const {stdout} = await execFileAsync('git', ['-C', dir, 'status', '--porcelain'], {timeout: 5000})
-    return stdout.trim().length > 0
-  } catch {
-    return false
-  }
-}
