@@ -1,4 +1,4 @@
-import sinon from 'sinon'
+import * as sinon from 'sinon'
 
 const API_BASE = 'https://api-admin.adapty.io/api/v1/developer'
 export const ASA_API_BASE = 'https://api-asa-admin.adapty.io/api/v1/cli'
