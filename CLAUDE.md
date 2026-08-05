@@ -24,6 +24,8 @@ src/
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
     segments/        # list, get
     access-levels/   # list, get, create, update
+    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
+                     # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)
     config.ts        # ~/.config/adapty/config.json read/write
@@ -32,23 +34,33 @@ src/
     errors.ts        # ApiError, NetworkError, AuthRequiredError
     flags.ts         # shared flags: --app (UUID), pagination
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
+    asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')
+    asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps
+    asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
+    asa-schemas.ts   # response typings for asa entities
 ```
 
 ## Conventions
 
 - oclif topic separator is space (e.g. `adapty apps list`, not `adapty apps:list`)
-- All resource commands scoped under `--app APP_ID` (UUID, validated)
+- All resource commands scoped under `--app APP_ID` (UUID, validated) — except `asa`, which is scoped by the
+  token's company (`--app` there is only a list filter)
 - `list` commands use shared pagination flags (--page, --page-size)
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
 - API base: `https://api-admin.adapty.io/api/v1/developer`
+- `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
+  `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
+  `detail`, `Retry-After` on 429)
 
 ## Key Patterns
 
 - Each command: single class extending `Command` in its own file
 - `createAuthenticatedClient(config)` — factory for token-aware ApiClient
+- `createAsaClient(config)` — same, against the ASA service; asa writes print the request body and ask for
+  confirmation before sending (`asa-confirm.ts`)
 - `PaginatedResponse<T>` — standard list response wrapper
 - Human output via `printResponse()`/`printList()` (auto-formats snake_case → labels); JSON output via oclif flag
 - All entities use `title` field (not `name`) in API requests and responses
