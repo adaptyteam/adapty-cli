@@ -1,6 +1,6 @@
 ---
 name: adapty-cli
-description: Use when setting up or managing Adapty in-app subscriptions, paywalls, or placements via CLI.
+description: Use when setting up or managing Adapty in-app subscriptions, paywalls, placements, or Apple Search Ads campaigns via CLI.
 ---
 
 # Adapty CLI Skill
@@ -19,7 +19,7 @@ npx adapty@latest
 
 ---
 
-Two modes: **Setup** (new users, quiz-driven) and **Manage** (existing users, direct commands).
+Three modes: **Setup** (new users, quiz-driven), **Manage** (existing users, direct commands) and **Apple Search Ads** (`adapty asa`, ad spend).
 
 ## Mode: Setup (New to Adapty)
 
@@ -155,6 +155,36 @@ Key notes:
 - All commands support `--json`
 - Use `--title` (not `--name`) for all entities
 - Use `--apple-bundle-id` / `--google-bundle-id` (not ios/android)
+
+---
+
+## Mode: Apple Search Ads (`adapty asa`)
+
+Ad spend, not subscriptions. The `asa` topic manages Apple Search Ads campaigns, keywords, ads and
+automations, and reads their performance. Full reference in `references/cli-commands.md`.
+
+**These commands spend money and change a live ad account.** Treat every write as irreversible:
+
+- **Confirm before any write.** State plainly what will change — which campaign, which budget, how many
+  keywords — and get an explicit yes. The command asks too: it prints the request body it is about to send and
+  waits. Pass `--yes` only after the user has agreed; there is no undo and no delete.
+- **Never invent IDs or budgets.** Read them first (`asa orgs list`, `asa campaigns list`) or ask.
+- **Prefer the smallest step.** Add a handful of keywords, check the result, then continue. A 100-item batch
+  that Apple partially rejects is harder to reason about than three small ones.
+- **A dry run is available for automations only**: `asa automations run <id> --dry-run` evaluates a rule and
+  logs what it would do without touching Apple. Use it before enabling a rule that changes bids.
+- **Metrics are cheap, writes are not.** Reads and `--dry-run` are safe to run freely; anything else is not.
+
+Key notes that differ from the rest of the CLI:
+
+- No required `--app`: scope comes from the token's company. `--app` exists on lists only, as a filter
+- **Filter every list you can.** `--campaign-group`, `--app`, `--campaign`, `--ad-group`, `--status`, `--search`
+  narrow the query itself, so a scoped read is cheap and an unscoped one walks the account. `asa keywords list`
+  without `--ad-group` is the single most expensive call in the surface
+- `asa whoami` first — it reports whether Apple Ads is connected and whether the company may use the CLI
+- A 402 means the company has no Ads Manager subscription; a 404 means the entity is not theirs or absent
+- A 429 carries the wait; metrics and automation runs are the limits worth respecting
+- Keywords are always batches, capped at 100 per call, and a partial rejection is reported per item
 
 ---
 

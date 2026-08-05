@@ -94,6 +94,70 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `access-levels create`                     | `--app`, `--sdk-id`, `--title` |
 | `access-levels update <access_level_id>`   | `--app`, `--title`       |
 
+## Apple Search Ads (`asa` topic)
+
+Different service behind the same token. **No `--app`**: every command is scoped to the company the token
+belongs to. Requires a connected Apple Ads account plus an active Ads Manager subscription — without one
+every `asa` command answers `402 ads_manager_subscription_required`. Start with `asa whoami`.
+
+| Command                              | Required flags / notes                                                     |
+|-------------------------------------|----------------------------------------------------------------------------|
+| `asa whoami`                         | company, how access was granted, Apple connection state                     |
+| `asa connect`                        | prints the Apple authorization link and waits; `--no-wait` returns at once  |
+| `asa apps list`                      | (pagination only)                                                           |
+| `asa orgs list`                      | ASA organizations; their ID is the `--org` of `campaigns create`            |
+| `asa campaigns list`                 | `--date-from` / `--date-to` optional (default today); filters below         |
+| `asa campaigns get <campaign_id>`    | positional UUID                                                             |
+| `asa campaigns create`               | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--target-cpa`, `--bidding-strategy` |
+| `asa campaigns update <campaign_id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--budget`, `--target-cpa`, `--bidding-strategy` |
+| `asa ad-groups list` / `get <id>`    | same period flags as campaigns                                              |
+| `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today) |
+| `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
+| `asa keywords list`                  | period flags; **filter by `--ad-group`** — unfiltered it costs one query per keyword |
+| `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |
+| `asa keywords update <id> [<id>...]` | one change applied to every id; `--text` only for a single keyword           |
+| `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows                              |
+| `asa negative-keywords add`          | exactly one of `--ad-group` / `--campaign`; `--all-ad-groups` needs `--campaign` |
+| `asa search-terms list`              | period flags; filter by `--ad-group` / `--campaign` to build the keyword pipeline |
+| `asa ads list` / `get <id>`          | `serving_state_reasons` explains a non-running ad; list has no `--app` filter |
+| `asa ads create`                     | `--ad-group`, `--creative-id`, `--name`; the creative id comes from `asa creatives list` |
+| `asa ads update <ad_id>`             | `--name` and/or `--status`; creative and parent are fixed at creation        |
+| `asa product-pages list`             | read-only; filter by `--app`                                                |
+| `asa creatives list`                 | the Apple `creative_id` an ad is created against; filter by `--app`         |
+| `asa product-pages sync`             | `--adam-id` optional; queued, 200 means already running or nothing to sync  |
+| `asa automations list` / `get <id>`  | `status` is 1 for active, 0 for stopped                                     |
+| `asa automations create`             | `--file rule.json` (or `-` for stdin); `--run-now` queues the first run      |
+| `asa automations update <id>`        | `--stop` / `--start` / `--name` / `--file`; the file must not carry `internal_id` |
+| `asa automations run <id>`           | queued, prints a run ID; `--dry-run` evaluates without touching Apple        |
+| `asa automations runs <id>`          | past runs, including dry runs                                               |
+| `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day` |
+| `asa metrics overview`               | same, plus `--period-unit` (DAY/WEEK/MONTH); no ordering                    |
+
+Filters on list commands — they narrow the query, not the printed page, so always scope a read:
+
+| Filter             | Lists that accept it                                                   |
+|--------------------|------------------------------------------------------------------------|
+| `--campaign-group` | every list below                                                        |
+| `--app`            | campaigns, ad groups, keywords, negative keywords, search terms, product pages, creatives |
+| `--campaign`       | ad groups, keywords, negative keywords, search terms, ads               |
+| `--ad-group`       | keywords, negative keywords, search terms, ads                          |
+| `--status`         | campaigns, ad groups (`ENABLED`/`PAUSED`), keywords (`ACTIVE`/`PAUSED`), ads |
+| `--search`         | every list except product pages and creatives                           |
+
+Id filters are repeatable and take the UUIDs from the matching list command; an id owned by another company
+matches nothing, so the page comes back empty rather than erroring.
+
+Before running any of these:
+
+- **Writes reach Apple directly** and take seconds. Each writing command prints the body it will send and asks
+  for confirmation; `--yes` skips the question, and in a pipe or under `--json` the command refuses rather than
+  hanging. There is no server-side preview and no idempotency key — repeating `create` creates a second entity.
+- **Keyword and negative-keyword calls are batches.** One bad ID fails the whole batch before Apple is
+  called; Apple may still reject individual items, and each rejection comes back with its reason.
+- **Metrics and automation runs are rate limited per company**, and a throttled call reports the wait.
+- **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
+- Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
+
 ## Validation Rules
 
 - `--app` must be a valid UUID

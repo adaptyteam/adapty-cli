@@ -86,6 +86,105 @@ adapty access-levels create --app UUID [flags]
 adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 ```
 
+### Apple Search Ads
+
+Apple Search Ads commands live under `adapty asa` and talk to the ASA service rather than the Developer
+API. They take **no `--app`**: the scope is the company behind your token. A connected Apple Ads account and
+an active Ads Manager subscription are required — `adapty asa whoami` tells you where you stand.
+
+```sh
+adapty asa whoami                      # company, how access was granted, Apple connection state
+adapty asa connect [--no-wait]         # link an Apple Search Ads account
+adapty asa apps list                   # apps promoted in Apple Search Ads
+adapty asa orgs list                   # Apple Search Ads organizations
+```
+
+Every list takes scope filters, and they narrow the query rather than the printed page — `asa keywords list`
+unfiltered walks the whole account, while one ad group is a handful of rows:
+
+```sh
+adapty asa campaigns list --app APP_UUID --status PAUSED
+adapty asa ad-groups list --campaign CAMPAIGN_UUID
+adapty asa keywords list --ad-group AD_GROUP_UUID --status ACTIVE
+adapty asa keywords list --ad-group AD_GROUP_UUID --ad-group OTHER_UUID   # repeatable
+adapty asa creatives list --app APP_UUID
+```
+
+`--campaign-group`, `--app`, `--campaign`, `--ad-group` are repeatable and take the UUIDs printed by the
+matching list command; `--search` matches names case-insensitively. Each list accepts only the filters that
+make sense for it: `--ad-group` starts at keywords, negative keywords, search terms and ads, `--status` is
+`ENABLED`/`PAUSED` everywhere except keywords, which are `ACTIVE`/`PAUSED`, and `asa ads list` has no `--app`
+because ads hang off ad groups. An id belonging to another company simply matches nothing.
+
+Campaign structure. Every metric-bearing list takes `--date-from` / `--date-to` (default: today):
+
+```sh
+adapty asa campaigns list [--date-from 2026-07-01 --date-to 2026-07-31]
+adapty asa campaigns get CAMPAIGN_ID
+adapty asa campaigns create --org UUID --name "Winter push" --adam-id 123456 --country US --daily-budget 50
+adapty asa campaigns update CAMPAIGN_ID [--status PAUSED] [--daily-budget 80] [--country US]
+
+adapty asa ad-groups list
+adapty asa ad-groups get AD_GROUP_ID
+adapty asa ad-groups create --campaign UUID --name "Brand terms" --default-bid 1.20
+adapty asa ad-groups update AD_GROUP_ID [--default-bid 1.50] [--status PAUSED]
+
+adapty asa ads list
+adapty asa ads get AD_ID
+adapty asa ads create --ad-group UUID --creative-id 4321 --name "Summer ad"
+adapty asa ads update AD_ID [--name "..."] [--status PAUSED]
+```
+
+Keywords are always applied as a batch, at most 100 per call, and a partial rejection is reported per item:
+
+```sh
+adapty asa keywords list
+adapty asa keywords add --ad-group UUID --text "running shoes" --text "trail shoes" [--bid 1.20] [--match-type EXACT]
+adapty asa keywords add --ad-group UUID --from-file keywords.txt
+adapty asa keywords update KEYWORD_ID [KEYWORD_ID...] [--bid 2.00] [--status PAUSED]
+
+adapty asa negative-keywords list
+adapty asa negative-keywords add --ad-group UUID --text free
+adapty asa negative-keywords add --campaign UUID [--all-ad-groups] --text free
+
+adapty asa search-terms list [--date-from ... --date-to ...]
+```
+
+Product pages and rule-based automations:
+
+```sh
+adapty asa product-pages list
+adapty asa product-pages sync [--adam-id 123456]
+
+adapty asa automations list
+adapty asa automations get AUTOMATION_ID
+adapty asa automations create --file rule.json [--run-now]
+adapty asa automations update AUTOMATION_ID [--stop] [--start] [--name "..."] [--file rule.json]
+adapty asa automations run AUTOMATION_ID [--dry-run]
+adapty asa automations runs AUTOMATION_ID
+```
+
+Metrics take an entity level, a period and an optional metric selection:
+
+```sh
+adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31
+adapty asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric roas
+adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90
+adapty asa metrics overview --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 [--period-unit WEEK]
+```
+
+There is no `ltv` metric: lifetime value is a cohort metric read at a renewal window, so `--by-days` is how you
+ask for day-7 or day-90 values — on either route, up to 16 windows per call. `--order-by-day` ranks the rows by
+one of those windows, which is how you get the top campaigns by day-90 ROAS in a single call.
+
+Writes go straight to Apple and take seconds, so every writing command first prints the exact request body and
+asks for a yes. `--yes` skips the question for scripts; in a pipe or under `--json` the command refuses instead
+of waiting for input that will never come. There is no undo — the CLI has no delete.
+
+Metrics and automation runs are rate limited per company, and a throttled call tells you how long to wait. An
+automation run is queued rather than awaited: `run` prints a run ID and the outcome shows up in
+`adapty asa automations runs`.
+
 ### Global Flags
 
 | Flag          | Description                            |
@@ -97,10 +196,14 @@ adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 
 ## Environment Variables
 
-| Variable         | Description                                                                     |
-| ---------------- | ------------------------------------------------------------------------------- |
-| `ADAPTY_TOKEN`   | Override stored auth token                                                      |
-| `ADAPTY_API_URL` | Override API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
+| Variable             | Description                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `ADAPTY_TOKEN`       | Override stored auth token                                                              |
+| `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
+| `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
+
+The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA
+default, and the other way round.
 
 ## Claude Code Skill
 
