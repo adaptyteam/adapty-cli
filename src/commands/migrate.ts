@@ -42,7 +42,7 @@ static flags = {
 
     const setup = await prepareWizard(this, {...flags, path})
     if (!setup) return
-    const {driver, interactive, project, token} = setup
+    const {copyOnly, driver, installSkill, interactive, project, token} = setup
 
     // With an RC key the source is a given; otherwise auto-detect and let the user correct.
     let providerLabel = 'RevenueCat'
@@ -113,7 +113,7 @@ static flags = {
 
     // Cheap, deterministic gates come BEFORE the product interview - never
     // collect answers that a declined confirm would throw away.
-    if (!flags.copy) {
+    if (!copyOnly) {
       // A migration rewrites many files - a clean tree makes it reviewable and revertable.
       if (await hasDirtyWorkingTree(path)) {
         this.warn('This project has uncommitted changes. Commit or stash them so `git diff` shows only the migration.')
@@ -143,8 +143,8 @@ static flags = {
     const promptCtx = await preparePromptContext(setup, approach, products, migrationReference)
     const action = buildMigrateAction(providerLabel, rcCatalog)
 
-    if (flags.copy) {
-      return emitCopyPrompt(this, action, promptCtx)
+    if (copyOnly) {
+      return emitCopyPrompt(this, action, promptCtx, {installSkill})
     }
 
     const result = await runActionWithFollowUp(this, {

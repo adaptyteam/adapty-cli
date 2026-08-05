@@ -60,7 +60,7 @@ static flags = {
 
     const setup = await prepareWizard(this, {...flags, path})
     if (!setup) return
-    const {driver, interactive, project, token} = setup
+    const {copyOnly, driver, installSkill, interactive, project, token} = setup
 
     // Paywall approach - the one product question the skill needs answered upfront.
     const approach = await select(
@@ -76,7 +76,7 @@ static flags = {
 
     // The go/no-go gate comes BEFORE the product interview - never collect
     // answers that a declined confirm would throw away.
-    if (!flags.copy && interactive && !(await confirm(`Integrate the Adapty SDK into "${project.name}" now?`))) {
+    if (!copyOnly && interactive && !(await confirm(`Integrate the Adapty SDK into "${project.name}" now?`))) {
       return this.log('No problem - run `adapty integrate` again anytime, or use --copy to drive your own agent.')
     }
 
@@ -85,8 +85,8 @@ static flags = {
     if (products === null) return this.log('Cancelled.')
     const promptCtx = await preparePromptContext(setup, approach, products)
 
-    if (flags.copy) {
-      return emitCopyPrompt(this, integrateAction, promptCtx)
+    if (copyOnly) {
+      return emitCopyPrompt(this, integrateAction, promptCtx, {installSkill})
     }
 
     const result = await runActionWithFollowUp(this, {

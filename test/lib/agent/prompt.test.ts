@@ -75,7 +75,9 @@ describe('agent prompts', () => {
       const promptCtx = await preparePromptContext(
         {
           appId: 'app-1',
+          copyOnly: true,
           driver: null,
+          installSkill: false,
           interactive: false,
           playbook: Promise.resolve({ok: true as const, reference: '# playbook'}),
           project: {name: 'demo', path: '/apps/demo', platform: 'flutter', platformLabel: 'Flutter'},

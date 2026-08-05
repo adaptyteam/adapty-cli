@@ -24,8 +24,12 @@ export interface WizardFlags {
 
 export interface WizardSetup {
   appId: string
-  /** null only in --copy mode. */
+  /** Nothing will be run for the user: --copy, or no agent was found and they took the prompt instead. */
+  copyOnly: boolean
+  /** null whenever copyOnly is true. */
   driver: AgentDriver | null
+  /** The user asked for the Adapty skill in the agent they actually use (only offered when none was found). */
+  installSkill: boolean
   interactive: boolean
   /** Playbook fetch started during the wizard so its latency hides behind the user's answers. */
   playbook: Promise<{error: unknown; ok: false} | {ok: true; reference: string}>
@@ -63,14 +67,11 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
     (error: unknown) => ({error, ok: false as const}),
   )
 
-  // 2. Which agent will do the work?
+  // 2. Who does the work - an agent we can run, or the user's own agent?
   const interactive = isInteractive()
-  let driver: AgentDriver | null = null
-  if (!flags.copy) {
-    driver = await resolveDriver(command, commandName, interactive, flags.driver)
-    if (!driver) return null
-    command.log(`Using ${driver.displayName} as the coding agent`)
-  }
+  const execution = await resolveExecution(command, commandName, interactive, flags)
+  if (!execution) return null
+  const {copyOnly, driver, installSkill} = execution
 
   // 3. Auth - needed to pick/create the app and for the agent's `adapty` CLI calls.
   let token = await resolveToken(command.config.configDir)
@@ -87,21 +88,21 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
     }
   }
 
-  if (!token && !flags.copy) {
+  if (!token && !copyOnly) {
     command.error('This command needs an authenticated session. Run `adapty auth login` and try again.')
   }
 
   // Disclose telemetry here, right after sign-in: said once among the other
   // setup lines it scrolls away, whereas saying it last would leave it pinned
-  // above the run spinner for the whole integration. --copy sends nothing.
-  if (!flags.copy && !flags['no-telemetry'] && !telemetryDisabled()) {
+  // above the run spinner for the whole integration. A copy-only run sends nothing.
+  if (!copyOnly && !flags['no-telemetry'] && !telemetryDisabled()) {
     command.log(
       'Anonymous usage stats are shared with Adapty (platform, outcome, duration - never your code or keys). Disable with --no-telemetry or ADAPTY_TELEMETRY_DISABLED=1.',
     )
   }
 
-  // 4. Connect to an Adapty app and get its public SDK key. With --copy this
-  // is best-effort: the prompt is still useful with the key left blank.
+  // 4. Connect to an Adapty app and get its public SDK key. Without an agent
+  // to run this is best-effort: the prompt is still useful with the key blank.
   let appId = ''
   let sdkKey = ''
   if (token) {
@@ -118,7 +119,7 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
         command.warn('This app has no public SDK key yet - the agent will need one to call Adapty.activate().')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (!flags.copy) {
+      if (!copyOnly) {
         command.error(`Couldn't bind an Adapty app (${message}). Fix that and try again.`)
       }
 
@@ -126,7 +127,7 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
     }
   }
 
-  return {appId, driver, interactive, playbook, project, sdkKey, token: token ?? ''}
+  return {appId, copyOnly, driver, installSkill, interactive, playbook, project, sdkKey, token: token ?? ''}
 }
 
 /** Await the prefetched playbook and assemble the PromptContext - identical for every agent-driven command. */
@@ -158,18 +159,48 @@ export async function preparePromptContext(
   }
 }
 
+/** 'none-installed' = no agent on PATH; null = the user cancelled (already logged). */
+type DriverResolution = 'none-installed' | AgentDriver | null
+
+/** How this run will be carried out: by an agent we spawn, or by the user's own agent via the clipboard. */
+interface Execution {
+  copyOnly: boolean
+  driver: AgentDriver | null
+  installSkill: boolean
+}
+
 /**
- * Pick the coding agent: --driver wins, a single detected agent is used
- * as-is, several detected agents become an interactive choice (first =
- * default; headless runs also take the first). Returns null when nothing is
- * installed or the user cancels (already logged).
+ * Decide who does the work. --copy skips agent detection entirely; otherwise
+ * we look for an agent on PATH and, finding none, offer the agentless path
+ * instead of dead-ending. Returns null when the user backs out (already logged).
  */
-async function resolveDriver(
+async function resolveExecution(
   command: Command,
   commandName: string,
   interactive: boolean,
-  driverFlag?: string,
-): Promise<AgentDriver | null> {
+  flags: WizardFlags,
+): Promise<Execution | null> {
+  if (flags.copy) return {copyOnly: true, driver: null, installSkill: false}
+
+  const resolved = await resolveDriver(command, interactive, flags.driver)
+  if (resolved === null) return null
+
+  if (resolved === 'none-installed') {
+    const agentless = await offerAgentlessPath(command, commandName, interactive)
+    if (!agentless) return null
+    return {copyOnly: true, driver: null, installSkill: agentless.installSkill}
+  }
+
+  command.log(`Using ${resolved.displayName} as the coding agent`)
+  return {copyOnly: false, driver: resolved, installSkill: false}
+}
+
+/**
+ * Pick the coding agent: --driver wins, a single detected agent is used
+ * as-is, several detected agents become an interactive choice (first =
+ * default; headless runs also take the first).
+ */
+async function resolveDriver(command: Command, interactive: boolean, driverFlag?: string): Promise<DriverResolution> {
   const drivers = await detectDrivers()
 
   if (driverFlag) {
@@ -181,13 +212,7 @@ async function resolveDriver(
     return driver
   }
 
-  if (drivers.length === 0) {
-    const longestName = Math.max(...DRIVERS.map((d) => d.displayName.length))
-    command.log(`\nNo coding agent found (looked for ${DRIVERS.map((d) => d.displayName).join(', ')}).`)
-    command.log(`Install one and re-run, or use \`adapty ${commandName} --copy\` to get a prompt for any agent:`)
-    for (const d of DRIVERS) command.log(`  ${`${d.displayName}:`.padEnd(longestName + 1)} ${d.installHint}`)
-    return null
-  }
+  if (drivers.length === 0) return 'none-installed'
 
   if (drivers.length === 1 || !interactive) return drivers[0]
 
@@ -203,6 +228,59 @@ async function resolveDriver(
 
   // choice comes from options built from this same drivers list, so the lookup always succeeds.
   return drivers.find((d) => d.id === choice)!
+}
+
+function logInstallHints(command: Command): void {
+  const longestName = Math.max(...DRIVERS.map((d) => d.displayName.length))
+  command.log('\nTo have the CLI do the work itself, install one of these and re-run:')
+  for (const d of DRIVERS) command.log(`  ${`${d.displayName}:`.padEnd(longestName + 1)} ${d.installHint}`)
+}
+
+/**
+ * No agent on PATH is not a dead end. Most people run their agent inside an
+ * editor (Cursor, Copilot in VS Code, Windsurf, ...), where this CLI cannot
+ * invoke it - but the two things that actually help still work: the prompt on
+ * their clipboard, and the Adapty skill installed into whatever agent they do
+ * use. Returns null when the user declines or cancels (already logged).
+ */
+async function offerAgentlessPath(
+  command: Command,
+  commandName: string,
+  interactive: boolean,
+): Promise<null | {installSkill: boolean}> {
+  command.log(`\nNo coding agent found in your terminal (looked for ${DRIVERS.map((d) => d.displayName).join(', ')}).`)
+
+  // Headless: nobody is here to take a clipboard or answer a question.
+  if (!interactive) {
+    command.log(`Run \`adapty ${commandName} --copy\` to get a prompt for any agent.`)
+    logInstallHints(command)
+    return null
+  }
+
+  command.log('If you use an agent inside your editor, this CLI still has two things for you.')
+
+  const wantsPrompt = await confirm(`Put the ${commandName} prompt on your clipboard, ready to paste into it?`)
+  if (wantsPrompt === null) {
+    command.log('Cancelled.')
+    return null
+  }
+
+  if (!wantsPrompt) {
+    logInstallHints(command)
+    return null
+  }
+
+  const wantsSkill = await confirm(
+    'Also install the Adapty skill into your agent, so it knows Adapty in every future session?',
+  )
+  if (wantsSkill === null) {
+    command.log('Cancelled.')
+    return null
+  }
+
+  // The rest of the wizard still runs: the prompt is only worth pasting with
+  // the app ID and SDK key already in it.
+  return {installSkill: wantsSkill}
 }
 
 async function createApp(

@@ -22,12 +22,37 @@ export interface RunActionResult {
   ok: boolean
 }
 
-/** The --copy exit shared by every agent-driven command: put the prompt on the clipboard (or print it). */
-export async function emitCopyPrompt(command: Command, action: AgentAction, ctx: PromptContext): Promise<void> {
+/** Leave the skill installed in the user's agents so future sessions know Adapty. */
+async function installSkill(): Promise<void> {
+  const spin = spinner()
+  spin.start('Installing the Adapty skill into your coding agent')
+  const installed = await installAgentSkills()
+  spin.stop(
+    installed
+      ? 'Adapty skill installed - your agent can now handle Adapty tasks in any session.'
+      : 'Skill install skipped - run `npx skills add adaptyteam/adapty-sdk-integration-skill` to add it manually.',
+  )
+}
+
+/**
+ * The copy-only exit shared by every agent-driven command: put the prompt on
+ * the clipboard (or print it). `installSkill` comes from the no-agent path,
+ * where the user asked for the skill in the agent they actually use.
+ */
+export async function emitCopyPrompt(
+  command: Command,
+  action: AgentAction,
+  ctx: PromptContext,
+  opts: {installSkill?: boolean} = {},
+): Promise<void> {
   const prompt = buildCopyPrompt(action, ctx)
   const copied = await copyToClipboard(prompt)
   if (copied) command.log(`\n${capitalize(action.title)} prompt copied to clipboard - paste it into any coding agent.`)
   else command.log(`\n${prompt}\n\n(Copy the prompt above into any coding agent.)`)
+
+  // After the prompt, never before: the install can take a minute, and the
+  // clipboard is what the user is waiting for.
+  if (opts.installSkill) await installSkill()
 }
 
 /** The failure exit shared by every agent-driven command; never returns. */
@@ -116,15 +141,7 @@ export async function runActionWithFollowUp(
 
   await track(rating)
 
-  // Leave the skill installed in the user's agents so future sessions know Adapty.
-  const skillSpin = spinner()
-  skillSpin.start('Installing the Adapty skill into your coding agent')
-  const installed = await installAgentSkills()
-  skillSpin.stop(
-    installed
-      ? 'Adapty skill installed - your agent can now handle Adapty tasks in any session.'
-      : 'Skill install skipped - run `npx skills add adaptyteam/adapty-sdk-integration-skill` to add it manually.',
-  )
+  await installSkill()
 
   command.log(`\nDone. Review the changes with \`git diff\`, then finish up in the dashboard: ${DASHBOARD_URL}`)
   if (existsSync(join(ctx.project.path, 'ADAPTY_SETUP.md'))) {
