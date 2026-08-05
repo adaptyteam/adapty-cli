@@ -1,6 +1,7 @@
 import {expect} from 'chai'
 import {join} from 'node:path'
 
+import {integrateAction} from '../../../src/lib/agent/actions/integrate.js'
 import {buildMigrateAction} from '../../../src/lib/agent/actions/migrate.js'
 import {
   type AgentAction,
@@ -114,6 +115,26 @@ describe('agent prompts', () => {
     it('uses the entry script as-is otherwise', () => {
       process.argv[1] = join('checkout', 'bin', 'run.js')
       expect(resolveCliCommand()).to.equal(`node "${join('checkout', 'bin', 'run.js')}"`)
+    })
+  })
+
+  describe('integrate action', () => {
+    // Asserted on the task body, not the whole prompt: the shared rules block
+    // legitimately names the products -> paywalls -> placements sequence.
+    it('creates nothing on the Flow Builder path - a paywall placement would burn the flow ID', () => {
+      const task = integrateAction.task(ctx({paywallApproach: 'flow_builder'}))
+      // The command names still appear - as the things NOT to run. What must
+      // never appear is a runnable invocation of either.
+      expect(task).to.not.include('placements create --app')
+      expect(task).to.not.include('paywalls create --app')
+      expect(task).to.include('Create NOTHING here, not even the placement')
+      expect(task).to.include('FLOW placement')
+    })
+
+    it('still creates paywall and placement when the user builds the paywall themselves', () => {
+      const task = integrateAction.task(ctx({paywallApproach: 'custom'}))
+      expect(task).to.include('paywalls create --app')
+      expect(task).to.include('placements create --app')
     })
   })
 
