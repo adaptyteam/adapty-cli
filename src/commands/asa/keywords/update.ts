@@ -49,7 +49,7 @@ export default class AsaKeywordsUpdate extends Command {
       this.error('--text would give every keyword the same text. Update them one at a time.', {exit: 2})
     }
 
-    const body = {keywords: keywordIds.map((id) => ({id, ...change}))}
+    const body = {keywords: keywordIds.map((id) => ({internal_id: id, ...change}))}
     await confirmMutation(
       this,
       {body, method: 'PUT', path: '/keywords/', summary: `Update ${keywordIds.length} keyword(s)`},

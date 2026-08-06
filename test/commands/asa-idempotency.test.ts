@@ -12,8 +12,8 @@ import {
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const CAMPAIGN_OK = {campaign: {campaign_id: 777, id: TEST_RESOURCE_ID, name: 'x', status: 'PAUSED'}, errors: []}
-const KEYWORDS_OK = {errors: [], is_validation_failure: false, keywords: [{id: TEST_RESOURCE_ID, text: 'shoes'}]}
+const CAMPAIGN_OK = {campaign: {campaign_id: 777, internal_id: TEST_RESOURCE_ID, name: 'x', status: 'PAUSED'}, errors: []}
+const KEYWORDS_OK = {errors: [], is_validation_failure: false, keywords: [{internal_id: TEST_RESOURCE_ID, text: 'shoes'}]}
 const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/
 
 function keyOf(stub: sinon.SinonStub, callIndex: number): string | undefined {

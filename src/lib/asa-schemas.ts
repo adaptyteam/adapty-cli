@@ -55,14 +55,14 @@ export interface AsaAppDTO {
   campaign_group_ids: string[]
   country_or_region_codes: string[]
   developer_name: null | string
-  id: string
+  internal_id: string
   last_synced_at: string
   name: string
 }
 
 export interface AsaCampaignGroupDTO {
   currency: string
-  id: string
+  internal_id: string
   last_synced_at: string
   org_id: number
   org_name: string
@@ -82,7 +82,7 @@ export interface AsaCampaignDTO {
   countries_or_regions: string[]
   daily_budget_amount: AsaMoney | null
   end_time: null | string
-  id: string
+  internal_id: string
   name: string
   org_id: number
   start_time: null | string
@@ -101,7 +101,7 @@ export interface AsaAdGroupDTO {
   cpa_goal: AsaMoney | null
   default_bid_amount: AsaMoney
   end_time: null | string
-  id: string
+  internal_id: string
   name: string
   payment_model: null | string
   pricing_model: null | string
@@ -117,7 +117,7 @@ export interface AsaKeywordDTO {
   campaign_group_id: string
   campaign_id: string
   creation_time: null | string
-  id: string
+  internal_id: string
   keyword_id: number
   match_type: AsaKeywordMatchType
   status: AsaKeywordStatus | null
@@ -144,7 +144,7 @@ export interface AsaNegativeKeywordDTO {
   ad_group_name: null | string
   campaign_id: string
   campaign_name: null | string
-  id: string
+  internal_id: string
   last_synced_at: string
   match_type: AsaKeywordMatchType
   status: AsaKeywordStatus
@@ -156,7 +156,7 @@ export interface AsaCreativeDTO {
   app_id: string
   campaign_group_id: string
   creative_id: number
-  id: string
+  internal_id: string
   name: string
   org_id: number
   product_page_id: null | string
@@ -170,7 +170,7 @@ export interface AsaProductPageDTO {
   app_id: string
   deep_link: null | string
   external_id: number
-  id: string
+  internal_id: string
   language_codes: string[]
   languages: string[]
   last_synced_at: string
@@ -188,7 +188,7 @@ export interface AsaAdDTO {
   creation_time: null | string
   creative_id: null | string
   creative_type: string
-  id: string
+  internal_id: string
   last_synced_at: string
   name: string
   product_page_id: null | string
@@ -253,7 +253,7 @@ export interface AsaCampaignMutationDTO {
 export interface AsaCampaignMutationEntity {
   campaign_group_id: string
   campaign_id: number
-  id: string
+  internal_id: string
   name: string
   status: AsaStatus
 }

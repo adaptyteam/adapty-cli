@@ -91,7 +91,7 @@ describe('asa reads', () => {
   })
 
   it('campaigns get asks for one campaign', async () => {
-    fetchStub = mockFetch([{id: TEST_RESOURCE_ID, name: 'Winter push'}])
+    fetchStub = mockFetch([{internal_id: TEST_RESOURCE_ID, name: 'Winter push'}])
     await runCommand(`asa campaigns get ${TEST_RESOURCE_ID}`)
     assertFetch({base: ASA_API_BASE, callIndex: 0, method: 'GET', path: `/campaigns/${TEST_RESOURCE_ID}/`, stub: fetchStub})
   })
@@ -104,7 +104,7 @@ describe('asa reads', () => {
   })
 
   it('ad-groups list and get hit their paths', async () => {
-    fetchStub = mockFetch([EMPTY_LIST_RESPONSE, {id: TEST_RESOURCE_ID}])
+    fetchStub = mockFetch([EMPTY_LIST_RESPONSE, {internal_id: TEST_RESOURCE_ID}])
     await runCommand('asa ad-groups list')
     await runCommand(`asa ad-groups get ${TEST_RESOURCE_ID}`)
     assertFetch({base: ASA_API_BASE, callIndex: 0, method: 'GET', path: '/ad-groups/', stub: fetchStub})
@@ -124,7 +124,7 @@ describe('asa reads', () => {
   it('ads list surfaces why an ad is not serving', async () => {
     fetchStub = mockFetch([
       {
-        data: [{id: TEST_RESOURCE_ID, name: 'Summer ad', serving_state_reasons: ['CREATIVE_PENDING_REVIEW'], serving_status: 'NOT_RUNNING'}],
+        data: [{internal_id: TEST_RESOURCE_ID, name: 'Summer ad', serving_state_reasons: ['CREATIVE_PENDING_REVIEW'], serving_status: 'NOT_RUNNING'}],
         meta: {pagination: {count: 1, page: 1, pages: 1}},
       },
     ])
@@ -134,7 +134,7 @@ describe('asa reads', () => {
   })
 
   it('ads get, product-pages and creatives lists hit their paths', async () => {
-    fetchStub = mockFetch([{id: TEST_RESOURCE_ID}, EMPTY_LIST_RESPONSE, EMPTY_LIST_RESPONSE])
+    fetchStub = mockFetch([{internal_id: TEST_RESOURCE_ID}, EMPTY_LIST_RESPONSE, EMPTY_LIST_RESPONSE])
     await runCommand(`asa ads get ${TEST_RESOURCE_ID}`)
     await runCommand('asa product-pages list')
     await runCommand('asa creatives list')

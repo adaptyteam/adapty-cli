@@ -15,11 +15,11 @@ import {
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const CAMPAIGN_OK = {campaign: {campaign_id: 777, id: TEST_RESOURCE_ID, name: 'Winter push', status: 'ENABLED'}, errors: []}
-const AD_GROUP_OK = {ad_group: {id: TEST_RESOURCE_ID, name: 'Brand terms'}, errors: []}
-const AD_OK = {ad: {id: TEST_RESOURCE_ID, name: 'Summer ad'}, errors: []}
-const KEYWORDS_OK = {errors: [], is_validation_failure: false, keywords: [{id: TEST_RESOURCE_ID, text: 'running shoes'}]}
-const NEGATIVES_OK = {errors: [], is_validation_failure: false, negative_keywords: [{id: TEST_RESOURCE_ID, text: 'free'}]}
+const CAMPAIGN_OK = {campaign: {campaign_id: 777, internal_id: TEST_RESOURCE_ID, name: 'Winter push', status: 'ENABLED'}, errors: []}
+const AD_GROUP_OK = {ad_group: {internal_id: TEST_RESOURCE_ID, name: 'Brand terms'}, errors: []}
+const AD_OK = {ad: {internal_id: TEST_RESOURCE_ID, name: 'Summer ad'}, errors: []}
+const KEYWORDS_OK = {errors: [], is_validation_failure: false, keywords: [{internal_id: TEST_RESOURCE_ID, text: 'running shoes'}]}
+const NEGATIVES_OK = {errors: [], is_validation_failure: false, negative_keywords: [{internal_id: TEST_RESOURCE_ID, text: 'free'}]}
 
 describe('asa writes', () => {
   let fetchStub: sinon.SinonStub
@@ -196,7 +196,7 @@ describe('asa writes', () => {
       {
         errors: [{apple_error_message: 'Duplicate keyword', input_ref: 1}],
         is_validation_failure: false,
-        keywords: [{id: TEST_RESOURCE_ID}],
+        keywords: [{internal_id: TEST_RESOURCE_ID}],
       },
     ])
     const {stdout} = await runCommand(`asa keywords add --yes --ad-group ${TEST_RESOURCE_ID} --text a --text b`)
@@ -209,8 +209,8 @@ describe('asa writes', () => {
     await runCommand(`asa keywords update --yes ${TEST_RESOURCE_ID} ${TEST_APP_ID} --status PAUSED`)
     const body = JSON.parse(fetchStub.getCall(0).args[1].body as string)
     expect(body.keywords).to.deep.equal([
-      {id: TEST_RESOURCE_ID, status: 'PAUSED'},
-      {id: TEST_APP_ID, status: 'PAUSED'},
+      {internal_id: TEST_RESOURCE_ID, status: 'PAUSED'},
+      {internal_id: TEST_APP_ID, status: 'PAUSED'},
     ])
     assertFetch({base: ASA_API_BASE, callIndex: 0, method: 'PUT', path: '/keywords/', stub: fetchStub})
   })
