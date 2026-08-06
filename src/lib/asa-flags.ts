@@ -135,6 +135,13 @@ export const currencyFlag = {
   currency: Flags.string({default: 'USD', description: 'Currency code for the amounts in this call'}),
 }
 
+export const idempotencyFlags = {
+  'idempotency-key': Flags.string({
+    description:
+      'Idempotency key for this write; re-running with the same key replays the stored result instead of applying twice',
+  }),
+}
+
 export function money(amount: string | undefined, currency: string): AsaMoney | undefined {
   return amount === undefined ? undefined : {amount, currency}
 }

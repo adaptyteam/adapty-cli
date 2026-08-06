@@ -3,9 +3,9 @@ import {readFile} from 'node:fs/promises'
 
 import type {AsaKeywordMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {currencyFlag, MAX_BULK_ITEMS, money, moneyFlag, reportBulkOutcome} from '../../../lib/asa-flags.js'
+import {currencyFlag, idempotencyFlags, MAX_BULK_ITEMS, money, moneyFlag, reportBulkOutcome} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 
 export default class AsaKeywordsAdd extends Command {
@@ -18,6 +18,7 @@ export default class AsaKeywordsAdd extends Command {
   static flags = {
     ...currencyFlag,
     ...confirmFlags,
+    ...idempotencyFlags,
     'ad-group': Flags.string({description: 'Ad group ID (UUID) — the campaign is resolved from it', required: true}),
     bid: moneyFlag('Bid per keyword'),
     'from-file': Flags.string({description: 'File with one keyword per line, combined with any --text values'}),
@@ -52,8 +53,12 @@ export default class AsaKeywordsAdd extends Command {
     )
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<AsaKeywordMutationDTO>('/keywords', body)
+    const {replayed, result} = await asaWrite<AsaKeywordMutationDTO>(client, 'post', '/keywords', {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
+    noteReplay(replayed, this.log.bind(this))
     reportBulkOutcome(
       {
         applied: result.keywords,

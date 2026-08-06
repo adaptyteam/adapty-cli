@@ -2,8 +2,9 @@ import {Command, Flags} from '@oclif/core'
 
 import type {AsaAdMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
+import {idempotencyFlags} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -13,6 +14,7 @@ export default class AsaAdsCreate extends Command {
   static examples = ['<%= config.bin %> asa ads create --ad-group UUID --creative-id 4321 --name "Summer ad"']
   static flags = {
     ...confirmFlags,
+    ...idempotencyFlags,
     'ad-group': Flags.string({description: 'Ad group ID (UUID) — the campaign is resolved from it', required: true}),
     'creative-id': Flags.integer({description: 'Apple creative ID from a product page or the default set', required: true}),
     name: Flags.string({description: 'Ad name', required: true}),
@@ -32,9 +34,13 @@ export default class AsaAdsCreate extends Command {
     await confirmMutation(this, {body, method: 'POST', path: '/ads/', summary: `Create ad ${flags.name}`}, flags.yes)
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<AsaAdMutationDTO>('/ads', body)
+    const {replayed, result} = await asaWrite<AsaAdMutationDTO>(client, 'post', '/ads', {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
-    if (result.ad) this.log('Ad created!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.ad && !replayed) this.log('Ad created!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

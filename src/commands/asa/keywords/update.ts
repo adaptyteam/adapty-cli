@@ -2,9 +2,9 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import type {AsaKeywordMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {currencyFlag, money, moneyFlag, reportBulkOutcome} from '../../../lib/asa-flags.js'
+import {currencyFlag, idempotencyFlags, money, moneyFlag, reportBulkOutcome} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 
 export default class AsaKeywordsUpdate extends Command {
@@ -20,6 +20,7 @@ export default class AsaKeywordsUpdate extends Command {
   static flags = {
     ...currencyFlag,
     ...confirmFlags,
+    ...idempotencyFlags,
     bid: moneyFlag('Bid'),
     'match-type': Flags.string({description: 'Match type', options: ['BROAD', 'EXACT']}),
     status: Flags.string({description: 'Keyword status', options: ['ACTIVE', 'PAUSED']}),
@@ -56,8 +57,12 @@ export default class AsaKeywordsUpdate extends Command {
     )
 
     const client = await createAsaClient(this.config)
-    const result = await client.put<AsaKeywordMutationDTO>('/keywords', body)
+    const {replayed, result} = await asaWrite<AsaKeywordMutationDTO>(client, 'put', '/keywords', {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
+    noteReplay(replayed, this.log.bind(this))
     reportBulkOutcome(
       {
         applied: result.keywords,

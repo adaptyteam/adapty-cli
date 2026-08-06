@@ -83,7 +83,6 @@ export interface AsaCampaignDTO {
   daily_budget_amount: AsaMoney | null
   end_time: null | string
   id: string
-  metrics: AsaMetricsDTO
   name: string
   org_id: number
   start_time: null | string
@@ -103,7 +102,6 @@ export interface AsaAdGroupDTO {
   default_bid_amount: AsaMoney
   end_time: null | string
   id: string
-  metrics: AsaMetricsDTO
   name: string
   payment_model: null | string
   pricing_model: null | string
@@ -122,7 +120,6 @@ export interface AsaKeywordDTO {
   id: string
   keyword_id: number
   match_type: AsaKeywordMatchType
-  metrics: AsaMetricsDTO
   status: AsaKeywordStatus | null
   text: string
 }

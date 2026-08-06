@@ -2,8 +2,9 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import type {AsaAutomationRunEnqueuedDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
+import {idempotencyFlags} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 
 export default class AsaAutomationsRun extends Command {
@@ -18,6 +19,7 @@ export default class AsaAutomationsRun extends Command {
   ]
   static flags = {
     ...confirmFlags,
+    ...idempotencyFlags,
     'dry-run': Flags.boolean({description: 'Evaluate and log the rule without touching Apple'}),
   }
 
@@ -38,13 +40,15 @@ export default class AsaAutomationsRun extends Command {
     }
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<AsaAutomationRunEnqueuedDTO>(
+    const {replayed, result} = await asaWrite<AsaAutomationRunEnqueuedDTO>(
+      client,
+      'post',
       `/automations/${args.automation_id}/run`,
-      undefined,
-      flags['dry-run'] ? {dry_run: 'true'} : undefined,
+      {idempotencyKey: flags['idempotency-key'], params: flags['dry-run'] ? {dry_run: 'true'} : undefined},
     )
 
-    this.log(flags['dry-run'] ? 'Dry run queued.' : 'Run queued.')
+    noteReplay(replayed, this.log.bind(this))
+    if (!replayed) this.log(flags['dry-run'] ? 'Dry run queued.' : 'Run queued.')
     this.log(`Run ID: ${result.run_id ?? 'unknown'}`)
     this.log(`Follow it with: ${this.config.bin} asa automations runs ${args.automation_id}`)
 

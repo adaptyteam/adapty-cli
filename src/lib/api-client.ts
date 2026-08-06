@@ -8,6 +8,11 @@ function ensureTrailingSlash(path: string): string {
 
 export type QueryParams = Record<string, string | string[] | undefined>
 
+export interface RequestOptions {
+  headers?: Record<string, string>
+  onResponse?: (headers: Headers) => void
+}
+
 export interface ApiClientOptions {
   baseUrl?: string
   defaultBaseUrl?: string
@@ -40,18 +45,26 @@ export class ApiClient {
     return this.request<T>(this.buildUrl(path, params), {method: 'GET'})
   }
 
-  async post<T = unknown>(path: string, body?: unknown, params?: QueryParams): Promise<T> {
-    return this.request<T>(this.buildUrl(path, params), {
-      body: body ? JSON.stringify(body) : undefined,
-      method: 'POST',
-    })
+  async post<T = unknown>(path: string, body?: unknown, params?: QueryParams, opts?: RequestOptions): Promise<T> {
+    return this.request<T>(
+      this.buildUrl(path, params),
+      {
+        body: body ? JSON.stringify(body) : undefined,
+        method: 'POST',
+      },
+      opts,
+    )
   }
 
-  async put<T = unknown>(path: string, body?: unknown, params?: QueryParams): Promise<T> {
-    return this.request<T>(this.buildUrl(path, params), {
-      body: body ? JSON.stringify(body) : undefined,
-      method: 'PUT',
-    })
+  async put<T = unknown>(path: string, body?: unknown, params?: QueryParams, opts?: RequestOptions): Promise<T> {
+    return this.request<T>(
+      this.buildUrl(path, params),
+      {
+        body: body ? JSON.stringify(body) : undefined,
+        method: 'PUT',
+      },
+      opts,
+    )
   }
 
   private buildUrl(path: string, params?: QueryParams): string {
@@ -68,7 +81,7 @@ export class ApiClient {
   }
 
   // eslint-disable-next-line no-undef
-  private async request<T>(url: string, init: RequestInit): Promise<T> {
+  private async request<T>(url: string, init: RequestInit, opts: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = {
       'User-Agent': this.userAgent,
     }
@@ -81,12 +94,16 @@ export class ApiClient {
       headers.Authorization = `Bearer ${this.token}`
     }
 
+    Object.assign(headers, opts.headers)
+
     let response: Response
     try {
       response = await fetch(url, {...init, headers})
     } catch (error) {
       throw new NetworkError(error instanceof Error ? error.message : 'Connection failed')
     }
+
+    opts.onResponse?.(response.headers)
 
     if (response.status === 204) {
       return undefined as T

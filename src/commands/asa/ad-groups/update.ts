@@ -2,9 +2,9 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import type {AsaAdGroupMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {currencyFlag, money, moneyFlag, scheduleFlags, startOfDayUtc} from '../../../lib/asa-flags.js'
+import {currencyFlag, idempotencyFlags, money, moneyFlag, scheduleFlags, startOfDayUtc} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -22,6 +22,7 @@ export default class AsaAdGroupsUpdate extends Command {
     ...currencyFlag,
     ...scheduleFlags,
     ...confirmFlags,
+    ...idempotencyFlags,
     'automated-keywords': Flags.boolean({allowNo: true, description: 'Let Apple add keywords automatically'}),
     'cpa-goal': moneyFlag('CPA goal'),
     'default-bid': moneyFlag('Default bid'),
@@ -53,9 +54,13 @@ export default class AsaAdGroupsUpdate extends Command {
     )
 
     const client = await createAsaClient(this.config)
-    const result = await client.put<AsaAdGroupMutationDTO>(`/ad-groups/${args.ad_group_id}`, body)
+    const {replayed, result} = await asaWrite<AsaAdGroupMutationDTO>(client, 'put', `/ad-groups/${args.ad_group_id}`, {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
-    if (result.ad_group) this.log('Ad group updated!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.ad_group && !replayed) this.log('Ad group updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

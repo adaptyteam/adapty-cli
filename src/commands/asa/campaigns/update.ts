@@ -2,9 +2,9 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import type {AsaCampaignMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {currencyFlag, money, moneyFlag} from '../../../lib/asa-flags.js'
+import {currencyFlag, idempotencyFlags, money, moneyFlag} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -21,6 +21,7 @@ export default class AsaCampaignsUpdate extends Command {
   static flags = {
     ...currencyFlag,
     ...confirmFlags,
+    ...idempotencyFlags,
     'bidding-strategy': Flags.string({
       description: 'Bidding strategy',
       options: ['MANUAL_CPT', 'MAX_CONVERSIONS'],
@@ -57,9 +58,13 @@ export default class AsaCampaignsUpdate extends Command {
     )
 
     const client = await createAsaClient(this.config)
-    const result = await client.put<AsaCampaignMutationDTO>(`/campaigns/${args.campaign_id}`, body)
+    const {replayed, result} = await asaWrite<AsaCampaignMutationDTO>(client, 'put', `/campaigns/${args.campaign_id}`, {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
-    if (result.campaign) this.log('Campaign updated!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.campaign && !replayed) this.log('Campaign updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

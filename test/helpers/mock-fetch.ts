@@ -44,16 +44,26 @@ interface AssertFetchOpts {
   base?: string
   body?: Record<string, unknown>
   callIndex: number
+  headers?: Record<string, string>
   method: string
   path: string
   query?: Record<string, string>
   stub: sinon.SinonStub
 }
 
-export function assertFetch({base = API_BASE, body, callIndex, method, path, query, stub}: AssertFetchOpts): void {
+export function assertFetch({base = API_BASE, body, callIndex, headers, method, path, query, stub}: AssertFetchOpts): void {
   const call = stub.getCall(callIndex)
   const url = call.args[0] as string
-  const init = call.args[1] as {body?: string; method: string}
+  const init = call.args[1] as {body?: string; headers?: Record<string, string>; method: string}
+
+  if (headers) {
+    const actual = init.headers ?? {}
+    for (const [key, value] of Object.entries(headers)) {
+      if (actual[key] !== value) {
+        throw new Error(`Header "${key}": expected "${value}", got "${actual[key]}"`)
+      }
+    }
+  }
 
   if (!url.startsWith(base)) {
     throw new Error(`Expected base "${base}", got "${url}"`)

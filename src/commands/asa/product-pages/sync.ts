@@ -2,7 +2,7 @@ import {Command, Flags} from '@oclif/core'
 
 import type {AsaProductPageSyncDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
 import {printResponse} from '../../../lib/output.js'
 
 export default class AsaProductPagesSync extends Command {
@@ -17,8 +17,8 @@ export default class AsaProductPagesSync extends Command {
     const {flags} = await this.parse(AsaProductPagesSync)
     const client = await createAsaClient(this.config)
 
-    const result = await client.post<AsaProductPageSyncDTO>('/product-pages/sync', {
-      ...(flags['adam-id'] === undefined ? {} : {adam_id: flags['adam-id']}),
+    const {result} = await asaWrite<AsaProductPageSyncDTO>(client, 'post', '/product-pages/sync', {
+      body: {...(flags['adam-id'] === undefined ? {} : {adam_id: flags['adam-id']})},
     })
 
     this.log(result.replayed ? 'Already running; nothing new was queued.' : 'Sync queued.')

@@ -61,6 +61,8 @@ src/
 - `createAuthenticatedClient(config)` — factory for token-aware ApiClient
 - `createAsaClient(config)` — same, against the ASA service; asa writes print the request body and ask for
   confirmation before sending (`asa-confirm.ts`)
+- All asa POST/PUT go through `asaWrite()` (`asa-client.ts`): auto `Idempotency-Key` (pin with
+  `--idempotency-key`), one retry on NetworkError with the same key, replayed responses get a printed note
 - `PaginatedResponse<T>` — standard list response wrapper
 - Human output via `printResponse()`/`printList()` (auto-formats snake_case → labels); JSON output via oclif flag
 - All entities use `title` field (not `name`) in API requests and responses

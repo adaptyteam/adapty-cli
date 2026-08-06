@@ -2,8 +2,9 @@ import {Args, Command, Flags} from '@oclif/core'
 
 import type {AsaAdMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
+import {idempotencyFlags} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -16,6 +17,7 @@ export default class AsaAdsUpdate extends Command {
   static examples = ['<%= config.bin %> asa ads update UUID --status PAUSED']
   static flags = {
     ...confirmFlags,
+    ...idempotencyFlags,
     name: Flags.string({description: 'Ad name'}),
     status: Flags.string({description: 'Ad status', options: ['ENABLED', 'PAUSED']}),
   }
@@ -35,9 +37,13 @@ export default class AsaAdsUpdate extends Command {
     await confirmMutation(this, {body, method: 'PUT', path: `/ads/${args.ad_id}/`, summary: 'Update ad'}, flags.yes)
 
     const client = await createAsaClient(this.config)
-    const result = await client.put<AsaAdMutationDTO>(`/ads/${args.ad_id}`, body)
+    const {replayed, result} = await asaWrite<AsaAdMutationDTO>(client, 'put', `/ads/${args.ad_id}`, {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
-    if (result.ad) this.log('Ad updated!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.ad && !replayed) this.log('Ad updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

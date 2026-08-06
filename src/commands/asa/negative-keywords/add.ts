@@ -2,9 +2,9 @@ import {Command, Flags} from '@oclif/core'
 
 import type {AsaNegativeKeywordMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {MAX_BULK_ITEMS, reportBulkOutcome} from '../../../lib/asa-flags.js'
+import {idempotencyFlags, MAX_BULK_ITEMS, reportBulkOutcome} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 
 export default class AsaNegativeKeywordsAdd extends Command {
@@ -17,6 +17,7 @@ export default class AsaNegativeKeywordsAdd extends Command {
   ]
   static flags = {
     ...confirmFlags,
+    ...idempotencyFlags,
     'ad-group': Flags.string({description: 'Ad group ID (UUID) — the campaign is resolved from it', exclusive: ['campaign']}),
     'all-ad-groups': Flags.boolean({
       dependsOn: ['campaign'],
@@ -64,8 +65,12 @@ export default class AsaNegativeKeywordsAdd extends Command {
     )
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<AsaNegativeKeywordMutationDTO>('/negative-keywords', body)
+    const {replayed, result} = await asaWrite<AsaNegativeKeywordMutationDTO>(client, 'post', '/negative-keywords', {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
+    noteReplay(replayed, this.log.bind(this))
     reportBulkOutcome(
       {
         applied: result.negative_keywords,

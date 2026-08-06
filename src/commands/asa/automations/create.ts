@@ -3,8 +3,9 @@ import {readFile} from 'node:fs/promises'
 
 import type {AsaAutomationMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
+import {idempotencyFlags} from '../../../lib/asa-flags.js'
 import {printResponse} from '../../../lib/output.js'
 
 export default class AsaAutomationsCreate extends Command {
@@ -16,6 +17,7 @@ export default class AsaAutomationsCreate extends Command {
   ]
   static flags = {
     ...confirmFlags,
+    ...idempotencyFlags,
     file: Flags.string({description: 'JSON file with the rule body, or - to read stdin', required: true}),
     'run-now': Flags.boolean({description: 'Queue the first run right after the rule is stored'}),
   }
@@ -30,9 +32,16 @@ export default class AsaAutomationsCreate extends Command {
     await confirmMutation(this, {body, method: 'POST', path: '/automations/', summary}, flags.yes)
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<AsaAutomationMutationDTO>('/automations', body)
+    const {replayed, result} = await asaWrite<AsaAutomationMutationDTO>(client, 'post', '/automations', {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
-    if (result.automation) this.log(flags['run-now'] ? 'Automation created and the first run queued!' : 'Automation created!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.automation && !replayed) {
+      this.log(flags['run-now'] ? 'Automation created and the first run queued!' : 'Automation created!')
+    }
+
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

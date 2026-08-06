@@ -1,6 +1,6 @@
 import {Command, Flags} from '@oclif/core'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
 import {ASA_METRIC_ENTITIES, byDaysFlag, MAX_BY_DAYS} from '../../../lib/asa-flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -31,13 +31,15 @@ export default class AsaMetricsOverview extends Command {
     }
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<Record<string, unknown>>('/metrics/overview', {
-      date_from: flags['date-from'],
-      date_to: flags['date-to'],
-      entity: flags.entity,
-      period_unit: flags['period-unit'],
-      ...(flags.metric === undefined ? {} : {metrics: flags.metric}),
-      ...(flags['by-days'] === undefined ? {} : {by_days: flags['by-days']}),
+    const {result} = await asaWrite<Record<string, unknown>>(client, 'post', '/metrics/overview', {
+      body: {
+        date_from: flags['date-from'],
+        date_to: flags['date-to'],
+        entity: flags.entity,
+        period_unit: flags['period-unit'],
+        ...(flags.metric === undefined ? {} : {metrics: flags.metric}),
+        ...(flags['by-days'] === undefined ? {} : {by_days: flags['by-days']}),
+      },
     })
 
     printResponse(result, this.log.bind(this))

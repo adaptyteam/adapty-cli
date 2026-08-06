@@ -106,14 +106,14 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa connect`                        | prints the Apple authorization link and waits; `--no-wait` returns at once  |
 | `asa apps list`                      | (pagination only)                                                           |
 | `asa orgs list`                      | ASA organizations; their ID is the `--org` of `campaigns create`            |
-| `asa campaigns list`                 | `--date-from` / `--date-to` optional (default today); filters below         |
+| `asa campaigns list`                 | metadata only, no metrics; filters below                                    |
 | `asa campaigns get <campaign_id>`    | positional UUID                                                             |
 | `asa campaigns create`               | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--target-cpa`, `--bidding-strategy` |
 | `asa campaigns update <campaign_id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--budget`, `--target-cpa`, `--bidding-strategy` |
-| `asa ad-groups list` / `get <id>`    | same period flags as campaigns                                              |
+| `asa ad-groups list` / `get <id>`    | metadata only, like campaigns; numbers come from `asa metrics`              |
 | `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today) |
 | `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
-| `asa keywords list`                  | period flags; **filter by `--ad-group`** — unfiltered it costs one query per keyword |
+| `asa keywords list`                  | metadata only; **filter by `--ad-group`** — unfiltered it pages the whole account |
 | `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |
 | `asa keywords update <id> [<id>...]` | one change applied to every id; `--text` only for a single keyword           |
 | `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows                              |
@@ -151,10 +151,19 @@ Before running any of these:
 
 - **Writes reach Apple directly** and take seconds. Each writing command prints the body it will send and asks
   for confirmation; `--yes` skips the question, and in a pipe or under `--json` the command refuses rather than
-  hanging. There is no server-side preview and no idempotency key — repeating `create` creates a second entity.
+  hanging. There is no server-side preview, but every write sends an `Idempotency-Key` header — auto-generated
+  per invocation, or pinned with `--idempotency-key <key>` on any mutating command. A repeat with the same key
+  and body within 24 hours replays the stored result (the CLI prints "Already applied earlier") instead of
+  creating a second entity; the same key with a different body fails with `422 cli_idempotency_key_reuse`, and
+  a concurrent duplicate with `409 cli_idempotency_in_progress`. One network error is retried automatically
+  with the same key.
 - **Keyword and negative-keyword calls are batches.** One bad ID fails the whole batch before Apple is
   called; Apple may still reject individual items, and each rejection comes back with its reason.
-- **Metrics and automation runs are rate limited per company**, and a throttled call reports the wait.
+- **Analytics shares one pool per company**: metrics plus the search-terms list run at most two concurrent
+  queries — a busy pool answers `429 cli_analytics_busy` with the wait in `Retry-After`.
+  A burst of 429s (20 within 5 minutes) puts the token into a cool-down (`429 cli_cooldown_active`, escalating
+  5m → 30m → 3h); retrying during the pause does not extend it, but the cure is fixing the request, not
+  hammering.
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 

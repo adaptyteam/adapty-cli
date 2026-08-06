@@ -3,8 +3,9 @@ import {readFile} from 'node:fs/promises'
 
 import type {AsaAutomationMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
+import {idempotencyFlags} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -20,6 +21,7 @@ export default class AsaAutomationsUpdate extends Command {
   ]
   static flags = {
     ...confirmFlags,
+    ...idempotencyFlags,
     file: Flags.string({description: 'JSON file with the parts to change, or - to read stdin'}),
     name: Flags.string({description: 'Rule name'}),
     start: Flags.boolean({description: 'Activate the rule', exclusive: ['stop']}),
@@ -50,9 +52,15 @@ export default class AsaAutomationsUpdate extends Command {
     )
 
     const client = await createAsaClient(this.config)
-    const result = await client.put<AsaAutomationMutationDTO>(`/automations/${args.automation_id}`, body)
+    const {replayed, result} = await asaWrite<AsaAutomationMutationDTO>(
+      client,
+      'put',
+      `/automations/${args.automation_id}`,
+      {body, idempotencyKey: flags['idempotency-key']},
+    )
 
-    if (result.automation) this.log('Automation updated!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.automation && !replayed) this.log('Automation updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

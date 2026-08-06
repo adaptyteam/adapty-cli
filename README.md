@@ -100,7 +100,7 @@ adapty asa orgs list                   # Apple Search Ads organizations
 ```
 
 Every list takes scope filters, and they narrow the query rather than the printed page — `asa keywords list`
-unfiltered walks the whole account, while one ad group is a handful of rows:
+unfiltered pages through the whole account, while one ad group is a handful of rows, so scope the read:
 
 ```sh
 adapty asa campaigns list --app APP_UUID --status PAUSED
@@ -116,10 +116,11 @@ make sense for it: `--ad-group` starts at keywords, negative keywords, search te
 `ENABLED`/`PAUSED` everywhere except keywords, which are `ACTIVE`/`PAUSED`, and `asa ads list` has no `--app`
 because ads hang off ad groups. An id belonging to another company simply matches nothing.
 
-Campaign structure. Every metric-bearing list takes `--date-from` / `--date-to` (default: today):
+Campaign structure. These lists return metadata only — numbers come from `asa metrics`, and only
+`asa search-terms list` takes `--date-from` / `--date-to` (default: today):
 
 ```sh
-adapty asa campaigns list [--date-from 2026-07-01 --date-to 2026-07-31]
+adapty asa campaigns list
 adapty asa campaigns get CAMPAIGN_ID
 adapty asa campaigns create --org UUID --name "Winter push" --adam-id 123456 --country US --daily-budget 50
 adapty asa campaigns update CAMPAIGN_ID [--status PAUSED] [--daily-budget 80] [--country US]
@@ -181,9 +182,19 @@ Writes go straight to Apple and take seconds, so every writing command first pri
 asks for a yes. `--yes` skips the question for scripts; in a pipe or under `--json` the command refuses instead
 of waiting for input that will never come. There is no undo — the CLI has no delete.
 
-Metrics and automation runs are rate limited per company, and a throttled call tells you how long to wait. An
-automation run is queued rather than awaited: `run` prints a run ID and the outcome shows up in
-`adapty asa automations runs`.
+Every write also carries an idempotency key. The CLI generates one per invocation and retries once on a
+network error, so a request that died on the wire is never applied twice. Pass `--idempotency-key` to pin the
+key yourself: re-running a script with the same key within 24 hours replays the stored result — the CLI prints
+"Already applied earlier — showing the stored result." — instead of creating a second entity. The same key
+with a different body is rejected (`422 cli_idempotency_key_reuse`), and a concurrent duplicate answers
+`409 cli_idempotency_in_progress`.
+
+Analytics is rate limited per company: metrics and the search-terms list share a pool of two concurrent
+queries, and a busy pool answers `429 cli_analytics_busy` with the wait in `Retry-After`. A
+burst of 429s puts the token into an escalating cool-down (`cli_cooldown_active`, 5 minutes → 30 minutes →
+3 hours); retries during the pause don't extend it, but the cure is fixing the failing request, not waiting
+out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID and the
+outcome shows up in `adapty asa automations runs`.
 
 ### Global Flags
 

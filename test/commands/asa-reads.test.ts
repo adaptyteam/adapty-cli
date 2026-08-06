@@ -27,14 +27,30 @@ describe('asa reads', () => {
     delete process.env.ADAPTY_TOKEN
   })
 
-  it('campaigns list forwards the reporting window', async () => {
+  it('campaigns list asks for metadata only, with no reporting window', async () => {
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
-    await runCommand('asa campaigns list --date-from 2026-07-01 --date-to 2026-07-31')
+    await runCommand('asa campaigns list')
+    assertFetch({base: ASA_API_BASE, callIndex: 0, method: 'GET', path: '/campaigns/', stub: fetchStub})
+    const {searchParams} = new URL(fetchStub.getCall(0).args[0] as string)
+    expect(searchParams.has('date_from')).to.be.false
+    expect(searchParams.has('date_to')).to.be.false
+  })
+
+  it('campaigns list no longer accepts the period flags', async () => {
+    fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
+    const {error} = await runCommand('asa campaigns list --date-from 2026-07-01')
+    expect(error?.message).to.contain('--date-from')
+    expect(fetchStub.callCount).to.equal(0)
+  })
+
+  it('search-terms list still forwards the reporting window', async () => {
+    fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
+    await runCommand('asa search-terms list --date-from 2026-07-01 --date-to 2026-07-31')
     assertFetch({
       base: ASA_API_BASE,
       callIndex: 0,
       method: 'GET',
-      path: '/campaigns/',
+      path: '/search-terms/',
       query: PERIOD,
       stub: fetchStub,
     })
@@ -67,9 +83,9 @@ describe('asa reads', () => {
     expect(fetchStub.callCount).to.equal(0)
   })
 
-  it('campaigns list rejects a malformed date before calling anything', async () => {
+  it('search-terms list rejects a malformed date before calling anything', async () => {
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
-    const {error} = await runCommand('asa campaigns list --date-from 01-07-2026')
+    const {error} = await runCommand('asa search-terms list --date-from 01-07-2026')
     expect(error?.message).to.contain('YYYY-MM-DD')
     expect(fetchStub.callCount).to.equal(0)
   })

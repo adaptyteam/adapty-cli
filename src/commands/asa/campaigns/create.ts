@@ -2,9 +2,9 @@ import {Command, Flags} from '@oclif/core'
 
 import type {AsaCampaignMutationDTO} from '../../../lib/asa-schemas.js'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {currencyFlag, money, moneyFlag} from '../../../lib/asa-flags.js'
+import {currencyFlag, idempotencyFlags, money, moneyFlag} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -17,6 +17,7 @@ export default class AsaCampaignsCreate extends Command {
   static flags = {
     ...currencyFlag,
     ...confirmFlags,
+    ...idempotencyFlags,
     'ad-channel-type': Flags.string({default: 'SEARCH', description: 'Ad channel type', options: ['DISPLAY', 'SEARCH']}),
     'adam-id': Flags.integer({description: 'App Store app ID (adam_id)', required: true}),
     'bidding-strategy': Flags.string({
@@ -59,9 +60,13 @@ export default class AsaCampaignsCreate extends Command {
     await confirmMutation(this, {body, method: 'POST', path: '/campaigns/', summary: `Create campaign ${flags.name}`}, flags.yes)
 
     const client = await createAsaClient(this.config)
-    const result = await client.post<AsaCampaignMutationDTO>('/campaigns', body)
+    const {replayed, result} = await asaWrite<AsaCampaignMutationDTO>(client, 'post', '/campaigns', {
+      body,
+      idempotencyKey: flags['idempotency-key'],
+    })
 
-    if (result.campaign) this.log('Campaign created!')
+    noteReplay(replayed, this.log.bind(this))
+    if (result.campaign && !replayed) this.log('Campaign created!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result

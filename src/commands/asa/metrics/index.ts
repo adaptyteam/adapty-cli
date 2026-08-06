@@ -1,6 +1,6 @@
 import {Command, Flags} from '@oclif/core'
 
-import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
 import {ASA_GROUP_BY_DIMENSIONS, ASA_METRIC_ENTITIES, byDaysFlag, MAX_BY_DAYS} from '../../../lib/asa-flags.js'
 import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
@@ -40,9 +40,8 @@ export default class AsaMetrics extends Command {
 
     const client = await createAsaClient(this.config)
 
-    const result = await client.post<PaginatedResponse<Record<string, unknown>>>(
-      '/metrics',
-      {
+    const {result} = await asaWrite<PaginatedResponse<Record<string, unknown>>>(client, 'post', '/metrics', {
+      body: {
         date_from: flags['date-from'],
         date_to: flags['date-to'],
         entity: flags.entity,
@@ -53,8 +52,8 @@ export default class AsaMetrics extends Command {
         ...(flags['order-by'] === undefined ? {} : {order_by: flags['order-by']}),
         ...(flags['order-by-day'] === undefined ? {} : {order_by_day: flags['order-by-day']}),
       },
-      paginationParams(flags),
-    )
+      params: paginationParams(flags),
+    })
 
     printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta?.pagination)
 

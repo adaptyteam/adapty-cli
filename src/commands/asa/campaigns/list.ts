@@ -3,26 +3,24 @@ import {Command} from '@oclif/core'
 import type {AsaCampaignDTO} from '../../../lib/asa-schemas.js'
 
 import {createAsaClient} from '../../../lib/asa-client.js'
-import {orgScopeFlags, periodFlags, periodParams, scopeParams, statusFilter} from '../../../lib/asa-flags.js'
+import {orgScopeFlags, scopeParams, statusFilter} from '../../../lib/asa-flags.js'
 import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaCampaignsList extends Command {
-  static description = 'List Apple Search Ads campaigns with their metrics'
+  static description = 'List Apple Search Ads campaigns; read numbers with asa metrics'
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa campaigns list',
-    '<%= config.bin %> asa campaigns list --date-from 2026-07-01 --date-to 2026-07-31',
     '<%= config.bin %> asa campaigns list --app APP_UUID --status PAUSED',
   ]
-  static flags = {...paginationFlags, ...periodFlags, ...orgScopeFlags, ...statusFilter(['ENABLED', 'PAUSED'])}
+  static flags = {...paginationFlags, ...orgScopeFlags, ...statusFilter(['ENABLED', 'PAUSED'])}
 
   async run(): Promise<PaginatedResponse<AsaCampaignDTO>> {
     const {flags} = await this.parse(AsaCampaignsList)
     const client = await createAsaClient(this.config)
     const result = await client.get<PaginatedResponse<AsaCampaignDTO>>('/campaigns', {
       ...paginationParams(flags),
-      ...periodParams(flags),
       ...scopeParams(flags),
     })
 
