@@ -16,7 +16,11 @@ export default class AsaMetricsOverview extends Command {
     'date-from': Flags.string({description: 'Start of the period (YYYY-MM-DD)', required: true}),
     'date-to': Flags.string({description: 'End of the period (YYYY-MM-DD)', required: true}),
     entity: Flags.string({description: 'What to report on', options: ASA_METRIC_ENTITIES, required: true}),
-    metric: Flags.string({description: 'Metric name, repeatable; omit for every metric', multiple: true}),
+    metric: Flags.string({
+      description:
+        'Metric name, repeatable; cohort roots only here (revenue, roas, arpu), not their gross_/proceeds_/net_ variants; omit for every metric',
+      multiple: true,
+    }),
     'period-unit': Flags.string({
       default: 'day',
       description: 'Bucket size',
