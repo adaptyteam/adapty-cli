@@ -178,6 +178,13 @@ There is no `ltv` metric: lifetime value is a cohort metric read at a renewal wi
 ask for day-7 or day-90 values — on either route, up to 16 windows per call. `--order-by-day` ranks the rows by
 one of those windows, which is how you get the top campaigns by day-90 ROAS in a single call.
 
+Competitor summary takes 1–5 Apple App Store IDs and covers the last full month across every country — there
+are no period or country flags on purpose. The first call on a cold cache can take tens of seconds:
+
+```sh
+adapty asa competitors summary --app-ids 111111111,2222222
+```
+
 Writes go straight to Apple and take seconds, so every writing command first prints the exact request body and
 asks for a yes. `--yes` skips the question for scripts; in a pipe or under `--json` the command refuses instead
 of waiting for input that will never come. There is no undo — the CLI has no delete.

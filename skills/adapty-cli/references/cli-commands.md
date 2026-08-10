@@ -132,6 +132,7 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa automations runs <id>`          | past runs, including dry runs                                               |
 | `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day` |
 | `asa metrics overview`               | same, plus `--period-unit` (DAY/WEEK/MONTH); no ordering                    |
+| `asa competitors summary`            | `--app-ids` (1–5 Apple App Store IDs, comma-separated); last full month, all countries, no period/country flags; slow on a cold cache |
 
 Filters on list commands — they narrow the query, not the printed page, so always scope a read:
 

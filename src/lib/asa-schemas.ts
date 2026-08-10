@@ -234,6 +234,42 @@ export interface AsaProductPageSyncDTO {
   sync_id: string
 }
 
+export interface AsaCompetitorTopAppDTO {
+  adamId: number
+  avgSov: string
+  countries: string[]
+  iconUrl: null | string
+  name: null | string
+  termsCount: number
+}
+
+export interface AsaCompetitorContestedTermDTO {
+  competitorCount: number
+  maxSov: string
+  term: string
+}
+
+export interface AsaCompetitorsSummaryTotalDTO {
+  competitorsCount: number
+  countriesAsaCount: number
+  countriesWithAsaTerms: number
+  mostContestedTerms: AsaCompetitorContestedTermDTO[]
+  topAppsByPerformance: AsaCompetitorTopAppDTO[]
+  totalUniqueTerms: number
+}
+
+export interface AsaCompetitorAppTermsDTO {
+  adamId: number
+  countries: Record<string, {sov: string; term: string}[]>
+  iconUrl: null | string
+  name: null | string
+}
+
+export interface AsaCompetitorsSummaryDTO {
+  byApps: AsaCompetitorAppTermsDTO[]
+  total: AsaCompetitorsSummaryTotalDTO
+}
+
 export interface AsaMutationError {
   apple_error_code?: null | string
   apple_error_message?: null | string

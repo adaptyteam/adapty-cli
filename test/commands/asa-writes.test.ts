@@ -371,6 +371,44 @@ describe('asa writes', () => {
     expect(fetchStub.callCount).to.equal(0)
   })
 
+  it('competitors summary posts the parsed app ids and prints the totals', async () => {
+    fetchStub = mockFetch([
+      {
+        byApps: [],
+        total: {
+          competitorsCount: 3,
+          countriesAsaCount: 12,
+          countriesWithAsaTerms: 9,
+          mostContestedTerms: [{competitorCount: 2, maxSov: '41.20', term: 'meditation'}],
+          topAppsByPerformance: [
+            {adamId: 1_668_337_467, avgSov: '17.50', countries: ['US', 'GB'], iconUrl: null, name: 'Calm', termsCount: 84},
+          ],
+          totalUniqueTerms: 240,
+        },
+      },
+    ])
+    const {stdout} = await runCommand('asa competitors summary --app-ids 1668337467,6503873027')
+    const body = JSON.parse(fetchStub.getCall(0).args[1].body as string)
+    expect(body).to.deep.equal({app_ids: [1_668_337_467, 6_503_873_027]})
+    assertFetch({base: ASA_API_BASE, callIndex: 0, method: 'POST', path: '/competitors/summary/', stub: fetchStub})
+    expect(stdout).to.contain('Competitors Count: 3')
+    expect(stdout).to.contain('Top apps by performance:')
+    expect(stdout).to.contain('Avg Sov: 17.50')
+    expect(stdout).to.contain('Most contested terms:')
+    expect(stdout).to.contain('Term: meditation')
+  })
+
+  it('competitors summary refuses a bad app id list before the network', async () => {
+    fetchStub = mockFetch([{}])
+    const overCap = await runCommand('asa competitors summary --app-ids 1,2,3,4,5,6')
+    expect(overCap.error?.message).to.contain('1 to 5')
+    const empty = await runCommand('asa competitors summary --app-ids ,')
+    expect(empty.error?.message).to.contain('1 to 5')
+    const notNumbers = await runCommand('asa competitors summary --app-ids abc,123')
+    expect(notNumbers.error?.message).to.contain('numbers')
+    expect(fetchStub.callCount).to.equal(0)
+  })
+
   it('connect asks the ASA host for the authorization link', async () => {
     fetchStub = mockFetchFailure(
       {
