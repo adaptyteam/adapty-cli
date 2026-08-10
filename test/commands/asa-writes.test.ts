@@ -262,14 +262,24 @@ describe('asa writes', () => {
     expect(updateBody).to.deep.equal({status: 'PAUSED'})
   })
 
-  it('product-pages sync posts without an idempotency key of its own', async () => {
+  it('product-pages sync posts with --yes and carries an idempotency key', async () => {
     fetchStub = mockFetch([
       {accepted_at: '2026-08-03T10:00:00Z', message: 'queued', org_targets: 2, replayed: false, state: 'accepted', sync_id: 'x'},
     ])
-    await runCommand('asa product-pages sync --adam-id 123456')
+    await runCommand('asa product-pages sync --yes --adam-id 123456')
     const body = JSON.parse(fetchStub.getCall(0).args[1].body as string)
     expect(body).to.deep.equal({adam_id: 123_456})
+    const headers = fetchStub.getCall(0).args[1].headers as Record<string, string>
+    expect(headers['Idempotency-Key']).to.be.a('string').and.not.equal('')
     assertFetch({base: ASA_API_BASE, callIndex: 0, method: 'POST', path: '/product-pages/sync/', stub: fetchStub})
+  })
+
+  it('product-pages sync refuses without --yes when nobody can answer', async () => {
+    fetchStub = mockFetch([{}])
+    const {error, stderr} = await runCommand('asa product-pages sync')
+    expect(error?.oclif?.exit).to.equal(2)
+    expect(stderr).to.contain('POST /product-pages/sync/')
+    expect(fetchStub.callCount).to.equal(0)
   })
 
   it('automations create reads the rule from a file and can request the first run', async () => {
