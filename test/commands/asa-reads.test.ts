@@ -111,6 +111,19 @@ describe('asa reads', () => {
     assertFetch({base: ASA_API_BASE, callIndex: 1, method: 'GET', path: `/ad-groups/${TEST_RESOURCE_ID}/`, stub: fetchStub})
   })
 
+  it('negative keywords list forwards the campaign-level-only filter', async () => {
+    fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
+    await runCommand('asa negative-keywords list --campaign-level-only')
+    assertFetch({
+      base: ASA_API_BASE,
+      callIndex: 0,
+      method: 'GET',
+      path: '/negative-keywords/',
+      query: {campaign_level_only: 'true'},
+      stub: fetchStub,
+    })
+  })
+
   it('keywords, search terms and negative keywords list from their own paths', async () => {
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
     await runCommand('asa keywords list')

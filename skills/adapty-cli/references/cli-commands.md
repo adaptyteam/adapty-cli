@@ -116,7 +116,7 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa keywords list`                  | metadata only; **filter by `--ad-group`** — unfiltered it pages the whole account |
 | `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |
 | `asa keywords update <id> [<id>...]` | one change applied to every id; `--text` only for a single keyword           |
-| `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows                              |
+| `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows; `--campaign-level-only` keeps only those |
 | `asa negative-keywords add`          | exactly one of `--ad-group` / `--campaign`; `--all-ad-groups` needs `--campaign` |
 | `asa search-terms list`              | period flags; filter by `--ad-group` / `--campaign` to build the keyword pipeline |
 | `asa ads list` / `get <id>`          | `serving_state_reasons` explains a non-running ad; list has no `--app` filter |
@@ -143,6 +143,7 @@ Filters on list commands — they narrow the query, not the printed page, so alw
 | `--ad-group`       | keywords, negative keywords, search terms, ads                          |
 | `--status`         | campaigns, ad groups (`ENABLED`/`PAUSED`), keywords (`ACTIVE`/`PAUSED`), ads |
 | `--search`         | every list except product pages and creatives                           |
+| `--campaign-level-only` | negative keywords: only campaign-level rows (`ad_group_id` is null)  |
 
 Id filters are repeatable and take the UUIDs from the matching list command; an id owned by another company
 matches nothing, so the page comes back empty rather than erroring.

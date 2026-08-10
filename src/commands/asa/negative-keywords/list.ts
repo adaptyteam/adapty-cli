@@ -1,4 +1,4 @@
-import {Command} from '@oclif/core'
+import {Command, Flags} from '@oclif/core'
 
 import type {AsaNegativeKeywordDTO} from '../../../lib/asa-schemas.js'
 
@@ -14,15 +14,20 @@ export default class AsaNegativeKeywordsList extends Command {
     '<%= config.bin %> asa negative-keywords list',
     '<%= config.bin %> asa negative-keywords list --campaign CAMPAIGN_UUID',
   ]
-  static flags = {...paginationFlags, ...adGroupScopeFlags}
+  static flags = {
+    ...paginationFlags,
+    ...adGroupScopeFlags,
+    'campaign-level-only': Flags.boolean({description: 'Keep only campaign-level rows (ad_group_id is null)'}),
+  }
 
   async run(): Promise<PaginatedResponse<AsaNegativeKeywordDTO>> {
     const {flags} = await this.parse(AsaNegativeKeywordsList)
     const client = await createAsaClient(this.config)
-    const result = await client.get<PaginatedResponse<AsaNegativeKeywordDTO>>(
-      '/negative-keywords',
-      {...paginationParams(flags), ...scopeParams(flags)},
-    )
+    const result = await client.get<PaginatedResponse<AsaNegativeKeywordDTO>>('/negative-keywords', {
+      ...paginationParams(flags),
+      ...scopeParams(flags),
+      ...(flags['campaign-level-only'] ? {campaign_level_only: 'true'} : {}),
+    })
 
     printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)
 
