@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -82,6 +82,45 @@
       },
       "segments": {
         "description": "List segments"
+      },
+      "asa": {
+        "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"
+      },
+      "asa:apps": {
+        "description": "Apps promoted in Apple Search Ads"
+      },
+      "asa:orgs": {
+        "description": "Apple Search Ads organizations"
+      },
+      "asa:campaigns": {
+        "description": "Manage Apple Search Ads campaigns"
+      },
+      "asa:ad-groups": {
+        "description": "Manage ad groups"
+      },
+      "asa:keywords": {
+        "description": "Manage targeting keywords"
+      },
+      "asa:negative-keywords": {
+        "description": "Manage negative keywords"
+      },
+      "asa:search-terms": {
+        "description": "Search terms your ads matched"
+      },
+      "asa:ads": {
+        "description": "Manage ads"
+      },
+      "asa:product-pages": {
+        "description": "Custom product pages"
+      },
+      "asa:creatives": {
+        "description": "Creatives that back ads"
+      },
+      "asa:automations": {
+        "description": "Rule-based automations"
+      },
+      "asa:metrics": {
+        "description": "Metrics and overviews"
       }
     }
   },

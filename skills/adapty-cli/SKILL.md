@@ -1,6 +1,6 @@
 ---
 name: adapty-cli
-description: Use when setting up or managing Adapty in-app subscriptions, paywalls, or placements via CLI.
+description: Use when setting up or managing Adapty in-app subscriptions, paywalls, placements, or Apple Search Ads campaigns via CLI.
 ---
 
 # Adapty CLI Skill
@@ -19,7 +19,7 @@ npx adapty@latest
 
 ---
 
-Two modes: **Setup** (new users, quiz-driven) and **Manage** (existing users, direct commands).
+Three modes: **Setup** (new users, quiz-driven), **Manage** (existing users, direct commands) and **Apple Search Ads** (`adapty asa`, ad spend).
 
 ## Mode: Setup (New to Adapty)
 
@@ -155,6 +155,58 @@ Key notes:
 - All commands support `--json`
 - Use `--title` (not `--name`) for all entities
 - Use `--apple-bundle-id` / `--google-bundle-id` (not ios/android)
+
+---
+
+## Mode: Apple Search Ads (`adapty asa`)
+
+Ad spend, not subscriptions. The `asa` topic manages Apple Search Ads campaigns, keywords, ads and
+automations, and reads their performance. Full reference in `references/cli-commands.md`.
+
+**Before answering any performance question, read `references/asa-agent-playbook.md`** — it maps the
+common questions (spend, trends, top-N, geo, wasted keywords, LTV, search terms, competitors) to the
+single command that answers each, lists every valid metric name, and gives the request budgets. The
+short version:
+
+- One question → one call. Totals and trends = `asa metrics overview`; per-entity ranking =
+  `asa metrics --order-by ... --page-size N`. The server aggregates and sorts — never loop pages to
+  sum things yourself; a page holds up to 1000 rows if you really need them all.
+- Metrics budget is 5 calls/min (max 2 per 10s, 2 concurrent). Plan inside it; the CLI absorbs one
+  429 by itself (waits `Retry-After`, retries once), so a surfaced 429 means back off for real.
+  Don't add comparisons the user didn't ask for.
+- Metric names are fixed and listed in the playbook; a wrong name fails with the full valid list, so
+  never spend calls probing.
+- Date window caps: 90 days at day grain, 180 by week, 365 by month — widen by coarsening
+  `--group-by`/`--period-unit`, not by splitting into several calls.
+
+**These commands spend money and change a live ad account.** Treat every write as irreversible:
+
+- **Confirm before any write.** State plainly what will change — which campaign, which budget, how many
+  keywords — and get an explicit yes. The command asks too: it prints the request body it is about to send and
+  waits. Pass `--yes` only after the user has agreed; there is no undo and no delete.
+- **Never invent IDs or budgets.** Read them first (`asa orgs list`, `asa campaigns list`) or ask.
+- **Re-runs are safe when the key is pinned.** Every write sends an auto-generated `Idempotency-Key`, and one
+  network error is retried with the same key, so a call is never applied twice by accident. In scripts pass
+  `--idempotency-key` so the whole pipeline can be re-run: a repeat replays the stored result (the CLI prints
+  "Already applied earlier") instead of applying again.
+- **Prefer the smallest step.** Add a handful of keywords, check the result, then continue. A 100-item batch
+  that Apple partially rejects is harder to reason about than three small ones.
+- **A dry run is available for automations only**: `asa automations run <id> --dry-run` evaluates a rule and
+  logs what it would do without touching Apple. Use it before enabling a rule that changes bids.
+- **Metrics are cheap, writes are not.** Reads and `--dry-run` are safe to run freely; anything else is not.
+
+Key notes that differ from the rest of the CLI:
+
+- No required `--app`: scope comes from the token's company. `--app` exists on lists only, as a filter
+- **Filter every list you can.** `--campaign-group`, `--app`, `--campaign`, `--ad-group`, `--status`, `--search`
+  narrow the query itself, so a scoped read is cheap and an unscoped one pages the whole account. `asa keywords
+  list` without `--ad-group` is still the widest read in the surface
+- `asa whoami` first — it reports whether Apple Ads is connected and whether the company may use the CLI
+- A 402 means the company has no Ads Manager subscription; a 404 means the entity is not theirs or absent
+- A 429 carries the wait in `Retry-After`. Metrics and the search-terms list share one
+  analytics pool (2 concurrent queries per company, `cli_analytics_busy`); a burst of 429s triggers an
+  escalating token cool-down (`cli_cooldown_active`, 5m → 30m → 3h) — fix the request, don't hammer
+- Keywords are always batches, capped at 100 per call, and a partial rejection is reported per item
 
 ---
 
