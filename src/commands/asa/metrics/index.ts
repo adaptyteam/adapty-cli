@@ -1,20 +1,28 @@
 import {Command, Flags} from '@oclif/core'
 
 import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
-import {ASA_GROUP_BY_DIMENSIONS, ASA_METRIC_ENTITIES, byDaysFlag, MAX_BY_DAYS} from '../../../lib/asa-flags.js'
-import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
+import {ASA_GROUP_BY_DIMENSIONS, ASA_METRIC_ENTITIES, asaPaginationFlags, byDaysFlag, MAX_BY_DAYS} from '../../../lib/asa-flags.js'
+import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaMetrics extends Command {
-  static description = 'Query metrics for any level of the account over a date range'
+  static description = `Query metrics for any level of the account over a date range
+
+One row per entity, already aggregated server-side and sorted by --order-by, so a top-N question is one
+call with --order-by and --page-size N — never sum pages yourself. Account-level totals are one call to
+asa metrics overview instead. The date window is capped by the coarsest --group-by period: 90 days for
+day or no period grouping, 180 by week, 365 by month and coarser — widen the window by coarsening the
+grouping, not by splitting into more calls. Budget: 5 metrics calls per minute, at most 2 per 10 seconds.`
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31',
+    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --order-by spend --page-size 5',
+    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --group-by country --page-size 1000',
     '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric roas',
     '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90',
   ]
   static flags = {
-    ...paginationFlags,
+    ...asaPaginationFlags,
     ...byDaysFlag,
     'date-from': Flags.string({description: 'Start of the period (YYYY-MM-DD)', required: true}),
     'date-to': Flags.string({description: 'End of the period (YYYY-MM-DD)', required: true}),
@@ -24,9 +32,15 @@ export default class AsaMetrics extends Command {
       multiple: true,
       options: ASA_GROUP_BY_DIMENSIONS,
     }),
-    metric: Flags.string({description: 'Metric name, repeatable; omit for every metric', multiple: true}),
+    metric: Flags.string({
+      description:
+        'Metric name (dashboard nomenclature, e.g. spend, taps, gross_roas), repeatable; omit for every metric; a wrong name fails listing all valid ones',
+      multiple: true,
+    }),
     order: Flags.string({default: 'desc', description: 'Sort direction', options: ['asc', 'desc']}),
-    'order-by': Flags.string({description: 'Metric or field to sort by'}),
+    'order-by': Flags.string({
+      description: 'Metric or field to sort by; cohort metrics rank via their gross_/proceeds_/net_ names',
+    }),
     'order-by-day': Flags.integer({
       description: 'Rank by a cohort metric at this renewal window; must be one of the --by-days values',
     }),

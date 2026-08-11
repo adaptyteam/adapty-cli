@@ -113,7 +113,7 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa ad-groups list` / `get <id>`    | metadata only, like campaigns; numbers come from `asa metrics`              |
 | `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today) |
 | `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
-| `asa keywords list`                  | metadata only; **filter by `--ad-group`** — unfiltered it pages the whole account |
+| `asa keywords list`                  | metadata only; **filter by `--ad-group`** — the heaviest read, own budget (30/min, 2 concurrent, 60s cap) |
 | `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |
 | `asa keywords update <id> [<id>...]` | one change applied to every id; `--text` only for a single keyword           |
 | `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows; `--campaign-level-only` keeps only those |
@@ -130,8 +130,8 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa automations update <id>`        | `--stop` / `--start` / `--name` / `--file`; the file must not carry `internal_id` |
 | `asa automations run <id>`           | queued, prints a run ID; `--dry-run` evaluates without touching Apple        |
 | `asa automations runs <id>`          | past runs, including dry runs                                               |
-| `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day` |
-| `asa metrics overview`               | same, plus `--period-unit` (DAY/WEEK/MONTH); no ordering                    |
+| `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day`; one server-sorted row per entity — top-N is one call |
+| `asa metrics overview`               | same, plus `--period-unit` (day/week/month/quarter/year); account totals + per-period series in one call |
 | `asa competitors summary`            | `--app-ids` (1–5 Apple App Store IDs, comma-separated); last full month, all countries, no period/country flags; slow on a cold cache |
 
 Filters on list commands — they narrow the query, not the printed page, so always scope a read:
@@ -161,11 +161,16 @@ Before running any of these:
   with the same key.
 - **Keyword and negative-keyword calls are batches.** One bad ID fails the whole batch before Apple is
   called; Apple may still reject individual items, and each rejection comes back with its reason.
-- **Analytics shares one pool per company**: metrics plus the search-terms list run at most two concurrent
-  queries — a busy pool answers `429 cli_analytics_busy` with the wait in `Retry-After`.
-  A burst of 429s (20 within 5 minutes) puts the token into a cool-down (`429 cli_cooldown_active`, escalating
-  5m → 30m → 3h); retrying during the pause does not extend it, but the cure is fixing the request, not
-  hammering.
+- **Analytics budgets are tight and per company**: `metrics`/`metrics overview` get 5 calls/min (max 2 per
+  10s) and share a 2-concurrent pool with the search-terms list (`429 cli_analytics_busy`); search terms and
+  competitors get 30/min; keyword lists 30/min on their own 2-concurrent pool; catalog reads 120/min; writes
+  20/min. Every 429 carries the exact wait in `Retry-After`; the CLI waits it out and retries once by itself
+  (up to 60s, cool-downs excluded), so a surfaced 429 means the retry failed too. A burst of 429s (20 within 5 minutes) puts the
+  token into a cool-down (`429 cli_cooldown_active`, escalating 5m → 30m → 3h); retrying during the pause does
+  not extend it, but the cure is fixing the request, not hammering. Answer questions with the fewest calls —
+  recipes in `asa-agent-playbook.md`.
+- **`--page-size` goes up to 1000 on asa commands** — one big page always beats a pagination loop, and
+  `meta.pagination.count` answers "how many" without reading the rows.
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 

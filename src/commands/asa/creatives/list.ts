@@ -3,8 +3,8 @@ import {Command} from '@oclif/core'
 import type {AsaCreativeDTO} from '../../../lib/asa-schemas.js'
 
 import {createAsaClient} from '../../../lib/asa-client.js'
-import {assetScopeFlags, scopeParams} from '../../../lib/asa-flags.js'
-import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
+import {asaPaginationFlags, assetScopeFlags, scopeParams} from '../../../lib/asa-flags.js'
+import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaCreativesList extends Command {
@@ -14,7 +14,7 @@ export default class AsaCreativesList extends Command {
     '<%= config.bin %> asa creatives list',
     '<%= config.bin %> asa creatives list --app APP_UUID',
   ]
-  static flags = {...paginationFlags, ...assetScopeFlags}
+  static flags = {...asaPaginationFlags, ...assetScopeFlags}
 
   async run(): Promise<PaginatedResponse<AsaCreativeDTO>> {
     const {flags} = await this.parse(AsaCreativesList)

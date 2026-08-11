@@ -1,6 +1,6 @@
 import {runCommand} from '@oclif/test'
 import {expect} from 'chai'
-import sinon from 'sinon'
+import * as sinon from 'sinon'
 
 import {
   ASA_API_BASE,
@@ -185,10 +185,61 @@ describe('asa reads', () => {
     })
   })
 
-  it('refuses a page size above the server cap', async () => {
+  it('waits out a rate-limited 429 once and then succeeds', async () => {
+    fetchStub = sinon.stub(globalThis, 'fetch')
+    fetchStub.onFirstCall().resolves(
+      new Response(JSON.stringify({errors: [{error_code: 'cli_rate_limit_exceeded', message: 'slow down'}]}), {
+        headers: {'Content-Type': 'application/json', 'Retry-After': '0'},
+        status: 429,
+      }),
+    )
+    fetchStub.onSecondCall().resolves(
+      new Response(JSON.stringify(EMPTY_LIST_RESPONSE), {headers: {'Content-Type': 'application/json'}, status: 200}),
+    )
+    const {error, stderr} = await runCommand('asa campaigns list')
+    expect(error).to.equal(undefined)
+    expect(stderr).to.contain('retrying once')
+    expect(fetchStub.callCount).to.equal(2)
+  })
+
+  it('a second consecutive 429 surfaces instead of looping', async () => {
+    fetchStub = sinon.stub(globalThis, 'fetch').callsFake(
+      async () =>
+        new Response(JSON.stringify({errors: [{error_code: 'cli_analytics_busy', message: 'busy'}]}), {
+          headers: {'Content-Type': 'application/json', 'Retry-After': '0'},
+          status: 429,
+        }),
+    )
+    const {error} = await runCommand('asa campaigns list')
+    expect(error?.message).to.contain('busy')
+    expect(fetchStub.callCount).to.equal(2)
+  })
+
+  it('a cool-down 429 is never retried', async () => {
+    fetchStub = sinon.stub(globalThis, 'fetch').resolves(
+      new Response(JSON.stringify({errors: [{error_code: 'cli_cooldown_active', message: 'cool down'}]}), {
+        headers: {'Content-Type': 'application/json', 'Retry-After': '300'},
+        status: 429,
+      }),
+    )
+    const {error} = await runCommand('asa campaigns list')
+    expect(error?.message).to.contain('cool down')
+    expect(fetchStub.callCount).to.equal(1)
+  })
+
+  it('accepts big pages up to the server cap and refuses above it', async () => {
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
-    const {error} = await runCommand('asa keywords list --page-size 500')
-    expect(error?.message).to.contain('100')
-    expect(fetchStub.callCount).to.equal(0)
+    await runCommand('asa campaigns list --page-size 1000')
+    assertFetch({
+      base: ASA_API_BASE,
+      callIndex: 0,
+      method: 'GET',
+      path: '/campaigns/',
+      query: {'page[number]': '1', 'page[size]': '1000'},
+      stub: fetchStub,
+    })
+    const {error} = await runCommand('asa keywords list --page-size 1001')
+    expect(error?.message).to.contain('1000')
+    expect(fetchStub.callCount).to.equal(1)
   })
 })

@@ -14,6 +14,20 @@ export const MAX_BY_DAYS = 16
 export const ASA_METRIC_ENTITIES = ['ad', 'ad-group', 'campaign', 'keyword']
 export const ASA_GROUP_BY_DIMENSIONS = ['country', 'day', 'month', 'quarter', 'week', 'year']
 
+export const asaPaginationFlags = {
+  page: Flags.integer({
+    default: 1,
+    description: 'Page number',
+    min: 1,
+  }),
+  'page-size': Flags.integer({
+    default: 100,
+    description: 'Items per page (max 1000); prefer one big page over a pagination loop',
+    max: 1000,
+    min: 1,
+  }),
+}
+
 export const byDaysFlag = {
   'by-days': Flags.integer({
     description: 'Renewal window in days for cohort metrics, repeatable; omit for the dashboard defaults',

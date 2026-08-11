@@ -3,8 +3,8 @@ import {Command, Flags} from '@oclif/core'
 import type {AsaNegativeKeywordDTO} from '../../../lib/asa-schemas.js'
 
 import {createAsaClient} from '../../../lib/asa-client.js'
-import {adGroupScopeFlags, scopeParams} from '../../../lib/asa-flags.js'
-import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
+import {adGroupScopeFlags, asaPaginationFlags, scopeParams} from '../../../lib/asa-flags.js'
+import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaNegativeKeywordsList extends Command {
@@ -15,7 +15,7 @@ export default class AsaNegativeKeywordsList extends Command {
     '<%= config.bin %> asa negative-keywords list --campaign CAMPAIGN_UUID',
   ]
   static flags = {
-    ...paginationFlags,
+    ...asaPaginationFlags,
     ...adGroupScopeFlags,
     'campaign-level-only': Flags.boolean({description: 'Keep only campaign-level rows (ad_group_id is null)'}),
   }

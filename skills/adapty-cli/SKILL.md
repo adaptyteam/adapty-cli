@@ -163,6 +163,22 @@ Key notes:
 Ad spend, not subscriptions. The `asa` topic manages Apple Search Ads campaigns, keywords, ads and
 automations, and reads their performance. Full reference in `references/cli-commands.md`.
 
+**Before answering any performance question, read `references/asa-agent-playbook.md`** — it maps the
+common questions (spend, trends, top-N, geo, wasted keywords, LTV, search terms, competitors) to the
+single command that answers each, lists every valid metric name, and gives the request budgets. The
+short version:
+
+- One question → one call. Totals and trends = `asa metrics overview`; per-entity ranking =
+  `asa metrics --order-by ... --page-size N`. The server aggregates and sorts — never loop pages to
+  sum things yourself; a page holds up to 1000 rows if you really need them all.
+- Metrics budget is 5 calls/min (max 2 per 10s, 2 concurrent). Plan inside it; the CLI absorbs one
+  429 by itself (waits `Retry-After`, retries once), so a surfaced 429 means back off for real.
+  Don't add comparisons the user didn't ask for.
+- Metric names are fixed and listed in the playbook; a wrong name fails with the full valid list, so
+  never spend calls probing.
+- Date window caps: 90 days at day grain, 180 by week, 365 by month — widen by coarsening
+  `--group-by`/`--period-unit`, not by splitting into several calls.
+
 **These commands spend money and change a live ad account.** Treat every write as irreversible:
 
 - **Confirm before any write.** State plainly what will change — which campaign, which budget, how many

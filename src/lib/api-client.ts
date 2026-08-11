@@ -1,6 +1,7 @@
 import {ApiError, type ApiErrorFormat, NetworkError, parseApiError} from './errors.js'
 
 const DEFAULT_API_URL = 'https://api-admin.adapty.io/api/v1/developer'
+const MAX_RETRY_AFTER_SECONDS = 60
 
 function ensureTrailingSlash(path: string): string {
   return path.endsWith('/') ? path : `${path}/`
@@ -80,8 +81,18 @@ export class ApiClient {
     return search.size === 0 ? url : `${url}?${search.toString()}`
   }
 
+  private isRetryableRateLimit(error: ApiError): boolean {
+    return (
+      this.errorFormat === 'asa' &&
+      error.statusCode === 429 &&
+      error.errorCode !== 'cli_cooldown_active' &&
+      error.retryAfterSeconds !== undefined &&
+      error.retryAfterSeconds <= MAX_RETRY_AFTER_SECONDS
+    )
+  }
+
   // eslint-disable-next-line no-undef
-  private async request<T>(url: string, init: RequestInit, opts: RequestOptions = {}): Promise<T> {
+  private async request<T>(url: string, init: RequestInit, opts: RequestOptions = {}, retried = false): Promise<T> {
     const headers: Record<string, string> = {
       'User-Agent': this.userAgent,
     }
@@ -127,6 +138,15 @@ export class ApiClient {
       const error = parseApiError(response.status, body, errorOptions, this.errorFormat)
       if (response.status === 401) {
         error.message = 'Token expired or invalid. Run `adapty auth login`.'
+      }
+
+      if (!retried && this.isRetryableRateLimit(error)) {
+        const seconds = error.retryAfterSeconds ?? 0
+        process.stderr.write(`Rate limited (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`)
+        await new Promise((resolve) => {
+          setTimeout(resolve, seconds * 1000)
+        })
+        return this.request<T>(url, init, opts, true)
       }
 
       throw error

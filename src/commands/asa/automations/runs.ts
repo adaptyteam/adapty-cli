@@ -3,8 +3,9 @@ import {Args, Command} from '@oclif/core'
 import type {AsaAutomationRunDTO} from '../../../lib/asa-schemas.js'
 
 import {createAsaClient} from '../../../lib/asa-client.js'
+import {asaPaginationFlags} from '../../../lib/asa-flags.js'
 import {isValidUuid} from '../../../lib/flags.js'
-import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
+import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaAutomationsRuns extends Command {
@@ -14,7 +15,7 @@ export default class AsaAutomationsRuns extends Command {
   static description = 'List past runs of an automation rule, including dry runs'
   static enableJsonFlag = true
   static examples = ['<%= config.bin %> asa automations runs 550e8400-e29b-41d4-a716-446655440000']
-  static flags = {...paginationFlags}
+  static flags = {...asaPaginationFlags}
 
   async run(): Promise<PaginatedResponse<AsaAutomationRunDTO>> {
     const {args, flags} = await this.parse(AsaAutomationsRuns)

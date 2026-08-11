@@ -3,14 +3,15 @@ import {Command} from '@oclif/core'
 import type {AsaAutomationDTO} from '../../../lib/asa-schemas.js'
 
 import {createAsaClient} from '../../../lib/asa-client.js'
-import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
+import {asaPaginationFlags} from '../../../lib/asa-flags.js'
+import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaAutomationsList extends Command {
   static description = 'List automation rules; status 1 is active, 0 is stopped'
   static enableJsonFlag = true
   static examples = ['<%= config.bin %> asa automations list']
-  static flags = {...paginationFlags}
+  static flags = {...asaPaginationFlags}
 
   async run(): Promise<PaginatedResponse<AsaAutomationDTO>> {
     const {flags} = await this.parse(AsaAutomationsList)

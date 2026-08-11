@@ -3,8 +3,8 @@ import {Command} from '@oclif/core'
 import type {AsaAdGroupDTO} from '../../../lib/asa-schemas.js'
 
 import {createAsaClient} from '../../../lib/asa-client.js'
-import {campaignScopeFlags, scopeParams, statusFilter} from '../../../lib/asa-flags.js'
-import {type PaginatedResponse, paginationFlags, paginationParams} from '../../../lib/flags.js'
+import {asaPaginationFlags, campaignScopeFlags, scopeParams, statusFilter} from '../../../lib/asa-flags.js'
+import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaAdGroupsList extends Command {
@@ -14,7 +14,7 @@ export default class AsaAdGroupsList extends Command {
     '<%= config.bin %> asa ad-groups list',
     '<%= config.bin %> asa ad-groups list --campaign CAMPAIGN_UUID',
   ]
-  static flags = {...paginationFlags, ...campaignScopeFlags, ...statusFilter(['ENABLED', 'PAUSED'])}
+  static flags = {...asaPaginationFlags, ...campaignScopeFlags, ...statusFilter(['ENABLED', 'PAUSED'])}
 
   async run(): Promise<PaginatedResponse<AsaAdGroupDTO>> {
     const {flags} = await this.parse(AsaAdGroupsList)

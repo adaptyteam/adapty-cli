@@ -5,7 +5,12 @@ import {ASA_METRIC_ENTITIES, byDaysFlag, MAX_BY_DAYS} from '../../../lib/asa-fla
 import {printResponse} from '../../../lib/output.js'
 
 export default class AsaMetricsOverview extends Command {
-  static description = 'Totals for a period, optionally split into day, week or month buckets'
+  static description = `Totals for a period, optionally split into day, week or month buckets
+
+The one-call answer to "how much did I spend / earn overall" and to any single-period trend question:
+totals for the whole entity level plus a per-period series, no pagination, no client-side summing. The
+date window is capped by --period-unit: 90 days at day, 180 by week, 365 by month and coarser. Shares
+the 5-per-minute metrics budget with asa metrics.`
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa metrics overview --entity campaign --date-from 2026-07-01 --date-to 2026-07-31',

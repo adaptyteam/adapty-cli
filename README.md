@@ -165,13 +165,18 @@ adapty asa automations run AUTOMATION_ID [--dry-run]
 adapty asa automations runs AUTOMATION_ID
 ```
 
-Metrics take an entity level, a period and an optional metric selection:
+Metrics take an entity level, a period and an optional metric selection. Rows come back one per entity,
+aggregated and sorted server-side, so a top-N or a breakdown is a single call — use `--order-by` with a small
+`--page-size` for rankings, `metrics overview` for account totals and time series, and one big page (up to
+1000 rows) when you genuinely need every row; never sum pages client-side:
 
 ```sh
 adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31
+adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --order-by spend --page-size 5
+adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --group-by country --page-size 1000
 adapty asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric roas
 adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90
-adapty asa metrics overview --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 [--period-unit WEEK]
+adapty asa metrics overview --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 [--period-unit week]
 ```
 
 There is no `ltv` metric: lifetime value is a cohort metric read at a renewal window, so `--by-days` is how you
@@ -196,12 +201,15 @@ key yourself: re-running a script with the same key within 24 hours replays the 
 with a different body is rejected (`422 cli_idempotency_key_reuse`), and a concurrent duplicate answers
 `409 cli_idempotency_in_progress`.
 
-Analytics is rate limited per company: metrics and the search-terms list share a pool of two concurrent
-queries, and a busy pool answers `429 cli_analytics_busy` with the wait in `Retry-After`. A
-burst of 429s puts the token into an escalating cool-down (`cli_cooldown_active`, 5 minutes → 30 minutes →
-3 hours); retries during the pause don't extend it, but the cure is fixing the failing request, not waiting
-out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID and the
-outcome shows up in `adapty asa automations runs`.
+Analytics is rate limited per company: the metrics routes get 5 calls a minute (at most 2 in any 10 seconds)
+and share a pool of two concurrent queries with the search-terms list — a busy pool answers
+`429 cli_analytics_busy`, an exhausted window `429 cli_rate_limit_exceeded`, both with the exact wait in
+`Retry-After`. The CLI absorbs a single 429 on its own — it waits the announced `Retry-After` (up to 60
+seconds; cool-downs are never waited out) and retries once — so a 429 that reaches you means the retry failed
+too. A burst of 429s puts the token into an escalating cool-down (`cli_cooldown_active`, 5 minutes →
+30 minutes → 3 hours); retries during the pause don't extend it, but the cure is fixing the failing request,
+not waiting out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID
+and the outcome shows up in `adapty asa automations runs`.
 
 ### Global Flags
 
@@ -210,7 +218,7 @@ outcome shows up in `adapty asa automations runs`.
 | `--json`      | Output as JSON                         |
 | `--help`      | Show help                              |
 | `--page`      | Page number (default: 1)               |
-| `--page-size` | Items per page (default: 20, max: 100) |
+| `--page-size` | Items per page (default: 20, max: 100; `asa` commands: default 100, max 1000) |
 
 ## Environment Variables
 
