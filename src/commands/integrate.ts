@@ -5,9 +5,23 @@ import {integrateAction} from '../lib/agent/actions/integrate.js'
 import {DRIVER_IDS, DRIVERS} from '../lib/agent/drivers/index.js'
 import {collectStoreProducts} from '../lib/agent/products.js'
 import {emitCopyPrompt, prepareWorkBranch, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
-import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
+import {preparePromptContext, prepareWizard, resolvePlacementDeveloperId} from '../lib/agent/wizard.js'
 import {billingLabel, detectBilling} from '../lib/project/billing.js'
 import {confirm, isInteractive, select} from '../lib/ui/ask.js'
+
+/** Every integrate flag re-expressed as migrate argv, so the switch loses nothing the user typed. */
+function migratePassthrough(
+  path: string,
+  flags: {app?: string; 'code-only'?: boolean; copy?: boolean; driver?: string; 'no-telemetry'?: boolean},
+): string[] {
+  const passthrough = ['--path', path]
+  if (flags.app) passthrough.push('--app', flags.app)
+  if (flags.driver) passthrough.push('--driver', flags.driver)
+  if (flags.copy) passthrough.push('--copy')
+  if (flags['code-only'] !== undefined) passthrough.push(flags['code-only'] ? '--code-only' : '--no-code-only')
+  if (flags['no-telemetry']) passthrough.push('--no-telemetry')
+  return passthrough
+}
 
 export default class Integrate extends Command {
   static description = `Set up the Adapty SDK in your app using your coding agent (${DRIVERS.map(
@@ -20,6 +34,11 @@ static examples = [
   ]
 static flags = {
     app: Flags.string({description: 'Adapty app ID (UUID) to connect; skips the app picker'}),
+    'code-only': Flags.boolean({
+      allowNo: true,
+      description:
+        'The dashboard is already set up - wire the code to the existing entities and create nothing (--no-code-only forces entity creation; without either, the CLI asks when the app is not empty)',
+    }),
     copy: Flags.boolean({
       description: 'Print the integration prompt instead of running an agent (paste it into any coding agent)',
     }),
@@ -43,14 +62,7 @@ static flags = {
           `Found ${billingLabel(billing)} in this project - \`adapty migrate\` replaces it with Adapty end-to-end. Switch to migrate?`,
         )
         if (wantsMigrate === null) return this.log('Cancelled.')
-        if (wantsMigrate) {
-          const passthrough = ['--path', path]
-          if (flags.app) passthrough.push('--app', flags.app)
-          if (flags.driver) passthrough.push('--driver', flags.driver)
-          if (flags.copy) passthrough.push('--copy')
-          if (flags['no-telemetry']) passthrough.push('--no-telemetry')
-          return this.config.runCommand('migrate', passthrough)
-        }
+        if (wantsMigrate) return this.config.runCommand('migrate', migratePassthrough(path, flags))
       } else {
         this.log(
           `Found ${billingLabel(billing)} in this project - \`adapty migrate\` is built for replacing it. Continuing with a fresh integration.`,
@@ -80,10 +92,16 @@ static flags = {
       return this.log('No problem - run `adapty integrate` again anytime, or use --copy to drive your own agent.')
     }
 
-    // Real store IDs turn "defer everything to ADAPTY_SETUP.md" into a full dashboard setup.
-    const products = await collectStoreProducts(project.platform)
+    // In code-only mode the placement's developer ID is settled here, by the
+    // user, not later by the agent - a wrong guess fails silently at runtime.
+    const placementDeveloperId = await resolvePlacementDeveloperId(this, setup, approach)
+    if (placementDeveloperId === null) return this.log('Cancelled.')
+
+    // Real store IDs turn "defer everything to ADAPTY_SETUP.md" into a full dashboard
+    // setup - pointless in code-only mode, where the products already exist in Adapty.
+    const products = setup.dashboardMode === 'code-only' ? [] : await collectStoreProducts(project.platform)
     if (products === null) return this.log('Cancelled.')
-    const promptCtx = await preparePromptContext(setup, approach, products)
+    const promptCtx = await preparePromptContext(setup, approach, products, {placementDeveloperId})
 
     if (copyOnly) {
       return emitCopyPrompt(this, integrateAction, promptCtx, {installSkill})

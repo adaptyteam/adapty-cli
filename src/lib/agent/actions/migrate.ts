@@ -20,6 +20,7 @@ export function buildMigrateAction(label: string, rcCatalog?: string): AgentActi
     id: 'migrate',
     task(ctx: PromptContext): string {
       const {appId, cliCommand, migrationReference, platformReference} = ctx
+      const codeOnly = ctx.dashboardMode === 'code-only'
       return `You are migrating the user's app from ${label} to Adapty - Adapty fully replaces ${label}.
 
 1. Map the existing setup. Find every call site of ${label}: SDK init, user identification, paywall/product fetching, purchase & restore, entitlement/subscription checks, event listeners.${
@@ -28,7 +29,11 @@ export function buildMigrateAction(label: string, rcCatalog?: string): AgentActi
           : ' Extract the REAL store product IDs and entitlement names from the code and config - use them below instead of placeholders wherever they exist.'
       }
 
-2. Dashboard setup via \`${cliCommand}\` (app already exists - see context; scope every command with --app ${appId || '<APP_ID>'}).
+2. ${
+        codeOnly
+          ? `The user has ALREADY set up this app's dashboard - map ${label}'s concepts onto the entities that exist (list them via \`${cliCommand}\` with --app ${appId || '<APP_ID>'}). Create nothing; the playbook's mapping rules below tell you how a ${label} concept matches an existing Adapty entity.`
+          : `Dashboard setup via \`${cliCommand}\` (app already exists - see context; scope every command with --app ${appId || '<APP_ID>'}).`
+      }
 ${
   !rcCatalog && ctx.storeProducts
     ? `\nThe user also typed in their store product IDs below. Identifiers you find in the code are trustworthy as-is - do not second-guess or replace them. Treat the user's list as a COMPLEMENT: create every product from it that the code does not already cover, and when the same product appears in both with a different identifier, keep the code's identifier and flag the mismatch in ADAPTY_SETUP.md for the user to double-check.\n\n<store_products>\n${ctx.storeProducts}\n</store_products>\n`
@@ -45,7 +50,7 @@ ${
         rcCatalog
           ? ''
           : `\nYou worked WITHOUT access to the ${label} account, so the code was your only source and the account almost certainly holds entities you could not see. The migration playbook's "verify against your source's dashboard" checklist is mandatory for this run.${
-              label === 'RevenueCat'
+              label === 'RevenueCat' && !codeOnly
                 ? ' Mention that re-running `adapty migrate --rc-key <v2 secret key>` automates that comparison.'
                 : ''
             }\n`

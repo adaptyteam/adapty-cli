@@ -1,7 +1,14 @@
 import type {Command} from '@oclif/core'
 
 import type {ApiClient} from '../api-client.js'
-import type {AppDetailDTO, AppSummaryDTO} from '../api-schemas.js'
+import type {
+  AccessLevelDTO,
+  AppDetailDTO,
+  AppSummaryDTO,
+  PaywallDTO,
+  PlacementSummaryDTO,
+  ProductDTO,
+} from '../api-schemas.js'
 
 import {resolveToken} from '../auth.js'
 import {createAuthenticatedClient} from '../client-from-config.js'
@@ -10,12 +17,152 @@ import {type DetectedProject, scanProject} from '../project/scan.js'
 import {confirm, isInteractive, select, spinner, text} from '../ui/ask.js'
 import {type AgentDriver, detectDrivers, DRIVERS} from './drivers/index.js'
 import {renderStoreProducts, type StoreProduct} from './products.js'
-import {type PromptContext, resolveCliCommand} from './prompt.js'
+import {type DashboardMode, type PromptContext, resolveCliCommand} from './prompt.js'
 import {loadPlatformReference} from './skill-source.js'
 import {telemetryDisabled} from './telemetry.js'
 
+/** Everything already in the bound Adapty app - the basis for mode detection and the placement picker. */
+export interface DashboardSnapshot {
+  accessLevels: AccessLevelDTO[]
+  paywalls: PaywallDTO[]
+  placements: PlacementSummaryDTO[]
+  products: ProductDTO[]
+  /** Server-side totals per kind - the lists above hold only the first page (100). */
+  totals: {accessLevels: number; paywalls: number; placements: number; products: number}
+}
+
+// One page is plenty here: the snapshot exists to detect a populated app and
+// to offer a placement picker, not to mirror the account.
+const SNAPSHOT_PAGE = paginationParams({page: 1, 'page-size': 100})
+
+/** Four parallel GETs against endpoints that already back the CLI's own `list` commands. */
+export async function fetchDashboardSnapshot(client: ApiClient, appId: string): Promise<DashboardSnapshot> {
+  const [accessLevels, products, paywalls, placements] = await Promise.all([
+    client.get<PaginatedResponse<AccessLevelDTO>>(`/apps/${appId}/access-levels`, SNAPSHOT_PAGE),
+    client.get<PaginatedResponse<ProductDTO>>(`/apps/${appId}/products`, SNAPSHOT_PAGE),
+    client.get<PaginatedResponse<PaywallDTO>>(`/apps/${appId}/paywalls`, SNAPSHOT_PAGE),
+    client.get<PaginatedResponse<PlacementSummaryDTO>>(`/apps/${appId}/placements`, SNAPSHOT_PAGE),
+  ])
+  return {
+    accessLevels: accessLevels.data,
+    paywalls: paywalls.data,
+    placements: placements.data,
+    products: products.data,
+    totals: {
+      accessLevels: accessLevels.meta.pagination.count,
+      paywalls: paywalls.meta.pagination.count,
+      placements: placements.meta.pagination.count,
+      products: products.meta.pagination.count,
+    },
+  }
+}
+
+export function snapshotIsEmpty(snapshot: DashboardSnapshot): boolean {
+  return (
+    snapshot.accessLevels.length === 0 &&
+    snapshot.products.length === 0 &&
+    snapshot.paywalls.length === 0 &&
+    snapshot.placements.length === 0
+  )
+}
+
+/** "Products  Monthly, Annual, Lifetime + 2 more" - names, because counts don't let the user recognize their own setup. */
+function nameRow(label: string, names: string[], total: number): string[] {
+  if (names.length === 0) return []
+  // The list is one page; the server total keeps "+ N more" honest past it.
+  const count = Math.max(total, names.length)
+  const shown = names.slice(0, 3).join(', ')
+  const more = count > 3 ? ` + ${count - 3} more` : ''
+  return [`${label.padEnd(14)} ${shown}${more}`]
+}
+
+/** One line per non-empty entity kind, named by the field that identifies it to a human. */
+export function renderSnapshotLines(snapshot: DashboardSnapshot): string[] {
+  const {totals} = snapshot
+  return [
+    // sdk_id / developer_id are the strings that end up in code; titles are what the dashboard shows.
+    ...nameRow('Access levels', snapshot.accessLevels.map((a) => a.sdk_id), totals.accessLevels),
+    ...nameRow('Products', snapshot.products.map((p) => p.title), totals.products),
+    ...nameRow('Paywalls', snapshot.paywalls.map((p) => p.title), totals.paywalls),
+    ...nameRow('Placements', snapshot.placements.map((p) => p.developer_id), totals.placements),
+  ]
+}
+
+export type {DashboardMode} from './prompt.js'
+
+/**
+ * The CLI decides the mode BEFORE the agent launches - the prompt never asks
+ * the agent to work out which mode it is in. 'ask' sends the question to the
+ * user; 'headless-needs-flag' makes the command error: headless is scripting,
+ * and a wrong guess against a populated app is silent and unrecoverable
+ * (immutable store IDs, placements that block flow IDs), while a refused run
+ * is cheap to restart.
+ */
+export function decideDashboardMode(opts: {
+  codeOnlyFlag: boolean | undefined
+  interactive: boolean
+  snapshot: DashboardSnapshot | null
+}): 'ask' | 'headless-needs-flag' | DashboardMode {
+  if (opts.codeOnlyFlag !== undefined) return opts.codeOnlyFlag ? 'code-only' : 'create'
+  if (opts.snapshot === null) return opts.interactive ? 'ask' : 'create' // fetch failed: never fatal
+  if (snapshotIsEmpty(opts.snapshot)) return 'create'
+  return opts.interactive ? 'ask' : 'headless-needs-flag'
+}
+
+/**
+ * The one snapshot value the agent must not choose for itself: several
+ * placements and nothing in the code says which one this app fetches - that
+ * information was lost when the setup happened in the dashboard - and a wrong
+ * developer_id compiles, ships, and silently returns nothing at runtime.
+ *
+ * Called by the command AFTER its paywall-approach question (which is why this
+ * cannot run inside prepareWizard); reuses the placements the wizard already
+ * fetched. flow_builder always gets the text prompt: the placements endpoint
+ * returns paywall placements only, so an empty list is ambiguous there. Both
+ * text prompts are Enter-to-skip - skipping falls through to the playbook's
+ * inferred-ID rule, same contract as collectStoreProducts.
+ *
+ * null = cancelled; undefined = skipped or not applicable; string = resolved.
+ */
+export async function resolvePlacementDeveloperId(
+  command: Command,
+  setup: WizardSetup,
+  approach: string,
+): Promise<null | string | undefined> {
+  if (setup.dashboardMode !== 'code-only') return undefined
+  if (approach === 'observer') return undefined
+
+  const {interactive, placements} = setup
+
+  if (approach === 'custom' && placements.length === 1) {
+    command.log(`Using placement "${placements[0].developer_id}" from your dashboard.`)
+    return placements[0].developer_id
+  }
+
+  if (!interactive) return undefined // never prompt without a TTY
+
+  if (approach === 'custom' && placements.length > 1) {
+    const choice = await select(
+      'Which placement should the code fetch?',
+      placements.map((p) => ({hint: p.title, label: p.developer_id, value: p.developer_id})),
+      placements[0].developer_id,
+    )
+    return choice // null = cancelled, passed straight through
+  }
+
+  // flow_builder (flows aren't in the endpoint yet), or custom with zero placements.
+  const answer = await text(
+    approach === 'flow_builder'
+      ? "Your flow's placement ID from the dashboard (Enter to skip - the agent will pick one and flag it)"
+      : 'Placement ID the code should fetch (Enter to skip - the agent will pick one and flag it)',
+  )
+  if (answer === null) return null
+  return answer.trim() || undefined
+}
+
 export interface WizardFlags {
   app?: string
+  'code-only'?: boolean
   copy?: boolean
   driver?: string
   'no-telemetry'?: boolean
@@ -26,11 +173,15 @@ export interface WizardSetup {
   appId: string
   /** Nothing will be run for the user: --copy, or no agent was found and they took the prompt instead. */
   copyOnly: boolean
+  /** Resolved BEFORE the agent launches: 'code-only' = wire code to existing entities, create nothing. */
+  dashboardMode: DashboardMode
   /** null whenever copyOnly is true. */
   driver: AgentDriver | null
   /** The user asked for the Adapty skill in the agent they actually use (only offered when none was found). */
   installSkill: boolean
   interactive: boolean
+  /** Paywall placements already in the app (flow placements are not returned by the API yet). */
+  placements: PlacementSummaryDTO[]
   /** Playbook fetch started during the wizard so its latency hides behind the user's answers. */
   playbook: Promise<{error: unknown; ok: false} | {ok: true; reference: string}>
   project: DetectedProject
@@ -74,19 +225,8 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
   const {copyOnly, driver, installSkill} = execution
 
   // 3. Auth - needed to pick/create the app and for the agent's `adapty` CLI calls.
-  let token = await resolveToken(command.config.configDir)
-  if (!token && interactive) {
-    const wantsLogin = await confirm('You are not logged in to Adapty. Log in now?')
-    if (wantsLogin === null) {
-      command.log('Cancelled.')
-      return null
-    }
-
-    if (wantsLogin) {
-      await command.config.runCommand('auth:login')
-      token = await resolveToken(command.config.configDir)
-    }
-  }
+  const token = await ensureToken(command, interactive)
+  if (token === null) return null // cancelled (already logged)
 
   if (!token && !copyOnly) {
     command.error('This command needs an authenticated session. Run `adapty auth login` and try again.')
@@ -105,29 +245,46 @@ export async function prepareWizard(command: Command, flags: WizardFlags): Promi
   // to run this is best-effort: the prompt is still useful with the key blank.
   let appId = ''
   let sdkKey = ''
+  // The explicit flag must win even when no app gets bound (keyless --copy
+  // runs skip the whole block below); with an app, resolveDashboardMode
+  // re-applies the same flag-first precedence.
+  let dashboardMode: DashboardMode = flags['code-only'] ? 'code-only' : 'create'
+  let placements: PlacementSummaryDTO[] = []
   if (token) {
-    try {
-      const picked = await resolveApp(command, project, interactive, flags.app)
-      if (!picked) {
-        command.log('Cancelled.')
-        return null
-      }
+    const bound = await bindApp(command, copyOnly, {appFlag: flags.app, interactive, project})
+    if (!bound) return null // cancelled (already logged)
+    appId = bound.appId
+    sdkKey = bound.sdkKey
 
-      appId = picked.appId
-      sdkKey = picked.sdkKey
-      if (!sdkKey)
-        command.warn('This app has no public SDK key yet - the agent will need one to call Adapty.activate().')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (!copyOnly) {
-        command.error(`Couldn't bind an Adapty app (${message}). Fix that and try again.`)
-      }
-
-      command.warn(`Couldn't bind an Adapty app (${message}) - the prompt will leave the SDK key blank.`)
+    // OUTSIDE bindApp's try/catch: that catch downgrades binding failures to a
+    // warning on --copy runs, and the mode refusal must never be downgraded - a
+    // copy prompt generated in the wrong mode tells an agent to create entities
+    // in an app that already has them.
+    if (appId && bound.client) {
+      const resolved = await resolveDashboardMode(command, bound.client, {
+        appId,
+        codeOnlyFlag: flags['code-only'],
+        interactive,
+      })
+      if (!resolved) return null // cancelled (already logged)
+      dashboardMode = resolved.mode
+      placements = resolved.placements
     }
   }
 
-  return {appId, copyOnly, driver, installSkill, interactive, playbook, project, sdkKey, token: token ?? ''}
+  return {
+    appId,
+    copyOnly,
+    dashboardMode,
+    driver,
+    installSkill,
+    interactive,
+    placements,
+    playbook,
+    project,
+    sdkKey,
+    token: token ?? '',
+  }
 }
 
 /** Await the prefetched playbook and assemble the PromptContext - identical for every agent-driven command. */
@@ -135,7 +292,7 @@ export async function preparePromptContext(
   setup: WizardSetup,
   paywallApproach: string,
   storeProducts?: StoreProduct[],
-  migrationReference?: string,
+  opts: {migrationReference?: string; placementDeveloperId?: string} = {},
 ): Promise<PromptContext> {
   const spin = spinner()
   spin.start('Fetching the integration playbook')
@@ -150,8 +307,10 @@ export async function preparePromptContext(
   return {
     appId: setup.appId,
     cliCommand: resolveCliCommand(),
-    migrationReference,
+    dashboardMode: setup.dashboardMode,
+    migrationReference: opts.migrationReference,
     paywallApproach,
+    placementDeveloperId: opts.placementDeveloperId,
     platformReference: playbook.reference,
     project: setup.project,
     sdkKey: setup.sdkKey,
@@ -295,14 +454,123 @@ async function createApp(
   return {appId: app.id, sdkKey: app.sdk_key ?? ''}
 }
 
+/**
+ * Bind the Adapty app and its public SDK key. Best-effort on --copy runs: a
+ * failure there degrades to an empty binding (the prompt is still useful with
+ * the key blank) instead of aborting. null = the user cancelled the picker.
+ */
+async function bindApp(
+  command: Command,
+  copyOnly: boolean,
+  opts: {appFlag?: string; interactive: boolean; project: DetectedProject},
+): Promise<null | {appId: string; client?: ApiClient; sdkKey: string}> {
+  try {
+    const client = await createAuthenticatedClient(command.config)
+    const picked = await resolveApp(command, client, opts)
+    if (!picked) {
+      command.log('Cancelled.')
+      return null
+    }
+
+    if (!picked.sdkKey)
+      command.warn('This app has no public SDK key yet - the agent will need one to call Adapty.activate().')
+    return {appId: picked.appId, client, sdkKey: picked.sdkKey}
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!copyOnly) {
+      command.error(`Couldn't bind an Adapty app (${message}). Fix that and try again.`)
+    }
+
+    command.warn(`Couldn't bind an Adapty app (${message}) - the prompt will leave the SDK key blank.`)
+    return {appId: '', sdkKey: ''}
+  }
+}
+
+/** Resolve or interactively acquire a session token. null = user cancelled (already logged); undefined = still no token. */
+async function ensureToken(command: Command, interactive: boolean): Promise<null | string | undefined> {
+  let token = await resolveToken(command.config.configDir)
+  if (!token && interactive) {
+    const wantsLogin = await confirm('You are not logged in to Adapty. Log in now?')
+    if (wantsLogin === null) {
+      command.log('Cancelled.')
+      return null
+    }
+
+    if (wantsLogin) {
+      await command.config.runCommand('auth:login')
+      token = await resolveToken(command.config.configDir)
+    }
+  }
+
+  return token ?? undefined
+}
+
+/**
+ * Fetch what's already in the app and settle the mode BEFORE any agent runs.
+ * Returns null only when the user cancels the question. A failed fetch is
+ * never fatal: interactive asks without the names, headless proceeds as today.
+ */
+async function resolveDashboardMode(
+  command: Command,
+  client: ApiClient,
+  opts: {appId: string; codeOnlyFlag: boolean | undefined; interactive: boolean},
+): Promise<null | {mode: DashboardMode; placements: PlacementSummaryDTO[]}> {
+  const {appId, codeOnlyFlag, interactive} = opts
+  let snapshot: DashboardSnapshot | null = null
+  try {
+    snapshot = await fetchDashboardSnapshot(client, appId)
+  } catch {
+    command.warn("Couldn't read this app's current dashboard setup - continuing without it.")
+  }
+
+  const placements = snapshot?.placements ?? []
+  const decision = decideDashboardMode({codeOnlyFlag, interactive, snapshot})
+
+  if (decision === 'headless-needs-flag') {
+    command.error(
+      'This app already has dashboard entities. Pass --code-only to wire the code to them (nothing is created), or --no-code-only to also create what is missing.',
+    )
+  }
+
+  if (decision !== 'ask') {
+    if (decision === 'code-only')
+      command.log('Code-only run: the agent will use the existing dashboard entities and create nothing.')
+    return {mode: decision, placements}
+  }
+
+  // Names, not counts - the user has to recognize their own setup.
+  if (snapshot) {
+    command.log('\nThis app already has:')
+    for (const line of renderSnapshotLines(snapshot)) command.log(`  ${line}`)
+  }
+
+  const answer = await select(
+    snapshot
+      ? 'Use these entities, or create what is missing?'
+      : "Couldn't read this app's setup - have you already created your entities in the dashboard?",
+    [
+      {hint: 'wires code to them, creates nothing', label: 'Use these - I set them up already', value: 'code-only'},
+      {hint: 'the agent creates whatever the app is missing', label: "Create what's missing", value: 'create'},
+    ],
+    // Two defaults on purpose: a KNOWN populated app most likely means the user
+    // set it up (code-only); an UNREADABLE app is an unknown, and unknowns
+    // default to today's behavior (create).
+    snapshot ? 'code-only' : 'create',
+  )
+  if (!answer) {
+    command.log('Cancelled.')
+    return null
+  }
+
+  return {mode: answer as DashboardMode, placements}
+}
+
 async function resolveApp(
   command: Command,
-  project: DetectedProject,
-  interactive: boolean,
-  appFlag?: string,
+  client: ApiClient,
+  opts: {appFlag?: string; interactive: boolean; project: DetectedProject},
 ): Promise<null | {appId: string; sdkKey: string}> {
-  const client = await createAuthenticatedClient(command.config)
-
+  const {appFlag, interactive, project} = opts
   if (appFlag) {
     if (!isValidUuid(appFlag)) command.error('Invalid app ID format. Run `adapty apps list` to find your app ID.')
     const app = await client.get<AppDetailDTO>(`/apps/${appFlag}`)

@@ -6,7 +6,7 @@ import {DRIVER_IDS} from '../lib/agent/drivers/index.js'
 import {collectStoreProducts} from '../lib/agent/products.js'
 import {emitCopyPrompt, prepareWorkBranch, reportActionFailure, runActionWithFollowUp} from '../lib/agent/run.js'
 import {loadMigrationReference} from '../lib/agent/skill-source.js'
-import {preparePromptContext, prepareWizard} from '../lib/agent/wizard.js'
+import {preparePromptContext, prepareWizard, resolvePlacementDeveloperId} from '../lib/agent/wizard.js'
 import {BILLING_LABELS, type BillingId, billingLabel, detectBilling} from '../lib/project/billing.js'
 import {hasUncommittedChanges} from '../lib/project/git.js'
 import {fetchRcCatalog, renderRcCatalog} from '../lib/project/revenuecat.js'
@@ -21,6 +21,11 @@ static examples = [
   ]
 static flags = {
     app: Flags.string({description: 'Adapty app ID (UUID) to connect; skips the app picker'}),
+    'code-only': Flags.boolean({
+      allowNo: true,
+      description:
+        'The dashboard is already set up - wire the code to the existing entities and create nothing (--no-code-only forces entity creation; without either, the CLI asks when the app is not empty)',
+    }),
     copy: Flags.boolean({
       description: 'Print the migration prompt instead of running an agent (paste it into any coding agent)',
     }),
@@ -38,6 +43,13 @@ static flags = {
   async run(): Promise<void> {
     const {flags} = await this.parse(Migrate)
     const path = resolve(flags.path ?? process.cwd())
+
+    // --rc-key exists to recreate RC entities in Adapty; --code-only creates nothing.
+    if (flags['rc-key'] && flags['code-only']) {
+      this.error(
+        '--rc-key recreates your RevenueCat entities in Adapty, but --code-only creates nothing - pass one or the other.',
+      )
+    }
 
     const setup = await prepareWizard(this, {...flags, path})
     if (!setup) return
@@ -126,8 +138,15 @@ static flags = {
       }
     }
 
-    // Without the RC catalog the user's own store IDs are the only ground truth available.
-    const products = rcCatalog ? [] : await collectStoreProducts(project.platform)
+    // In code-only mode the placement's developer ID is settled here, by the
+    // user, not later by the agent - a wrong guess fails silently at runtime.
+    const placementDeveloperId = await resolvePlacementDeveloperId(this, setup, approach)
+    if (placementDeveloperId === null) return this.log('Cancelled.')
+
+    // Without the RC catalog the user's own store IDs are the only ground truth
+    // available - except in code-only mode, where Adapty already has better ones.
+    const products =
+      rcCatalog || setup.dashboardMode === 'code-only' ? [] : await collectStoreProducts(project.platform)
     if (products === null) return this.log('Cancelled.')
     // The spine carries the mapping rules and the ADAPTY_SETUP.md contract the
     // prompt no longer inlines, so a failure here must stop the run, not warn.
@@ -139,7 +158,7 @@ static flags = {
     })
     mSpin.stop('Migration playbook ready')
 
-    const promptCtx = await preparePromptContext(setup, approach, products, migrationReference)
+    const promptCtx = await preparePromptContext(setup, approach, products, {migrationReference, placementDeveloperId})
     const action = buildMigrateAction(providerLabel, rcCatalog)
 
     if (copyOnly) {

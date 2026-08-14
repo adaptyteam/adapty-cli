@@ -68,6 +68,36 @@ describe('agent prompts', () => {
     })
   })
 
+  describe('dashboard modes', () => {
+    it('embeds the resolved placement developer ID as first-class context', () => {
+      const prompt = buildActionPrompt(
+        ACTION,
+        ctx({dashboardMode: 'code-only', placementDeveloperId: 'onboarding_paywall'}),
+      )
+      expect(prompt).to.include('<placement_developer_id')
+      expect(prompt).to.include('onboarding_paywall')
+    })
+
+    it('omits the placement element when no ID was resolved', () => {
+      expect(buildActionPrompt(ACTION, ctx())).to.not.include('<placement_developer_id')
+    })
+
+    it('code-only mode forbids creating anything and routes gaps to ADAPTY_SETUP.md', () => {
+      const prompt = buildActionPrompt(ACTION, ctx({dashboardMode: 'code-only'}))
+      expect(prompt).to.include('create NO dashboard entities of any kind')
+      expect(prompt).to.include('access-levels list --json')
+      expect(prompt).to.not.include('Before creating ANY entity, list what already exists')
+    })
+
+    it('create mode (and legacy contexts without a mode) get the list-before-create rule', () => {
+      for (const context of [ctx({dashboardMode: 'create'}), ctx()]) {
+        const prompt = buildActionPrompt(ACTION, context)
+        expect(prompt).to.include('Before creating ANY entity, list what already exists')
+        expect(prompt).to.not.include('create NO dashboard entities of any kind')
+      }
+    })
+  })
+
   describe('session-token isolation', () => {
     it('preparePromptContext never carries the wizard token into the prompt', async () => {
       // Real seam: the token lives on WizardSetup; the contract is that no
@@ -77,9 +107,11 @@ describe('agent prompts', () => {
         {
           appId: 'app-1',
           copyOnly: true,
+          dashboardMode: 'create',
           driver: null,
           installSkill: false,
           interactive: false,
+          placements: [],
           playbook: Promise.resolve({ok: true as const, reference: '# playbook'}),
           project: {name: 'demo', path: '/apps/demo', platform: 'flutter', platformLabel: 'Flutter'},
           sdkKey: 'public_live_abc123',
@@ -185,6 +217,27 @@ describe('agent prompts', () => {
       const prompt = buildActionPrompt(buildMigrateAction('Superwall'), ctx({migrationReference: 'MIGRATION RULES'}))
       expect(prompt).to.include("verify against your source's dashboard")
       expect(prompt).to.not.include('--rc-key')
+    })
+  })
+
+  describe('migrate action dashboard modes', () => {
+    const action = buildMigrateAction('RevenueCat')
+
+    it('code-only swaps dashboard setup for mapping onto existing entities', () => {
+      const task = action.task(ctx({dashboardMode: 'code-only', migrationReference: 'MIGRATION PLAYBOOK'}))
+      expect(task).to.include("ALREADY set up this app's dashboard")
+      expect(task).to.not.include('Dashboard setup via')
+      // The playbook still ships in full - its mapping rules are what match
+      // a source entitlement to an EXISTING access level.
+      expect(task).to.include('MIGRATION PLAYBOOK')
+      // --rc-key conflicts with --code-only, so never suggest the re-run.
+      expect(task).to.not.include('--rc-key')
+    })
+
+    it("create mode keeps today's step 2 verbatim", () => {
+      const task = action.task(ctx({dashboardMode: 'create', migrationReference: 'MIGRATION PLAYBOOK'}))
+      expect(task).to.include('Dashboard setup via')
+      expect(task).to.include('--rc-key')
     })
   })
 })

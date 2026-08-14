@@ -3,6 +3,13 @@ import {dirname, join} from 'node:path'
 import type {DetectedProject} from '../project/scan.js'
 
 /**
+ * 'code-only' = the app's dashboard entities already exist, the agent creates
+ * nothing; 'create' = today's behavior. Declared here (not in wizard.ts, which
+ * resolves it) because wizard.ts already imports from this module.
+ */
+export type DashboardMode = 'code-only' | 'create'
+
+/**
  * Shared context every agent-driven command provides. Action-specific data
  * (e.g. a migration's source provider) travels inside the action's task body.
  */
@@ -10,9 +17,13 @@ export interface PromptContext {
   appId: string
   /** How the agent invokes this exact CLI build (never `npx adapty@latest` - version skew). */
   cliCommand: string
+  /** 'code-only' = the app's entities already exist, the agent must create nothing. Set by the wizard. */
+  dashboardMode?: DashboardMode
   /** Rendered migration playbook (spine + source file) - set only by `migrate`. */
   migrationReference?: string
   paywallApproach: string
+  /** The placement developer ID the code must fetch - resolved by the CLI so the agent never chooses it. */
+  placementDeveloperId?: string
   platformReference: string
   project: DetectedProject
   sdkKey: string
@@ -59,7 +70,7 @@ function contextBlock(ctx: PromptContext): string {
   <app_directory>${project.path}</app_directory>
   <adapty_app_id>${appId || '(not provided)'}</adapty_app_id>
   <public_sdk_key purpose="Adapty.activate()">${sdkKey || '(not provided - ask the user to paste it from the Adapty dashboard before running)'}</public_sdk_key>
-  ${paywallApproach ? `<paywall_approach>${paywallApproach}</paywall_approach>\n  ` : ''}<docs note="every page is fetchable as markdown">https://adapty.io/docs/llms.txt lists all pages; fetch any page as https://adapty.io/docs/{slug}.md</docs>
+  ${ctx.placementDeveloperId ? `<placement_developer_id purpose="the placement the code must fetch - already exists in the dashboard">${ctx.placementDeveloperId}</placement_developer_id>\n  ` : ''}${paywallApproach ? `<paywall_approach>${paywallApproach}</paywall_approach>\n  ` : ''}<docs note="every page is fetchable as markdown">https://adapty.io/docs/llms.txt lists all pages; fetch any page as https://adapty.io/docs/{slug}.md</docs>
 </context>`
 }
 
@@ -72,6 +83,10 @@ function rulesBlock(ctx: PromptContext, actionId: string, mode: PromptMode): str
     mode === 'headless'
       ? `\n  <rule>Emit a one-line progress update prefixed with '[STATUS] ' before EVERY step, including before running any shell command (e.g. '[STATUS] Installing the Adapty package', '[STATUS] Creating the placement'). The user only sees these [STATUS] lines - never go more than one tool call without one.</rule>`
       : ''
+  const dashboardRule =
+    ctx.dashboardMode === 'code-only'
+      ? `<rule>The user has ALREADY set up this app's dashboard entities - create NO dashboard entities of any kind (no access levels, products, paywalls, or placements). List what exists (\`${ctx.cliCommand} access-levels list --json\`, \`products list --json\`, \`paywalls list --json\`, \`placements list --json\`) and wire the code to exactly those strings. Anything genuinely absent goes into ADAPTY_SETUP.md as a ready-to-run command - never created in this run.</rule>`
+      : `<rule>Before creating ANY entity, list what already exists (\`${ctx.cliCommand} <resource> list --json\`) and never recreate something already there - reuse it. This also makes a re-run after a half-finished session safe.</rule>`
 
   return `<rules>
   <rule>Make the smallest set of edits that achieves a working, verifiable result. Do not refactor unrelated code or reformat files.</rule>
@@ -80,6 +95,7 @@ function rulesBlock(ctx: PromptContext, actionId: string, mode: PromptMode): str
   <rule>Before editing any file, read it first. Match the file's existing style and conventions.</rule>
   <rule>Detect the package manager / build system from the project (lockfiles, Podfile, gradle files, pubspec.yaml) rather than assuming.</rule>
   <rule>Dashboard entities (access levels, products, paywalls, placements) are managed with the Adapty CLI. Invoke it EXACTLY as \`${ctx.cliCommand} <command> --json\` and scope every command with --app ${ctx.appId || '<APP_ID>'}. It authenticates via the ADAPTY_TOKEN environment variable, which is already set for you. Never ask the user for IDs the CLI can return.</rule>
+  ${dashboardRule}
   <rule>NEVER run the CLI's auth commands (auth login / logout / revoke) - login needs a browser and logout would destroy the user's session. If a CLI call fails with an auth error, do NOT retry or troubleshoot auth: record the exact remaining commands in ADAPTY_SETUP.md and continue with the code stages.</rule>
   <rule>Store product IDs are IMMUTABLE in Adapty - once a product is created its store IDs can never be changed, only the whole product deleted and recreated. So NEVER create a product with a guessed or placeholder store ID. Create products only with real IDs you found in the code, config, or provided data. When you do not know the real IDs, create NO products - and no paywall or placement either (they would be empty shells): put the full ready-to-run command sequence (products create -> paywalls create -> placements create, with <REAL_PRODUCT_ID> slots) in ADAPTY_SETUP.md instead, and make sure the placement ID used in code matches the one in those commands.</rule>
   <rule>Never invent an SDK API. Every symbol you write must come from the playbook below or a docs page you fetched. Where a docs URL in the playbook carries a ?ref=skill-<sessionToken> tag, use ref=cli-${actionId} instead.</rule>${statusRule}
