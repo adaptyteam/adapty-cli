@@ -130,6 +130,7 @@
   },
   "scripts": {
     "build": "shx rm -rf dist && tsc -b",
+    "check:agent-docs": "oclif manifest && node scripts/check-agent-docs.mjs",
     "lint": "eslint",
     "postpack": "shx rm -f oclif.manifest.json",
     "posttest": "pnpm run lint",
