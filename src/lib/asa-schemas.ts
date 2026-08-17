@@ -319,3 +319,50 @@ export interface AsaNegativeKeywordMutationDTO {
 export interface AsaAutomationMutationDTO {
   automation: AsaAutomationDTO | null
 }
+
+export type AsaBulkOperationStatus = 'failed' | 'partial' | 'pending' | 'running' | 'success'
+
+export interface AsaBulkOperationAcceptedDTO {
+  operation_id: string
+}
+
+export interface AsaBulkOperationCountsDTO {
+  applied: number
+  failed: number
+  pending: number
+  total: number
+}
+
+export interface AsaBulkOperationObjectDTO {
+  apple_error_code: null | string
+  apple_error_message: null | string
+  entity_kind: string
+  external_id: null | number
+  item_ref: string
+  status: string
+  step_type: string
+}
+
+export interface AsaBulkOperationStateDTO {
+  counts: AsaBulkOperationCountsDTO
+  created_at: string
+  finished_at: null | string
+  objects: AsaBulkOperationObjectDTO[]
+  operation_id: string
+  pipelines: Record<string, unknown>[]
+  started_at: null | string
+  status: AsaBulkOperationStatus
+}
+
+export interface AsaTemplateIssueDTO {
+  column: null | string
+  message: string
+  row: null | number
+  sheet: null | string
+}
+
+export interface AsaBulkConvertResultDTO {
+  errors: AsaTemplateIssueDTO[]
+  request: null | Record<string, unknown>
+  warnings: AsaTemplateIssueDTO[]
+}
