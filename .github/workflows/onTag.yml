@@ -35,3 +35,17 @@ jobs:
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           echo "Published ${PACKAGE_NAME}@${PACKAGE_VERSION}"
+
+  notify-apple-ads-cli:
+    name: Sync Apple Ads agent docs
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Dispatch released docs
+        env:
+          ADAPTY_CLI_REF: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+        run: |
+          gh api --method POST repos/adaptyteam/apple-ads-cli/dispatches \
+            -f event_type=adapty-cli-released \
+            -f "client_payload[ref]=${ADAPTY_CLI_REF}"
