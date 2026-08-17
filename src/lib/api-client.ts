@@ -57,6 +57,10 @@ export class ApiClient {
     )
   }
 
+  async postForm<T = unknown>(path: string, form: FormData, params?: QueryParams, opts?: RequestOptions): Promise<T> {
+    return this.request<T>(this.buildUrl(path, params), {body: form, method: 'POST'}, opts)
+  }
+
   async put<T = unknown>(path: string, body?: unknown, params?: QueryParams, opts?: RequestOptions): Promise<T> {
     return this.request<T>(
       this.buildUrl(path, params),
@@ -97,7 +101,7 @@ export class ApiClient {
       'User-Agent': this.userAgent,
     }
 
-    if (init.body) {
+    if (init.body && !(init.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json'
     }
 

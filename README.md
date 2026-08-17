@@ -136,6 +136,28 @@ adapty asa ads create --ad-group UUID --creative-id 4321 --name "Summer ad"
 adapty asa ads update AD_ID [--name "..."] [--status PAUSED]
 ```
 
+Bulk structure creation submits a whole tree — campaigns with nested ad groups, keywords, negative keywords
+and ads — in one call. The input is a JSON structure (the natural path for an AI agent: generate it, pipe it
+in), or a native Apple Ads template converted server-side. The whole payload is validated before anything is
+created — a rejection lists every bad node; on acceptance the command polls progress and prints the final
+report (`success` / `partial` / `failed`, with per-object failures):
+
+```sh
+adapty asa campaigns bulk-create --file structure.json          # JSON structure, waits and reports
+cat structure.json | adapty asa campaigns bulk-create --file -  # same, from stdin
+adapty asa campaigns bulk-create --file structure.json --no-wait
+adapty asa campaigns bulk-create --from-file Campaign_And_Adgroup_Template.xlsx --org-id 1234567
+adapty asa campaigns bulk-create --from-file keywords_template.csv --org-id 1234567 --preview
+adapty asa campaigns bulk-status OPERATION_ID
+```
+
+The structure is `{campaign_group_id | campaign_group_internal_id, campaigns: [...]}` where each campaign
+node either creates (`payload`) or addresses an existing campaign by id (an *anchor*, optionally carrying
+`update_payload`), and nests `ad_groups` with `keywords`, `negative_keywords` and `ads` the same way.
+`--from-file` takes the native Apple Ads templates and needs `--org-id` (the Apple org id from
+`asa orgs list`); `--preview` prints the converted request without creating anything. Conversion issues are
+reported with their sheet, row and column.
+
 Keywords are always applied as a batch, at most 100 per call, and a partial rejection is reported per item:
 
 ```sh
