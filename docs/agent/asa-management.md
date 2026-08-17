@@ -30,6 +30,8 @@ Every `list` and `get` command in this file returns metadata only, no metrics. E
 | `asa campaigns get <id>` | positional UUID | Metadata only. |
 | `asa campaigns create` | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--status` (`ENABLED`/`PAUSED`, no default), `--budget` (lifetime), `--target-cpa`, `--bidding-strategy`, `--supply-source` (repeatable, default `APPSTORE_SEARCH_RESULTS`), `--billing-event` (`IMPRESSIONS`/`TAPS`, default `TAPS`), `--ad-channel-type` (`DISPLAY`/`SEARCH`, default `SEARCH`) | `--org` takes the UUID (`internal_id`) from `asa orgs list`, not that row's numeric `org_id`; `--adam-id` comes from `asa apps list`. `--status` has no default — pass `--status PAUSED` to launch without spending until you enable it. |
 | `asa campaigns update <id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--budget`, `--target-cpa`, `--bidding-strategy` | |
+| `asa campaigns bulk-create` | exactly one of `--file` (JSON structure, `-` for stdin) / `--from-file` (Apple Ads template, `.xlsx` or keywords `.csv`); `--org-id` required with `--from-file`; optional `--preview`, `--no-wait`, `--poll-interval` (default `5`), `--timeout` (default `900`) | Creates a whole structure — campaigns → ad groups → keywords/negative keywords/ads — as one queued operation. `--org-id` is the exception to this file's UUID rule: it takes the **numeric** `org_id` from `asa orgs list` (Apple's `campaign_group_id`), not the `internal_id` UUID that `campaigns create --org` takes. `--from-file` converts the template server-side first (its own budget — see [Request budgets](#request-budgets)); with `--preview` the command prints the converted request and creates nothing. By default it polls until the operation finishes (`success`/`partial`/`failed`, per-object failures listed); `--no-wait` prints the `operation_id` and returns — follow up with `bulk-status`. |
+| `asa campaigns bulk-status <operation-id>` | positional operation id, printed by `bulk-create` | Progress of one bulk operation: status, applied/failed counts, and the per-object log with each failure's reason. |
 
 ## Ad groups
 
@@ -135,6 +137,7 @@ Every `asa` command is rate limited per company, not per token:
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
 | all writes | 20/min |
+| template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
 
 `keywords list` is the heaviest metadata read in the surface — its own budget is on top of
