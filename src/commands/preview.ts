@@ -2,38 +2,31 @@ import {Args, Command, Flags} from '@oclif/core'
 import {readFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
 
-import {printResponse} from '../lib/output.js'
-import {firstScreenId, normalizePreviewConfig} from '../lib/preview-config.js'
-import {
-  DEFAULT_DEVICE_ID,
-  defaultScreenshotPath,
-  RENDER_URL_ENV_VAR,
-  renderPreview,
-  resolveRenderUrl,
-} from '../lib/preview-render.js'
+import {firstScreenId, normalizePreviewConfig, writePayloadFile} from '../lib/preview-config.js'
+import {buildReferenceCommand} from '../lib/preview-reference.js'
+import {buildRenderUrl, DEFAULT_DEVICE_ID, RENDER_URL_ENV_VAR, resolveRenderUrl} from '../lib/preview-url.js'
 
 export interface PreviewResult {
-  device: string
-  path: string
-  screen?: string
+  payloadPath: string
+  referenceCommand: string
+  renderUrl: string
 }
 
 export default class Preview extends Command {
   static args = {
     config_file: Args.string({description: 'Path to a local flow config JSON file', required: true}),
   }
-static description = 'Render a local flow config to a PNG screenshot with a headless browser'
+static description = 'Prepare a render URL and payload for a local flow config, then screenshot it with your own browser tool or the shipped reference script'
 static enableJsonFlag = true
 static examples = [
     '<%= config.bin %> preview ./paywall.json',
-    '<%= config.bin %> preview ./paywall.json --screen welcome --device ipad-pro --out ./preview.png',
+    '<%= config.bin %> preview ./paywall.json --screen welcome --device ipad-pro --json',
   ]
 static flags = {
     device: Flags.string({default: DEFAULT_DEVICE_ID, description: 'Device frame to render in'}),
-    out: Flags.string({description: 'Where to write the PNG (default: a temp file)'}),
+    'payload-out': Flags.string({description: 'Where to write the normalized payload JSON (default: a temp file)'}),
     'render-url': Flags.string({description: `Render page base URL (defaults to $${RENDER_URL_ENV_VAR})`}),
     screen: Flags.string({description: 'Screen ID to render (default: first screen in the config)'}),
-    timeout: Flags.integer({default: 30_000, description: 'Per-step timeout in milliseconds', min: 1000}),
   }
 
   async run(): Promise<PreviewResult> {
@@ -50,27 +43,29 @@ static flags = {
     }
 
     let payload
-    let renderUrl
+    let renderBaseUrl
     try {
       payload = normalizePreviewConfig(raw)
-      renderUrl = resolveRenderUrl(flags['render-url'])
+      renderBaseUrl = resolveRenderUrl(flags['render-url'])
     } catch (error) {
       this.error(error instanceof Error ? error.message : String(error), {exit: 2})
     }
 
     const screen = flags.screen ?? firstScreenId(payload.flow)
-    const outPath = flags.out ? resolve(flags.out) : await defaultScreenshotPath()
-    const path = await renderPreview({
-      device: flags.device,
-      outPath,
-      payload,
+    const renderUrl = buildRenderUrl(renderBaseUrl, {device: flags.device, screen}, payload)
+    const payloadPath = await writePayloadFile(payload, flags['payload-out'] ? resolve(flags['payload-out']) : undefined)
+    const result: PreviewResult = {
+      payloadPath,
+      referenceCommand: buildReferenceCommand({renderUrl}),
       renderUrl,
-      screen,
-      timeoutMs: flags.timeout,
-    })
+    }
 
-    const result: PreviewResult = {device: flags.device, path, screen}
-    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
+    this.log(`Render URL: ${result.renderUrl}`)
+    this.log(`Payload file: ${result.payloadPath}`)
+    this.log(`Reference command: ${result.referenceCommand}`)
+    this.log('')
+    this.log('Open the render URL with any browser tool and screenshot [data-screen-content], or run the')
+    this.log('reference command. For a config too large for a URL, add --config <payload file> to it.')
 
     return result
   }

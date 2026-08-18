@@ -40,7 +40,8 @@
   "files": [
     "./bin",
     "./dist",
-    "./oclif.manifest.json"
+    "./oclif.manifest.json",
+    "./scripts/preview-with-playwright.mjs"
   ],
   "homepage": "https://adapty.io/docs/developer-cli",
   "keywords": [
@@ -145,8 +146,5 @@
     "test": "mocha --forbid-only \"test/**/*.test.ts\"",
     "version": "oclif readme && git add README.md"
   },
-  "types": "dist/index.d.ts",
-  "optionalDependencies": {
-    "playwright": "^1.62.1"
-  }
+  "types": "dist/index.d.ts"
 }

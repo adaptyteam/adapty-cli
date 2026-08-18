@@ -256,6 +256,33 @@ and the outcome shows up in `adapty asa automations runs`.
 | `--page`      | Page number (default: 1)               |
 | `--page-size` | Items per page (default: 20, max: 100; `asa` commands: default 100, max 1000) |
 
+## Paywall Preview
+
+`adapty preview <config_file>` does not render anything itself — **Playwright is not bundled**. It takes a
+local flow config (a dashboard-api envelope `{config, remote_configs, ...}` or a bare builder config),
+normalizes it to `{flow, remoteConfigs}`, and prints three handles:
+
+| Handle             | Use                                                                        |
+| ------------------ | -------------------------------------------------------------------------- |
+| `renderUrl`        | `<render-base>?screen=<id>&device=<id>#config=gz:<base64url(gzip(json))>` — open it with any browser or computer-use tool and screenshot the `[data-screen-content]` element |
+| `payloadPath`      | The normalized payload JSON, for the file-input path (`[data-testid="preview-config-input"]`) when a config is too large for a URL |
+| `referenceCommand` | Ready-to-run `npx` command for the reference Playwright script shipped with this package |
+
+```sh
+export ADAPTY_PREVIEW_RENDER_URL=https://.../preview   # required, no default
+adapty preview ./paywall.json --screen offer --device iphone-14 --json
+
+# then either run the printed reference command:
+npx --yes --package=playwright node <pkg>/scripts/preview-with-playwright.mjs \
+  --url "<renderUrl>" --out preview.png
+# ...or, for a huge config, feed the payload file through the page's file input:
+npx --yes --package=playwright node <pkg>/scripts/preview-with-playwright.mjs \
+  --url "<renderUrl>" --config "<payloadPath>" --out preview.png
+```
+
+Playwright is resolved at run time by `npx` (or from your own project), so it is neither a dependency nor a
+download for anyone who never previews. Browsers still need `npx playwright install chromium` once.
+
 ## Environment Variables
 
 | Variable             | Description                                                                             |

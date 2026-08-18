@@ -1,6 +1,6 @@
-import {mkdtemp, writeFile} from 'node:fs/promises'
+import {mkdir, mkdtemp, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
-import {join} from 'node:path'
+import {dirname, join} from 'node:path'
 
 /** Payload the render page expects: the builder config plus its remote configs. */
 export interface PreviewPayload {
@@ -64,7 +64,13 @@ export function firstScreenId(flow: Record<string, unknown>): string | undefined
 }
 
 /** Writes the payload where a browser file input can pick it up. */
-export async function writePayloadFile(payload: PreviewPayload): Promise<string> {
+export async function writePayloadFile(payload: PreviewPayload, outPath?: string): Promise<string> {
+  if (outPath) {
+    await mkdir(dirname(outPath), {recursive: true})
+    await writeFile(outPath, JSON.stringify(payload), 'utf8')
+    return outPath
+  }
+
   const dir = await mkdtemp(join(tmpdir(), 'adapty-preview-'))
   const path = join(dir, 'flow-config.json')
   await writeFile(path, JSON.stringify(payload), 'utf8')

@@ -100,15 +100,24 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 |-------------------------------|----------------|
 | `preview <config_file>`        | none (needs a render URL) |
 
-Renders a **local** flow config JSON file to a PNG with headless Chromium — no API call, no `--app`. Accepts
-either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config (`screens` /
-`locales` / `theme`); both normalize to `{flow, remoteConfigs}` before injection.
+Prep-only: takes a **local** flow config JSON file, normalizes it, and prints the handles you need to render
+it. **No API call, no `--app`, and no bundled browser** — the CLI does not depend on Playwright.
+
+Accepts either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config (`screens`
+/ `locales` / `theme`); both normalize to `{flow, remoteConfigs}`.
 
 Flags: `--render-url` (or `ADAPTY_PREVIEW_RENDER_URL`, required), `--screen` (default: first screen in the
-config), `--device` (default: `iphone-14`), `--out` (default: temp file), `--timeout` (default: 30000 ms).
-The PNG path is printed, and returned as `{device, path, screen}` under `--json`.
+config), `--device` (default: `iphone-14`), `--payload-out` (default: temp file).
 
-Requires Playwright's chromium: `npx playwright install chromium`.
+Output (`--json`): `{renderUrl, payloadPath, referenceCommand}`.
+
+- `renderUrl` — `<base>?screen=<id>&device=<id>#config=gz:<base64url(gzip(json))>`. Tool-agnostic: open it
+  with your own browser/computer-use tool and screenshot the `[data-screen-content]` element.
+- `payloadPath` — the normalized payload file, for the page's `[data-testid="preview-config-input"]` file
+  input when the config is too large to sit in a URL.
+- `referenceCommand` — the exact `npx --yes --package=playwright node <pkg>/scripts/preview-with-playwright.mjs
+  --url "<renderUrl>" --out "preview.png"` invocation. Add `--config <payloadPath>` to use the file input
+  instead of the fragment. Chromium itself: `npx playwright install chromium` once.
 
 ## Apple Search Ads (`asa` topic)
 

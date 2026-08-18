@@ -1,10 +1,12 @@
 import {expect} from 'chai'
-import {readFileSync} from 'node:fs'
+import {existsSync, readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {gunzipSync} from 'node:zlib'
 
 import {firstScreenId, normalizePreviewConfig} from '../../src/lib/preview-config.js'
-import {buildRenderUrl, FRAGMENT_GZIP_PREFIX, resolveRenderUrl} from '../../src/lib/preview-render.js'
+import {buildReferenceCommand, referenceScriptPath} from '../../src/lib/preview-reference.js'
+import {buildRenderUrl, FRAGMENT_GZIP_PREFIX, resolveRenderUrl} from '../../src/lib/preview-url.js'
 
 const FIXTURE_PATH = fileURLToPath(new URL('../fixtures/flow-config.json', import.meta.url))
 const FIXTURE = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as unknown
@@ -99,6 +101,24 @@ describe('render url', () => {
     const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, payload))
 
     expect(decodeConfigFragment(url.hash)).to.deep.equal(payload)
+  })
+})
+
+describe('reference script', () => {
+  it('ships the reference Playwright script', () => {
+    const path = referenceScriptPath()
+    expect(path.endsWith(join('scripts', 'preview-with-playwright.mjs'))).to.equal(true)
+    expect(existsSync(path)).to.equal(true)
+  })
+
+  it('points the reference command at that script and the render URL', () => {
+    const renderUrl = 'https://app.example/preview?device=iphone-14#config=gz:abc'
+    const command = buildReferenceCommand({renderUrl})
+
+    expect(command).to.contain(`node "${referenceScriptPath()}"`)
+    expect(command).to.contain(`--url "${renderUrl}"`)
+    expect(command).to.contain('--out "preview.png"')
+    expect(command).to.contain('--package=playwright')
   })
 })
 })
