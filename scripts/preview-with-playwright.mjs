@@ -17,34 +17,12 @@
 
 import {createRequire} from 'node:module'
 import {delimiter, join, resolve} from 'node:path'
+import {parseArgs} from 'node:util'
 
 const CONFIG_INPUT_SELECTOR = '[data-testid="preview-config-input"]'
 const SCREEN_CONTENT_SELECTOR = '[data-screen-content]'
 const SETTLE_MS = 300
 const TIMEOUT_MS = 30_000
-
-function parseArgs(argv) {
-  const args = {out: 'preview.png'}
-  for (let i = 0; i < argv.length; i += 1) {
-    const flag = argv[i]
-    if (flag === '--url' || flag === '--config' || flag === '--out') {
-      const value = argv[i + 1]
-      if (!value) fail(`${flag} needs a value`)
-      args[flag.slice(2)] = value
-      i += 1
-    } else {
-      fail(`Unknown argument ${flag}`)
-    }
-  }
-
-  if (!args.url) fail('--url is required')
-  return args
-}
-
-function fail(message) {
-  console.error(`${message}\nUsage: node preview-with-playwright.mjs --url <renderUrl> [--config <payloadPath>] [--out <png>]`)
-  process.exit(2)
-}
 
 /** Playwright is a run-time dependency of the caller: this script, npx, or the current project. */
 async function loadChromium() {
@@ -64,8 +42,7 @@ async function loadChromium() {
 
     for (const root of roots) {
       try {
-        const require = createRequire(join(root, 'noop.js'))
-        return require(root.endsWith('node_modules') ? join(root, 'playwright') : 'playwright').chromium
+        return createRequire(join(root, 'noop.js'))('playwright').chromium
       } catch {
         continue
       }
@@ -78,7 +55,28 @@ async function loadChromium() {
   }
 }
 
-const args = parseArgs(process.argv.slice(2))
+const USAGE = 'Usage: node preview-with-playwright.mjs --url <renderUrl> [--config <payloadPath>] [--out <png>]'
+
+function fail(message) {
+  console.error(`${message}\n${USAGE}`)
+  process.exit(2)
+}
+
+let args
+try {
+  ;({values: args} = parseArgs({
+    options: {
+      config: {type: 'string'},
+      out: {default: 'preview.png', type: 'string'},
+      url: {type: 'string'},
+    },
+  }))
+} catch (error) {
+  fail(error.message)
+}
+
+if (!args.url) fail('--url is required')
+
 const chromium = await loadChromium()
 
 let browser

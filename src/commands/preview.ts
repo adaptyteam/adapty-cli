@@ -1,22 +1,39 @@
 import {Args, Command, Flags} from '@oclif/core'
 import {readFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 
-import {firstScreenId, normalizePreviewConfig, writePayloadFile} from '../lib/preview-config.js'
-import {buildReferenceCommand} from '../lib/preview-reference.js'
-import {buildRenderUrl, DEFAULT_DEVICE_ID, RENDER_URL_ENV_VAR, resolveRenderUrl} from '../lib/preview-url.js'
+import {printResponse} from '../lib/output.js'
+import {
+  buildRenderUrl,
+  DEFAULT_DEVICE_ID,
+  firstScreenId,
+  normalizePreviewConfig,
+  type PreviewPayload,
+  RENDER_URL_ENV_VAR,
+  resolveRenderUrl,
+  writePayloadFile,
+} from '../lib/preview.js'
 
 export interface PreviewResult {
-  payloadPath: string
-  referenceCommand: string
-  renderUrl: string
+  payload_path?: string
+  reference_command: string
+  render_url: string
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function referenceScriptPath(): string {
+  return fileURLToPath(new URL('../../scripts/preview-with-playwright.mjs', import.meta.url))
 }
 
 export default class Preview extends Command {
   static args = {
     config_file: Args.string({description: 'Path to a local flow config JSON file', required: true}),
   }
-static description = 'Prepare a render URL and payload for a local flow config, then screenshot it with your own browser tool or the shipped reference script'
+static description = 'Prepare a render URL for a local flow config, then screenshot it with your own browser tool or the shipped reference script'
 static enableJsonFlag = true
 static examples = [
     '<%= config.bin %> preview ./paywall.json',
@@ -24,7 +41,9 @@ static examples = [
   ]
 static flags = {
     device: Flags.string({default: DEFAULT_DEVICE_ID, description: 'Device frame to render in'}),
-    'payload-out': Flags.string({description: 'Where to write the normalized payload JSON (default: a temp file)'}),
+    'payload-out': Flags.string({
+      description: 'Also write the normalized payload JSON here, for configs too large to sit in a URL',
+    }),
     'render-url': Flags.string({description: `Render page base URL (defaults to $${RENDER_URL_ENV_VAR})`}),
     screen: Flags.string({description: 'Screen ID to render (default: first screen in the config)'}),
   }
@@ -37,35 +56,46 @@ static flags = {
     try {
       raw = JSON.parse(await readFile(configPath, 'utf8'))
     } catch (error) {
-      this.error(`Could not read config file ${configPath}: ${error instanceof Error ? error.message : String(error)}`, {
-        exit: 2,
-      })
+      this.error(`Could not read config file ${configPath}: ${describeError(error)}`, {exit: 2})
     }
 
-    let payload
-    let renderBaseUrl
+    let payload: PreviewPayload
+    let renderBaseUrl: string
     try {
       payload = normalizePreviewConfig(raw)
       renderBaseUrl = resolveRenderUrl(flags['render-url'])
     } catch (error) {
-      this.error(error instanceof Error ? error.message : String(error), {exit: 2})
+      this.error(describeError(error), {exit: 2})
     }
 
     const screen = flags.screen ?? firstScreenId(payload.flow)
     const renderUrl = buildRenderUrl(renderBaseUrl, {device: flags.device, screen}, payload)
-    const payloadPath = await writePayloadFile(payload, flags['payload-out'] ? resolve(flags['payload-out']) : undefined)
-    const result: PreviewResult = {
-      payloadPath,
-      referenceCommand: buildReferenceCommand({renderUrl}),
-      renderUrl,
+
+    let payloadPath: string | undefined
+    if (flags['payload-out']) {
+      payloadPath = resolve(flags['payload-out'])
+      await writePayloadFile(payload, payloadPath)
     }
 
-    this.log(`Render URL: ${result.renderUrl}`)
-    this.log(`Payload file: ${result.payloadPath}`)
-    this.log(`Reference command: ${result.referenceCommand}`)
+    const config = payloadPath ? ` --config "${payloadPath}"` : ''
+    // Key order is the print order: the URL is the primary handle.
+    /* eslint-disable perfectionist/sort-objects */
+    const result: PreviewResult = {
+      render_url: renderUrl,
+      reference_command: `npx --yes --package=playwright node "${referenceScriptPath()}" --url "${renderUrl}"${config} --out "preview.png"`,
+      payload_path: payloadPath,
+    }
+    /* eslint-enable perfectionist/sort-objects */
+
+    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
     this.log('')
+    if (!screen) this.log('No screen id found in the config; the render page will pick its own default.')
     this.log('Open the render URL with any browser tool and screenshot [data-screen-content], or run the')
-    this.log('reference command. For a config too large for a URL, add --config <payload file> to it.')
+    this.log('reference command.')
+    if (!payloadPath) {
+      this.log('If the config is too large for a URL, re-run with --payload-out <file> and add')
+      this.log('--config <file> to the reference command to use the page file input instead.')
+    }
 
     return result
   }

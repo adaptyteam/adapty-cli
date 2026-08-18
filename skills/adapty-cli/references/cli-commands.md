@@ -104,20 +104,21 @@ Prep-only: takes a **local** flow config JSON file, normalizes it, and prints th
 it. **No API call, no `--app`, and no bundled browser** — the CLI does not depend on Playwright.
 
 Accepts either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config (`screens`
-/ `locales` / `theme`); both normalize to `{flow, remoteConfigs}`.
+/ `locales` / `theme`); both normalize to `{flow, remoteConfigs}` (camelCase: that payload is a wire format
+shared with the render page).
 
 Flags: `--render-url` (or `ADAPTY_PREVIEW_RENDER_URL`, required), `--screen` (default: first screen in the
-config), `--device` (default: `iphone-14`), `--payload-out` (default: temp file).
+config), `--device` (default: `iphone-14`), `--payload-out` (off by default).
 
-Output (`--json`): `{renderUrl, payloadPath, referenceCommand}`.
+Output (`--json`): `{render_url, reference_command, payload_path?}`.
 
-- `renderUrl` — `<base>?screen=<id>&device=<id>#config=gz:<base64url(gzip(json))>`. Tool-agnostic: open it
+- `render_url` — `<base>?screen=<id>&device=<id>#config=gz:<base64url(gzip(json))>`. Tool-agnostic: open it
   with your own browser/computer-use tool and screenshot the `[data-screen-content]` element.
-- `payloadPath` — the normalized payload file, for the page's `[data-testid="preview-config-input"]` file
-  input when the config is too large to sit in a URL.
-- `referenceCommand` — the exact `npx --yes --package=playwright node <pkg>/scripts/preview-with-playwright.mjs
-  --url "<renderUrl>" --out "preview.png"` invocation. Add `--config <payloadPath>` to use the file input
-  instead of the fragment. Chromium itself: `npx playwright install chromium` once.
+- `reference_command` — the exact `npx --yes --package=playwright node <pkg>/scripts/preview-with-playwright.mjs
+  --url "<render_url>" --out "preview.png"` invocation. Chromium itself: `npx playwright install chromium` once.
+- `payload_path` — present only with `--payload-out <file>`. For a config too large to sit in a URL, re-run
+  with `--payload-out` and the printed `reference_command` will include `--config <file>`, which feeds the
+  page's `[data-testid="preview-config-input"]` file input instead of the fragment.
 
 ## Apple Search Ads (`asa` topic)
 

@@ -28,6 +28,7 @@ src/
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
                      # competitors
+    preview.ts       # local flow config → render URL for the public paywall render page
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)
     config.ts        # ~/.config/adapty/config.json read/write
@@ -40,6 +41,9 @@ src/
     asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps
     asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
     asa-schemas.ts   # response typings for asa entities
+    preview.ts       # flow config normalization + render URL / gz: fragment building
+scripts/
+  preview-with-playwright.mjs  # reference renderer shipped to consumers; Playwright is NOT a CLI dependency
 ```
 
 ## Conventions
@@ -52,6 +56,8 @@ src/
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
+- `ADAPTY_PREVIEW_RENDER_URL` env (or `--render-url`) sets the paywall render page base URL; `preview` never
+  drives a browser itself
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
