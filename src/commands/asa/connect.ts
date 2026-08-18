@@ -25,7 +25,7 @@ export default class AsaConnect extends Command {
     this.log('The link is valid for one hour. Sign in to the Adapty dashboard in that browser first — the last')
     this.log('step is authorized by the dashboard session, not by this CLI.')
 
-    await open(authUrl).catch(() => false)
+    if (process.stdin.isTTY === true) await open(authUrl).catch(() => false)
 
     if (!flags.wait) return {auth_url: authUrl}
 
