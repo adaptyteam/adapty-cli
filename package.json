@@ -80,6 +80,12 @@
       "placements": {
         "description": "Manage placements"
       },
+      "flows": {
+        "description": "Manage flows (onboardings)"
+      },
+      "flows:config": {
+        "description": "Read and write a flow's builder config"
+      },
       "segments": {
         "description": "List segments"
       },
