@@ -263,6 +263,7 @@ and the outcome shows up in `adapty asa automations runs`.
 | `ADAPTY_TOKEN`       | Override stored auth token                                                              |
 | `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
 | `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
+| `ADAPTY_PREVIEW_RENDER_URL` | Base URL of the public paywall render page used by `adapty preview` (no default) |
 
 The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA
 default, and the other way round.

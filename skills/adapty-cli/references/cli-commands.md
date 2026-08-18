@@ -94,6 +94,22 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `access-levels create`                     | `--app`, `--sdk-id`, `--title` |
 | `access-levels update <access_level_id>`   | `--app`, `--title`       |
 
+## Preview
+
+| Command                        | Required flags |
+|-------------------------------|----------------|
+| `preview <config_file>`        | none (needs a render URL) |
+
+Renders a **local** flow config JSON file to a PNG with headless Chromium — no API call, no `--app`. Accepts
+either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config (`screens` /
+`locales` / `theme`); both normalize to `{flow, remoteConfigs}` before injection.
+
+Flags: `--render-url` (or `ADAPTY_PREVIEW_RENDER_URL`, required), `--screen` (default: first screen in the
+config), `--device` (default: `iphone-14`), `--out` (default: temp file), `--timeout` (default: 30000 ms).
+The PNG path is printed, and returned as `{device, path, screen}` under `--json`.
+
+Requires Playwright's chromium: `npx playwright install chromium`.
+
 ## Apple Search Ads (`asa` topic)
 
 Different service behind the same token. **No `--app`**: every command is scoped to the company the token
