@@ -56,10 +56,12 @@ static examples = ['<%= config.bin %> auth login']
     this.log(`\nYour code: ${device.user_code}\n`)
     this.log(`If browser doesn't open, visit: ${device.verification_uri_complete}\n`)
 
-    try {
-      await open(device.verification_uri_complete)
-    } catch {
-      // browser open failed silently — URL already printed
+    if (process.stdin.isTTY === true) {
+      try {
+        await open(device.verification_uri_complete)
+      } catch {
+        // browser open failed silently — URL already printed
+      }
     }
 
     this.log('Waiting for authorization...')
