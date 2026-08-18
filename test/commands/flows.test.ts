@@ -76,10 +76,10 @@ describe('flows', () => {
       '--app',
       TEST_APP_ID,
       '--config',
-      '{"screens":[],"locales":[]}',
+      '{"locales":[],"screens":[]}',
     ])
     assertFetch({
-      body: {config: {screens: [], locales: []}},
+      body: {config: {locales: [], screens: []}},
       callIndex: 0,
       method: 'PUT',
       path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
@@ -100,7 +100,7 @@ describe('flows', () => {
       '--config',
       '{"screens":[]}',
       '--remote-configs',
-      '[{"locale":"en","data":"{}"}]',
+      '[{"data":"{}","locale":"en"}]',
       '--expected-updated-at',
       '1755001800000',
     ])
@@ -108,7 +108,7 @@ describe('flows', () => {
       body: {
         config: {screens: []},
         expected_updated_at: 1_755_001_800_000,
-        remote_configs: [{locale: 'en', data: '{}'}],
+        remote_configs: [{data: '{}', locale: 'en'}],
       },
       callIndex: 0,
       method: 'PUT',
