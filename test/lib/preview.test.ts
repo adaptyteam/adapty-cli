@@ -64,9 +64,15 @@ describe('render url', () => {
     )
   })
 
-  it('carries small configs in the fragment fallback', () => {
+  it('carries the config in the fragment fallback', () => {
     const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, '{"flow":{}}'))
     expect(decodeURIComponent(url.hash)).to.equal('#config={"flow":{}}')
+  })
+
+  it('does not cap the fragment size', () => {
+    const serialized = JSON.stringify({flow: {padding: 'x'.repeat(20_000)}, remoteConfigs: []})
+    const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, serialized))
+    expect(decodeURIComponent(url.hash)).to.equal(`#config=${serialized}`)
   })
 })
 })

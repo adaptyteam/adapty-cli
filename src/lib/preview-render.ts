@@ -11,8 +11,6 @@ export const DEFAULT_DEVICE_ID = 'iphone-14'
 export const CONFIG_INPUT_SELECTOR = '[data-testid="preview-config-input"]'
 export const SCREEN_CONTENT_SELECTOR = '[data-screen-content]'
 
-/** Configs shorter than this can travel in the URL fragment instead of a file input. */
-const MAX_FRAGMENT_LENGTH = 8000
 const SETTLE_MS = 300
 
 export interface RenderTarget {
@@ -78,16 +76,10 @@ async function injectConfig(page: Page, opts: InjectOptions): Promise<void> {
   const input = page.locator(CONFIG_INPUT_SELECTOR)
   try {
     await input.waitFor({state: 'attached', timeout: opts.timeoutMs})
-  } catch (error) {
-    const serialized = JSON.stringify(opts.payload)
-    if (serialized.length > MAX_FRAGMENT_LENGTH) {
-      const detail = error instanceof Error ? error.message : String(error)
-      throw new Error(
-        `Render page never exposed ${CONFIG_INPUT_SELECTOR}, and the config is too large for the URL fragment fallback.\n${detail}`,
-      )
-    }
-
-    await page.goto(buildRenderUrl(opts.renderUrl, opts.target, serialized), {
+  } catch {
+    // No file input on the page: hand the whole config over in the URL fragment instead, at
+    // whatever size it happens to be.
+    await page.goto(buildRenderUrl(opts.renderUrl, opts.target, JSON.stringify(opts.payload)), {
       timeout: opts.timeoutMs,
       waitUntil: 'load',
     })
