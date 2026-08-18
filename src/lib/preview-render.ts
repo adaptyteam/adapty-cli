@@ -3,6 +3,7 @@ import type {Browser, Page} from 'playwright'
 import {mkdir, mkdtemp} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
+import {gzipSync} from 'node:zlib'
 
 import {type PreviewPayload, writePayloadFile} from './preview-config.js'
 
@@ -10,6 +11,8 @@ export const RENDER_URL_ENV_VAR = 'ADAPTY_PREVIEW_RENDER_URL'
 export const DEFAULT_DEVICE_ID = 'iphone-14'
 export const CONFIG_INPUT_SELECTOR = '[data-testid="preview-config-input"]'
 export const SCREEN_CONTENT_SELECTOR = '[data-screen-content]'
+/** Marks a fragment payload as gzipped base64url rather than plain url-encoded JSON. */
+export const FRAGMENT_GZIP_PREFIX = 'gz:'
 
 const SETTLE_MS = 300
 
@@ -38,11 +41,20 @@ export function resolveRenderUrl(flagValue?: string): string {
   return url
 }
 
-export function buildRenderUrl(renderUrl: string, target: RenderTarget, fragmentConfig?: string): string {
+/**
+ * Wire format shared with the render page: `gz:<base64url(gzip(JSON))>`. The page also accepts
+ * plain url-encoded JSON, but the CLI always compresses so large configs fit in a URL.
+ */
+export function encodeConfigFragment(payload: PreviewPayload): string {
+  const gzipped = gzipSync(Buffer.from(JSON.stringify(payload), 'utf8'))
+  return `${FRAGMENT_GZIP_PREFIX}${gzipped.toString('base64url')}`
+}
+
+export function buildRenderUrl(renderUrl: string, target: RenderTarget, payload?: PreviewPayload): string {
   const url = new URL(renderUrl)
   if (target.screen) url.searchParams.set('screen', target.screen)
   if (target.device) url.searchParams.set('device', target.device)
-  if (fragmentConfig) url.hash = `config=${encodeURIComponent(fragmentConfig)}`
+  if (payload) url.hash = `config=${encodeConfigFragment(payload)}`
   return url.toString()
 }
 
@@ -79,7 +91,7 @@ async function injectConfig(page: Page, opts: InjectOptions): Promise<void> {
   } catch {
     // No file input on the page: hand the whole config over in the URL fragment instead, at
     // whatever size it happens to be.
-    await page.goto(buildRenderUrl(opts.renderUrl, opts.target, JSON.stringify(opts.payload)), {
+    await page.goto(buildRenderUrl(opts.renderUrl, opts.target, opts.payload), {
       timeout: opts.timeoutMs,
       waitUntil: 'load',
     })

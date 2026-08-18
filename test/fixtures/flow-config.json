@@ -1,0 +1,146 @@
+{
+  "config": {
+    "id": "9f1b7c4e-6d2a-4f58-8b3d-1a0c5e7d9f21",
+    "version": 4,
+    "default_locale": "en",
+    "locales": ["en", "de"],
+    "theme": {
+      "colors": {
+        "accent": "#5B4DF5",
+        "background": "#FFFFFF",
+        "surface": "#F4F4F8",
+        "text_primary": "#111114",
+        "text_secondary": "#6B6B76"
+      },
+      "typography": {
+        "body": {"font": "SFProText", "size": 15, "weight": 400},
+        "caption": {"font": "SFProText", "size": 12, "weight": 400},
+        "title": {"font": "SFProDisplay", "size": 28, "weight": 700}
+      },
+      "radius": {"button": 14, "card": 20}
+    },
+    "screens": [
+      {
+        "id": "welcome",
+        "type": "onboarding",
+        "background": {"type": "image", "asset_id": "hero_gradient"},
+        "elements": [
+          {"id": "welcome_title", "type": "text", "content_key": "welcome.title", "style": "title"},
+          {"id": "welcome_subtitle", "type": "text", "content_key": "welcome.subtitle", "style": "body"},
+          {
+            "id": "welcome_cta",
+            "type": "button",
+            "content_key": "welcome.cta",
+            "action": {"type": "navigate", "screen_id": "features"}
+          }
+        ]
+      },
+      {
+        "id": "features",
+        "type": "onboarding",
+        "background": {"type": "color", "token": "background"},
+        "elements": [
+          {"id": "features_title", "type": "text", "content_key": "features.title", "style": "title"},
+          {
+            "id": "features_list",
+            "type": "list",
+            "items": [
+              {"icon": "sparkles", "content_key": "features.item_1"},
+              {"icon": "chart", "content_key": "features.item_2"},
+              {"icon": "lock", "content_key": "features.item_3"}
+            ]
+          },
+          {
+            "id": "features_cta",
+            "type": "button",
+            "content_key": "features.cta",
+            "action": {"type": "navigate", "screen_id": "offer"}
+          }
+        ]
+      },
+      {
+        "id": "offer",
+        "type": "paywall",
+        "background": {"type": "color", "token": "surface"},
+        "elements": [
+          {"id": "offer_title", "type": "text", "content_key": "offer.title", "style": "title"},
+          {
+            "id": "offer_products",
+            "type": "product_list",
+            "layout": "vertical",
+            "products": [
+              {"product_id": "premium_yearly", "badge_key": "offer.badge_best_value", "selected": true},
+              {"product_id": "premium_monthly", "badge_key": null, "selected": false}
+            ]
+          },
+          {"id": "offer_purchase", "type": "button", "content_key": "offer.purchase", "action": {"type": "purchase"}},
+          {"id": "offer_restore", "type": "link", "content_key": "offer.restore", "action": {"type": "restore"}},
+          {"id": "offer_terms", "type": "text", "content_key": "offer.terms", "style": "caption"}
+        ]
+      },
+      {
+        "id": "offer_discount",
+        "type": "paywall",
+        "shown_when": {"type": "close_attempt", "screen_id": "offer"},
+        "background": {"type": "color", "token": "surface"},
+        "elements": [
+          {"id": "discount_title", "type": "text", "content_key": "discount.title", "style": "title"},
+          {
+            "id": "discount_products",
+            "type": "product_list",
+            "layout": "vertical",
+            "products": [{"product_id": "premium_yearly_intro", "badge_key": "discount.badge", "selected": true}]
+          },
+          {"id": "discount_purchase", "type": "button", "content_key": "discount.purchase", "action": {"type": "purchase"}},
+          {"id": "discount_close", "type": "link", "content_key": "discount.close", "action": {"type": "close"}}
+        ]
+      }
+    ],
+    "localizations": {
+      "en": {
+        "welcome.title": "Track everything that matters",
+        "welcome.subtitle": "Habits, workouts and mood in one place.",
+        "welcome.cta": "Get started",
+        "features.title": "Why go Premium",
+        "features.item_1": "Unlimited habits and reminders",
+        "features.item_2": "Full history and trends",
+        "features.item_3": "Private, encrypted backups",
+        "features.cta": "See plans",
+        "offer.title": "Unlock Premium",
+        "offer.badge_best_value": "Best value",
+        "offer.purchase": "Start free trial",
+        "offer.restore": "Restore purchase",
+        "offer.terms": "7 days free, then billed yearly. Cancel anytime.",
+        "discount.title": "One last thing",
+        "discount.badge": "50% off first year",
+        "discount.purchase": "Claim discount",
+        "discount.close": "No thanks"
+      },
+      "de": {
+        "welcome.title": "Behalte alles im Blick",
+        "welcome.subtitle": "Gewohnheiten, Workouts und Stimmung an einem Ort.",
+        "welcome.cta": "Los geht's",
+        "features.title": "Warum Premium",
+        "features.item_1": "Unbegrenzte Gewohnheiten und Erinnerungen",
+        "features.item_2": "Vollständiger Verlauf und Trends",
+        "features.item_3": "Private, verschlüsselte Backups",
+        "features.cta": "Tarife ansehen",
+        "offer.title": "Premium freischalten",
+        "offer.badge_best_value": "Bester Preis",
+        "offer.purchase": "Kostenlos testen",
+        "offer.restore": "Kauf wiederherstellen",
+        "offer.terms": "7 Tage kostenlos, danach jährliche Abrechnung. Jederzeit kündbar.",
+        "discount.title": "Noch eine Sache",
+        "discount.badge": "50 % Rabatt im ersten Jahr",
+        "discount.purchase": "Rabatt sichern",
+        "discount.close": "Nein danke"
+      }
+    }
+  },
+  "remote_configs": [
+    {"locale": "en", "data": {"experiment": "onboarding_v4", "show_discount": true}},
+    {"locale": "de", "data": {"experiment": "onboarding_v4", "show_discount": false}}
+  ],
+  "status": "draft",
+  "updated_at": "2026-08-14T09:12:44Z"
+}

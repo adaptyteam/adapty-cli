@@ -1,7 +1,20 @@
 import {expect} from 'chai'
+import {readFileSync} from 'node:fs'
+import {fileURLToPath} from 'node:url'
+import {gunzipSync} from 'node:zlib'
 
 import {firstScreenId, normalizePreviewConfig} from '../../src/lib/preview-config.js'
-import {buildRenderUrl, resolveRenderUrl} from '../../src/lib/preview-render.js'
+import {buildRenderUrl, FRAGMENT_GZIP_PREFIX, resolveRenderUrl} from '../../src/lib/preview-render.js'
+
+const FIXTURE_PATH = fileURLToPath(new URL('../fixtures/flow-config.json', import.meta.url))
+const FIXTURE = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as unknown
+
+function decodeConfigFragment(hash: string): unknown {
+  const encoded = new URLSearchParams(hash.slice(1)).get('config')
+  if (!encoded?.startsWith(FRAGMENT_GZIP_PREFIX)) throw new Error(`Not a gzipped fragment: ${encoded}`)
+  const gzipped = Buffer.from(encoded.slice(FRAGMENT_GZIP_PREFIX.length), 'base64url')
+  return JSON.parse(gunzipSync(gzipped).toString('utf8')) as unknown
+}
 
 describe('preview', () => {
   describe('config normalization', () => {
@@ -64,15 +77,28 @@ describe('render url', () => {
     )
   })
 
-  it('carries the config in the fragment fallback', () => {
-    const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, '{"flow":{}}'))
-    expect(decodeURIComponent(url.hash)).to.equal('#config={"flow":{}}')
+  it('carries a real config through the gzipped fragment fallback', () => {
+    const payload = normalizePreviewConfig(FIXTURE)
+    const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14', screen: 'offer'}, payload))
+
+    expect(url.hash.startsWith(`#config=${FRAGMENT_GZIP_PREFIX}`)).to.equal(true)
+    expect(url.hash.slice(`#config=${FRAGMENT_GZIP_PREFIX}`.length)).to.match(/^[\w-]+$/)
+    expect(decodeConfigFragment(url.hash)).to.deep.equal(payload)
+  })
+
+  it('compresses the fragment well below the raw JSON size', () => {
+    const payload = normalizePreviewConfig(FIXTURE)
+    const raw = JSON.stringify(payload)
+    const {hash} = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, payload))
+
+    expect(hash.length).to.be.lessThan(raw.length)
   })
 
   it('does not cap the fragment size', () => {
-    const serialized = JSON.stringify({flow: {padding: 'x'.repeat(20_000)}, remoteConfigs: []})
-    const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, serialized))
-    expect(decodeURIComponent(url.hash)).to.equal(`#config=${serialized}`)
+    const payload = {flow: {padding: 'x'.repeat(200_000), screens: []}, remoteConfigs: []}
+    const url = new URL(buildRenderUrl('https://app.example/preview', {device: 'iphone-14'}, payload))
+
+    expect(decodeConfigFragment(url.hash)).to.deep.equal(payload)
   })
 })
 })
