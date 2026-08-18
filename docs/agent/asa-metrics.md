@@ -48,7 +48,8 @@ names costs at most one call and should never be done on purpose.
 Cohort roots — `revenue`, `arpu`, `arppu`, `arpas` (alias `cohort_arpas`), `roas`, `roi` —
 expand to `gross_`, `proceeds_`, and `net_` variants (`gross_roas`, `proceeds_revenue`,
 `net_arpu`, and so on). To rank by a cohort metric with `--order-by`, use the expanded name
-— `--order-by gross_roas`, not `--order-by roas`. There is no `ltv` metric; see [Cohort
+— `--order-by net_roas`, not `--order-by roas`. Agent workflows use the `net_` variant and do
+not ask users to choose gross or proceeds. There is no `ltv` metric; see [Cohort
 windows](#cohort-windows).
 
 `metrics overview` accepts the root names only (`revenue`, `roas`, `arpu`, …) — no
@@ -79,17 +80,21 @@ The single most misunderstood part of the surface: there is no `ltv` metric. Lif
 is a cohort metric read at a renewal window, so `--by-days` is how you ask for a day-7 or
 day-90 value.
 
-- `--by-days` is repeatable, at most 16 windows per call, on both `metrics` and `metrics
-  overview`. Omit it entirely to get the dashboard's default figures instead of cohort
-  values.
+- `--by-days` applies only to the cohort roots `revenue`, `roas`, `arpu`, `arppu`, `arpas`, and
+  `roi`. It is repeatable, at most 16 windows per call, on both `metrics` and `metrics overview`.
+  Omit it entirely to get the dashboard's default figures instead of cohort values.
 - `--order-by-day` ranks rows by one of those windows — the way to get top campaigns by
   day-90 ROAS in a single call. Its value must be one of the windows passed to `--by-days`.
-- Ranking by a cohort metric takes the expanded name — `--order-by gross_roas`, not
-  `--order-by roas` — see [Metric vocabulary](#metric-vocabulary).
+- Ranking by a cohort metric takes the expanded name. Agent workflows use `--order-by net_roas`,
+  not `--order-by roas` — see [Metric vocabulary](#metric-vocabulary).
+- Apple spend, Adapty attribution, count, conversion, and cost metrics are not cohort-windowed.
+  In particular, `cost_per_paid` and `cost_per_trial` are values for the requested date window;
+  `--by-days` does not turn either into a day-X metric. Never ask for a cohort day, pass
+  `--by-days` / `--order-by-day`, or attach a `day-X` label for a non-cohort metric.
 
 ```sh
 adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 \
-  --metric roas --by-days 7 --by-days 90 --order-by gross_roas --order-by-day 90
+  --metric roas --by-days 7 --by-days 90 --order-by net_roas --order-by-day 90
 ```
 
 ## The analytics pool

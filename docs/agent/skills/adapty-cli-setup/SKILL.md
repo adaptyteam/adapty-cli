@@ -1,7 +1,7 @@
 ---
 name: adapty-cli-setup
 license: MIT
-description: Use when the Adapty CLI needs installing or authenticating before any Apple Search Ads work — a fresh Cowork or cloud session, "adapty: command not found", AuthRequiredError, an expired auth code, connecting an Apple Search Ads account, or a 402 ads_manager_subscription_required. Triggers on "install the Adapty CLI", "set up adapty", "adapty auth login", "connect Apple Search Ads", "not authenticated", or any Apple Ads request made in a session where the CLI is not yet installed.
+description: Use when the Adapty CLI needs installing or authenticating before any Apple Search Ads work — a fresh Cowork or cloud session, "adapty: command not found", AuthRequiredError, an expired auth code, or connecting an Apple Search Ads account. Triggers on "install the Adapty CLI", "set up adapty", "adapty auth login", "connect Apple Search Ads", "not authenticated", or any Apple Ads request made in a session where the CLI is not yet installed.
 ---
 
 # Adapty CLI setup
@@ -12,6 +12,24 @@ off to `apple-ads`. Nothing here spends money.
 **A cloud session starts on a clean machine.** No CLI, no token, no config — nothing carries over
 from a previous session, and nothing in this one carries into the next. Never skip the run because
 setup "was already done".
+
+## Entry boundary
+
+Open this skill only when `adapty` is missing, `adapty asa whoami` returns
+`AuthRequiredError`, or Apple credentials need connecting. A failed preflight is not automatically
+an authentication failure:
+
+- `402 ads_manager_subscription_required` means authentication succeeded. Do not install or log in.
+- `NetworkError` means the CLI could not reach the API. Do not install or log in.
+- Repeated `failed to copy trust settings of system certificate-25291` lines mean a macOS sandbox
+  cannot read the system Keychain. The caller must suppress those lines, retry the same read once
+  with `NODE_USE_SYSTEM_CA=0`, then retry that read once outside the sandbox when the platform
+  explicitly supports it. Never route either failure into this setup flow.
+
+If both network retries fail, stop with exactly this user-facing message and no certificate dump:
+
+> Adapty API is unreachable from this sandbox. Allow network access for `adapty.io` and
+> `*.adapty.io`, then start a new task.
 
 ## Run this
 
@@ -112,6 +130,7 @@ the dashboard usually means the token is scoped elsewhere.
 | `User code not found or expired` in the browser | The waiter died, or the TTL ran out | Step 1 again, and surface the new code faster |
 | `AuthRequiredError` after `AUTHED` | Almost always a stale `ADAPTY_TOKEN` | `unset ADAPTY_TOKEN`, re-check |
 | `402 ads_manager_subscription_required` | Authenticated fine; the company has no Ads Manager subscription | **Not a setup bug.** Say so plainly and stop. No flag works around it |
+| `NetworkError`, including certificate `-25291` noise | Network or sandbox trust-store access failed before authentication could be checked | Return to the caller's quiet preflight retry. Never install or log in |
 
 ## ADAPTY_TOKEN
 
@@ -145,6 +164,9 @@ printing the link.
 - **Never treat `adapty auth status` as proof of a working token.** It never touches the network;
   `adapty asa whoami` is the first call that asks the server.
 - **Never present a `402` as a broken install**, and never hunt for a flag that bypasses it.
+- **Never present a `NetworkError` as an authentication or install failure.** In particular, do not
+  reset Keychain, reinstall Xcode, run `sudo`, reinstall the CLI, or start `auth login` for
+  certificate `-25291` noise.
 - **Never echo a full token into chat**, and never write one into a file that could be committed.
 - **Never run a write command from this skill.** Setup is reads plus `asa connect`. A campaign, bid,
   budget or keyword means `apple-ads` owns the next step.

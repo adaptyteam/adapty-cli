@@ -10,13 +10,16 @@ const INVENTORY_DOCS = [
   fileURLToPath(new URL('../docs/agent/asa-management.md', import.meta.url)),
   fileURLToPath(new URL('../docs/agent/asa-metrics.md', import.meta.url)),
 ]
+const SETUP_DOC = fileURLToPath(new URL('../docs/agent/skills/adapty-cli-setup/SKILL.md', import.meta.url))
+const METRICS_DOC = fileURLToPath(new URL('../docs/agent/asa-metrics.md', import.meta.url))
 const EXAMPLE_DOCS = [
   ...INVENTORY_DOCS,
-  fileURLToPath(new URL('../docs/agent/skills/adapty-cli-setup/SKILL.md', import.meta.url)),
+  SETUP_DOC,
 ]
 
 const errors = []
 const fail = (file, line, message) => errors.push(`${relative(ROOT, file)}:${line}: ${message}`)
+const normalizeNewlines = (text) => text.replaceAll(/\r\n?/g, '\n')
 
 if (!existsSync(MANIFEST)) {
   console.error('oclif.manifest.json is missing; run `pnpm build && pnpm exec oclif manifest` first.')
@@ -142,6 +145,41 @@ for (const file of EXAMPLE_DOCS) {
   for (const [index, line] of lines.entries()) {
     checkExamples(file, line, index + 1)
   }
+}
+
+const setupText = normalizeNewlines(readFileSync(SETUP_DOC, 'utf8'))
+const setupDescription = setupText.match(/^description:\s*(.+)$/m)?.[1] ?? ''
+const setupContracts = [
+  ['## Entry boundary', 'explicit setup entry boundary'],
+  ['`NetworkError` means the CLI could not reach the API. Do not install or log in.', 'NetworkError routing'],
+  ['failed to copy trust settings of system certificate-25291', 'Cowork certificate-noise signature'],
+  ['NODE_USE_SYSTEM_CA=0', 'system CA fallback'],
+  [
+    'Adapty API is unreachable from this sandbox. Allow network access for `adapty.io` and',
+    'concise network failure message',
+  ],
+]
+for (const [contract, label] of setupContracts) {
+  if (!setupText.includes(contract)) fail(SETUP_DOC, 1, `missing setup contract: ${label}`)
+}
+
+if (setupDescription.includes('402') || setupDescription.includes('ads_manager_subscription_required')) {
+  fail(SETUP_DOC, 1, '402 must not trigger the setup skill')
+}
+
+if (setupText.indexOf('## Entry boundary') > setupText.indexOf('## Run this')) {
+  fail(SETUP_DOC, 1, 'setup entry boundary must be read before install and login instructions')
+}
+
+const metricsText = normalizeNewlines(readFileSync(METRICS_DOC, 'utf8'))
+const metricContracts = [
+  ['`revenue`, `roas`, `arpu`, `arppu`, `arpas`, and\n  `roi`', 'complete cohort-window metric family'],
+  ['Agent workflows use the `net_` variant', 'net revenue-family workflow default'],
+  ['`cost_per_paid` and `cost_per_trial` are values for the requested date window', 'cost metric date-window semantics'],
+  ['`--by-days` does not turn either into a day-X metric', 'non-cohort day-X prohibition'],
+]
+for (const [contract, label] of metricContracts) {
+  if (!metricsText.includes(contract)) fail(METRICS_DOC, 1, `missing metrics contract: ${label}`)
 }
 
 if (errors.length > 0) {
