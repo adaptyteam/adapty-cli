@@ -25,12 +25,13 @@ export default class FlowsConfigPreview extends Command {
   static args = {
     config_file: Args.string({description: 'Path to a local flow config JSON file', required: true}),
   }
-static description = `Build a render URL for a local flow config and open it. Opens the browser on a TTY; when piped, prints the URL alone. The render host comes from $${APP_URL_ENV_VAR}.`
+static description = `Build a render URL for a local flow config and open it. Opens the browser on a TTY; when piped or with --json, prints the URL alone. The whole config rides in that URL's fragment, so it is huge — ~113K characters for a 668KB flow. Pipe it into whatever takes the screenshot ("| node capture.mjs"), or pass it as an argument (--url with command substitution) for tools that need a flag. Never print or read it: agents burn context for zero information. The render host comes from $${APP_URL_ENV_VAR}.`
 static enableJsonFlag = true
 static examples = [
     '<%= config.bin %> flows config preview ./config.json',
     '<%= config.bin %> flows config preview ./config.json --screen welcome --device ipad-pro --orientation landscape',
-    '<%= config.bin %> flows config preview ./config.json --json',
+    '# pipe the URL straight into a screenshot tool, never print it\n<%= config.bin %> flows config preview ./config.json | node capture.mjs --out shot.png',
+    '# or pass it as an argument, for tools that want a flag\nnode capture.mjs --url "$(<%= config.bin %> flows config preview ./config.json)" --out shot.png',
   ]
 static flags = {
     device: Flags.string({default: DEFAULT_DEVICE_ID, description: 'Device frame to render in'}),

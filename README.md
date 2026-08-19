@@ -258,11 +258,26 @@ and the outcome shows up in `adapty asa automations runs`.
 
 ## Paywall Preview
 
-`adapty flows config preview <config_file>` turns a local flow config into a render URL — it opens in your
-browser on a TTY, and prints the bare URL when piped. Screenshotting is the caller's job; the CLI only builds
-the URL. See
-[skills/adapty-cli/references/cli-commands.md](skills/adapty-cli/references/cli-commands.md#preview) for the
-flags and how to pass the URL straight to a screenshot tool.
+`adapty flows config preview <config_file>` turns a local flow config into a render URL. On a TTY it opens the
+browser; piped or with `--json` it prints the URL alone. Screenshotting is the caller's job — the CLI only
+builds the URL.
+
+> **That URL is huge.** The whole config travels in its gzipped fragment: a 668KB flow yields ~113,000
+> characters. Browsers handle it fine, but nobody should read it — **agents especially should never let it into
+> their context.** Pipe it into whatever captures the screenshot:
+>
+> ```sh
+> adapty flows config preview flow.json --screen scr_abc | node capture.mjs --out shot.png
+>
+> # or, for a tool that wants a flag instead of stdin:
+> node capture.mjs --url "$(adapty flows config preview flow.json --screen scr_abc)" --out shot.png
+> ```
+>
+> Prefer the pipe: it has no size limit, while an argument is capped by the shell (~1MB, so a config around
+> 6MB).
+
+See [skills/adapty-cli/references/cli-commands.md](skills/adapty-cli/references/cli-commands.md#preview) for
+the flags and the size ceiling.
 
 ## Environment Variables
 

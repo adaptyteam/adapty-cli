@@ -123,20 +123,31 @@ Output depends on where stdout goes, because the URL is far too long to read:
 - **Piped or redirected** — prints the bare URL and nothing else.
 - **`--json`** — `{render_url}`, and never opens a browser.
 
+⚠️ **Never read this command's output.** Piped or `--json`, it emits one enormous line: ~113,000 characters
+for a 668KB flow, because the entire config is gzipped into the fragment. Running it as a bare command and
+letting the output land in your transcript burns context for zero information. Always hand it to the next
+process instead — and never `echo`, `cat` or `--json | jq .render_url` it just to look.
+
 `render_url` is `<host>/flow-preview?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`.
 The fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
 plain shape to mark it apart from. An unknown `device` renders an error message instead of a screen, so pass
 one the builder knows.
 
-**Keep the URL out of your context.** A real 668KB config makes a ~113K-character URL, which a browser handles
-fine but you should not read. Pass it straight to whatever captures the screenshot instead of printing it:
+**Keep the URL out of your context.** Pipe it straight into whatever captures the screenshot — stdin has no
+size limit:
+
+```sh
+adapty flows config preview flow.json --screen scr_abc | node capture.mjs --out shot.png
+```
+
+If the tool insists on a flag, command substitution works too, capped by the shell's ~1MB argument limit (a
+config around 6MB, since configs compress roughly 6x):
 
 ```sh
 node capture.mjs --url "$(adapty flows config preview flow.json --screen scr_abc)" --out shot.png
 ```
 
-Command substitution carries it fine (the shell allows ~1MB of arguments, so the ceiling is a config around
-6MB — configs compress roughly 6x). There is no file-based hand-off flag: the config always rides in the URL.
+There is no file-based hand-off flag: the config always rides in the URL.
 
 ## Apple Search Ads (`asa` topic)
 
