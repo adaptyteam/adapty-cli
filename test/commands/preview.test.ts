@@ -24,9 +24,9 @@ describe('preview command', () => {
     const {result} = await runCommand<PreviewResult>(['preview', FIXTURE_PATH, '--json'])
     if (!result) throw new Error('preview returned no result')
 
-    expect(result.render_url.startsWith('https://app.example/preview?screen=welcome&device=iphone-14#config=gz:')).to.equal(
-      true,
-    )
+    expect(
+      result.render_url.startsWith('https://app.example/preview?device=iphone-14&orientation=portrait#config='),
+    ).to.equal(true)
     expect(result.payload_path).to.equal(undefined)
     expect(existsSync(SCRIPT_PATH)).to.equal(true)
     expect(result.reference_command).to.contain(`node "${SCRIPT_PATH}"`)
@@ -41,6 +41,26 @@ describe('preview command', () => {
     expect(result?.payload_path).to.equal(outPath)
     expect(result?.reference_command).to.contain(`--config "${outPath}"`)
     expect(JSON.parse(readFileSync(outPath, 'utf8'))).to.have.keys(['flow', 'remoteConfigs'])
+  })
+
+  it('puts the requested screen and orientation in the URL', async () => {
+    const {result} = await runCommand<PreviewResult>([
+      'preview',
+      FIXTURE_PATH,
+      '--screen',
+      'offer',
+      '--orientation',
+      'landscape',
+      '--json',
+    ])
+
+    expect(result?.render_url).to.contain('screen=offer')
+    expect(result?.render_url).to.contain('orientation=landscape')
+  })
+
+  it('rejects an orientation the render page does not accept', async () => {
+    const {error} = await runCommand(['preview', FIXTURE_PATH, '--orientation', 'sideways'])
+    expect(error?.message).to.contain('sideways')
   })
 
   it('fails without a render URL', async () => {

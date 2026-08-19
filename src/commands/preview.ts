@@ -7,8 +7,9 @@ import {printResponse} from '../lib/output.js'
 import {
   buildRenderUrl,
   DEFAULT_DEVICE_ID,
-  firstScreenId,
+  DEFAULT_ORIENTATION,
   normalizePreviewConfig,
+  ORIENTATIONS,
   type PreviewPayload,
   RENDER_URL_ENV_VAR,
   resolveRenderUrl,
@@ -37,15 +38,20 @@ static description = 'Prepare a render URL for a local flow config, then screens
 static enableJsonFlag = true
 static examples = [
     '<%= config.bin %> preview ./paywall.json',
-    '<%= config.bin %> preview ./paywall.json --screen welcome --device ipad-pro --json',
+    '<%= config.bin %> preview ./paywall.json --screen welcome --device ipad-pro --orientation landscape --json',
   ]
 static flags = {
     device: Flags.string({default: DEFAULT_DEVICE_ID, description: 'Device frame to render in'}),
+    orientation: Flags.string({
+      default: DEFAULT_ORIENTATION,
+      description: 'Device orientation to render in',
+      options: [...ORIENTATIONS],
+    }),
     'payload-out': Flags.string({
       description: 'Also write the normalized payload JSON here, for configs too large to sit in a URL',
     }),
     'render-url': Flags.string({description: `Render page base URL (defaults to $${RENDER_URL_ENV_VAR})`}),
-    screen: Flags.string({description: 'Screen ID to render (default: first screen in the config)'}),
+    screen: Flags.string({description: "Screen ID to render (default: the flow's first screen)"}),
   }
 
   async run(): Promise<PreviewResult> {
@@ -68,8 +74,11 @@ static flags = {
       this.error(describeError(error), {exit: 2})
     }
 
-    const screen = flags.screen ?? firstScreenId(payload.flow)
-    const renderUrl = buildRenderUrl(renderBaseUrl, {device: flags.device, screen}, payload)
+    const renderUrl = buildRenderUrl(
+      renderBaseUrl,
+      {device: flags.device, orientation: flags.orientation, screen: flags.screen},
+      payload,
+    )
 
     let payloadPath: string | undefined
     if (flags['payload-out']) {
@@ -89,7 +98,6 @@ static flags = {
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
     this.log('')
-    if (!screen) this.log('No screen id found in the config; the render page will pick its own default.')
     this.log('Open the render URL with any browser tool and screenshot [data-screen-content], or run the')
     this.log('reference command.')
     if (!payloadPath) {

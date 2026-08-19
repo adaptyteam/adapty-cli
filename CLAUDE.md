@@ -41,7 +41,7 @@ src/
     asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps
     asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
     asa-schemas.ts   # response typings for asa entities
-    preview.ts       # flow config normalization + render URL / gz: fragment building
+    preview.ts       # flow config normalization + render URL / gzip fragment building
 scripts/
   preview-with-playwright.mjs  # reference renderer shipped to consumers; Playwright is NOT a CLI dependency
 ```
