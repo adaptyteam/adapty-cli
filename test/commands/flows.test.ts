@@ -87,6 +87,42 @@ describe('flows', () => {
     })
   })
 
+  it('config validate POSTs to /config/validate with the source header', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([{issues: [], valid: true}])
+    await runCommand([
+      'flows',
+      'config',
+      'validate',
+      TEST_RESOURCE_ID,
+      '--app',
+      TEST_APP_ID,
+      '--config',
+      '{"locales":[],"screens":[]}',
+      '--source',
+      'byo-cli',
+    ])
+    assertFetch({
+      body: {config: {locales: [], screens: []}},
+      callIndex: 0,
+      headers: {'X-Adapty-Source': 'byo-cli'},
+      method: 'POST',
+      path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/validate/`,
+      stub: fetchStub,
+    })
+  })
+
+  it('config validate exits non-zero when the config is not publishable', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([{issues: [{message: 'missing screens', severity: 'error'}], valid: false}])
+    await runCommand(`flows config validate ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --config {"screens":[]}`)
+    if (process.exitCode !== 1) {
+      throw new Error(`Expected exit code 1, got ${process.exitCode}`)
+    }
+
+    process.exitCode = 0
+  })
+
   it('config update forwards remote-configs and the optimistic lock token', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([CONFIG_RESPONSE])

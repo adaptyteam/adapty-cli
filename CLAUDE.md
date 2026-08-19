@@ -24,7 +24,8 @@ src/
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
     flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
                      # preview — local config → render URL, opens on a TTY, prints bare URL when piped;
-                     # capture is the caller's job, the CLI only builds the URL)
+                     # capture is the caller's job, the CLI only builds the URL;
+                     # validate — advisory publishability check, always 200, exits non-zero when invalid)
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
