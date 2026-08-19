@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -79,6 +79,12 @@
       },
       "placements": {
         "description": "Manage placements"
+      },
+      "flows": {
+        "description": "Manage flows (onboardings)"
+      },
+      "flows:config": {
+        "description": "Read and write a flow's builder config"
       },
       "segments": {
         "description": "List segments"

@@ -4,7 +4,7 @@
 
 # Adapty CLI
 
-[Adapty Developer CLI](https://adapty.io/docs/developer-cli). Manage apps, products, paywalls, placements, and access levels from your terminal.
+[Adapty Developer CLI](https://adapty.io/docs/developer-cli). Manage apps, products, paywalls, placements, flows, and access levels from your terminal.
 
 ## Installation
 
@@ -76,6 +76,20 @@ adapty placements get --app UUID PLACEMENT_ID
 adapty placements create --app UUID [flags]
 adapty placements update --app UUID PLACEMENT_ID [flags]
 ```
+
+### Flows
+
+```sh
+adapty flows list --app UUID [--page N] [--page-size N]
+adapty flows get --app UUID FLOW_ID
+adapty flows create --app UUID --name "Name"
+adapty flows config get --app UUID FLOW_ID
+adapty flows config update --app UUID FLOW_ID (--config JSON | --config-file PATH|-) [--remote-configs JSON] [--expected-updated-at MS]
+```
+
+A freshly created flow has no config until the first `flows config update`; `flows config get` returns 404
+until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of
+overwriting a concurrent dashboard edit.
 
 ### Access Levels
 

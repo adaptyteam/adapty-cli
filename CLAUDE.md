@@ -22,6 +22,7 @@ src/
     products/        # list, get, create, update
     paywalls/        # list, get, create, update, placements (placements using a paywall)
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
+    flows/           # list, get, create; config/ (get, update — builder config with optimistic lock)
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,

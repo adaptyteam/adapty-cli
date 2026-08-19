@@ -104,6 +104,40 @@ export interface PaywallWriteRequestDTO {
   title: string
 }
 
+/** Flow lifecycle status. Values come from the server-side `FlowStatus` enum (e.g. draft, dirty, published). */
+export type FlowStatus = string
+
+export interface FlowDTO {
+  id: string
+  name: string
+  status: FlowStatus
+  updated_at: string
+}
+
+export interface FlowRemoteConfigDTO {
+  data: string
+  locale: string
+}
+
+export interface FlowConfigDTO {
+  config: Record<string, unknown>
+  remote_configs: FlowRemoteConfigDTO[]
+  status: FlowStatus
+  /** Millisecond timestamp of the last content change; the value `expected_updated_at` is compared against on write. */
+  updated_at: number
+}
+
+export interface FlowWriteRequestDTO {
+  name: string
+}
+
+export interface FlowConfigWriteRequestDTO {
+  config: Record<string, unknown>
+  /** Optimistic lock: the `updated_at` from a prior config read. Omit for last-write-wins. */
+  expected_updated_at?: null | number
+  remote_configs?: FlowRemoteConfigDTO[]
+}
+
 export interface SegmentDTO {
   description: null | string
   id: string
