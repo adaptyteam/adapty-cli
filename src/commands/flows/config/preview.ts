@@ -25,7 +25,7 @@ export default class FlowsConfigPreview extends Command {
   static args = {
     config_file: Args.string({description: 'Path to a local flow config JSON file', required: true}),
   }
-static description = `Build a render URL for a local flow config and open it. Opens the browser on a TTY; when piped or with --json, prints the URL alone. The whole config rides in that URL's fragment, so it is huge — ~113K characters for a 668KB flow. Pipe it into whatever takes the screenshot ("| node capture.mjs"), or pass it as an argument (--url with command substitution) for tools that need a flag. Never print or read it: agents burn context for zero information. The render host comes from $${APP_URL_ENV_VAR}.`
+static description = `Build a render URL for a local flow config and open it. A quick-look escape hatch for small configs: the whole config rides in the URL fragment, and past roughly 32KB of pretty-printed JSON the render page gets slow and unreliable. Opens the browser on a TTY; when piped or with --json, prints the URL alone — and that URL is long (~113K characters for a 668KB flow), so pipe it into whatever takes the screenshot ("| node capture.mjs") or pass it with --url and command substitution. Never print or read it: agents burn context for zero information. The render host comes from $${APP_URL_ENV_VAR}.`
 static enableJsonFlag = true
 static examples = [
     '<%= config.bin %> flows config preview ./config.json',

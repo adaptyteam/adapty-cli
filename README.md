@@ -262,9 +262,13 @@ and the outcome shows up in `adapty asa automations runs`.
 browser; piped or with `--json` it prints the URL alone. Screenshotting is the caller's job — the CLI only
 builds the URL.
 
-> **That URL is huge.** The whole config travels in its gzipped fragment: a 668KB flow yields ~113,000
-> characters. Browsers handle it fine, but nobody should read it — **agents especially should never let it into
-> their context.** Pipe it into whatever captures the screenshot:
+> **Small configs only.** This is a quick-look escape hatch. The config travels in the URL fragment, and past
+> roughly **32KB of pretty-printed JSON** the render page becomes slow and unreliable. Trim to the screen you
+> care about, or preview the saved flow in the dashboard builder instead.
+
+> **That URL is huge.** Even a config the page renders happily produces thousands of characters, and a 668KB
+> flow yields ~113,000. Nobody should read it — **agents especially should never let it into their context.**
+> Pipe it into whatever captures the screenshot:
 >
 > ```sh
 > adapty flows config preview flow.json --screen scr_abc | node capture.mjs --out shot.png

@@ -101,7 +101,9 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `flows config preview <config_file>`       | none           |
 
 Takes a **local** flow config JSON file, normalizes it, and builds a render URL that carries the whole config
-in its gzipped fragment. **No API call and no `--app`.** The CLI does not screenshot anything — it owns the
+in its gzipped fragment. **Treat it as a quick-look escape hatch for small configs:** past roughly **32KB of
+pretty-printed JSON** the render page turns slow and unreliable, so trim to the screen you are working on
+rather than throwing a whole 600KB flow at it. **No API call and no `--app`.** The CLI does not screenshot anything — it owns the
 fragment format, capture is yours: open the URL with your browser/computer-use tool and screenshot the
 `[data-screen-content]` element.
 
@@ -123,10 +125,11 @@ Output depends on where stdout goes, because the URL is far too long to read:
 - **Piped or redirected** — prints the bare URL and nothing else.
 - **`--json`** — `{render_url}`, and never opens a browser.
 
-⚠️ **Never read this command's output.** Piped or `--json`, it emits one enormous line: ~113,000 characters
-for a 668KB flow, because the entire config is gzipped into the fragment. Running it as a bare command and
-letting the output land in your transcript burns context for zero information. Always hand it to the next
-process instead — and never `echo`, `cat` or `--json | jq .render_url` it just to look.
+⚠️ **Never read this command's output.** Piped or `--json`, it emits one very long line — thousands of
+characters even for a config the page renders well, ~113,000 for a 668KB flow — because the entire config is
+gzipped into the fragment. Running it as a bare command and letting the output land in your transcript burns
+context for zero information. Always hand it to the next process instead — and never `echo`, `cat` or
+`--json | jq .render_url` it just to look.
 
 `render_url` is `<host>/flow-preview?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`.
 The fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
