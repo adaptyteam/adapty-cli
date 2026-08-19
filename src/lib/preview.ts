@@ -1,4 +1,3 @@
-import {writeFile} from 'node:fs/promises'
 import {gzipSync} from 'node:zlib'
 
 import {appUrl} from './app-url.js'
@@ -61,20 +60,11 @@ export interface RenderTarget {
   screen?: string
 }
 
-/**
- * Omit `payload` when the config travels as a file instead: the page ignores the hash once it is
- * handed a file, so carrying the fragment as well would only bloat the output.
- */
-export function buildRenderUrl(target: RenderTarget, payload?: PreviewPayload): string {
+export function buildRenderUrl(target: RenderTarget, payload: PreviewPayload): string {
   const url = appUrl(PREVIEW_PATH)
   if (target.screen) url.searchParams.set('screen', target.screen)
   url.searchParams.set('device', target.device)
   url.searchParams.set('orientation', target.orientation)
-  if (payload) url.hash = `config=${encodeConfigFragment(payload)}`
+  url.hash = `config=${encodeConfigFragment(payload)}`
   return url.toString()
-}
-
-/** Writes the payload for the render page's file input, the escape hatch for oversized configs. */
-export async function writePayloadFile(payload: PreviewPayload, outPath: string): Promise<void> {
-  await writeFile(outPath, JSON.stringify(payload), 'utf8')
 }

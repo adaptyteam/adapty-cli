@@ -101,8 +101,8 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `flows config preview <config_file>`       | none           |
 
 Takes a **local** flow config JSON file, normalizes it, and builds a render URL that carries the whole config
-in its fragment. **No API call and no `--app`.** The CLI does not screenshot anything — it owns the fragment
-format, capture is yours: open the URL with your browser/computer-use tool and screenshot the
+in its gzipped fragment. **No API call and no `--app`.** The CLI does not screenshot anything — it owns the
+fragment format, capture is yours: open the URL with your browser/computer-use tool and screenshot the
 `[data-screen-content]` element.
 
 Accepts either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config; both
@@ -115,23 +115,28 @@ Render page location is **env-only**: `ADAPTY_APP_URL` (default `https://app.ada
 verification link onto that host, so a local or staging dashboard stays consistent across both commands.
 
 Flags: `--screen` (default: the render page falls back to the flow's first screen), `--device` (default:
-`iphone-14`), `--orientation` (`portrait` | `landscape`, default `portrait`), `--payload-out` (off by default).
+`iphone-14`), `--orientation` (`portrait` | `landscape`, default `portrait`).
 
 Output depends on where stdout goes, because the URL is far too long to read:
 
 - **TTY** — opens the URL in the browser and prints a one-line confirmation, not the URL.
-- **Piped or redirected** — prints the bare URL and nothing else, so `... | pbcopy` and `$(...)` work.
-- **`--json`** — `{render_url, payload_path?}`, and never opens a browser.
+- **Piped or redirected** — prints the bare URL and nothing else.
+- **`--json`** — `{render_url}`, and never opens a browser.
 
 `render_url` is `<host>/flow-preview?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`.
 The fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
 plain shape to mark it apart from. An unknown `device` renders an error message instead of a screen, so pass
 one the builder knows.
 
-**Oversized configs:** `--payload-out <file>` writes the normalized payload and **drops the fragment** from
-the URL, because the render page ignores the hash once it is handed a file. Feed that file to the page's
-`[data-testid="preview-config-input"]` input. The two are alternatives by design: the config is never emitted
-twice, so `--json` output stays small whichever mode you use.
+**Keep the URL out of your context.** A real 668KB config makes a ~113K-character URL, which a browser handles
+fine but you should not read. Pass it straight to whatever captures the screenshot instead of printing it:
+
+```sh
+node capture.mjs --url "$(adapty flows config preview flow.json --screen scr_abc)" --out shot.png
+```
+
+Command substitution carries it fine (the shell allows ~1MB of arguments, so the ceiling is a config around
+6MB — configs compress roughly 6x). There is no file-based hand-off flag: the config always rides in the URL.
 
 ## Apple Search Ads (`asa` topic)
 

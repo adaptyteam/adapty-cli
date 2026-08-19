@@ -11,11 +11,9 @@ import {
   normalizePreviewConfig,
   ORIENTATIONS,
   type PreviewPayload,
-  writePayloadFile,
 } from '../../../lib/preview.js'
 
 export interface PreviewResult {
-  payload_path?: string
   render_url: string
 }
 
@@ -41,10 +39,6 @@ static flags = {
       description: 'Device orientation to render in',
       options: [...ORIENTATIONS],
     }),
-    'payload-out': Flags.string({
-      description:
-        'Write the normalized payload JSON here and leave it out of the URL, for configs too large to sit in one',
-    }),
     screen: Flags.string({description: "Screen ID to render (default: the flow's first screen)"}),
   }
 
@@ -66,44 +60,20 @@ static flags = {
       this.error(describeError(error), {exit: 2})
     }
 
-    let payloadPath: string | undefined
-    if (flags['payload-out']) {
-      payloadPath = resolve(flags['payload-out'])
-      await writePayloadFile(payload, payloadPath)
-    }
-
     let renderUrl: string
     try {
-      // The fragment and the payload file are alternatives: emitting both would repeat the whole
-      // config in output an agent has to read.
-      renderUrl = buildRenderUrl(
-        {device: flags.device, orientation: flags.orientation, screen: flags.screen},
-        payloadPath ? undefined : payload,
-      )
+      renderUrl = buildRenderUrl({device: flags.device, orientation: flags.orientation, screen: flags.screen}, payload)
     } catch (error) {
       this.error(describeError(error), {exit: 2})
     }
 
-    // Key order is the print order: the URL is the primary handle.
-    /* eslint-disable perfectionist/sort-objects */
-    const result: PreviewResult = {
-      render_url: renderUrl,
-      payload_path: payloadPath,
-    }
-    /* eslint-enable perfectionist/sort-objects */
-
+    const result: PreviewResult = {render_url: renderUrl}
     if (this.jsonEnabled()) return result
 
-    // Piped output stays a bare URL so it composes; on a TTY the URL is far too long to read, so
-    // open it instead. With a payload file there is nothing to open — the config is not in the URL.
+    // Piped output stays a bare URL so it composes — the whole config rides in the fragment, which
+    // is why a TTY gets the browser opened instead of a screenful of base64.
     if (process.stdout.isTTY !== true) {
       this.log(renderUrl)
-      return result
-    }
-
-    if (payloadPath) {
-      this.log(`Payload written to ${payloadPath}`)
-      this.log(`Render URL (feed the payload to the page's file input): ${renderUrl}`)
       return result
     }
 

@@ -262,7 +262,7 @@ and the outcome shows up in `adapty asa automations runs`.
 browser on a TTY, and prints the bare URL when piped. Screenshotting is the caller's job; the CLI only builds
 the URL. See
 [skills/adapty-cli/references/cli-commands.md](skills/adapty-cli/references/cli-commands.md#preview) for the
-flags and the oversized-config path.
+flags and how to pass the URL straight to a screenshot tool.
 
 ## Environment Variables
 

@@ -62,8 +62,9 @@ src/
   another host)
 - `flows config preview` only builds a URL: no browser automation, no Playwright, no screenshot. Capture
   belongs to the caller (its own browser tool, or the flow skill's reference script)
-- `--payload-out` and the URL fragment are alternatives — with a payload file the fragment is omitted, since
-  the render page ignores the hash once it is handed a file (and repeating the config doubles agent output)
+- `flows config preview` always carries the config in the URL fragment; there is no file hand-off flag. A
+  113K-char URL for a 668KB config is fine for a browser, so callers pipe it (`--url "$(adapty ...)"`) rather
+  than read it
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
