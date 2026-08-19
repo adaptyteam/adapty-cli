@@ -61,12 +61,16 @@ export interface RenderTarget {
   screen?: string
 }
 
-export function buildRenderUrl(target: RenderTarget, payload: PreviewPayload): string {
+/**
+ * Omit `payload` when the config travels as a file instead: the page ignores the hash once it is
+ * handed a file, so carrying the fragment as well would only bloat the output.
+ */
+export function buildRenderUrl(target: RenderTarget, payload?: PreviewPayload): string {
   const url = appUrl(PREVIEW_PATH)
   if (target.screen) url.searchParams.set('screen', target.screen)
   url.searchParams.set('device', target.device)
   url.searchParams.set('orientation', target.orientation)
-  url.hash = `config=${encodeConfigFragment(payload)}`
+  if (payload) url.hash = `config=${encodeConfigFragment(payload)}`
   return url.toString()
 }
 

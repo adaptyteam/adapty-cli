@@ -259,10 +259,10 @@ and the outcome shows up in `adapty asa automations runs`.
 ## Paywall Preview
 
 `adapty flows config preview <config_file>` turns a local flow config into a render URL — it opens in your
-browser on a TTY, and prints the bare URL when piped —
-**Playwright is not bundled**. See
+browser on a TTY, and prints the bare URL when piped. Screenshotting is the caller's job; the CLI only builds
+the URL. See
 [skills/adapty-cli/references/cli-commands.md](skills/adapty-cli/references/cli-commands.md#preview) for the
-handles it prints, the reference `npx` script, and the oversized-config path.
+flags and the oversized-config path.
 
 ## Environment Variables
 

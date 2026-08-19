@@ -1,7 +1,6 @@
 import {Args, Command, Flags} from '@oclif/core'
 import {readFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
 import open from 'open'
 
 import {APP_URL_ENV_VAR} from '../../../lib/app-url.js'
@@ -17,16 +16,11 @@ import {
 
 export interface PreviewResult {
   payload_path?: string
-  reference_command: string
   render_url: string
 }
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-function referenceScriptPath(): string {
-  return fileURLToPath(new URL('../../../../scripts/preview-with-playwright.mjs', import.meta.url))
 }
 
 export default class FlowsConfigPreview extends Command {
@@ -48,7 +42,8 @@ static flags = {
       options: [...ORIENTATIONS],
     }),
     'payload-out': Flags.string({
-      description: 'Also write the normalized payload JSON here, for configs too large to sit in a URL',
+      description:
+        'Write the normalized payload JSON here and leave it out of the URL, for configs too large to sit in one',
     }),
     screen: Flags.string({description: "Screen ID to render (default: the flow's first screen)"}),
   }
@@ -65,13 +60,8 @@ static flags = {
     }
 
     let payload: PreviewPayload
-    let renderUrl: string
     try {
       payload = normalizePreviewConfig(raw)
-      renderUrl = buildRenderUrl(
-        {device: flags.device, orientation: flags.orientation, screen: flags.screen},
-        payload,
-      )
     } catch (error) {
       this.error(describeError(error), {exit: 2})
     }
@@ -82,30 +72,46 @@ static flags = {
       await writePayloadFile(payload, payloadPath)
     }
 
-    const config = payloadPath ? ` --config "${payloadPath}"` : ''
+    let renderUrl: string
+    try {
+      // The fragment and the payload file are alternatives: emitting both would repeat the whole
+      // config in output an agent has to read.
+      renderUrl = buildRenderUrl(
+        {device: flags.device, orientation: flags.orientation, screen: flags.screen},
+        payloadPath ? undefined : payload,
+      )
+    } catch (error) {
+      this.error(describeError(error), {exit: 2})
+    }
+
     // Key order is the print order: the URL is the primary handle.
     /* eslint-disable perfectionist/sort-objects */
     const result: PreviewResult = {
       render_url: renderUrl,
-      reference_command: `npx --yes --package=playwright node "${referenceScriptPath()}" --url "${renderUrl}"${config} --out "preview.png"`,
       payload_path: payloadPath,
     }
     /* eslint-enable perfectionist/sort-objects */
 
     if (this.jsonEnabled()) return result
 
-    // The URL carries the whole gzipped config, so it is far too long to read: open it instead, and
-    // when stdout is piped emit nothing but the URL so it stays composable.
-    if (process.stdout.isTTY === true) {
-      const target = [flags.screen ?? 'first screen', flags.device, flags.orientation].join(', ')
-      try {
-        await open(renderUrl)
-        this.log(`Opened the preview in your browser (${target}).`)
-        this.log('Run with --json for the render URL, the screenshot command and the payload path.')
-      } catch {
-        this.log(renderUrl)
-      }
-    } else {
+    // Piped output stays a bare URL so it composes; on a TTY the URL is far too long to read, so
+    // open it instead. With a payload file there is nothing to open — the config is not in the URL.
+    if (process.stdout.isTTY !== true) {
+      this.log(renderUrl)
+      return result
+    }
+
+    if (payloadPath) {
+      this.log(`Payload written to ${payloadPath}`)
+      this.log(`Render URL (feed the payload to the page's file input): ${renderUrl}`)
+      return result
+    }
+
+    const target = [flags.screen ?? 'first screen', flags.device, flags.orientation].join(', ')
+    try {
+      await open(renderUrl)
+      this.log(`Opened the preview in your browser (${target}).`)
+    } catch {
       this.log(renderUrl)
     }
 

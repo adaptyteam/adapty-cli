@@ -101,7 +101,9 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `flows config preview <config_file>`       | none           |
 
 Takes a **local** flow config JSON file, normalizes it, and builds a render URL that carries the whole config
-in its fragment. **No API call, no `--app`, and no bundled browser** — the CLI does not depend on Playwright.
+in its fragment. **No API call and no `--app`.** The CLI does not screenshot anything — it owns the fragment
+format, capture is yours: open the URL with your browser/computer-use tool and screenshot the
+`[data-screen-content]` element.
 
 Accepts either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config; both
 normalize to `{flow, remoteConfigs}` (camelCase: that payload is a wire format shared with the render page).
@@ -119,20 +121,17 @@ Output depends on where stdout goes, because the URL is far too long to read:
 
 - **TTY** — opens the URL in the browser and prints a one-line confirmation, not the URL.
 - **Piped or redirected** — prints the bare URL and nothing else, so `... | pbcopy` and `$(...)` work.
-- **`--json`** — `{render_url, reference_command, payload_path?}`, and never opens a browser.
+- **`--json`** — `{render_url, payload_path?}`, and never opens a browser.
 
 `render_url` is `<host>/flow-preview?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`.
 The fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
-plain shape to mark it apart from. Any browser/computer-use tool can open the URL and screenshot the
-`[data-screen-content]` element. An unknown `device` renders an error message instead of a screen, so pass one
-the builder knows.
+plain shape to mark it apart from. An unknown `device` renders an error message instead of a screen, so pass
+one the builder knows.
 
-`reference_command` (in `--json`) is the exact `npx --yes --package=playwright node
-<pkg>/scripts/preview-with-playwright.mjs --url "<render_url>" --out "preview.png"` invocation; Chromium
-itself needs `npx playwright install chromium` once. `payload_path` appears only with `--payload-out <file>`,
-and then `reference_command` includes `--config <file>`, which feeds the page's
-`[data-testid="preview-config-input"]` file input instead of the fragment — the escape hatch for a config too
-large to sit in a URL.
+**Oversized configs:** `--payload-out <file>` writes the normalized payload and **drops the fragment** from
+the URL, because the render page ignores the hash once it is handed a file. Feed that file to the page's
+`[data-testid="preview-config-input"]` input. The two are alternatives by design: the config is never emitted
+twice, so `--json` output stays small whichever mode you use.
 
 ## Apple Search Ads (`asa` topic)
 

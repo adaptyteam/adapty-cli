@@ -23,7 +23,8 @@ src/
     paywalls/        # list, get, create, update, placements (placements using a paywall)
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
     flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
-                     # preview — local config → render URL, opens on a TTY, prints bare URL when piped)
+                     # preview — local config → render URL, opens on a TTY, prints bare URL when piped;
+                     # capture is the caller's job, the CLI only builds the URL)
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
@@ -43,8 +44,6 @@ src/
     asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
     asa-schemas.ts   # response typings for asa entities
     preview.ts       # flow config normalization + render URL / gzip fragment building
-scripts/
-  preview-with-playwright.mjs  # reference renderer shipped to consumers; Playwright is NOT a CLI dependency
 ```
 
 ## Conventions
@@ -61,8 +60,10 @@ scripts/
   `flows config preview` builds the fixed `/flow-preview` route on it, and `auth login` rehosts the
   API-issued verification link onto it (only when the env var is set — the API may serve that link from
   another host)
-- `flows config preview` never renders anything itself — Playwright is not a dependency;
-  `scripts/preview-with-playwright.mjs` is a reference script the caller runs via npx
+- `flows config preview` only builds a URL: no browser automation, no Playwright, no screenshot. Capture
+  belongs to the caller (its own browser tool, or the flow skill's reference script)
+- `--payload-out` and the URL fragment are alternatives — with a payload file the fragment is omitted, since
+  the render page ignores the hash once it is handed a file (and repeating the config doubles agent output)
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
