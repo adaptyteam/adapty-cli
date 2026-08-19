@@ -33,6 +33,8 @@ export function describeListedError(error: ListedError): {code: string | undefin
 }
 
 export class ApiError extends Error {
+  // Read by oclif's prettyPrint to render a `Code: ...` line under the message.
+  code?: string
   detail?: string
   retryAfterSeconds?: number
 
@@ -42,10 +44,27 @@ export class ApiError extends Error {
     public fieldErrors: Record<string, string[]>,
     opts: ApiErrorOptions = {},
   ) {
-    super(opts.detail ?? errorCode)
+    // `message` is what oclif's default error renderer prints. Prefer the server's human text (an ASA
+    // `detail` or the developer API's field errors) over the bare code, which reads as gibberish on its own.
+    super(ApiError.humanMessage(errorCode, fieldErrors, opts.detail))
     this.name = 'ApiError'
     this.detail = opts.detail
     this.retryAfterSeconds = opts.retryAfterSeconds
+    // Surface real server codes as a secondary line; hide synthetic `http_<status>` fallbacks.
+    if (!errorCode.startsWith('http_')) this.code = errorCode
+  }
+
+  private static humanMessage(errorCode: string, fieldErrors: Record<string, string[]>, detail?: string): string {
+    if (detail) return detail
+
+    const parts: string[] = []
+    for (const [field, msgs] of Object.entries(fieldErrors)) {
+      for (const msg of msgs) {
+        parts.push(field === 'non_field_errors' ? msg : `${field}: ${msg}`)
+      }
+    }
+
+    return parts.length > 0 ? parts.join('; ') : errorCode
   }
 
   toHuman(): string {

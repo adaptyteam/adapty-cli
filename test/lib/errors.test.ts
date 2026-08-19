@@ -10,6 +10,25 @@ describe('parseApiError', () => {
     expect(error.detail).to.equal(undefined)
   })
 
+  it('surfaces developer field errors as the human message and the code as a secondary line', () => {
+    const nonField = parseApiError(404, {error_code: 'validation_error', errors: {non_field_errors: ['Flow version does not exist.']}})
+    expect(nonField.message).to.equal('Flow version does not exist.')
+    expect(nonField.code).to.equal('validation_error')
+
+    const named = parseApiError(400, {error_code: 'validation_error', errors: {title: ['is required']}})
+    expect(named.message).to.equal('title: is required')
+  })
+
+  it('falls back to the bare code as message when there is nothing more human, and hides synthetic codes', () => {
+    const coded = parseApiError(400, {error_code: 'some_code'})
+    expect(coded.message).to.equal('some_code')
+    expect(coded.code).to.equal('some_code')
+
+    const synthetic = parseApiError(500, {})
+    expect(synthetic.message).to.equal('http_500')
+    expect(synthetic.code).to.equal(undefined)
+  })
+
   it('leaves the Developer API untouched by the ASA branches', () => {
     const listed = parseApiError(404, {errors: [{error_code: 'cli_entity_not_found', message: 'No campaign.'}]})
     const stringDetail = parseApiError(400, {detail: 'idempotency_key is required'})
