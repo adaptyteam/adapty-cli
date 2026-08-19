@@ -258,7 +258,8 @@ and the outcome shows up in `adapty asa automations runs`.
 
 ## Paywall Preview
 
-`adapty preview <config_file>` turns a local flow config into a render URL you screenshot yourself —
+`adapty flows config preview <config_file>` turns a local flow config into a render URL — it opens in your
+browser on a TTY, and prints the bare URL when piped —
 **Playwright is not bundled**. See
 [skills/adapty-cli/references/cli-commands.md](skills/adapty-cli/references/cli-commands.md#preview) for the
 handles it prints, the reference `npx` script, and the oversized-config path.
@@ -270,7 +271,7 @@ handles it prints, the reference `npx` script, and the oversized-config path.
 | `ADAPTY_TOKEN`       | Override stored auth token                                                              |
 | `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
 | `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
-| `ADAPTY_PREVIEW_RENDER_URL` | Base URL of the render page used by `adapty preview` — the dashboard's `/flow-preview` route (no default) |
+| `ADAPTY_APP_URL`     | Override dashboard base URL used by `flows config preview` (default: `https://app.adapty.io`; the `/flow-preview` route itself is fixed) |
 
 The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA
 default, and the other way round.

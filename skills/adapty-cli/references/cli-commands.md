@@ -96,34 +96,42 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 
 ## Preview
 
-| Command                        | Required flags |
-|-------------------------------|----------------|
-| `preview <config_file>`        | none (needs a render URL) |
+| Command                                    | Required flags |
+|-------------------------------------------|----------------|
+| `flows config preview <config_file>`       | none           |
 
-Prep-only: takes a **local** flow config JSON file, normalizes it, and prints the handles you need to render
-it. **No API call, no `--app`, and no bundled browser** — the CLI does not depend on Playwright.
+Takes a **local** flow config JSON file, normalizes it, and builds a render URL that carries the whole config
+in its fragment. **No API call, no `--app`, and no bundled browser** — the CLI does not depend on Playwright.
 
 Accepts either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config; both
 normalize to `{flow, remoteConfigs}` (camelCase: that payload is a wire format shared with the render page).
 `screens` must be an array — that is what the render page's own payload guard requires, so the CLI rejects
 anything it would reject.
 
-Flags: `--render-url` (or `ADAPTY_PREVIEW_RENDER_URL`, required), `--screen` (default: the render page falls
-back to the flow's first screen), `--device` (default: `iphone-14`), `--orientation` (`portrait` |
-`landscape`, default `portrait`), `--payload-out` (off by default).
+Render page location is **env-only**: `ADAPTY_APP_URL` (default `https://app.adapty.io`) sets the host; the
+`/flow-preview` route is fixed and there is no flag for it.
 
-Output (`--json`): `{render_url, reference_command, payload_path?}`.
+Flags: `--screen` (default: the render page falls back to the flow's first screen), `--device` (default:
+`iphone-14`), `--orientation` (`portrait` | `landscape`, default `portrait`), `--payload-out` (off by default).
 
-- `render_url` — `<base>?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`. The
-  fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
-  plain shape to mark it apart from. Tool-agnostic: open the URL with your own browser/computer-use tool and
-  screenshot the `[data-screen-content]` element. An unknown `device` renders an error message instead of a
-  screen, so pass one the builder knows.
-- `reference_command` — the exact `npx --yes --package=playwright node <pkg>/scripts/preview-with-playwright.mjs
-  --url "<render_url>" --out "preview.png"` invocation. Chromium itself: `npx playwright install chromium` once.
-- `payload_path` — present only with `--payload-out <file>`. For a config too large to sit in a URL, re-run
-  with `--payload-out` and the printed `reference_command` will include `--config <file>`, which feeds the
-  page's `[data-testid="preview-config-input"]` file input instead of the fragment.
+Output depends on where stdout goes, because the URL is far too long to read:
+
+- **TTY** — opens the URL in the browser and prints a one-line confirmation, not the URL.
+- **Piped or redirected** — prints the bare URL and nothing else, so `... | pbcopy` and `$(...)` work.
+- **`--json`** — `{render_url, reference_command, payload_path?}`, and never opens a browser.
+
+`render_url` is `<host>/flow-preview?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`.
+The fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
+plain shape to mark it apart from. Any browser/computer-use tool can open the URL and screenshot the
+`[data-screen-content]` element. An unknown `device` renders an error message instead of a screen, so pass one
+the builder knows.
+
+`reference_command` (in `--json`) is the exact `npx --yes --package=playwright node
+<pkg>/scripts/preview-with-playwright.mjs --url "<render_url>" --out "preview.png"` invocation; Chromium
+itself needs `npx playwright install chromium` once. `payload_path` appears only with `--payload-out <file>`,
+and then `reference_command` includes `--config <file>`, which feeds the page's
+`[data-testid="preview-config-input"]` file input instead of the fragment — the escape hatch for a config too
+large to sit in a URL.
 
 ## Apple Search Ads (`asa` topic)
 

@@ -22,13 +22,13 @@ src/
     products/        # list, get, create, update
     paywalls/        # list, get, create, update, placements (placements using a paywall)
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
-    flows/           # list, get, create; config/ (get, update — builder config with optimistic lock)
+    flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
+                     # preview — local config → render URL, opens on a TTY, prints bare URL when piped)
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
                      # competitors
-    preview.ts       # local flow config → render URL for the public paywall render page
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)
     config.ts        # ~/.config/adapty/config.json read/write
@@ -56,8 +56,9 @@ scripts/
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
-- `ADAPTY_PREVIEW_RENDER_URL` env (or `--render-url`) sets the paywall render page base URL; `preview` never
-  drives a browser itself
+- `ADAPTY_APP_URL` env sets the dashboard base URL for `flows config preview` (default `https://app.adapty.io`);
+  the `/flow-preview` route is fixed, and the command never renders anything itself — Playwright is not a
+  dependency, `scripts/preview-with-playwright.mjs` is a reference the caller runs via npx
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI

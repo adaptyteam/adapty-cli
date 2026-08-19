@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs'
 import {fileURLToPath} from 'node:url'
 import {gunzipSync} from 'node:zlib'
 
-import {buildRenderUrl, normalizePreviewConfig, resolveRenderUrl} from '../../src/lib/preview.js'
+import {APP_URL_ENV_VAR, buildRenderUrl, normalizePreviewConfig} from '../../src/lib/preview.js'
 
 const FIXTURE_PATH = fileURLToPath(new URL('../fixtures/flow-config.json', import.meta.url))
 const FIXTURE = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as unknown
@@ -51,24 +51,33 @@ describe('preview', () => {
 
   describe('render url', () => {
     afterEach(() => {
-      delete process.env.ADAPTY_PREVIEW_RENDER_URL
+      delete process.env[APP_URL_ENV_VAR]
     })
 
-    it('prefers the flag over the env var', () => {
-      process.env.ADAPTY_PREVIEW_RENDER_URL = 'https://env.example/render'
-      expect(resolveRenderUrl('https://flag.example/render')).to.equal('https://flag.example/render')
-      expect(resolveRenderUrl()).to.equal('https://env.example/render')
+    const target = {device: 'iphone-14', orientation: 'portrait'} as const
+
+    it('defaults to the dashboard host and the fixed preview route', () => {
+      const url = new URL(buildRenderUrl(target, normalizePreviewConfig(FIXTURE)))
+
+      expect(url.origin).to.equal('https://app.adapty.io')
+      expect(url.pathname).to.equal('/flow-preview')
     })
 
-    it('errors when neither is set', () => {
-      expect(() => resolveRenderUrl()).to.throw('ADAPTY_PREVIEW_RENDER_URL')
+    it('takes the host from ADAPTY_APP_URL, keeping the route', () => {
+      process.env[APP_URL_ENV_VAR] = 'http://localhost:3000'
+      const url = new URL(buildRenderUrl(target, normalizePreviewConfig(FIXTURE)))
+
+      expect(url.origin).to.equal('http://localhost:3000')
+      expect(url.pathname).to.equal('/flow-preview')
+    })
+
+    it('rejects a host it cannot parse', () => {
+      process.env[APP_URL_ENV_VAR] = 'not a url'
+      expect(() => buildRenderUrl(target, normalizePreviewConfig(FIXTURE))).to.throw(APP_URL_ENV_VAR)
     })
 
     it('omits the screen param when none was asked for, letting the page pick the first', () => {
-      const payload = normalizePreviewConfig(FIXTURE)
-      const url = new URL(
-        buildRenderUrl('https://app.example/preview', {device: 'iphone-14', orientation: 'portrait'}, payload),
-      )
+      const url = new URL(buildRenderUrl(target, normalizePreviewConfig(FIXTURE)))
 
       expect(url.searchParams.get('screen')).to.equal(null)
       expect(url.searchParams.get('device')).to.equal('iphone-14')
@@ -78,11 +87,7 @@ describe('preview', () => {
     it('carries a real config through the gzipped fragment, unprefixed and padding-free', () => {
       const payload = normalizePreviewConfig(FIXTURE)
       const url = new URL(
-        buildRenderUrl(
-          'https://app.example/preview',
-          {device: 'ipad-pro', orientation: 'landscape', screen: 'offer'},
-          payload,
-        ),
+        buildRenderUrl({device: 'ipad-pro', orientation: 'landscape', screen: 'offer'}, payload),
       )
 
       expect(url.searchParams.get('screen')).to.equal('offer')
