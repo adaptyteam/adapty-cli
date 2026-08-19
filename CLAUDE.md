@@ -22,7 +22,9 @@ src/
     products/        # list, get, create, update
     paywalls/        # list, get, create, update, placements (placements using a paywall)
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
-    flows/           # list, get, create; config/ (get, update — builder config with optimistic lock)
+    flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
+                     # preview — local config → render URL, opens on a TTY, prints bare URL when piped;
+                     # capture is the caller's job, the CLI only builds the URL)
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
@@ -36,10 +38,12 @@ src/
     errors.ts        # ApiError, NetworkError, AuthRequiredError
     flags.ts         # shared flags: --app (UUID), pagination
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
+    app-url.ts       # dashboard base URL (ADAPTY_APP_URL): route building + rehosting API-issued links
     asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')
     asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps
     asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
     asa-schemas.ts   # response typings for asa entities
+    preview.ts       # flow config normalization + render URL / gzip fragment building
 ```
 
 ## Conventions
@@ -52,6 +56,16 @@ src/
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
+- `ADAPTY_APP_URL` env sets the dashboard base URL (default `https://app.adapty.io`), via `lib/app-url.ts`:
+  `flows config preview` builds the fixed `/flow-preview` route on it, and `auth login` rehosts the
+  API-issued verification link onto it (only when the env var is set — the API may serve that link from
+  another host)
+- `flows config preview` only builds a URL: no browser automation, no Playwright, no screenshot. Capture
+  belongs to the caller (its own browser tool, or the flow skill's reference script)
+- `flows config preview` always carries the config in the URL fragment; there is no file hand-off flag. It is
+  a quick-look escape hatch for small configs — past ~32KB of pretty-printed JSON the render page turns slow
+  and unreliable. The URL is long either way (~113K chars for a 668KB flow), so callers pipe it into the
+  screenshot tool rather than print or read it
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI

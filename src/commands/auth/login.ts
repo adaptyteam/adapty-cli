@@ -2,6 +2,7 @@ import {Command} from '@oclif/core'
 import open from 'open'
 
 import {ApiClient} from '../../lib/api-client.js'
+import {onAppHost} from '../../lib/app-url.js'
 import {buildUserAgent} from '../../lib/client-from-config.js'
 import {readConfig, writeConfig} from '../../lib/config.js'
 import {ApiError} from '../../lib/errors.js'
@@ -53,12 +54,14 @@ static examples = ['<%= config.bin %> auth login']
       this.error(error instanceof Error ? error.message : 'Failed to initiate auth flow', {exit: 1})
     }
 
+    const verificationUrl = this.verificationUrl(device.verification_uri_complete)
+
     this.log(`\nYour code: ${device.user_code}\n`)
-    this.log(`If browser doesn't open, visit: ${device.verification_uri_complete}\n`)
+    this.log(`If browser doesn't open, visit: ${verificationUrl}\n`)
 
     if (process.stdin.isTTY === true) {
       try {
-        await open(device.verification_uri_complete)
+        await open(verificationUrl)
       } catch {
         // browser open failed silently — URL already printed
       }
@@ -148,6 +151,15 @@ static examples = ['<%= config.bin %> auth login']
       this.error('Code expired. Run `adapty auth login` again.', {exit: 1})
     } finally {
       process.removeListener('SIGINT', onSignal)
+    }
+  }
+
+  /** Keeps the browser on the configured dashboard host, when ADAPTY_APP_URL asks for one. */
+  private verificationUrl(issuedUrl: string): string {
+    try {
+      return onAppHost(issuedUrl)
+    } catch (error) {
+      this.error(error instanceof Error ? error.message : String(error), {exit: 2})
     }
   }
 }

@@ -94,6 +94,64 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `access-levels create`                     | `--app`, `--sdk-id`, `--title` |
 | `access-levels update <access_level_id>`   | `--app`, `--title`       |
 
+## Preview
+
+| Command                                    | Required flags |
+|-------------------------------------------|----------------|
+| `flows config preview <config_file>`       | none           |
+
+Takes a **local** flow config JSON file, normalizes it, and builds a render URL that carries the whole config
+in its gzipped fragment. **Treat it as a quick-look escape hatch for small configs:** past roughly **32KB of
+pretty-printed JSON** the render page turns slow and unreliable, so trim to the screen you are working on
+rather than throwing a whole 600KB flow at it. **No API call and no `--app`.** The CLI does not screenshot anything — it owns the
+fragment format, capture is yours: open the URL with your browser/computer-use tool and screenshot the
+`[data-screen-content]` element.
+
+Accepts either a dashboard-api envelope (`{config, remote_configs, ...}`) or a bare builder config; both
+normalize to `{flow, remoteConfigs}` (camelCase: that payload is a wire format shared with the render page).
+`screens` must be an array — that is what the render page's own payload guard requires, so the CLI rejects
+anything it would reject.
+
+Render page location is **env-only**: `ADAPTY_APP_URL` (default `https://app.adapty.io`) sets the host; the
+`/flow-preview` route is fixed and there is no flag for it. The same env var also moves `auth login`'s
+verification link onto that host, so a local or staging dashboard stays consistent across both commands.
+
+Flags: `--screen` (default: the render page falls back to the flow's first screen), `--device` (default:
+`iphone-14`), `--orientation` (`portrait` | `landscape`, default `portrait`).
+
+Output depends on where stdout goes, because the URL is far too long to read:
+
+- **TTY** — opens the URL in the browser and prints a one-line confirmation, not the URL.
+- **Piped or redirected** — prints the bare URL and nothing else.
+- **`--json`** — `{render_url}`, and never opens a browser.
+
+⚠️ **Never read this command's output.** Piped or `--json`, it emits one very long line — thousands of
+characters even for a config the page renders well, ~113,000 for a 668KB flow — because the entire config is
+gzipped into the fragment. Running it as a bare command and letting the output land in your transcript burns
+context for zero information. Always hand it to the next process instead — and never `echo`, `cat` or
+`--json | jq .render_url` it just to look.
+
+`render_url` is `<host>/flow-preview?screen=<id>&device=<id>&orientation=<o>#config=<base64url(gzip(json))>`.
+The fragment is gzipped unconditionally and carries **no prefix** — the page compresses too, so there is no
+plain shape to mark it apart from. An unknown `device` renders an error message instead of a screen, so pass
+one the builder knows.
+
+**Keep the URL out of your context.** Pipe it straight into whatever captures the screenshot — stdin has no
+size limit:
+
+```sh
+adapty flows config preview flow.json --screen scr_abc | node capture.mjs --out shot.png
+```
+
+If the tool insists on a flag, command substitution works too, capped by the shell's ~1MB argument limit (a
+config around 6MB, since configs compress roughly 6x):
+
+```sh
+node capture.mjs --url "$(adapty flows config preview flow.json --screen scr_abc)" --out shot.png
+```
+
+There is no file-based hand-off flag: the config always rides in the URL.
+
 ## Apple Search Ads (`asa` topic)
 
 Different service behind the same token. **No `--app`**: every command is scoped to the company the token

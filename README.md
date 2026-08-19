@@ -256,6 +256,33 @@ and the outcome shows up in `adapty asa automations runs`.
 | `--page`      | Page number (default: 1)               |
 | `--page-size` | Items per page (default: 20, max: 100; `asa` commands: default 100, max 1000) |
 
+## Paywall Preview
+
+`adapty flows config preview <config_file>` turns a local flow config into a render URL. On a TTY it opens the
+browser; piped or with `--json` it prints the URL alone. Screenshotting is the caller's job — the CLI only
+builds the URL.
+
+> **Small configs only.** This is a quick-look escape hatch. The config travels in the URL fragment, and past
+> roughly **32KB of pretty-printed JSON** the render page becomes slow and unreliable. Trim to the screen you
+> care about, or preview the saved flow in the dashboard builder instead.
+
+> **That URL is huge.** Even a config the page renders happily produces thousands of characters, and a 668KB
+> flow yields ~113,000. Nobody should read it — **agents especially should never let it into their context.**
+> Pipe it into whatever captures the screenshot:
+>
+> ```sh
+> adapty flows config preview flow.json --screen scr_abc | node capture.mjs --out shot.png
+>
+> # or, for a tool that wants a flag instead of stdin:
+> node capture.mjs --url "$(adapty flows config preview flow.json --screen scr_abc)" --out shot.png
+> ```
+>
+> Prefer the pipe: it has no size limit, while an argument is capped by the shell (~1MB, so a config around
+> 6MB).
+
+See [skills/adapty-cli/references/cli-commands.md](skills/adapty-cli/references/cli-commands.md#preview) for
+the flags and the size ceiling.
+
 ## Environment Variables
 
 | Variable             | Description                                                                             |
@@ -263,6 +290,7 @@ and the outcome shows up in `adapty asa automations runs`.
 | `ADAPTY_TOKEN`       | Override stored auth token                                                              |
 | `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
 | `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
+| `ADAPTY_APP_URL`     | Override dashboard base URL (default: `https://app.adapty.io`). Used by `flows config preview` for the fixed `/flow-preview` route, and by `auth login` to keep the verification link on that host |
 
 The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA
 default, and the other way round.

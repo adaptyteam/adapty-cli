@@ -1,0 +1,66 @@
+{
+  "config": {
+    "id": "9f1b7c4e-6d2a-4f58-8b3d-1a0c5e7d9f21",
+    "default_locale": "en",
+    "locales": ["en"],
+    "theme": {
+      "colors": {"accent": "#5B4DF5", "background": "#FFFFFF", "text_primary": "#111114"},
+      "radius": {"button": 14},
+      "typography": {"body": {"size": 15}, "title": {"size": 28, "weight": 700}}
+    },
+    "screens": [
+      {
+        "id": "welcome",
+        "type": "onboarding",
+        "elements": [
+          {"content_key": "welcome.title", "id": "welcome_title", "style": "title", "type": "text"},
+          {
+            "action": {"screen_id": "offer", "type": "navigate"},
+            "content_key": "welcome.cta",
+            "id": "welcome_cta",
+            "type": "button"
+          }
+        ]
+      },
+      {
+        "id": "offer",
+        "type": "paywall",
+        "elements": [
+          {"content_key": "offer.title", "id": "offer_title", "style": "title", "type": "text"},
+          {
+            "id": "offer_products",
+            "products": [
+              {"badge_key": "offer.badge_best_value", "product_id": "premium_yearly", "selected": true},
+              {"badge_key": null, "product_id": "premium_monthly", "selected": false}
+            ],
+            "type": "product_list"
+          },
+          {"action": {"type": "purchase"}, "content_key": "offer.purchase", "id": "offer_purchase", "type": "button"}
+        ]
+      },
+      {
+        "id": "offer_discount",
+        "type": "paywall",
+        "shown_when": {"screen_id": "offer", "type": "close_attempt"},
+        "elements": [
+          {"content_key": "discount.title", "id": "discount_title", "style": "title", "type": "text"},
+          {"action": {"type": "close"}, "content_key": "discount.close", "id": "discount_close", "type": "link"}
+        ]
+      }
+    ],
+    "localizations": {
+      "en": {
+        "discount.close": "No thanks",
+        "discount.title": "One last thing",
+        "offer.badge_best_value": "Best value",
+        "offer.purchase": "Start free trial",
+        "offer.title": "Unlock Premium",
+        "welcome.cta": "Get started",
+        "welcome.title": "Track everything that matters"
+      }
+    }
+  },
+  "remote_configs": [{"data": {"experiment": "onboarding_v4"}, "locale": "en"}],
+  "status": "draft",
+  "updated_at": "2026-08-14T09:12:44Z"
+}
