@@ -37,6 +37,7 @@ src/
     errors.ts        # ApiError, NetworkError, AuthRequiredError
     flags.ts         # shared flags: --app (UUID), pagination
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
+    app-url.ts       # dashboard base URL (ADAPTY_APP_URL): route building + rehosting API-issued links
     asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')
     asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps
     asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
@@ -56,9 +57,12 @@ scripts/
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
-- `ADAPTY_APP_URL` env sets the dashboard base URL for `flows config preview` (default `https://app.adapty.io`);
-  the `/flow-preview` route is fixed, and the command never renders anything itself — Playwright is not a
-  dependency, `scripts/preview-with-playwright.mjs` is a reference the caller runs via npx
+- `ADAPTY_APP_URL` env sets the dashboard base URL (default `https://app.adapty.io`), via `lib/app-url.ts`:
+  `flows config preview` builds the fixed `/flow-preview` route on it, and `auth login` rehosts the
+  API-issued verification link onto it (only when the env var is set — the API may serve that link from
+  another host)
+- `flows config preview` never renders anything itself — Playwright is not a dependency;
+  `scripts/preview-with-playwright.mjs` is a reference script the caller runs via npx
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI

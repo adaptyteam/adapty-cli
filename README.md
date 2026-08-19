@@ -271,7 +271,7 @@ handles it prints, the reference `npx` script, and the oversized-config path.
 | `ADAPTY_TOKEN`       | Override stored auth token                                                              |
 | `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
 | `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
-| `ADAPTY_APP_URL`     | Override dashboard base URL used by `flows config preview` (default: `https://app.adapty.io`; the `/flow-preview` route itself is fixed) |
+| `ADAPTY_APP_URL`     | Override dashboard base URL (default: `https://app.adapty.io`). Used by `flows config preview` for the fixed `/flow-preview` route, and by `auth login` to keep the verification link on that host |
 
 The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA
 default, and the other way round.

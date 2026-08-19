@@ -29,6 +29,7 @@ describe('auth login', () => {
 
   afterEach(() => {
     restoreFetch(fetchStub)
+    delete process.env.ADAPTY_APP_URL
   })
 
   it('calls POST /auth/device then POST /auth/token', async () => {
@@ -46,5 +47,19 @@ describe('auth login', () => {
       path: '/auth/token/',
       stub: fetchStub,
     })
+  })
+
+  it('points the verification link at ADAPTY_APP_URL when one is configured', async () => {
+    process.env.ADAPTY_APP_URL = 'http://localhost:3000'
+    const {stdout} = await runCommand('auth login')
+
+    expect(stdout).to.contain('http://localhost:3000/activate?code=TEST-CODE')
+    expect(stdout).to.not.contain('https://auth.adapty.io')
+  })
+
+  it('leaves the verification link as issued without ADAPTY_APP_URL', async () => {
+    const {stdout} = await runCommand('auth login')
+
+    expect(stdout).to.contain('https://auth.adapty.io/activate?code=TEST-CODE')
   })
 })

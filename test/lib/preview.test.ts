@@ -3,7 +3,8 @@ import {readFileSync} from 'node:fs'
 import {fileURLToPath} from 'node:url'
 import {gunzipSync} from 'node:zlib'
 
-import {APP_URL_ENV_VAR, buildRenderUrl, normalizePreviewConfig} from '../../src/lib/preview.js'
+import {APP_URL_ENV_VAR} from '../../src/lib/app-url.js'
+import {buildRenderUrl, normalizePreviewConfig} from '../../src/lib/preview.js'
 
 const FIXTURE_PATH = fileURLToPath(new URL('../fixtures/flow-config.json', import.meta.url))
 const FIXTURE = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as unknown

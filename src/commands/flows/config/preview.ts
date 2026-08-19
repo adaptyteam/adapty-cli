@@ -4,8 +4,8 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import open from 'open'
 
+import {APP_URL_ENV_VAR} from '../../../lib/app-url.js'
 import {
-  APP_URL_ENV_VAR,
   buildRenderUrl,
   DEFAULT_DEVICE_ID,
   DEFAULT_ORIENTATION,

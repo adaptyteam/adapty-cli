@@ -1,9 +1,9 @@
 import {writeFile} from 'node:fs/promises'
 import {gzipSync} from 'node:zlib'
 
-export const APP_URL_ENV_VAR = 'ADAPTY_APP_URL'
-export const DEFAULT_APP_URL = 'https://app.adapty.io'
-/** The render route is fixed; only its host is configurable. */
+import {appUrl} from './app-url.js'
+
+/** The render route is fixed; only its host is configurable, via ADAPTY_APP_URL. */
 export const PREVIEW_PATH = '/flow-preview'
 export const DEFAULT_DEVICE_ID = 'iphone-14'
 /** Orientations the render page accepts; anything else falls back to its own default. */
@@ -45,16 +45,6 @@ export function normalizePreviewConfig(raw: unknown): PreviewPayload {
   return {flow, remoteConfigs}
 }
 
-/** Render page location: the fixed preview route on the dashboard host, ADAPTY_APP_URL by default. */
-function renderPageUrl(): URL {
-  const base = process.env[APP_URL_ENV_VAR] ?? DEFAULT_APP_URL
-  try {
-    return new URL(PREVIEW_PATH, base)
-  } catch {
-    throw new Error(`Invalid ${APP_URL_ENV_VAR}: ${base}`)
-  }
-}
-
 /**
  * Fragment wire format shared with the render page: bare `base64url(gzip(utf8(JSON)))`, no
  * prefix — the page compresses unconditionally too, so there is no plain shape to mark it
@@ -72,7 +62,7 @@ export interface RenderTarget {
 }
 
 export function buildRenderUrl(target: RenderTarget, payload: PreviewPayload): string {
-  const url = renderPageUrl()
+  const url = appUrl(PREVIEW_PATH)
   if (target.screen) url.searchParams.set('screen', target.screen)
   url.searchParams.set('device', target.device)
   url.searchParams.set('orientation', target.orientation)

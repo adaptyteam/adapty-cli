@@ -109,7 +109,8 @@ normalize to `{flow, remoteConfigs}` (camelCase: that payload is a wire format s
 anything it would reject.
 
 Render page location is **env-only**: `ADAPTY_APP_URL` (default `https://app.adapty.io`) sets the host; the
-`/flow-preview` route is fixed and there is no flag for it.
+`/flow-preview` route is fixed and there is no flag for it. The same env var also moves `auth login`'s
+verification link onto that host, so a local or staging dashboard stays consistent across both commands.
 
 Flags: `--screen` (default: the render page falls back to the flow's first screen), `--device` (default:
 `iphone-14`), `--orientation` (`portrait` | `landscape`, default `portrait`), `--payload-out` (off by default).
