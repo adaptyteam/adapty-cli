@@ -31,7 +31,7 @@ async function installSkill(): Promise<void> {
   spin.stop(
     installed
       ? 'Adapty skill installed - your agent can now handle Adapty tasks in any session.'
-      : 'Skill install skipped - run `npx skills add adaptyteam/adapty-sdk-integration-skill` to add it manually.',
+      : 'Skill install skipped - run `npx skills add adaptyteam/adapty-skills` to add it manually.',
   )
 }
 

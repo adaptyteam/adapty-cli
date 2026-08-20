@@ -6,7 +6,7 @@ import {spawn} from 'node:child_process'
  * Adapty in every future session - not just this run. Same source repo the
  * integrate prompt is built from.
  */
-const SKILL_SOURCE = 'adaptyteam/adapty-sdk-integration-skill'
+const SKILL_SOURCE = 'adaptyteam/adapty-skills'
 
 export function installAgentSkills(): Promise<boolean> {
   return new Promise((resolve) => {
