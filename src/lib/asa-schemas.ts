@@ -354,6 +354,23 @@ export interface AsaBulkOperationStateDTO {
   status: AsaBulkOperationStatus
 }
 
+export interface AsaBulkOperationListItemDTO {
+  app_id: string
+  created_at: string
+  error: null | string
+  finished_at: null | string
+  operation_id: string
+  started_at: null | string
+  status: AsaBulkOperationStatus
+}
+
+export interface AsaBulkOperationListDTO {
+  items: AsaBulkOperationListItemDTO[]
+  limit: number
+  offset: number
+  total: number
+}
+
 export interface AsaTemplateIssueDTO {
   column: null | string
   message: string

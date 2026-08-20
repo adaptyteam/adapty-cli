@@ -204,4 +204,71 @@ describe('asa bulk', () => {
     expect(fetchStub.callCount).to.equal(0)
   })
 })
+
+  describe('campaigns bulk-list', () => {
+  let fetchStub: sinon.SinonStub
+
+  beforeEach(() => {
+    process.env.ADAPTY_TOKEN = 'dev_live_test'
+    delete process.env.ADAPTY_ASA_API_URL
+  })
+
+  afterEach(() => {
+    restoreFetch(fetchStub)
+    delete process.env.ADAPTY_TOKEN
+  })
+
+  it('lists operations passing every filter as a query param', async () => {
+    fetchStub = mockFetch([
+      {
+        items: [
+          {
+            app_id: TEST_RESOURCE_ID,
+            created_at: '2026-08-13T10:00:00Z',
+            error: null,
+            finished_at: '2026-08-13T10:01:00Z',
+            operation_id: TEST_RESOURCE_ID,
+            started_at: '2026-08-13T10:00:01Z',
+            status: 'partial',
+          },
+        ],
+        limit: 50,
+        offset: 50,
+        total: 51,
+      },
+    ])
+    const {stdout} = await runCommand(
+      `asa campaigns bulk-list --status partial --status failed --app ${TEST_RESOURCE_ID} ` +
+        '--created-from 2026-08-01 --created-to 2026-08-13 --page 2 --page-size 50',
+    )
+
+    assertFetch({
+      base: ASA_API_BASE,
+      callIndex: 0,
+      method: 'GET',
+      path: '/bulk-operations/',
+      query: {
+        app_id: TEST_RESOURCE_ID,
+        created_from: '2026-08-01',
+        created_to: '2026-08-13',
+        'page[number]': '2',
+        'page[size]': '50',
+      },
+      stub: fetchStub,
+    })
+    const url = fetchStub.getCall(0).args[0] as string
+    expect(new URLSearchParams(url.split('?')[1]).getAll('status')).to.deep.equal(['partial', 'failed'])
+    expect(stdout).to.contain(`Operation ID: ${TEST_RESOURCE_ID}`)
+    expect(stdout).to.contain('Status: partial')
+    expect(stdout).to.contain('Page 2 of 2 (51 total)')
+  })
+
+  it('rejects a malformed app id before calling the API', async () => {
+    fetchStub = mockFetch([])
+    const {error} = await runCommand('asa campaigns bulk-list --app not-a-uuid')
+
+    expect(error?.message).to.contain('Invalid app ID')
+    expect(fetchStub.callCount).to.equal(0)
+  })
+})
 })
