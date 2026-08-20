@@ -55,11 +55,11 @@ ${
                 : ''
             }\n`
       }
---- MIGRATION PLAYBOOK (from the adapty-sdk-integration skill) ---
+--- MIGRATION PLAYBOOK (from the adapty-integration skill) ---
 
 ${migrationReference || '(not available - state this in ADAPTY_SETUP.md and map conservatively: create nothing you cannot verify.)'}
 
---- PLATFORM PLAYBOOK (from the adapty-sdk-integration skill) ---
+--- PLATFORM PLAYBOOK (from the adapty-integration skill) ---
 
 ${platformReference}`
     },

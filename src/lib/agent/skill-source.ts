@@ -11,7 +11,7 @@ import type {Platform} from '../project/scan.js'
  * edits.
  */
 const RAW_BASE =
-  'https://raw.githubusercontent.com/adaptyteam/adapty-sdk-integration-skill/main/skills/adapty-sdk-integration'
+  'https://raw.githubusercontent.com/adaptyteam/adapty-sdk-integration-skill/main/skills/adapty-integration'
 
 function stripFrontmatter(md: string): string {
   const lines = md.split('\n')

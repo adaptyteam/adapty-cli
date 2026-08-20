@@ -45,7 +45,7 @@ async function hasKmpModule(dir: string, topLevel: string[]): Promise<boolean> {
 
 /**
  * Detect the mobile framework of the project at `dir`. Signals mirror the
- * adapty-sdk-integration skill's Phase 1 table. Only the top level is
+ * adapty-integration skill's Phase 1 table. Only the top level is
  * inspected - monorepos should pass the app directory explicitly.
  */
 export async function scanProject(dir: string): Promise<DetectedProject | null> {
