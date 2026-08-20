@@ -35,7 +35,7 @@ export const byDaysFlag = {
   }),
 }
 
-async function parseDate(input: string): Promise<string> {
+export async function parseDate(input: string): Promise<string> {
   if (!DATE_REGEX.test(input)) throw new Error('Dates must be written as YYYY-MM-DD.')
   return input
 }
