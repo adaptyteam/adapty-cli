@@ -20,7 +20,9 @@ interface TokenSuccessResponse {
   access_token: string
   expires_in: number
   token_type: string
-  user: {email: string; name: string}
+  // The response has carried different user shapes; treat every field as optional
+  // so a missing one degrades to a plain "Authenticated" instead of "undefined".
+  user?: {email?: string; name?: string}
 }
 
 interface TokenErrorResponse {
@@ -142,7 +144,8 @@ static examples = ['<%= config.bin %> auth login']
             this.config.configDir,
           )
 
-          this.log(`\nAuthenticated as ${result.user.email}`)
+          const who = result.user?.email ?? result.user?.name
+          this.log(who ? `\nAuthenticated as ${who}` : '\nAuthenticated')
           this.log(`Token saved to ${this.config.configDir}/config.json`)
           return
         }
