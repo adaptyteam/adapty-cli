@@ -1,6 +1,6 @@
 /**
  * One event per agent-driven command run (integrate, migrate, ...), sent to
- * the same feedback endpoint the adapty-sdk-integration skill uses (Slack +
+ * the same feedback endpoint the adapty-integration skill uses (Slack +
  * Airtable behind it), so CLI and skill sessions land in one funnel.
  * Fire-and-forget: never blocks the command for more than 3s, never surfaces
  * an error.

@@ -5,13 +5,13 @@ import type {Platform} from '../project/scan.js'
 
 /**
  * Skill content is NOT vendored into this package - the single source of
- * truth is the adapty-sdk-integration-skill repo. Files are fetched from
+ * truth is the adapty-skills repo. Files are fetched from
  * GitHub raw at run time; set ADAPTY_SKILL_DIR to a local checkout of the
  * skill directory (the one containing SKILL.md) to develop against local
  * edits.
  */
 const RAW_BASE =
-  'https://raw.githubusercontent.com/adaptyteam/adapty-sdk-integration-skill/main/skills/adapty-sdk-integration'
+  'https://raw.githubusercontent.com/adaptyteam/adapty-skills/main/skills/adapty-integration'
 
 function stripFrontmatter(md: string): string {
   const lines = md.split('\n')

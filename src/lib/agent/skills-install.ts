@@ -1,12 +1,12 @@
 import {spawn} from 'node:child_process'
 
 /**
- * Install the adapty-sdk-integration skill into the user's coding agents
+ * Install the adapty-integration skill into the user's coding agents
  * (Claude Code, Codex, Cursor, ...) via the `skills` CLI, so the agent knows
  * Adapty in every future session - not just this run. Same source repo the
  * integrate prompt is built from.
  */
-const SKILL_SOURCE = 'adaptyteam/adapty-sdk-integration-skill'
+const SKILL_SOURCE = 'adaptyteam/adapty-skills'
 
 export function installAgentSkills(): Promise<boolean> {
   return new Promise((resolve) => {

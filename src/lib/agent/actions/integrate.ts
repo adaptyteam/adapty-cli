@@ -22,7 +22,7 @@ export const integrateAction: AgentAction = {
 3. Implement the SDK following the platform playbook below, stage by stage, fetching the listed docs pages before writing each stage's code.
 4. If a build command exists for this project, build to verify it compiles. Fix what you broke; do not chase pre-existing failures.
 
---- PLATFORM PLAYBOOK (from the adapty-sdk-integration skill) ---
+--- PLATFORM PLAYBOOK (from the adapty-integration skill) ---
 
 ${platformReference}`
   },
