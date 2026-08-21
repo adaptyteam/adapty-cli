@@ -156,6 +156,15 @@ export interface FlowConfigValidationDTO {
   valid: boolean
 }
 
+export interface MediaDTO {
+  id: number
+  name: string
+  /** Base64-encoded preview thumbnail; absent when no preview was generated. */
+  preview_base64?: null | string
+  /** CDN URL to reference from a flow config. */
+  url: string
+}
+
 export interface SegmentDTO {
   description: null | string
   id: string

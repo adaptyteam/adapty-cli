@@ -1,4 +1,7 @@
 import {runCommand} from '@oclif/test'
+import {mkdtemp, writeFile} from 'node:fs/promises'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
 import sinon from 'sinon'
 
 import {
@@ -87,7 +90,7 @@ describe('flows', () => {
     })
   })
 
-  it('config validate POSTs to /config/validate with the source header', async () => {
+  it('config validate POSTs the config to /config/validate', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([{issues: [], valid: true}])
     await runCommand([
@@ -99,13 +102,10 @@ describe('flows', () => {
       TEST_APP_ID,
       '--config',
       '{"locales":[],"screens":[]}',
-      '--source',
-      'byo-cli',
     ])
     assertFetch({
       body: {config: {locales: [], screens: []}},
       callIndex: 0,
-      headers: {'X-Adapty-Source': 'byo-cli'},
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/validate/`,
       stub: fetchStub,
@@ -151,5 +151,26 @@ describe('flows', () => {
       path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
       stub: fetchStub,
     })
+  })
+
+  it('media upload POSTs multipart to /flows/media/images with the file field', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([{id: 42, name: 'hero.png', preview_base64: 'x', url: 'https://cdn/hero.png'}])
+    const dir = await mkdtemp(join(tmpdir(), 'adapty-media-'))
+    const path = join(dir, 'hero.png')
+    await writeFile(path, Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+
+    await runCommand(`flows media upload ${path} --app ${TEST_APP_ID}`)
+
+    const init = fetchStub.getCall(0).args[1] as {body: FormData; method: string}
+    if (init.method !== 'POST') throw new Error(`Expected POST, got ${init.method}`)
+    if (!(init.body instanceof FormData)) throw new Error('Expected multipart FormData body')
+    const file = init.body.get('file') as File
+    if (file.name !== 'hero.png') throw new Error(`Expected file name hero.png, got ${file.name}`)
+    if (file.type !== 'image/png') throw new Error(`Expected image/png, got ${file.type}`)
+
+    const url = fetchStub.getCall(0).args[0] as string
+    const expected = `/apps/${TEST_APP_ID}/flows/media/images/`
+    if (!url.endsWith(expected)) throw new Error(`Expected path ${expected}, got ${url}`)
   })
 })

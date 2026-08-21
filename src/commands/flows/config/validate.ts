@@ -29,10 +29,6 @@ static flags = {
       description: 'JSON file with the builder config, or - to read stdin',
       exactlyOne: ['config', 'config-file'],
     }),
-    source: Flags.string({
-      default: 'adapty-cli',
-      description: 'Caller attribution, sent as X-Adapty-Source (e.g. byo-cli)',
-    }),
   }
 
   async run(): Promise<FlowConfigValidationDTO> {
@@ -49,8 +45,6 @@ static flags = {
     const result = await client.post<FlowConfigValidationDTO>(
       `/apps/${flags.app}/flows/${args.flow_id}/config/validate`,
       body,
-      undefined,
-      {headers: {'X-Adapty-Source': flags.source}},
     )
 
     this.log(result.valid ? 'Config is publishable.' : 'Config is NOT publishable.')
