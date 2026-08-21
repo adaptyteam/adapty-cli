@@ -26,18 +26,26 @@ that field.
 
 ## Date window caps
 
-`metrics` and `metrics overview` cap the date window by how coarse the call's grouping is:
+`metrics` and `metrics overview` cap the date window by the call's grouping. On `metrics`
+the finest `--group-by` period sets the cap; on `metrics overview` it follows `--period-unit`:
 
-| Grouping | Max window |
-|---|---|
-| `day`, or no grouping at all | 90 days |
-| `week` | 180 days |
-| `month`, `quarter`, or `year` | 365 days |
+| Grouping | Max window on `metrics` | Max window on `metrics overview` |
+|---|---|---|
+| `day` | 28 days | 90 days |
+| no period grouping | 90 days | — |
+| `week` | 180 days | 180 days |
+| `month`, `quarter`, or `year` | 365 days | 365 days |
 
-On `metrics` this is set by `--group-by`; on `metrics overview` by `--period-unit`. A window
-too wide for the grouping you asked for is fixed by coarsening that flag, never by splitting
-the request into more calls — a year of data is one call at `--group-by month` (or
-`--period-unit month`), not four 90-day calls.
+A window too wide for the grouping you asked for is fixed by coarsening that flag, never by
+splitting the request into more calls — a year of data is one call at `--group-by month` (or
+`--period-unit month`), not a series of month-long day-grain calls.
+
+Day grain is a drill-down for windows up to four weeks, not an export format. For anything
+longer than a month, ask at `week` grain — half a year of weekly dynamics is **one** call at
+`--group-by week`, and a year is one call at `--group-by month`. Never loop day-grain calls
+over consecutive 28-day windows to cover a long period: that is the exact burst pattern that
+gets a token throttled, and the daily points add nothing a weekly series doesn't show at that
+time scale.
 
 ## Metric vocabulary
 
@@ -99,10 +107,10 @@ adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31
 
 ## The analytics pool
 
-Four commands draw on one 2-concurrent-query pool per company: `metrics`, `metrics
-overview`, `search-terms list`, and `competitors summary`. A slot held by one is a slot the
-others can't use. On top of that shared concurrency, each pair also carries its own
-per-minute budget:
+Three commands draw on one single-slot pool per company: `metrics`, `metrics overview`, and
+`search-terms list` — only one of them runs at a time, a slot held by one is a slot the
+others can't use (`competitors summary` holds its own single slot). On top of that shared
+concurrency, each pair also carries its own per-minute budget:
 
 | Commands | Per-minute budget |
 |---|---|
@@ -111,7 +119,7 @@ per-minute budget:
 
 Three 429 codes, not one:
 
-- `cli_analytics_busy` — the 2-concurrent pool is full; wait about 5 seconds.
+- `cli_analytics_busy` — another analytics query is still running; wait about 5 seconds.
 - `cli_rate_limit_exceeded` — the per-minute window (5/min or 30/min, whichever pair) is
   full.
 - `cli_cooldown_active` — stop entirely; tell the user when to retry.
