@@ -10,9 +10,12 @@ export default class AsaMetrics extends Command {
 
 One row per entity, already aggregated server-side and sorted by --order-by, so a top-N question is one
 call with --order-by and --page-size N — never sum pages yourself. Account-level totals are one call to
-asa metrics overview instead. The date window is capped by the coarsest --group-by period: 90 days for
-day or no period grouping, 180 by week, 365 by month and coarser — widen the window by coarsening the
-grouping, not by splitting into more calls. Budget: 5 metrics calls per minute, at most 2 per 10 seconds.`
+asa metrics overview instead. The date window is capped by the finest --group-by period: 28 days when
+day is grouped, 90 with no period grouping, 180 by week, 365 by month and coarser — widen the window by
+coarsening the grouping, not by splitting into more calls. Each page is also capped at 20000 breakdown
+rows (entities × countries × periods); over it the call fails with 422 cli_response_too_large — coarsen
+the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls per minute, at most
+2 per 10 seconds, one at a time.`
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31',

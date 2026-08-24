@@ -30,15 +30,22 @@ an agent that ignores them gets 429s, then a token cool-down, and then it cannot
 4. **Never guess or probe metric names.** The full vocabulary is below. A wrong name is a 422 whose
    message lists every valid name — one failed call is the most discovery ever costs, so never spend
    calls "checking what works".
-5. **Respect the metrics budget: 5 calls/minute, at most 2 per any 10 seconds, 2 concurrent.**
+5. **Respect the metrics budget: 5 calls/minute, at most 2 per any 10 seconds, one at a time.**
    Plan the whole answer inside that. Sequential calls only. The CLI absorbs a single 429 by itself —
    it waits the exact `Retry-After` (up to 60s, cool-downs excluded) and retries once — so if a command
    still fails with 429, the budget is genuinely gone: do not loop, reduce the number of calls or tell
    the user when to retry. 20 rejections within 5 minutes put the token into an escalating cool-down
    (5m → 30m → 3h) that blocks everything.
-6. **A too-wide date window is fixed by coarsening, not splitting.** Caps: 90 days at day grain (or no
-   period grouping), 180 by week, 365 by month/quarter/year. Need a year of data? `--group-by month`
-   (or `--period-unit month`) in one call — never a series of 90-day calls.
+6. **A too-wide date window is fixed by coarsening, not splitting.** Caps on `metrics`: 28 days when
+   `day` is in `--group-by`, 90 with no period grouping, 180 by week, 365 by month/quarter/year
+   (`metrics overview` keeps 90 at `--period-unit day`). Need a year of data? `--group-by month`
+   (or `--period-unit month`) in one call — never a series of day-grain calls. Day grain is a
+   drill-down for up to 4 weeks: for a longer period use `week` (half a year = one call) or `month`
+   (a year = one call), and never loop consecutive 28-day day-grain windows to stitch a long range —
+   that burst is what throttles the token, and weekly points already show the trend at that scale.
+   Each `metrics` page is also capped at 20 000 breakdown rows (entities × countries × periods) — a
+   422 `cli_response_too_large` means coarsen the grouping, narrow the window, or reduce `--page-size`;
+   with day grouping the error names the exact `page[size]` that fits — use it verbatim on the retry.
 7. **Counting entities needs no data.** Every list response carries `meta.pagination.count` — use
    `--page-size 1` and read the count.
 8. **Keyword metadata list is the heaviest read.** `asa keywords list` has its own budget (30/min,
@@ -52,17 +59,20 @@ an agent that ignores them gets 429s, then a token cool-down, and then it cannot
 
 | Commands | Budget |
 |---|---|
-| `metrics`, `metrics overview` | 5/min, burst 2 per 10s, 2 concurrent (shared with search-terms) |
-| `search-terms list`, `competitors summary` | 30/min, same 2-concurrent analytics pool (search-terms) |
+| `metrics`, `metrics overview` | 5/min, burst 2 per 10s, one at a time (pool shared with search-terms) |
+| `search-terms list`, `competitors summary` | 30/min, search-terms shares the single-slot analytics pool |
 | `keywords list` | 30/min, burst 5 per 10s, own 2-concurrent pool, 60s timeout |
 | catalog lists and gets, automation reads | 120/min |
 | all writes | 20/min |
 | `whoami` | 60/min |
 
-Every refusal is a `429` with the exact wait in `Retry-After`; `cli_analytics_busy` means the
-2-concurrent pool is full (wait ~5s), `cli_rate_limit_exceeded` means the window is full,
+Every refusal is a `429` with the exact wait in `Retry-After`; `cli_analytics_busy` means another
+analytics query is still running (wait ~5s), `cli_rate_limit_exceeded` means the window is full,
 `cli_cooldown_active` means stop entirely and tell the user when to retry. The CLI already waits out
 and retries the first 429 of a command on its own — a surfaced 429 means the second attempt failed too.
+`cli_response_too_large` is the exception: a 422 (a `metrics` page over 20 000 breakdown rows) with no
+`Retry-After` and no cool-down strike — waiting fixes nothing, change the request instead; with day
+grouping the error names the exact `page[size]` that fits — use it verbatim on the retry.
 
 ## Metric vocabulary
 
