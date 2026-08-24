@@ -138,6 +138,33 @@ export interface FlowConfigWriteRequestDTO {
   remote_configs?: FlowRemoteConfigDTO[]
 }
 
+export interface FlowConfigValidateRequestDTO {
+  config: Record<string, unknown>
+}
+
+export interface FlowConfigIssueDTO {
+  /** Machine code, relayed from the transformer; absent until it reports path-level diagnostics. */
+  code?: null | string
+  message: string
+  /** Location of the issue; absent until the transformer reports path-level diagnostics. */
+  path?: null | string
+  severity: string
+}
+
+export interface FlowConfigValidationDTO {
+  issues: FlowConfigIssueDTO[]
+  valid: boolean
+}
+
+export interface MediaDTO {
+  id: number
+  name: string
+  /** Base64-encoded preview thumbnail; absent when no preview was generated. */
+  preview_base64?: null | string
+  /** CDN URL to reference from a flow config. */
+  url: string
+}
+
 export interface SegmentDTO {
   description: null | string
   id: string
