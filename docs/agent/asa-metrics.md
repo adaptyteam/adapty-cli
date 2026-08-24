@@ -47,6 +47,12 @@ over consecutive 28-day windows to cover a long period: that is the exact burst 
 gets a token throttled, and the daily points add nothing a weekly series doesn't show at that
 time scale.
 
+Besides the window caps, `metrics` caps every page at 20 000 breakdown rows — rows being
+entities × countries × periods from `--group-by`. A page over the cap is refused with a 422
+`cli_response_too_large`; the fix is coarsening the grouping (week instead of day), narrowing
+the date window, or reducing `--page-size`. `metrics overview` has no per-entity breakdown,
+so this cap never applies to it.
+
 ## Metric vocabulary
 
 `--metric` and `--order-by` take the dashboard's own metric names — never invent or guess
@@ -124,7 +130,12 @@ Three 429 codes, not one:
   full.
 - `cli_cooldown_active` — stop entirely; tell the user when to retry.
 
-Every refusal carries the wait in `Retry-After`. The CLI already absorbs the first 429 of
+One refusal is a 422, not a 429: `cli_response_too_large` — a `metrics` page would exceed
+20 000 breakdown rows (see [Date window caps](#date-window-caps)). It carries no
+`Retry-After` and doesn't count toward the cool-down; retrying is pointless — change the
+request instead (coarsen the grouping, narrow the window, or reduce `--page-size`).
+
+Every 429 carries the wait in `Retry-After`. The CLI already absorbs the first 429 of
 any single command on its own — it waits the exact `Retry-After` (up to 60s; cool-downs
 excluded) and retries once. So a 429 that reaches you is the *second* attempt failing: the
 budget is genuinely exhausted for now. Don't loop on it — cut the number of calls in the

@@ -43,6 +43,8 @@ an agent that ignores them gets 429s, then a token cool-down, and then it cannot
    drill-down for up to 4 weeks: for a longer period use `week` (half a year = one call) or `month`
    (a year = one call), and never loop consecutive 28-day day-grain windows to stitch a long range —
    that burst is what throttles the token, and weekly points already show the trend at that scale.
+   Each `metrics` page is also capped at 20 000 breakdown rows (entities × countries × periods) — a
+   422 `cli_response_too_large` means coarsen the grouping, narrow the window, or reduce `--page-size`.
 7. **Counting entities needs no data.** Every list response carries `meta.pagination.count` — use
    `--page-size 1` and read the count.
 8. **Keyword metadata list is the heaviest read.** `asa keywords list` has its own budget (30/min,
@@ -67,6 +69,8 @@ Every refusal is a `429` with the exact wait in `Retry-After`; `cli_analytics_bu
 analytics query is still running (wait ~5s), `cli_rate_limit_exceeded` means the window is full,
 `cli_cooldown_active` means stop entirely and tell the user when to retry. The CLI already waits out
 and retries the first 429 of a command on its own — a surfaced 429 means the second attempt failed too.
+`cli_response_too_large` is the exception: a 422 (a `metrics` page over 20 000 breakdown rows) with no
+`Retry-After` and no cool-down strike — waiting fixes nothing, change the request instead.
 
 ## Metric vocabulary
 
