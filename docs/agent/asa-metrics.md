@@ -50,8 +50,10 @@ time scale.
 Besides the window caps, `metrics` caps every page at 20 000 breakdown rows — rows being
 entities × countries × periods from `--group-by`. A page over the cap is refused with a 422
 `cli_response_too_large`; the fix is coarsening the grouping (week instead of day), narrowing
-the date window, or reducing `--page-size`. `metrics overview` has no per-entity breakdown,
-so this cap never applies to it.
+the date window, or reducing `--page-size`. When `day` is in `--group-by` the refusal names
+the exact `page[size]` that fits — take that number from the message and retry with it, never
+compute one yourself. `metrics overview` has no per-entity breakdown, so this cap never
+applies to it.
 
 ## Metric vocabulary
 
