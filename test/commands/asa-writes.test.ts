@@ -29,7 +29,7 @@ const INVOICE_BODY = {
   client_name: 'Acme Inc',
   order_number: 'PO-42',
 }
-const unwrap = (stderr: string) => stderr.replaceAll(/\s*›\s*/g, ' ').replaceAll(/\s+/g, ' ')
+const unwrap = (stderr: string) => stderr.replaceAll(/\s*[›»]\s*/g, ' ').replaceAll(/\s+/g, ' ')
 const notRunning = (reasons: string[]) => ({
   campaign: {...CAMPAIGN_OK.campaign, serving_state_reasons: reasons, serving_status: 'NOT_RUNNING'},
   errors: [],
