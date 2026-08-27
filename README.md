@@ -137,11 +137,15 @@ Campaign structure. These lists return metadata only — numbers come from `asa 
 adapty asa campaigns list
 adapty asa campaigns get CAMPAIGN_ID
 adapty asa campaigns create --org UUID --name "Winter push" --adam-id 123456 --country US --daily-budget 50
+adapty asa campaigns create --org UUID --name "LOC push" --adam-id 123456 --country US --daily-budget 50 \
+  --invoice-advertiser "Acme Inc" --invoice-order-number PO-42 --invoice-contact-name "Jane Doe" \
+  --invoice-contact-email jane@acme.com --invoice-billing-email billing@acme.com   # payment_model LOC
 adapty asa campaigns update CAMPAIGN_ID [--status PAUSED] [--daily-budget 80] [--country US]
 
 adapty asa ad-groups list
 adapty asa ad-groups get AD_GROUP_ID
 adapty asa ad-groups create --campaign UUID --name "Brand terms" --default-bid 1.20
+adapty asa ad-groups create --campaign UUID --name "Automated Max Conv" --automated   # Max Conversions campaigns
 adapty asa ad-groups update AD_GROUP_ID [--default-bid 1.50] [--status PAUSED]
 
 adapty asa ads list

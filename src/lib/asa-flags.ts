@@ -1,7 +1,7 @@
 import {Flags} from '@oclif/core'
 
 import type {QueryParams} from './api-client.js'
-import type {AsaMoney, AsaMutationError} from './asa-schemas.js'
+import type {AsaLocInvoiceDetails, AsaMoney, AsaMutationError, AsaServingStatus} from './asa-schemas.js'
 
 import {describeListedError} from './errors.js'
 import {isValidUuid} from './flags.js'
@@ -158,6 +158,67 @@ export const idempotencyFlags = {
 
 export function money(amount: string | undefined, currency: string): AsaMoney | undefined {
   return amount === undefined ? undefined : {amount, currency}
+}
+
+const INVOICE_FIELDS = {
+  'invoice-advertiser': 'client_name',
+  'invoice-billing-email': 'billing_contact_email',
+  'invoice-contact-email': 'buyer_email',
+  'invoice-contact-name': 'buyer_name',
+  'invoice-order-number': 'order_number',
+} as const
+
+type InvoiceFlagName = keyof typeof INVOICE_FIELDS
+
+const INVOICE_SUFFIX =
+  'Invoicing Options, required for line-of-credit (LOC) organizations — see `payment_model` in `asa orgs list`'
+
+function invoiceFlag(what: string) {
+  return Flags.string({description: `${what} for ${INVOICE_SUFFIX}`})
+}
+
+export const invoiceFlags = {
+  'invoice-advertiser': invoiceFlag('Advertiser name'),
+  'invoice-billing-email': invoiceFlag('Billing contact email'),
+  'invoice-contact-email': invoiceFlag('Buyer contact email'),
+  'invoice-contact-name': invoiceFlag('Buyer contact name'),
+  'invoice-order-number': invoiceFlag('Order number'),
+}
+
+export function locInvoiceDetails(
+  flags: Partial<Record<InvoiceFlagName, string>>,
+  fail: (msg: string) => never,
+): Record<keyof AsaLocInvoiceDetails, string> | undefined {
+  const names = Object.keys(INVOICE_FIELDS) as InvoiceFlagName[]
+  const missing = names.filter((name) => flags[name] === undefined)
+  if (missing.length === names.length) return undefined
+  if (missing.length > 0) {
+    fail(`Invoicing Options must be passed together; missing: ${missing.map((name) => `--${name}`).join(', ')}.`)
+  }
+
+  return Object.fromEntries(names.map((name) => [INVOICE_FIELDS[name], flags[name]])) as Record<
+    keyof AsaLocInvoiceDetails,
+    string
+  >
+}
+
+const SERVING_HINTS: Record<string, (campaignId: string) => string> = {
+  AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING: (campaignId) =>
+    `Max Conversions campaign needs an automated ad group: adapty asa ad-groups create --campaign ${campaignId} --name "Automated Max Conv" --automated`,
+  MISSING_BO_OR_INVOICING_FIELDS: (campaignId) =>
+    `This organization bills by line of credit — add Invoicing Options: adapty asa campaigns update ${campaignId} --invoice-advertiser ... --invoice-order-number ... --invoice-contact-name ... --invoice-contact-email ... --invoice-billing-email ...`,
+}
+
+export function reportServingState(
+  campaign: null | {internal_id: string; serving_state_reasons?: null | string[]; serving_status?: AsaServingStatus | null},
+  log: (msg: string) => void,
+): void {
+  if (campaign?.serving_status !== 'NOT_RUNNING' || !campaign.serving_state_reasons?.length) return
+  log(`Campaign is not running: ${campaign.serving_state_reasons.join(', ')}`)
+  for (const reason of campaign.serving_state_reasons) {
+    const hint = SERVING_HINTS[reason]
+    if (hint) log(hint(campaign.internal_id))
+  }
 }
 
 interface BulkOutcome {

@@ -18,11 +18,13 @@ import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
 export default class AsaAdGroupsCreate extends Command {
-  static description = 'Create an ad group inside a campaign'
+  static description =
+    'Create an ad group inside a campaign; --automated creates the automated ad group a Max Conversions campaign needs to run'
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa ad-groups create --campaign UUID --name "Brand terms" --default-bid 1.20',
     '<%= config.bin %> asa ad-groups create --campaign UUID --name "Brand terms" --default-bid 1.20 --start-time 2026-09-01 --pricing-model CPM',
+    '<%= config.bin %> asa ad-groups create --campaign UUID --name "Automated Max Conv" --automated',
   ]
   static flags = {
     ...currencyFlag,
@@ -30,10 +32,15 @@ export default class AsaAdGroupsCreate extends Command {
     ...pricingModelFlag,
     ...confirmFlags,
     ...idempotencyFlags,
+    automated: Flags.boolean({
+      description:
+        'Create the automated ad group a Max Conversions campaign needs; implies automated keywords, takes no --start-time and makes --default-bid optional',
+      exclusive: ['automated-keywords'],
+    }),
     'automated-keywords': Flags.boolean({allowNo: true, description: 'Let Apple add keywords automatically'}),
     campaign: Flags.string({description: 'Campaign ID (UUID)', required: true}),
     'cpa-goal': moneyFlag('CPA goal'),
-    'default-bid': moneyFlag('Default bid', {required: true}),
+    'default-bid': moneyFlag('Default bid; required unless --automated is set'),
     name: Flags.string({description: 'Ad group name', required: true}),
     status: Flags.string({description: 'Initial status', options: ['ENABLED', 'PAUSED']}),
   }
@@ -41,16 +48,26 @@ export default class AsaAdGroupsCreate extends Command {
   async run(): Promise<AsaAdGroupMutationDTO> {
     const {flags} = await this.parse(AsaAdGroupsCreate)
     if (!isValidUuid(flags.campaign)) this.error('Invalid campaign ID format.', {exit: 2})
+    if (!flags.automated && flags['default-bid'] === undefined) {
+      this.error('--default-bid is required unless --automated is set.', {exit: 2})
+    }
+
+    if (flags.automated && flags['start-time'] !== undefined) {
+      this.error('--start-time cannot be combined with --automated: Apple rejects a schedule on an automated ad group.', {
+        exit: 2,
+      })
+    }
 
     const body = {
-      automated_keywords_opt_in: flags['automated-keywords'],
+      automated_keywords_opt_in: flags.automated ? true : flags['automated-keywords'],
+      automated_keywords_required: flags.automated ? true : undefined,
       campaign_id: flags.campaign,
       cpa_goal: money(flags['cpa-goal'], flags.currency),
       default_bid_amount: money(flags['default-bid'], flags.currency),
       end_time: startOfDayUtc(flags['end-time']),
       name: flags.name,
       pricing_model: flags['pricing-model'],
-      start_time: startOfDayUtc(flags['start-time'] ?? todayUtc()),
+      start_time: flags.automated ? undefined : startOfDayUtc(flags['start-time'] ?? todayUtc()),
       status: flags.status,
     }
     await confirmMutation(

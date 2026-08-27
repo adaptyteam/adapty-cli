@@ -20,6 +20,19 @@ const AD_GROUP_OK = {ad_group: {internal_id: TEST_RESOURCE_ID, name: 'Brand term
 const AD_OK = {ad: {internal_id: TEST_RESOURCE_ID, name: 'Summer ad'}, errors: []}
 const KEYWORDS_OK = {errors: [], is_validation_failure: false, keywords: [{internal_id: TEST_RESOURCE_ID, text: 'running shoes'}]}
 const NEGATIVES_OK = {errors: [], is_validation_failure: false, negative_keywords: [{internal_id: TEST_RESOURCE_ID, text: 'free'}]}
+const INVOICE_FLAGS =
+  '--invoice-advertiser "Acme Inc" --invoice-order-number PO-42 --invoice-contact-name "Jane Doe" --invoice-contact-email jane@acme.com --invoice-billing-email billing@acme.com'
+const INVOICE_BODY = {
+  billing_contact_email: 'billing@acme.com',
+  buyer_email: 'jane@acme.com',
+  buyer_name: 'Jane Doe',
+  client_name: 'Acme Inc',
+  order_number: 'PO-42',
+}
+const notRunning = (reasons: string[]) => ({
+  campaign: {...CAMPAIGN_OK.campaign, serving_state_reasons: reasons, serving_status: 'NOT_RUNNING'},
+  errors: [],
+})
 
 describe('asa writes', () => {
   let fetchStub: sinon.SinonStub
@@ -152,6 +165,78 @@ describe('asa writes', () => {
     )
     expect(error?.message).to.contain('YYYY-MM-DD')
     expect(fetchStub.callCount).to.equal(0)
+  })
+
+  it('ad-groups create --automated sends the automated group without a schedule or a bid', async () => {
+    fetchStub = mockFetch([AD_GROUP_OK])
+    await runCommand(`asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name "Automated Max Conv" --automated`)
+    const body = JSON.parse(fetchStub.getCall(0).args[1].body as string)
+    expect(body).to.deep.equal({
+      automated_keywords_opt_in: true,
+      automated_keywords_required: true,
+      campaign_id: TEST_RESOURCE_ID,
+      name: 'Automated Max Conv',
+      pricing_model: 'CPC',
+    })
+  })
+
+  it('ad-groups create demands --default-bid unless --automated and refuses a schedule on an automated group', async () => {
+    fetchStub = mockFetch([AD_GROUP_OK])
+    const noBid = await runCommand(`asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG`)
+    expect(noBid.error?.message).to.contain('--default-bid is required unless --automated')
+    const scheduled = await runCommand(
+      `asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG --automated --start-time 2026-09-01`,
+    )
+    expect(scheduled.error?.message).to.contain('--start-time')
+    expect(fetchStub.callCount).to.equal(0)
+  })
+
+  it('campaigns carry Invoicing Options as one snake_case object, only when asked', async () => {
+    fetchStub = mockFetch([CAMPAIGN_OK, CAMPAIGN_OK, CAMPAIGN_OK])
+    await runCommand(
+      `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 ${INVOICE_FLAGS}`,
+    )
+    const created = JSON.parse(fetchStub.getCall(0).args[1].body as string)
+    expect(created.loc_invoice_details).to.deep.equal(INVOICE_BODY)
+
+    await runCommand(`asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50`)
+    const plain = JSON.parse(fetchStub.getCall(1).args[1].body as string)
+    expect(plain).to.not.have.property('loc_invoice_details')
+
+    await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} ${INVOICE_FLAGS}`)
+    const updated = JSON.parse(fetchStub.getCall(2).args[1].body as string)
+    expect(updated).to.deep.equal({loc_invoice_details: INVOICE_BODY})
+  })
+
+  it('campaigns refuse a partial set of Invoicing Options before the network', async () => {
+    fetchStub = mockFetch([CAMPAIGN_OK])
+    const {error} = await runCommand(
+      `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --invoice-advertiser Acme --invoice-order-number PO-42 --invoice-contact-name Jane`,
+    )
+    expect(error?.message).to.contain('--invoice-contact-email')
+    expect(error?.message).to.contain('--invoice-billing-email')
+    expect(error?.message).to.not.contain('--invoice-advertiser')
+    expect(fetchStub.callCount).to.equal(0)
+  })
+
+  it('campaigns explain why a campaign is not running and how to fix it', async () => {
+    fetchStub = mockFetch([
+      notRunning(['AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING']),
+      notRunning(['MISSING_BO_OR_INVOICING_FIELDS', 'SOMETHING_ELSE']),
+      notRunning(['AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING']),
+    ])
+    const created = await runCommand(
+      `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --bidding-strategy MAX_CONVERSIONS`,
+    )
+    expect(created.stdout).to.contain('not running: AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING')
+    expect(created.stdout).to.contain(`ad-groups create --campaign ${TEST_RESOURCE_ID} --name "Automated Max Conv" --automated`)
+
+    const updated = await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} --status ENABLED`)
+    expect(updated.stdout).to.contain('not running: MISSING_BO_OR_INVOICING_FIELDS, SOMETHING_ELSE')
+    expect(updated.stdout).to.contain(`campaigns update ${TEST_RESOURCE_ID} --invoice-advertiser`)
+
+    const asJson = await runCommand(`asa campaigns update --yes --json ${TEST_RESOURCE_ID} --status ENABLED`)
+    expect(JSON.parse(asJson.stdout).campaign.serving_status).to.equal('NOT_RUNNING')
   })
 
   it('keywords add turns repeated --text into one batch', async () => {

@@ -175,6 +175,18 @@ adapty asa keywords update KW_UUID [KW_UUID...] --bid 2.00 --yes
 adapty asa competitors summary --app-ids 1668337467,6503873027
 ```
 
+**"Create a Max Conversions campaign"** — two writes, always both: Apple keeps an MC campaign
+`NOT_RUNNING` (`AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING`) until it owns an automated ad group.
+Check `payment_model` in `asa orgs list` first — a `LOC` organization also needs the five `--invoice-*`
+flags on the campaign, or it stays `NOT_RUNNING` with `MISSING_BO_OR_INVOICING_FIELDS`:
+```sh
+adapty asa campaigns create --org ORG_UUID --name "Max Conv" --adam-id 123456 --country US --daily-budget 50 --bidding-strategy MAX_CONVERSIONS
+adapty asa ad-groups create --campaign CAMPAIGN_UUID --name "Automated Max Conv" --automated
+```
+Read `serving_status` / `serving_state_reasons` in the response: the command prints the fixing command
+for the reasons above. For an existing LOC campaign, `asa campaigns update <id> --invoice-*...` sets the
+Invoicing Options.
+
 ## What the failed sessions did wrong (do not repeat)
 
 - Looped `--page 1..4` to build an account total → burned the 5/min budget, hit 429s, gave up.
