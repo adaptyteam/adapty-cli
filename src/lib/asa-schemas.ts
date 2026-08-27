@@ -60,6 +60,14 @@ export interface AsaAppDTO {
   name: string
 }
 
+export interface AsaLocInvoiceDetails {
+  billing_contact_email: null | string
+  buyer_email: null | string
+  buyer_name: null | string
+  client_name: null | string
+  order_number: null | string
+}
+
 export interface AsaCampaignGroupDTO {
   currency: string
   internal_id: string
@@ -67,6 +75,7 @@ export interface AsaCampaignGroupDTO {
   org_id: number
   org_name: string
   parent_org_id: number
+  payment_model: null | string
   time_zone: string
 }
 
@@ -83,8 +92,12 @@ export interface AsaCampaignDTO {
   daily_budget_amount: AsaMoney | null
   end_time: null | string
   internal_id: string
+  loc_invoice_details: AsaLocInvoiceDetails | null
   name: string
   org_id: number
+  payment_model: null | string
+  serving_state_reasons: null | string[]
+  serving_status: null | string
   start_time: null | string
   status: AsaStatus
   supply_sources: string[]
@@ -95,6 +108,7 @@ export interface AsaAdGroupDTO {
   ad_group_id: number
   app_id: string
   automated_keywords_opt_in: boolean | null
+  automated_keywords_required: boolean | null
   bidding_strategy: null | string
   campaign_group_id: string
   campaign_id: string
@@ -105,6 +119,8 @@ export interface AsaAdGroupDTO {
   name: string
   payment_model: null | string
   pricing_model: null | string
+  serving_state_reasons: null | string[]
+  serving_status: null | string
   start_time: null | string
   status: AsaStatus | null
   target_cpa: AsaMoney | null
@@ -290,7 +306,11 @@ export interface AsaCampaignMutationEntity {
   campaign_group_id: string
   campaign_id: number
   internal_id: string
+  loc_invoice_details: AsaLocInvoiceDetails | null
   name: string
+  payment_model: null | string
+  serving_state_reasons: null | string[]
+  serving_status: null | string
   status: AsaStatus
 }
 
