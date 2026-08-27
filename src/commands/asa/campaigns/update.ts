@@ -57,8 +57,12 @@ export default class AsaCampaignsUpdate extends Command {
     if (flags.budget !== undefined) body.budget_amount = money(flags.budget, flags.currency)
     if (flags['target-cpa'] !== undefined) body.target_cpa = money(flags['target-cpa'], flags.currency)
     if (flags['bidding-strategy'] !== undefined) body.bidding_strategy = flags['bidding-strategy']
-    const invoice = locInvoiceDetails(flags, (msg) => this.error(msg, {exit: 2}))
-    if (invoice !== undefined) body.loc_invoice_details = invoice
+    try {
+      const details = locInvoiceDetails(flags)
+      if (details) body.loc_invoice_details = details
+    } catch (error) {
+      this.error((error as Error).message, {exit: 2})
+    }
 
     if (Object.keys(body).length === 0) {
       this.error(
@@ -82,7 +86,7 @@ export default class AsaCampaignsUpdate extends Command {
     noteReplay(replayed, this.log.bind(this))
     if (result.campaign && !replayed) this.log('Campaign updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
-    reportServingState(result.campaign, this.log.bind(this))
+    reportServingState(result.campaign, this.warn.bind(this))
 
     return result
   }

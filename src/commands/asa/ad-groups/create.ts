@@ -33,8 +33,7 @@ export default class AsaAdGroupsCreate extends Command {
     ...confirmFlags,
     ...idempotencyFlags,
     automated: Flags.boolean({
-      description:
-        'Create the automated ad group a Max Conversions campaign needs; implies automated keywords, takes no --start-time and makes --default-bid optional',
+      description: 'Create the automated ad group a Max Conversions campaign needs (no bid, no schedule, always ENABLED)',
       exclusive: ['automated-keywords'],
     }),
     'automated-keywords': Flags.boolean({allowNo: true, description: 'Let Apple add keywords automatically'}),
@@ -53,9 +52,11 @@ export default class AsaAdGroupsCreate extends Command {
     }
 
     if (flags.automated && flags['start-time'] !== undefined) {
-      this.error('--start-time cannot be combined with --automated: Apple rejects a schedule on an automated ad group.', {
-        exit: 2,
-      })
+      this.error('--start-time is not allowed with --automated: Apple schedules the automated ad group itself.', {exit: 2})
+    }
+
+    if (flags.automated && flags.status === 'PAUSED') {
+      this.error('An automated ad group must be ENABLED; pause the campaign instead.', {exit: 2})
     }
 
     const body = {

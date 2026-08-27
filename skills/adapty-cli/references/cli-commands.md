@@ -169,7 +169,7 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa campaigns create`               | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--target-cpa`, `--bidding-strategy`; LOC orgs: all five `--invoice-*` flags. A `MAX_CONVERSIONS` campaign also needs `ad-groups create --automated` or it stays `NOT_RUNNING` (`AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING`) |
 | `asa campaigns update <campaign_id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--budget`, `--target-cpa`, `--bidding-strategy`, or the five `--invoice-*` flags together (fixes `MISSING_BO_OR_INVOICING_FIELDS`) |
 | `asa ad-groups list` / `get <id>`    | metadata only, like campaigns; numbers come from `asa metrics`              |
-| `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today). `--automated` = the automated group for Max Conversions: no `--start-time`, `--default-bid` optional |
+| `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today). `--automated` = the automated group for Max Conversions: no `--start-time`, no `--status PAUSED`, `--default-bid` optional |
 | `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
 | `asa keywords list`                  | metadata only; **filter by `--ad-group`** — the heaviest read, own budget (30/min, 2 concurrent, 60s cap) |
 | `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |

@@ -48,12 +48,19 @@ export default class AsaCampaignsCreate extends Command {
       description: 'Supply source, repeatable',
       multiple: true,
     }),
-    'target-cpa': moneyFlag('Target CPA'),
+    'target-cpa': moneyFlag('Target CPA; must be lower than --daily-budget'),
   }
 
   async run(): Promise<AsaCampaignMutationDTO> {
     const {flags} = await this.parse(AsaCampaignsCreate)
     if (!isValidUuid(flags.org)) this.error('Invalid org ID format.', {exit: 2})
+
+    let invoice
+    try {
+      invoice = locInvoiceDetails(flags)
+    } catch (error) {
+      this.error((error as Error).message, {exit: 2})
+    }
 
     const body = {
       ad_channel_type: flags['ad-channel-type'],
@@ -64,7 +71,7 @@ export default class AsaCampaignsCreate extends Command {
       campaign_group_id: flags.org,
       countries_or_regions: flags.country,
       daily_budget_amount: money(flags['daily-budget'], flags.currency),
-      loc_invoice_details: locInvoiceDetails(flags, (msg) => this.error(msg, {exit: 2})),
+      loc_invoice_details: invoice,
       name: flags.name,
       status: flags.status,
       supply_sources: flags['supply-source'],
@@ -81,7 +88,7 @@ export default class AsaCampaignsCreate extends Command {
     noteReplay(replayed, this.log.bind(this))
     if (result.campaign && !replayed) this.log('Campaign created!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
-    reportServingState(result.campaign, this.log.bind(this))
+    reportServingState(result.campaign, this.warn.bind(this))
 
     return result
   }

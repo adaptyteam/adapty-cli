@@ -46,9 +46,10 @@ adapty asa ad-groups create --campaign CAMPAIGN_UUID --name "Automated Max Conv"
 ```
 
 `--automated` sends `automated_keywords_required: true` and `automated_keywords_opt_in: true`, omits `start_time`
-(Apple rejects a schedule on an automated group — combining it with `--start-time` exits 2) and makes `--default-bid`
-optional (Apple reports the bid as `0` when omitted). A plain ad group, even with `--automated-keywords`, does not
-satisfy the requirement.
+(Apple schedules the automated group itself — combining it with `--start-time` exits 2), must stay `ENABLED`
+(`--status PAUSED` exits 2; pause the campaign instead) and makes `--default-bid` optional (Apple reports the bid as
+`0` when omitted). A plain ad group, even with `--automated-keywords`, does not satisfy the requirement. On the
+campaign, `--target-cpa` must be lower than `--daily-budget`.
 
 ### Line of credit (LOC) organizations
 
@@ -73,7 +74,7 @@ Invoicing Options. They map to `loc_invoice_details` in the request: advertiser 
 |---|---|---|
 | `asa ad-groups list` | scope filters only | Metadata only. |
 | `asa ad-groups get <id>` | positional UUID | Metadata only. |
-| `asa ad-groups create` | `--campaign`, `--name`, `--default-bid` (optional with `--automated`); optional `--automated` | Apple also requires a pricing model and a start time; the CLI defaults `--pricing-model` to `CPC` (the only other option is `CPM`) and `--start-time` to today if you don't pass them. `--automated` creates the automated ad group a Max Conversions campaign needs: it implies automated keywords, sends no `start_time` (exits 2 if `--start-time` is also given) and does not require `--default-bid` — see [Max Conversions](#max-conversions-campaigns). |
+| `asa ad-groups create` | `--campaign`, `--name`, `--default-bid` (optional with `--automated`); optional `--automated` | Apple also requires a pricing model and a start time; the CLI defaults `--pricing-model` to `CPC` (the only other option is `CPM`) and `--start-time` to today if you don't pass them. `--automated` creates the automated ad group a Max Conversions campaign needs: it implies automated keywords, sends no `start_time` (exits 2 if `--start-time` is also given), must be `ENABLED` (exits 2 on `--status PAUSED`) and does not require `--default-bid` — see [Max Conversions](#max-conversions-campaigns). |
 | `asa ad-groups update <id>` | at least one field | The campaign is resolved server-side and is never passed on update. |
 
 ## Ads

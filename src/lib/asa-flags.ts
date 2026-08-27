@@ -1,7 +1,7 @@
 import {Flags} from '@oclif/core'
 
 import type {QueryParams} from './api-client.js'
-import type {AsaLocInvoiceDetails, AsaMoney, AsaMutationError, AsaServingStatus} from './asa-schemas.js'
+import type {AsaLocInvoiceDetails, AsaMoney, AsaMutationError} from './asa-schemas.js'
 
 import {describeListedError} from './errors.js'
 import {isValidUuid} from './flags.js'
@@ -170,30 +170,28 @@ const INVOICE_FIELDS = {
 
 type InvoiceFlagName = keyof typeof INVOICE_FIELDS
 
-const INVOICE_SUFFIX =
-  'Invoicing Options, required for line-of-credit (LOC) organizations — see `payment_model` in `asa orgs list`'
+const INVOICE_PREFIX = 'Invoicing Options (line-of-credit orgs, see payment_model in asa orgs list)'
 
 function invoiceFlag(what: string) {
-  return Flags.string({description: `${what} for ${INVOICE_SUFFIX}`})
+  return Flags.string({description: `${INVOICE_PREFIX}: ${what}`})
 }
 
 export const invoiceFlags = {
-  'invoice-advertiser': invoiceFlag('Advertiser name'),
-  'invoice-billing-email': invoiceFlag('Billing contact email'),
-  'invoice-contact-email': invoiceFlag('Buyer contact email'),
-  'invoice-contact-name': invoiceFlag('Buyer contact name'),
-  'invoice-order-number': invoiceFlag('Order number'),
+  'invoice-advertiser': invoiceFlag('advertiser name'),
+  'invoice-billing-email': invoiceFlag('billing contact email'),
+  'invoice-contact-email': invoiceFlag('buyer contact email'),
+  'invoice-contact-name': invoiceFlag('buyer contact name'),
+  'invoice-order-number': invoiceFlag('order number'),
 }
 
 export function locInvoiceDetails(
   flags: Partial<Record<InvoiceFlagName, string>>,
-  fail: (msg: string) => never,
 ): Record<keyof AsaLocInvoiceDetails, string> | undefined {
   const names = Object.keys(INVOICE_FIELDS) as InvoiceFlagName[]
   const missing = names.filter((name) => flags[name] === undefined)
   if (missing.length === names.length) return undefined
   if (missing.length > 0) {
-    fail(`Invoicing Options must be passed together; missing: ${missing.map((name) => `--${name}`).join(', ')}.`)
+    throw new Error(`Invoicing Options need all five flags; missing: ${missing.map((name) => `--${name}`).join(', ')}`)
   }
 
   return Object.fromEntries(names.map((name) => [INVOICE_FIELDS[name], flags[name]])) as Record<
@@ -210,15 +208,19 @@ const SERVING_HINTS: Record<string, (campaignId: string) => string> = {
 }
 
 export function reportServingState(
-  campaign: null | {internal_id: string; serving_state_reasons?: null | string[]; serving_status?: AsaServingStatus | null},
-  log: (msg: string) => void,
+  campaign: null | {internal_id: string; serving_state_reasons?: null | string[]; serving_status?: null | string},
+  warn: (msg: string) => void,
 ): void {
   if (campaign?.serving_status !== 'NOT_RUNNING' || !campaign.serving_state_reasons?.length) return
-  log(`Campaign is not running: ${campaign.serving_state_reasons.join(', ')}`)
-  for (const reason of campaign.serving_state_reasons) {
+  const reasons = campaign.serving_state_reasons
+  if (reasons.length === 1 && reasons[0] === 'PAUSED_BY_USER') return
+  for (const reason of reasons) {
     const hint = SERVING_HINTS[reason]
-    if (hint) log(hint(campaign.internal_id))
+    if (hint) warn(hint(campaign.internal_id))
   }
+
+  const other = reasons.filter((reason) => !SERVING_HINTS[reason])
+  if (other.length > 0) warn(`Not serving: ${other.join(', ')}`)
 }
 
 interface BulkOutcome {

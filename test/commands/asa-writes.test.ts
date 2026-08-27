@@ -29,6 +29,7 @@ const INVOICE_BODY = {
   client_name: 'Acme Inc',
   order_number: 'PO-42',
 }
+const unwrap = (stderr: string) => stderr.replaceAll(/\s*›\s*/g, ' ').replaceAll(/\s+/g, ' ')
 const notRunning = (reasons: string[]) => ({
   campaign: {...CAMPAIGN_OK.campaign, serving_state_reasons: reasons, serving_status: 'NOT_RUNNING'},
   errors: [],
@@ -188,6 +189,10 @@ describe('asa writes', () => {
       `asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG --automated --start-time 2026-09-01`,
     )
     expect(scheduled.error?.message).to.contain('--start-time')
+    const paused = await runCommand(
+      `asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG --automated --status PAUSED`,
+    )
+    expect(paused.error?.message).to.contain('must be ENABLED')
     expect(fetchStub.callCount).to.equal(0)
   })
 
@@ -223,20 +228,28 @@ describe('asa writes', () => {
     fetchStub = mockFetch([
       notRunning(['AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING']),
       notRunning(['MISSING_BO_OR_INVOICING_FIELDS', 'SOMETHING_ELSE']),
+      notRunning(['PAUSED_BY_USER']),
       notRunning(['AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING']),
     ])
     const created = await runCommand(
       `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --bidding-strategy MAX_CONVERSIONS`,
     )
-    expect(created.stdout).to.contain('not running: AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING')
-    expect(created.stdout).to.contain(`ad-groups create --campaign ${TEST_RESOURCE_ID} --name "Automated Max Conv" --automated`)
+    expect(unwrap(created.stderr)).to.contain(
+      `ad-groups create --campaign ${TEST_RESOURCE_ID} --name "Automated Max Conv" --automated`,
+    )
+    expect(created.stderr).to.not.contain('Not serving')
 
     const updated = await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} --status ENABLED`)
-    expect(updated.stdout).to.contain('not running: MISSING_BO_OR_INVOICING_FIELDS, SOMETHING_ELSE')
-    expect(updated.stdout).to.contain(`campaigns update ${TEST_RESOURCE_ID} --invoice-advertiser`)
+    expect(unwrap(updated.stderr)).to.contain(`campaigns update ${TEST_RESOURCE_ID} --invoice-advertiser`)
+    expect(unwrap(updated.stderr)).to.contain('Not serving: SOMETHING_ELSE')
+    expect(updated.stderr).to.not.contain('Not serving: MISSING_BO')
+
+    const paused = await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} --status PAUSED`)
+    expect(paused.stderr).to.not.contain('Not serving')
 
     const asJson = await runCommand(`asa campaigns update --yes --json ${TEST_RESOURCE_ID} --status ENABLED`)
     expect(JSON.parse(asJson.stdout).campaign.serving_status).to.equal('NOT_RUNNING')
+    expect(asJson.stderr).to.not.contain('--automated')
   })
 
   it('keywords add turns repeated --text into one batch', async () => {
