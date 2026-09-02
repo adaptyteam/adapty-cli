@@ -47,7 +47,7 @@ over consecutive 28-day windows to cover a long period: that is the exact burst 
 gets a token throttled, and the daily points add nothing a weekly series doesn't show at that
 time scale.
 
-Besides the window caps, `metrics` caps every page at 20 000 breakdown rows — rows being
+Besides the window caps, `metrics` caps every page at 5 000 breakdown rows — rows being
 entities × countries × periods from `--group-by`. A page over the cap is refused with a 422
 `cli_response_too_large`; the fix is coarsening the grouping (week instead of day), narrowing
 the date window, or reducing `--page-size`. When `day` is in `--group-by` the refusal names
@@ -133,7 +133,7 @@ Three 429 codes, not one:
 - `cli_cooldown_active` — stop entirely; tell the user when to retry.
 
 One refusal is a 422, not a 429: `cli_response_too_large` — a `metrics` page would exceed
-20 000 breakdown rows (see [Date window caps](#date-window-caps)). It carries no
+5 000 breakdown rows (see [Date window caps](#date-window-caps)). It carries no
 `Retry-After` and doesn't count toward the cool-down; retrying is pointless — change the
 request instead (coarsen the grouping, narrow the window, or reduce `--page-size`).
 

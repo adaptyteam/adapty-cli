@@ -12,7 +12,7 @@ One row per entity, already aggregated server-side and sorted by --order-by, so 
 call with --order-by and --page-size N — never sum pages yourself. Account-level totals are one call to
 asa metrics overview instead. The date window is capped by the finest --group-by period: 28 days when
 day is grouped, 90 with no period grouping, 180 by week, 365 by month and coarser — widen the window by
-coarsening the grouping, not by splitting into more calls. Each page is also capped at 20000 breakdown
+coarsening the grouping, not by splitting into more calls. Each page is also capped at 5000 breakdown
 rows (entities × countries × periods); over it the call fails with 422 cli_response_too_large — coarsen
 the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls per minute, at most
 2 per 10 seconds, one at a time.`
