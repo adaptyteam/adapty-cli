@@ -56,6 +56,33 @@ describe('flows', () => {
     })
   })
 
+  it('update calls PUT /apps/{app}/flows/{id} with the new name', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([FLOW_RESPONSE])
+    await runCommand(`flows update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --name "Onboarding v2"`)
+    assertFetch({
+      body: {name: 'Onboarding v2'},
+      callIndex: 0,
+      method: 'PUT',
+      path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/`,
+      stub: fetchStub,
+    })
+  })
+
+  it('publish calls POST /apps/{app}/flows/{id}/publish with no body', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([{...FLOW_RESPONSE, status: 'publishing'}])
+    await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
+    assertFetch({
+      callIndex: 0,
+      method: 'POST',
+      path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/publish/`,
+      stub: fetchStub,
+    })
+    const init = fetchStub.getCall(0).args[1] as {body?: unknown}
+    if (init.body !== undefined) throw new Error('Expected no request body for publish')
+  })
+
   it('config get calls GET /apps/{app}/flows/{id}/config', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([CONFIG_RESPONSE])
