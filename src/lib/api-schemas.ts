@@ -172,8 +172,7 @@ export interface SegmentDTO {
 }
 
 export interface PlacementPaywallAudienceEntryDTO {
-  /** Optional for backward compatibility; defaults to `paywall` server-side. */
-  content_type?: 'paywall'
+  content_type: 'paywall'
   paywall_id: string
   priority: number
   segment_ids?: string[]

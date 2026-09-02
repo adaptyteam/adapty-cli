@@ -35,7 +35,7 @@ describe('placements', () => {
     fetchStub = mockFetch([
       {
         ...PLACEMENT_RESPONSE,
-        audiences: [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}],
+        audiences: [{content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}],
       },
     ])
     await runCommand(`placements get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
@@ -64,8 +64,8 @@ describe('placements', () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
     const audiences = [
-      {paywall_id: PAYWALL_ID, priority: 0, segment_ids: [SEGMENT_ID]},
-      {paywall_id: PAYWALL_ID, priority: 1, segment_ids: []},
+      {content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: [SEGMENT_ID]},
+      {content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 1, segment_ids: []},
     ]
     await runCommand([
       'placements',
@@ -139,6 +139,27 @@ describe('placements', () => {
     })
   })
 
+  it('create rejects an audience entry without content_type and makes no HTTP call', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([PLACEMENT_RESPONSE])
+    const audiences = [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}]
+    const {error} = await runCommand([
+      'placements',
+      'create',
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    const exit = (error as undefined | {oclif?: {exit?: number}})?.oclif?.exit
+    if (exit !== 2) throw new Error(`Expected exit code 2, got ${exit}`)
+    if (fetchStub.callCount !== 0) throw new Error(`Expected no HTTP call, got ${fetchStub.callCount}`)
+  })
+
   it('update with --paywall-id sends paywall_id directly', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
@@ -160,7 +181,7 @@ describe('placements', () => {
   it('update with --audiences sends JSON verbatim', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
-    const audiences = [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}]
+    const audiences = [{content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}]
     await runCommand([
       'placements',
       'update',
