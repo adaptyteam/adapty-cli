@@ -13,6 +13,7 @@ import {
 const PLACEMENT_RESPONSE = {developer_id: 'default', id: TEST_RESOURCE_ID, title: 'Default'}
 const PAYWALL_ID = '770e8400-e29b-41d4-a716-446655440002'
 const SEGMENT_ID = '880e8400-e29b-41d4-a716-446655440003'
+const FLOW_ID = '990e8400-e29b-41d4-a716-446655440004'
 
 describe('placements', () => {
   let fetchStub: sinon.SinonStub
@@ -83,6 +84,57 @@ describe('placements', () => {
       callIndex: 0,
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/placements/`,
+      stub: fetchStub,
+    })
+  })
+
+  it('create with a flow audience sends content_type and flow_id', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([PLACEMENT_RESPONSE])
+    const audiences = [{content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: []}]
+    await runCommand([
+      'placements',
+      'create',
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    assertFetch({
+      body: {audiences, developer_id: 'default', paywall_id: null, title: 'Default'},
+      callIndex: 0,
+      method: 'POST',
+      path: `/apps/${TEST_APP_ID}/placements/`,
+      stub: fetchStub,
+    })
+  })
+
+  it('update with a flow audience sends content_type and flow_id', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([PLACEMENT_RESPONSE])
+    const audiences = [{content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: []}]
+    await runCommand([
+      'placements',
+      'update',
+      TEST_RESOURCE_ID,
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    assertFetch({
+      body: {audiences, developer_id: 'default', paywall_id: null, title: 'Default'},
+      callIndex: 0,
+      method: 'PUT',
+      path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
       stub: fetchStub,
     })
   })

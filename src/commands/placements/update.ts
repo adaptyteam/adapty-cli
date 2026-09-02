@@ -14,12 +14,16 @@ static description = 'Update a placement'
 static enableJsonFlag = true
 static examples = [
     '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"segment_ids":[],"paywall_id":"PAYWALL_UUID","priority":0}]\'',
+    '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"content_type":"flow","segment_ids":[],"flow_id":"FLOW_UUID","priority":0}]\'',
     '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --paywall-id PAYWALL_UUID',
   ]
 static flags = {
     ...appFlag,
     audiences: Flags.string({
-      description: 'JSON array of audience entries: [{segment_ids, paywall_id, priority}]',
+      description:
+        'JSON array of audience entries. Paywall: {segment_ids, paywall_id, priority}. ' +
+        'Flow: {content_type:"flow", segment_ids, flow_id, priority}. ' +
+        'A flow must be published first (flows publish) — attaching a draft flow returns 400.',
       exactlyOne: ['paywall-id', 'audiences'],
     }),
     'developer-id': Flags.string({description: 'Developer ID for the placement', required: true}),
