@@ -3,8 +3,8 @@ import {Command, Flags} from '@oclif/core'
 import type {AsaProductPageSyncDTO} from '../../../lib/asa-schemas.js'
 
 import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
-import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
 import {idempotencyFlags} from '../../../lib/asa-flags.js'
+import {confirmFlags, confirmMutation} from '../../../lib/confirm.js'
 import {printResponse} from '../../../lib/output.js'
 
 export default class AsaProductPagesSync extends Command {

@@ -69,18 +69,36 @@ describe('flows', () => {
     })
   })
 
-  it('publish calls POST /apps/{app}/flows/{id}/publish with no body', async () => {
+  it('publish GETs the flow then POSTs /apps/{app}/flows/{id}/publish with no body', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
-    fetchStub = mockFetch([{...FLOW_RESPONSE, status: 'publishing'}])
-    await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
+    fetchStub = mockFetch([FLOW_RESPONSE, {...FLOW_RESPONSE, status: 'publishing'}])
+    await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes`)
     assertFetch({
       callIndex: 0,
+      method: 'GET',
+      path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/`,
+      stub: fetchStub,
+    })
+    assertFetch({
+      callIndex: 1,
       method: 'POST',
       path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/publish/`,
       stub: fetchStub,
     })
-    const init = fetchStub.getCall(0).args[1] as {body?: unknown}
+    const init = fetchStub.getCall(1).args[1] as {body?: unknown}
     if (init.body !== undefined) throw new Error('Expected no request body for publish')
+  })
+
+  it('publish refuses non-interactively without --yes and never calls the publish endpoint', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([FLOW_RESPONSE])
+    const {error} = await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
+    const exit = (error as undefined | {oclif?: {exit?: number}})?.oclif?.exit
+    if (exit !== 2) throw new Error(`Expected exit code 2, got ${exit}`)
+    for (let i = 0; i < fetchStub.callCount; i++) {
+      const {method} = fetchStub.getCall(i).args[1] as {method: string}
+      if (method === 'POST') throw new Error('Publish endpoint must not be called without --yes')
+    }
   })
 
   it('config get calls GET /apps/{app}/flows/{id}/config', async () => {
