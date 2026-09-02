@@ -5,13 +5,13 @@ import type {ApiClient} from '../../../lib/api-client.js'
 import type {AsaAutomationDTO, AsaAutomationMutationDTO} from '../../../lib/asa-schemas.js'
 
 import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
-import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
 import {addKeywordActionFlags, idempotencyFlags} from '../../../lib/asa-flags.js'
 import {
   type AddKeywordActionFlags,
   hasAddKeywordActionFlags,
   rebuildAddKeywordAction,
 } from '../../../lib/asa-keyword-action.js'
+import {confirmFlags, confirmMutation} from '../../../lib/confirm.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 

@@ -11,8 +11,8 @@ import type {
 
 import {ApiClient} from '../../../lib/api-client.js'
 import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
-import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
 import {idempotencyFlags} from '../../../lib/asa-flags.js'
+import {confirmFlags, confirmMutation} from '../../../lib/confirm.js'
 import {printResponse} from '../../../lib/output.js'
 
 const TERMINAL_STATUSES = new Set(['failed', 'partial', 'success'])
