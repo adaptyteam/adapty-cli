@@ -80,6 +80,20 @@ export const adScopeFlags = {
   ...searchFilter,
 }
 
+export const metricsScopeFlags = {
+  'ad-group': idFilter('ad group'),
+  app: idFilter('app'),
+  campaign: idFilter('campaign'),
+}
+
+export function metricsScopeBody(flags: {'ad-group'?: string[]; app?: string[]; campaign?: string[]}) {
+  return {
+    ...(flags['ad-group'] === undefined ? {} : {ad_group_id: flags['ad-group']}),
+    ...(flags.app === undefined ? {} : {app_id: flags.app}),
+    ...(flags.campaign === undefined ? {} : {campaign_id: flags.campaign}),
+  }
+}
+
 export const statusFilter = (options: string[]) => ({
   status: Flags.string({description: 'Keep only rows in this state', options}),
 })

@@ -19,7 +19,7 @@ that field.
 
 | Command | Flags | Notes |
 |---|---|---|
-| `asa metrics` | `--entity`, `--date-from`, `--date-to` required; `--metric` (repeatable), `--group-by` (repeatable), `--order` (`asc`/`desc`, default `desc`), `--order-by`, `--by-days` (repeatable, max 16), `--order-by-day`, `--page` (default `1`), `--page-size` (default `100`, max `1000`) optional | One row per entity — `ad`, `ad-group`, `campaign`, or `keyword` — already aggregated over the period and already sorted server-side by `--order-by`. A top-N question is one call, `--order-by X --page-size N`; never paginate and sum yourself, and for a full breakdown take one big page (`--page-size 1000`) instead of looping. `--order` defaults to `desc`; pass `--order asc` for a "worst" question instead of "best." `--group-by` is one of `country`, `day`, `month`, `quarter`, `week`, `year`, and its coarseness sets the date-window cap (see [Date window caps](#date-window-caps)). Account-level totals are one call to `metrics overview` instead. |
+| `asa metrics` | `--entity`, `--date-from`, `--date-to`, `--metric` (repeatable) required; `--app`, `--campaign`, `--ad-group` (repeatable scope filters), `--group-by` (repeatable), `--order` (`asc`/`desc`, default `desc`), `--order-by`, `--by-days` (repeatable, max 16), `--order-by-day`, `--page` (default `1`), `--page-size` (default `100`, max `1000`) optional | One row per entity — `ad`, `ad-group`, `campaign`, or `keyword` — already aggregated over the period and already sorted server-side by `--order-by`. A top-N question is one call, `--order-by X --page-size N`; never paginate and sum yourself, and for a full breakdown take one big page (`--page-size 1000`) instead of looping. `--order` defaults to `desc`; pass `--order asc` for a "worst" question instead of "best." `--group-by` is one of `country`, `day`, `month`, `quarter`, `week`, `year`, and its coarseness sets the date-window cap (see [Date window caps](#date-window-caps)). Account-level totals are one call to `metrics overview` instead. |
 | `asa metrics overview` | `--entity`, `--date-from`, `--date-to` required; `--metric` (repeatable, root names only), `--by-days` (repeatable, max 16), `--period-unit` (`day`/`week`/`month`/`quarter`/`year`, default `day`) optional | Returns one response, not a list — totals for the whole entity level plus a per-period series in the same call, no pagination, no client-side summing. That's the one-call answer to a trend question ("today vs. yesterday," "this week vs. last"). Has no `--group-by` and no `--order`/`--order-by`/`--order-by-day`. Shares the 5-per-minute metrics budget with `metrics` (see [The analytics pool](#the-analytics-pool)). Metric names here are root names only — see [Metric vocabulary](#metric-vocabulary). |
 | `asa search-terms list` | `--date-from` / `--date-to` (default: today); scope with `--ad-group` / `--campaign`; `--page` (default `1`), `--page-size` (default `100`, max `1000`) | The only list command in the `asa` topic that takes period flags — it draws on the same analytics pool as `metrics` (see [The analytics pool](#the-analytics-pool)), not the metadata store the other lists use. The full scope-filter set (`--app`, `--campaign-group`, `--search` included) is in `asa-management.md`. This file covers *reading* search terms; turning what you find into keywords or negative keywords is in `asa-management.md`. |
 | `asa competitors summary` | `--app-ids` (1–5 Apple App Store IDs, comma-separated) | Covers the last full month across every country — there are deliberately no period or country flags. The first call on a cold cache can take tens of seconds. |
@@ -60,6 +60,15 @@ applies to it.
 `--metric` and `--order-by` take the dashboard's own metric names — never invent or guess
 one. A wrong name fails the call with an error that lists every valid name, so probing for
 names costs at most one call and should never be done on purpose.
+
+`--metric` is **required** on `asa metrics`, and the list is not free: every metric named is
+computed across the whole entity level before the page is cut, so name the columns you will
+actually read rather than sweeping the catalog. `subscribers` and `paid_subscribers` count
+unique profiles per entity and cost about twenty times a plain spend-and-installs call; the
+same applies to `arppu` and `arpas`, which derive from them. On `--entity keyword` those names
+are refused with `422 cli_metric_scope_too_wide` unless `--campaign` or `--ad-group` narrows
+the call. Those two flags (plus `--app`) are also the cheapest way to make any keyword call
+fast: cost follows the number of entities aggregated, not the page size.
 
 Cohort roots — `revenue`, `arpu`, `arppu`, `arpas` (alias `cohort_arpas`), `roas`, `roi` —
 expand to `gross_`, `proceeds_`, and `net_` variants (`gross_roas`, `proceeds_revenue`,

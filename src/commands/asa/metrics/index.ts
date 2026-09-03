@@ -1,7 +1,15 @@
 import {Command, Flags} from '@oclif/core'
 
 import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
-import {ASA_GROUP_BY_DIMENSIONS, ASA_METRIC_ENTITIES, asaPaginationFlags, byDaysFlag, MAX_BY_DAYS} from '../../../lib/asa-flags.js'
+import {
+  ASA_GROUP_BY_DIMENSIONS,
+  ASA_METRIC_ENTITIES,
+  asaPaginationFlags,
+  byDaysFlag,
+  MAX_BY_DAYS,
+  metricsScopeBody,
+  metricsScopeFlags,
+} from '../../../lib/asa-flags.js'
 import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
@@ -15,7 +23,13 @@ day is grouped, 90 with no period grouping, 180 by week, 365 by month and coarse
 coarsening the grouping, not by splitting into more calls. Each page is also capped at 5000 breakdown
 rows (entities × countries × periods); over it the call fails with 422 cli_response_too_large — coarsen
 the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls per minute, at most
-2 per 10 seconds, one at a time.`
+2 per 10 seconds, one at a time.
+
+--metric is required and every metric named is computed over the whole entity set, so ask for the
+columns you actually read. subscribers and paid_subscribers (and arppu / arpas, which derive from them)
+count unique profiles per entity and cost roughly twenty times the rest; on --entity keyword they are
+refused unless --campaign or --ad-group scopes the call. Those scope flags are also the cheapest way to
+make any keyword call fast, since cost follows the number of entities aggregated, not the page size.`
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31',
@@ -27,6 +41,7 @@ the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls p
   static flags = {
     ...asaPaginationFlags,
     ...byDaysFlag,
+    ...metricsScopeFlags,
     'date-from': Flags.string({description: 'Start of the period (YYYY-MM-DD)', required: true}),
     'date-to': Flags.string({description: 'End of the period (YYYY-MM-DD)', required: true}),
     entity: Flags.string({description: 'What to report on', options: ASA_METRIC_ENTITIES, required: true}),
@@ -37,8 +52,9 @@ the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls p
     }),
     metric: Flags.string({
       description:
-        'Metric name (dashboard nomenclature, e.g. spend, taps, gross_roas), repeatable; omit for every metric; a wrong name fails listing all valid ones',
+        'Metric name (dashboard nomenclature, e.g. spend, taps, gross_roas), repeatable and required; every metric asked for is computed over the whole entity set, so list only what you read; a wrong name fails listing all valid ones',
       multiple: true,
+      required: true,
     }),
     order: Flags.string({default: 'desc', description: 'Sort direction', options: ['asc', 'desc']}),
     'order-by': Flags.string({
@@ -62,8 +78,9 @@ the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls p
         date_from: flags['date-from'],
         date_to: flags['date-to'],
         entity: flags.entity,
+        metrics: flags.metric,
         order: flags.order,
-        ...(flags.metric === undefined ? {} : {metrics: flags.metric}),
+        ...metricsScopeBody(flags),
         ...(flags['by-days'] === undefined ? {} : {by_days: flags['by-days']}),
         ...(flags['group-by'] === undefined ? {} : {group_by: flags['group-by']}),
         ...(flags['order-by'] === undefined ? {} : {order_by: flags['order-by']}),
