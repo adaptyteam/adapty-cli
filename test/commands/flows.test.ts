@@ -101,6 +101,34 @@ describe('flows', () => {
     }
   })
 
+  it('publish enriches a 400 with builder + skill links pointing at the flow', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = sinon.stub(globalThis, 'fetch').callsFake(async (_url, init) => {
+      const method = (init as undefined | {method?: string})?.method ?? 'GET'
+      if (method === 'POST') {
+        return new Response(
+          JSON.stringify({error_code: 'validation_error', errors: {non_field_errors: ['Flow has no current version.']}}),
+          {headers: {'Content-Type': 'application/json'}, status: 400},
+        )
+      }
+
+      return new Response(JSON.stringify(FLOW_RESPONSE), {headers: {'Content-Type': 'application/json'}, status: 200})
+    })
+
+    const {error} = await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes`)
+    const exit = (error as undefined | {oclif?: {exit?: number}})?.oclif?.exit
+    if (exit === 0 || exit === undefined) throw new Error(`Expected a non-zero exit, got ${exit}`)
+    const message = (error as undefined | {message?: string})?.message ?? ''
+    if (!message.includes('Flow has no current version.')) throw new Error(`Missing server reason: ${message}`)
+    if (!message.includes(`https://app.adapty.io/flows/${TEST_RESOURCE_ID}/builder`)) {
+      throw new Error(`Missing builder link: ${message}`)
+    }
+
+    if (!message.includes('https://adapty.io/docs/flow-generator-skill')) {
+      throw new Error(`Missing skill link: ${message}`)
+    }
+  })
+
   it('config get calls GET /apps/{app}/flows/{id}/config', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([CONFIG_RESPONSE])

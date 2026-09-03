@@ -4,6 +4,7 @@ import type {FlowDTO} from '../../lib/api-schemas.js'
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {confirmFlags, confirmMutation} from '../../lib/confirm.js'
+import {ApiError} from '../../lib/errors.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
 
@@ -39,7 +40,22 @@ static flags = {
       flags.yes,
     )
 
-    const result = await client.post<FlowDTO>(`/apps/${flags.app}/flows/${args.flow_id}/publish/`)
+    let result: FlowDTO
+    try {
+      result = await client.post<FlowDTO>(`/apps/${flags.app}/flows/${args.flow_id}/publish/`)
+    } catch (error) {
+      if (error instanceof ApiError && (error.statusCode === 400 || error.errorCode === 'validation_error')) {
+        this.error(
+          `Flow publish failed: ${error.message}\n` +
+            'Publishing needs a flow with a valid config. Fix it, then run `adapty flows publish` again:\n' +
+            `  • Builder UI: https://app.adapty.io/flows/${args.flow_id}/builder\n` +
+            '  • Adapty flows agent skill: https://adapty.io/docs/flow-generator-skill',
+          {exit: 1},
+        )
+      }
+
+      throw error
+    }
 
     this.log('Publishing started — status: publishing. Publication completes asynchronously.')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
