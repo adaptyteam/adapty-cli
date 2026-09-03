@@ -191,6 +191,8 @@ export type PlacementAudienceEntryDTO = PlacementFlowAudienceEntryDTO | Placemen
 export interface PlacementSummaryDTO {
   developer_id: string
   id: string
+  /** Placement activation state: true = Live, false = Inactive. */
+  is_active: boolean
   title: string
 }
 
@@ -198,6 +200,8 @@ export interface PlacementDetailDTO {
   audiences?: PlacementAudienceEntryDTO[]
   developer_id: string
   id: string
+  /** Placement activation state: true = Live, false = Inactive. */
+  is_active: boolean
   title: string
 }
 
