@@ -27,16 +27,17 @@ the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls p
 
 --metric is required and every metric named is computed over the whole entity set, so ask for the
 columns you actually read. subscribers and paid_subscribers (and arppu / arpas, which derive from them)
-count unique profiles per entity and cost roughly twenty times the rest; on --entity keyword they are
-refused unless --campaign or --ad-group scopes the call. Those scope flags are also the cheapest way to
-make any keyword call fast, since cost follows the number of entities aggregated, not the page size.`
+count unique profiles per entity and cost roughly seventeen times the rest; whatever the --entity, they
+are refused unless --campaign or --ad-group scopes the call. Those scope flags are also the cheapest way
+to make any call fast, since cost follows the number of entities aggregated, not the page size.`
   static enableJsonFlag = true
   static examples = [
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31',
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --order-by spend --page-size 5',
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --group-by country --page-size 1000',
+    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric adapty_installs',
+    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --order-by spend --page-size 5',
+    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --group-by country --page-size 1000',
     '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric roas',
     '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90',
+    '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric arpas --campaign 0f0e...',
   ]
   static flags = {
     ...asaPaginationFlags,

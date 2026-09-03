@@ -4,9 +4,10 @@ No `asa` command takes `--app` to select scope — the token's company already f
 The one exception is `--app` as a list filter, and among the four commands here it applies
 only to `search-terms list` (the full filter set is in `asa-management.md`).
 
-`metrics` and `metrics overview` take no scope filter at all — no `--app`, `--campaign`,
-`--ad-group`, `--search`, `--status`. A call covers the whole account at the `--entity`
-level and date window you give it; narrow the answer by matching the returned rows against
+`metrics` takes three scope filters and nothing else — `--app`, `--campaign`, `--ad-group`,
+all repeatable. There is no `--search` and no `--status`. `metrics overview` takes no scope
+filter at all: it always covers the whole account at the `--entity` level and date window you
+give it. Where a filter is missing, narrow the answer by matching the returned rows against
 ids from a scoped list in `asa-management.md`, not by looking for a flag that isn't there.
 
 `asa-management.md`'s `list` and `get` commands return metadata only — no spend, no ROAS,
@@ -64,10 +65,10 @@ names costs at most one call and should never be done on purpose.
 `--metric` is **required** on `asa metrics`, and the list is not free: every metric named is
 computed across the whole entity level before the page is cut, so name the columns you will
 actually read rather than sweeping the catalog. `subscribers` and `paid_subscribers` count
-unique profiles per entity and cost about twenty times a plain spend-and-installs call; the
-same applies to `arppu` and `arpas`, which derive from them. On `--entity keyword` those names
-are refused with `422 cli_metric_scope_too_wide` unless `--campaign` or `--ad-group` narrows
-the call. Those two flags (plus `--app`) are also the cheapest way to make any keyword call
+unique profiles per entity and cost about seventeen times a plain spend-and-installs call; the
+same applies to `arppu` and `arpas`, which derive from them. Whatever the `--entity`, those
+names are refused with `422 cli_metric_scope_too_wide` unless `--campaign` or `--ad-group`
+narrows the call. Those two flags (plus `--app`) are also the cheapest way to make any call
 fast: cost follows the number of entities aggregated, not the page size.
 
 Cohort roots — `revenue`, `arpu`, `arppu`, `arpas` (alias `cohort_arpas`), `roas`, `roi` —
