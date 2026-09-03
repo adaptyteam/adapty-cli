@@ -1,8 +1,8 @@
 import {expect} from 'chai'
 
-import {decideConfirmation, renderPreview} from '../../src/lib/asa-confirm.js'
+import {decideConfirmation, renderPreview} from '../../src/lib/confirm.js'
 
-describe('asa confirmation', () => {
+describe('confirmation', () => {
   it('applies without asking when --yes is given, whatever the terminal is', () => {
     expect(decideConfirmation({isTty: true, json: false, yes: true})).to.equal('proceed')
     expect(decideConfirmation({isTty: false, json: true, yes: true})).to.equal('proceed')

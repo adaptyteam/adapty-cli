@@ -3,7 +3,6 @@ import {Command, Flags} from '@oclif/core'
 import type {AsaCampaignMutationDTO} from '../../../lib/asa-schemas.js'
 
 import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
-import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
 import {
   currencyFlag,
   idempotencyFlags,
@@ -13,6 +12,7 @@ import {
   moneyFlag,
   reportServingState,
 } from '../../../lib/asa-flags.js'
+import {confirmFlags, confirmMutation} from '../../../lib/confirm.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 

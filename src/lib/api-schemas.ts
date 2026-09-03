@@ -171,15 +171,28 @@ export interface SegmentDTO {
   title: string
 }
 
-export interface PlacementAudienceEntryDTO {
+export interface PlacementPaywallAudienceEntryDTO {
+  content_type: 'paywall'
   paywall_id: string
   priority: number
   segment_ids?: string[]
 }
 
+export interface PlacementFlowAudienceEntryDTO {
+  content_type: 'flow'
+  /** The flow must be `published` (not draft) — the backend returns 400 otherwise. */
+  flow_id: string
+  priority: number
+  segment_ids?: string[]
+}
+
+export type PlacementAudienceEntryDTO = PlacementFlowAudienceEntryDTO | PlacementPaywallAudienceEntryDTO
+
 export interface PlacementSummaryDTO {
   developer_id: string
   id: string
+  /** Placement activation state: true = Live, false = Inactive. */
+  is_active: boolean
   title: string
 }
 
@@ -187,6 +200,8 @@ export interface PlacementDetailDTO {
   audiences?: PlacementAudienceEntryDTO[]
   developer_id: string
   id: string
+  /** Placement activation state: true = Live, false = Inactive. */
+  is_active: boolean
   title: string
 }
 

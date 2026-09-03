@@ -3,8 +3,8 @@ import {Args, Command, Flags} from '@oclif/core'
 import type {AsaAutomationRunEnqueuedDTO} from '../../../lib/asa-schemas.js'
 
 import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
-import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
 import {idempotencyFlags} from '../../../lib/asa-flags.js'
+import {confirmFlags, confirmMutation} from '../../../lib/confirm.js'
 import {isValidUuid} from '../../../lib/flags.js'
 
 export default class AsaAutomationsRun extends Command {

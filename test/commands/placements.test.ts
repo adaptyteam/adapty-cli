@@ -3,16 +3,16 @@ import sinon from 'sinon'
 
 import {
   assertFetch,
-  EMPTY_LIST_RESPONSE,
   mockFetch,
   restoreFetch,
   TEST_APP_ID,
   TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js'
 
-const PLACEMENT_RESPONSE = {developer_id: 'default', id: TEST_RESOURCE_ID, title: 'Default'}
+const PLACEMENT_RESPONSE = {developer_id: 'default', id: TEST_RESOURCE_ID, is_active: true, title: 'Default'}
 const PAYWALL_ID = '770e8400-e29b-41d4-a716-446655440002'
 const SEGMENT_ID = '880e8400-e29b-41d4-a716-446655440003'
+const FLOW_ID = '990e8400-e29b-41d4-a716-446655440004'
 
 describe('placements', () => {
   let fetchStub: sinon.SinonStub
@@ -22,23 +22,27 @@ describe('placements', () => {
     delete process.env.ADAPTY_TOKEN
   })
 
-  it('list calls GET /apps/{app}/placements', async () => {
+  it('list calls GET /apps/{app}/placements and surfaces is_active', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
-    fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
-    await runCommand(`placements list --app ${TEST_APP_ID}`)
+    fetchStub = mockFetch([
+      {data: [{...PLACEMENT_RESPONSE, is_active: false}], meta: {pagination: {count: 1, page: 1, pages: 1}}},
+    ])
+    const {stdout} = await runCommand(`placements list --app ${TEST_APP_ID}`)
     assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/placements/`, stub: fetchStub})
+    if (!stdout.includes('Is Active: false')) throw new Error(`Expected "Is Active: false" in output, got: ${stdout}`)
   })
 
-  it('get calls GET /apps/{app}/placements/{id}', async () => {
+  it('get calls GET /apps/{app}/placements/{id} and surfaces is_active', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([
       {
         ...PLACEMENT_RESPONSE,
-        audiences: [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}],
+        audiences: [{content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}],
       },
     ])
-    await runCommand(`placements get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
+    const {stdout} = await runCommand(`placements get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`)
     assertFetch({callIndex: 0, method: 'GET', path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`, stub: fetchStub})
+    if (!stdout.includes('Is Active: true')) throw new Error(`Expected "Is Active: true" in output, got: ${stdout}`)
   })
 
   it('create with --paywall-id sends paywall_id directly', async () => {
@@ -63,8 +67,8 @@ describe('placements', () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
     const audiences = [
-      {paywall_id: PAYWALL_ID, priority: 0, segment_ids: [SEGMENT_ID]},
-      {paywall_id: PAYWALL_ID, priority: 1, segment_ids: []},
+      {content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: [SEGMENT_ID]},
+      {content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 1, segment_ids: []},
     ]
     await runCommand([
       'placements',
@@ -85,6 +89,78 @@ describe('placements', () => {
       path: `/apps/${TEST_APP_ID}/placements/`,
       stub: fetchStub,
     })
+  })
+
+  it('create with a flow audience sends content_type and flow_id', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([PLACEMENT_RESPONSE])
+    const audiences = [{content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: []}]
+    await runCommand([
+      'placements',
+      'create',
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    assertFetch({
+      body: {audiences, developer_id: 'default', paywall_id: null, title: 'Default'},
+      callIndex: 0,
+      method: 'POST',
+      path: `/apps/${TEST_APP_ID}/placements/`,
+      stub: fetchStub,
+    })
+  })
+
+  it('update with a flow audience sends content_type and flow_id', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([PLACEMENT_RESPONSE])
+    const audiences = [{content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: []}]
+    await runCommand([
+      'placements',
+      'update',
+      TEST_RESOURCE_ID,
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    assertFetch({
+      body: {audiences, developer_id: 'default', paywall_id: null, title: 'Default'},
+      callIndex: 0,
+      method: 'PUT',
+      path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
+      stub: fetchStub,
+    })
+  })
+
+  it('create rejects an audience entry without content_type and makes no HTTP call', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([PLACEMENT_RESPONSE])
+    const audiences = [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}]
+    const {error} = await runCommand([
+      'placements',
+      'create',
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    const exit = (error as undefined | {oclif?: {exit?: number}})?.oclif?.exit
+    if (exit !== 2) throw new Error(`Expected exit code 2, got ${exit}`)
+    if (fetchStub.callCount !== 0) throw new Error(`Expected no HTTP call, got ${fetchStub.callCount}`)
   })
 
   it('update with --paywall-id sends paywall_id directly', async () => {
@@ -108,7 +184,7 @@ describe('placements', () => {
   it('update with --audiences sends JSON verbatim', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([PLACEMENT_RESPONSE])
-    const audiences = [{paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}]
+    const audiences = [{content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: []}]
     await runCommand([
       'placements',
       'update',
