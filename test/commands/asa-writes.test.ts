@@ -448,13 +448,15 @@ describe('asa writes', () => {
     expect(body.by_days).to.deep.equal([7, 90])
 
     await runCommand(
-      'asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --by-days 90 --order-by gross_roas --order-by-day 90',
+      'asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 90 --order-by gross_roas --order-by-day 90',
     )
     const ranked = JSON.parse(fetchStub.getCall(1).args[1].body as string)
     expect(ranked).to.deep.include({order_by: 'gross_roas', order_by_day: 90})
 
     const byDays = Array.from({length: 17}, (_, index) => `--by-days ${index}`).join(' ')
-    const {error} = await runCommand(`asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 ${byDays}`)
+    const {error} = await runCommand(
+      `asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend ${byDays}`,
+    )
     expect(error?.message).to.contain('At most 16')
     expect(fetchStub.callCount).to.equal(2)
   })

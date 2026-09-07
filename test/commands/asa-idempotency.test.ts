@@ -75,7 +75,7 @@ describe('asa idempotency', () => {
 
   it('metrics posts carry a key too, so a network retry cannot double-submit', async () => {
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
-    await runCommand('asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31')
+    await runCommand('asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend')
     expect(keyOf(fetchStub, 0)).to.match(UUID_RE)
   })
 
