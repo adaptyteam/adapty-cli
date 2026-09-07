@@ -224,7 +224,10 @@ adapty asa automations run AUTOMATION_ID --dry-run
 ```
 
 `--cpt-bid-type` and `--match-type` have no defaults anywhere — a bid and a match type are the user's
-call, so ask rather than pick. Which flags apply follows `operate_with`: `--negate` /
+call, so ask rather than pick. `--cpt-bid` means different things per bid type: the bid itself with
+`set_to`, a percent markup on the entity's own bid with `search_term_current_cpt` /
+`keyword_current_bid` (omit it for a plain copy), and nothing at all with `ad_group_default_bid`.
+Which flags apply follows `operate_with`: `--negate` /
 `--no-negate` / `--skip-enable-duplicates` on a `search-term` rule, `--pause-original` on a
 `targeting-keyword` one, and the CLI exits 2 rather than sending a mismatch. Verify with
 `--dry-run` before letting it write to Apple; `asa automations get <id>` shows the stored `params`.

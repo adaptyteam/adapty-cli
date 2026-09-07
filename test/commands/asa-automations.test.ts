@@ -170,7 +170,7 @@ describe('asa automations add-as-keyword action flags', () => {
     expect(fetchStub.callCount).to.equal(0)
   })
 
-  it('create requires --cpt-bid with --cpt-bid-type set_to and rejects it with the other types', async () => {
+  it('create requires --cpt-bid with set_to and rejects it only with ad_group_default_bid', async () => {
     const path = await ruleFile(rule('search-term', {}))
     fetchStub = mockFetch([CREATED])
 
@@ -180,12 +180,39 @@ describe('asa automations add-as-keyword action flags', () => {
     expect(missing.error?.oclif?.exit).to.equal(2)
     expect(missing.error?.message).to.contain('--cpt-bid')
 
-    const extra = await runCommand(
-      `asa automations create --yes --file ${path} --target-ad-group ${AD_GROUP_A} --match-type EXACT --cpt-bid-type search_term_current_cpt --cpt-bid 1.20`,
+    const ignored = await runCommand(
+      `asa automations create --yes --file ${path} --target-ad-group ${AD_GROUP_A} --match-type EXACT --cpt-bid-type ad_group_default_bid --cpt-bid 1.20`,
     )
-    expect(extra.error?.oclif?.exit).to.equal(2)
-    expect(extra.error?.message).to.contain('set_to')
+    expect(ignored.error?.oclif?.exit).to.equal(2)
+    expect(ignored.error?.message).to.contain('ad_group_default_bid')
     expect(fetchStub.callCount).to.equal(0)
+  })
+
+  it('create sends --cpt-bid as the percent markup of a current-bid type', async () => {
+    const path = await ruleFile(rule('search-term', {}))
+    fetchStub = mockFetch([CREATED])
+
+    const {error} = await runCommand(
+      `asa automations create --yes --file ${path} --target-ad-group ${AD_GROUP_A} --match-type EXACT --cpt-bid-type search_term_current_cpt --cpt-bid 20`,
+    )
+
+    expect(error).to.equal(undefined)
+    expect(sentParams(fetchStub, 0).cpt_bid).to.deep.equal({type: 'search_term_current_cpt', value: 20})
+  })
+
+  it('update keeps the stored markup when the edit never mentions the bid', async () => {
+    const stored = rule('targeting-keyword', {
+      cpt_bid: {type: 'keyword_current_bid', value: 15},
+      match_type: 'EXACT',
+      pause_in_original_ad_group: false,
+      targets: {internal_ids: [AD_GROUP_A], type: 'ad-group'},
+    })
+    fetchStub = mockFetch([stored, CREATED])
+
+    const {error} = await runCommand(`asa automations update --yes ${TEST_RESOURCE_ID} --target-ad-group ${AD_GROUP_B}`)
+
+    expect(error).to.equal(undefined)
+    expect(sentParams(fetchStub, 1).cpt_bid).to.deep.equal({type: 'keyword_current_bid', value: 15})
   })
 
   it('create refuses a rule whose single action is not add-as-keyword-to and names the actual type', async () => {

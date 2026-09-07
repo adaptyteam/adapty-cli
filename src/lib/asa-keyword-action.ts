@@ -9,6 +9,9 @@ export const NEGATE_TYPES = ['ad-group', 'campaign']
 const SEARCH_TERM = 'search-term'
 const TARGETING_KEYWORD = 'targeting-keyword'
 
+const BID_TYPE_IGNORING_VALUE = 'ad_group_default_bid'
+const BID_TYPES_READING_MARKUP = new Set(['keyword_current_bid', 'search_term_current_cpt'])
+
 // KeywordMatchType also carries AUTO. --match-type never offers it — an automation creates a
 // keyword, and AUTO is not something a keyword can be — but a rule that already stores AUTO keeps
 // it rather than being pushed onto another match type by an edit that never mentioned match types.
@@ -101,6 +104,19 @@ function resolveNegate(flags: AddKeywordActionFlags, params: Record<string, unkn
   return storedNegate(params) ?? {enabled: false, type: null}
 }
 
+function resolveCptBidValue(
+  cptBidType: string | undefined,
+  bid: string | undefined,
+  params: Record<string, unknown>,
+): null | number | undefined {
+  if (cptBidType === 'set_to') return bid === undefined ? storedCptBidValue(params) : Number(bid)
+  if (cptBidType !== undefined && BID_TYPES_READING_MARKUP.has(cptBidType)) {
+    return bid === undefined ? (storedCptBidValue(params) ?? null) : Number(bid)
+  }
+
+  return null
+}
+
 function isSearchTermRule(operateWith: unknown): boolean {
   if (operateWith === SEARCH_TERM) return true
   if (operateWith === TARGETING_KEYWORD) return false
@@ -148,21 +164,19 @@ export function buildAddKeywordParams(
   if (cptBidType === undefined) missing.push('cpt-bid-type')
 
   const bid = flags['cpt-bid']
-  if (bid !== undefined && cptBidType !== undefined && cptBidType !== 'set_to') {
-    throw new Error(`--cpt-bid goes with --cpt-bid-type set_to only; ${cptBidType} reads the bid off the entity.`)
+  if (bid !== undefined && cptBidType === BID_TYPE_IGNORING_VALUE) {
+    throw new Error(
+      `--cpt-bid has no meaning with --cpt-bid-type ${BID_TYPE_IGNORING_VALUE}; that type copies the target ad group's default bid.`,
+    )
   }
 
-  let cptBidValue: null | number = null
-  if (cptBidType === 'set_to') {
-    const resolved = bid === undefined ? storedCptBidValue(params) : Number(bid)
-    if (resolved === undefined) missing.push('cpt-bid')
-    else cptBidValue = resolved
-  }
+  const cptBidValue = resolveCptBidValue(cptBidType, bid, params)
+  if (cptBidValue === undefined) missing.push('cpt-bid')
 
   if (missing.length > 0) throw missingFlagsError(missing)
 
   const built: Record<string, unknown> = {
-    cpt_bid: {type: cptBidType, value: cptBidValue},
+    cpt_bid: {type: cptBidType, value: cptBidValue ?? null},
     match_type: matchType,
     targets: {internal_ids: internalIds, type: 'ad-group'},
   }

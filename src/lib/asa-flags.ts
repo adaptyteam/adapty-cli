@@ -155,7 +155,12 @@ export const currencyFlag = {
 // operate_with: --negate/--no-negate/--skip-enable-duplicates are search-term only,
 // --pause-original is targeting-keyword only. See lib/asa-keyword-action.ts.
 export const addKeywordActionFlags = {
-  'cpt-bid': moneyFlag('Bid for the created keyword; goes with --cpt-bid-type set_to only'),
+  'cpt-bid': Flags.string({
+    description:
+      'cpt_bid.value: the bid itself with --cpt-bid-type set_to, or a percent markup on the entity bid with ' +
+      'search_term_current_cpt / keyword_current_bid; not accepted with ad_group_default_bid',
+    parse: parseMoney,
+  }),
   'cpt-bid-type': Flags.string({
     description: 'Where the bid of the created keyword comes from; the API has no default',
     options: CPT_BID_TYPES,

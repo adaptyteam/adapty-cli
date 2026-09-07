@@ -171,7 +171,7 @@ adapty asa automations run AUTOMATION_UUID --dry-run
 | `--target-ad-group` | `targets.internal_ids` | repeatable UUID; a rule with none does nothing |
 | `--match-type` | `match_type` | `BROAD`, `EXACT` |
 | `--cpt-bid-type` | `cpt_bid.type` | `ad_group_default_bid`, `set_to`, `search_term_current_cpt`, `keyword_current_bid` |
-| `--cpt-bid` | `cpt_bid.value` | required by `set_to`, rejected with every other type |
+| `--cpt-bid` | `cpt_bid.value` | the bid itself with `set_to` (required); a percent markup on the entity's own bid with `search_term_current_cpt` / `keyword_current_bid`; rejected with `ad_group_default_bid` |
 | `--negate` / `--no-negate` | `negate` | `ad-group`, `campaign`, or off — `search-term` rules only |
 | `--skip-enable-duplicates` | `skip_enable_duplicate_keywords` | `search-term` rules only |
 | `--pause-original` | `pause_in_original_ad_group` | `targeting-keyword` rules only |
