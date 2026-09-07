@@ -120,10 +120,71 @@ Invoicing Options. They map to `loc_invoice_details` in the request: advertiser 
 |---|---|---|
 | `asa automations list` | pagination only, no scope filters | `status` in the response is `1` for active, `0` for stopped. |
 | `asa automations get <id>` | positional UUID | Same `status` convention as `list`. |
-| `asa automations create` | `--file rule.json` (or `--file -` for stdin) | `--run-now` queues the rule's first run immediately after creation. |
-| `asa automations update <id>` | one or more of `--stop`, `--start`, `--name`, `--file` | If you pass `--file`, that file must not carry `internal_id` — the CLI treats a JSON body with `internal_id` in it as an error, since that field is server-assigned. |
+| `asa automations create` | `--file rule.json` (or `--file -` for stdin); for an `add-as-keyword-to` action also `--target-ad-group`, `--match-type`, `--cpt-bid-type`, `--cpt-bid`, `--negate` / `--no-negate`, `--skip-enable-duplicates`, `--pause-original` | `--run-now` queues the rule's first run immediately after creation. The file must carry exactly one action and exactly one condition — see [Rule files](#rule-files). |
+| `asa automations update <id>` | one or more of `--stop`, `--start`, `--name`, `--file`, or any action flag from `create` | If you pass `--file`, that file must not carry `internal_id` — the CLI treats a JSON body with `internal_id` in it as an error, since that field is server-assigned. An action flag makes this a read-modify-write: two calls, and the whole `actions` list is replaced — see [Rule files](#rule-files). |
 | `asa automations run <id>` | `--dry-run` optional | Queued; the command prints a run id. `--dry-run` evaluates the rule and logs what it would do without touching Apple. |
 | `asa automations runs <id>` | positional UUID | Past runs for this automation, dry runs included. |
+
+### Rule files
+
+A rule file is the whole rule. `name`, `status` (`1` active, `0` stopped), `operate_with`
+(what the rule iterates over: `search-term`, `targeting-keyword`, `campaign`, `ad-group`),
+`apply_to` (where it looks), exactly one `conditions` entry, exactly one `actions` entry
+and a `run_frequency`. Anything else is rejected.
+
+| Field | Shape |
+|---|---|
+| `apply_to[]` | `{"internal_id": UUID, "type": "campaign-group" \| "app" \| "campaign" \| "ad-group" \| "targeting-keywords"}` |
+| `conditions[0]` | a leaf `{"operator": "gte", "args": 10, "operand": {...}}`, or `{"operator": "and" \| "or", "args": [leaf, leaf]}` to combine |
+| `operator` | `eq`, `neq`, `gt`, `gte`, `lt`, `lte` on a leaf; `and`, `or` to nest |
+| `operand` | `{"field": metric, "field_type": "base_field", "date_range_type": ..., "date_range_size": 0, "date_range_offset": 0, "by_days": null}` — `field` is a metric name from the same vocabulary `asa metrics --metric` takes, `by_days` only for a cohort metric |
+| `date_range_type` | `today`, `yesterday`, `last_1_d`, `last_3_d`, `last_7_d`, `last_14_d`, `last_28_d`, `last_30_d`, `last_60_d`, `last_90_d`, `custom` |
+| `run_frequency` | `{"type": "daily", "hour": 8}`, `{"type": "hour", "value": 24, "start_time": 8}`, `{"type": "weekly", "weekdays": ["monday"], "hour": 8}`, `{"type": "monthly", "days": [1], "hour": 8}`, `{"type": "once", "date_time": "2026-10-01T09:00:00Z"}`; hours are UTC |
+
+**Never copy an action's `params` from another rule.** `params` is a union the API resolves
+by shape, with no discriminator: a key that belongs to a different action makes it pick that
+action's variant and silently drop everything else, and the call still answers `200`. An
+`add-as-keyword-to` action given the `add-as-negative-keyword` shape (`{"target_type": ...,
+"ids": [...]}`) becomes "Add as keyword to 0 ad groups" — the ad group is right there in
+`ids` and the rule does nothing. `targets` on this action holds `internal_ids`, never `ids`.
+
+Which `params` keys `add-as-keyword-to` takes depends on `operate_with`:
+
+| `operate_with` | `params` |
+|---|---|
+| `search-term` | `targets`, `cpt_bid`, `match_type`, `negate`, `skip_enable_duplicate_keywords` |
+| `targeting-keyword` | `targets`, `cpt_bid`, `match_type`, `pause_in_original_ad_group` |
+
+So don't write that block by hand — pass the action flags and let the CLI build it. They
+fill in or override `actions[0].params`, and the CLI exits `2` on the mistakes the API
+would have accepted: a flag that does not belong to the rule's `operate_with`, an action
+that is not `add-as-keyword-to`, or a rule left with no target ad groups.
+
+```sh
+adapty asa automations create --file rule.json --target-ad-group AD_GROUP_UUID \
+  --match-type EXACT --cpt-bid-type search_term_current_cpt --negate ad-group
+adapty asa automations run AUTOMATION_UUID --dry-run
+```
+
+| Flag | Lands in | Values |
+|---|---|---|
+| `--target-ad-group` | `targets.internal_ids` | repeatable UUID; a rule with none does nothing |
+| `--match-type` | `match_type` | `BROAD`, `EXACT` |
+| `--cpt-bid-type` | `cpt_bid.type` | `ad_group_default_bid`, `set_to`, `search_term_current_cpt`, `keyword_current_bid` |
+| `--cpt-bid` | `cpt_bid.value` | required by `set_to`, rejected with every other type |
+| `--negate` / `--no-negate` | `negate` | `ad-group`, `campaign`, or off — `search-term` rules only |
+| `--skip-enable-duplicates` | `skip_enable_duplicate_keywords` | `search-term` rules only |
+| `--pause-original` | `pause_in_original_ad_group` | `targeting-keyword` rules only |
+
+`--cpt-bid-type` and `--match-type` have no default in the CLI or in the API — a bid and a
+reach setting are the user's decision. When `params` are built from scratch the CLI asks for
+them instead of guessing, so get them from the user rather than picking one.
+
+On `update`, an action flag reads the rule, rebuilds `actions[0].params` and writes the whole
+`actions` list back, because the API replaces `actions` wholesale rather than merging it.
+That is also how a rule with the wrong `params` shape is repaired: the params are rebuilt
+from scratch, only the keys that fit the expected shape are kept, and whatever is missing has
+to come from a flag. A dashboard edit made between the read and the write is overwritten.
 
 ## Scope filters
 

@@ -199,11 +199,141 @@ adapty asa product-pages sync [--adam-id 123456]
 
 adapty asa automations list
 adapty asa automations get AUTOMATION_ID
-adapty asa automations create --file rule.json [--run-now]
-adapty asa automations update AUTOMATION_ID [--stop] [--start] [--name "..."] [--file rule.json]
+adapty asa automations create --file rule.json [--run-now] [--target-ad-group UUID ...]
+adapty asa automations update AUTOMATION_ID [--stop] [--start] [--name "..."] [--file rule.json] [--target-ad-group UUID ...]
 adapty asa automations run AUTOMATION_ID [--dry-run]
 adapty asa automations runs AUTOMATION_ID
 ```
+
+A rule file carries the whole rule: `name`, `status` (1 active, 0 stopped), `operate_with` (what the
+rule iterates over), `apply_to` (where it looks), exactly one condition, exactly one action and a
+`run_frequency`. The API stores one action and one condition per rule and rejects anything else.
+
+| Field           | Shape                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `operate_with`  | `search-term`, `targeting-keyword`, `campaign`, `ad-group`                                   |
+| `apply_to[]`    | `{"internal_id": UUID, "type": "campaign-group" \| "app" \| "campaign" \| "ad-group" \| "targeting-keywords"}` |
+| `conditions[0]` | `{"operator": ..., "args": number, "operand": {...}}`, or `{"operator": "and" \| "or", "args": [condition, ...]}` |
+| `operator`      | `eq`, `neq`, `gt`, `gte`, `lt`, `lte` for a leaf; `and`, `or` to nest                        |
+| `operand.field` | a metric name in dashboard nomenclature — the same vocabulary `asa metrics --metric` takes    |
+| `date_range_type` | `today`, `yesterday`, `last_1_d`, `last_3_d`, `last_7_d`, `last_14_d`, `last_28_d`, `last_30_d`, `last_60_d`, `last_90_d`, `custom` |
+| `run_frequency` | `{"type": "daily", "hour": 8}`, `{"type": "hour", "value": 24, "start_time": 8}`, `{"type": "weekly", "weekdays": ["monday"], "hour": 8}`, `{"type": "monthly", "days": [1], "hour": 8}`, `{"type": "once", "date_time": "2026-10-01T09:00:00Z"}` — `hour` and `start_time` are UTC |
+
+The `add-as-keyword-to` action promotes what the rule found into a keyword in one or more target ad
+groups. Its `params` differ by `operate_with`, and the API picks the variant by shape without a
+discriminator: a key that belongs to another variant makes it silently choose that variant and drop
+the rest, which is how a rule ends up as "Add as keyword to 0 ad groups". `negate` and
+`skip_enable_duplicate_keywords` exist only on a `search-term` rule, `pause_in_original_ad_group`
+only on a `targeting-keyword` one, and `targets` holds `internal_ids` — never `ids`.
+
+A full `search-term` rule — every term with 10+ taps over the last week becomes an exact keyword in
+the target ad group at the term's own CPT, and is negated in the ad group it came from:
+
+```json
+{
+  "name": "Search term harvester",
+  "status": 1,
+  "operate_with": "search-term",
+  "apply_to": [{"internal_id": "CAMPAIGN_UUID", "type": "campaign"}],
+  "conditions": [
+    {
+      "operator": "gte",
+      "args": 10,
+      "operand": {
+        "field": "taps",
+        "field_type": "base_field",
+        "date_range_type": "last_7_d",
+        "date_range_size": 0,
+        "date_range_offset": 0,
+        "by_days": null
+      }
+    }
+  ],
+  "actions": [
+    {
+      "type": "add-as-keyword-to",
+      "params": {
+        "targets": {"type": "ad-group", "internal_ids": ["AD_GROUP_UUID"]},
+        "cpt_bid": {"type": "search_term_current_cpt", "value": null},
+        "match_type": "EXACT",
+        "negate": {"enabled": true, "type": "ad-group"},
+        "skip_enable_duplicate_keywords": false
+      }
+    }
+  ],
+  "run_frequency": {"type": "daily", "hour": 8}
+}
+```
+
+The same action on a `targeting-keyword` rule — a broad keyword that has earned installs graduates
+into the exact ad group at its current bid and is paused where it was:
+
+```json
+{
+  "name": "Graduate broad keywords to exact",
+  "status": 1,
+  "operate_with": "targeting-keyword",
+  "apply_to": [{"internal_id": "SOURCE_AD_GROUP_UUID", "type": "ad-group"}],
+  "conditions": [
+    {
+      "operator": "gte",
+      "args": 3,
+      "operand": {
+        "field": "total_installs",
+        "field_type": "base_field",
+        "date_range_type": "last_14_d",
+        "date_range_size": 0,
+        "date_range_offset": 0,
+        "by_days": null
+      }
+    }
+  ],
+  "actions": [
+    {
+      "type": "add-as-keyword-to",
+      "params": {
+        "targets": {"type": "ad-group", "internal_ids": ["EXACT_AD_GROUP_UUID"]},
+        "cpt_bid": {"type": "keyword_current_bid", "value": null},
+        "match_type": "EXACT",
+        "pause_in_original_ad_group": true
+      }
+    }
+  ],
+  "run_frequency": {"type": "daily", "hour": 8}
+}
+```
+
+Rather than hand-writing that `params` block, pass the action flags — they fill in or override
+`actions[0].params` in the file, and the CLI refuses a rule the API would have quietly accepted and
+broken:
+
+```sh
+adapty asa automations create --file rule.json --target-ad-group AD_GROUP_UUID \
+  --match-type EXACT --cpt-bid-type search_term_current_cpt --negate ad-group
+adapty asa automations create --file rule.json --target-ad-group AD_GROUP_UUID \
+  --match-type BROAD --cpt-bid-type set_to --cpt-bid 1.50 --no-negate --skip-enable-duplicates
+adapty asa automations update AUTOMATION_ID --target-ad-group AD_GROUP_UUID \
+  --match-type EXACT --cpt-bid-type search_term_current_cpt
+```
+
+| Flag                       | Where it lands                                                        |
+| -------------------------- | --------------------------------------------------------------------- |
+| `--target-ad-group`        | `targets.internal_ids`, repeatable; a rule without one does nothing    |
+| `--match-type`             | `match_type`: `BROAD` or `EXACT`                                      |
+| `--cpt-bid-type`           | `cpt_bid.type`: `ad_group_default_bid`, `set_to`, `search_term_current_cpt`, `keyword_current_bid` |
+| `--cpt-bid`                | `cpt_bid.value`; required by `set_to`, rejected with the other types  |
+| `--negate` / `--no-negate` | `negate` (search-term rules): `ad-group` or `campaign`, or off        |
+| `--skip-enable-duplicates` | `skip_enable_duplicate_keywords` (search-term rules)                  |
+| `--pause-original`         | `pause_in_original_ad_group` (targeting-keyword rules)                |
+
+`--cpt-bid-type` and `--match-type` have no defaults, here or in the API: a bid and a match type are
+a spend decision and a reach decision, so when `params` are built from scratch the CLI asks for them
+instead of guessing. On `update`, an action flag turns the call into a read-modify-write — the rule
+is read, `actions[0].params` is rebuilt and the whole `actions` list is written back, since the API
+replaces it wholesale. That also repairs a rule whose stored `params` carry the wrong shape: only
+the keys that fit are kept, the strays are dropped, and anything missing has to come from a flag. A
+dashboard edit made between the read and the write is overwritten.
+
 
 Metrics take an entity level, a period and an optional metric selection. Rows come back one per entity,
 aggregated and sorted server-side, so a top-N or a breakdown is a single call — use `--order-by` with a small

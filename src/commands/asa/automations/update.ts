@@ -1,11 +1,17 @@
 import {Args, Command, Flags} from '@oclif/core'
 import {readFile} from 'node:fs/promises'
 
-import type {AsaAutomationMutationDTO} from '../../../lib/asa-schemas.js'
+import type {ApiClient} from '../../../lib/api-client.js'
+import type {AsaAutomationDTO, AsaAutomationMutationDTO} from '../../../lib/asa-schemas.js'
 
 import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
 import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
-import {idempotencyFlags} from '../../../lib/asa-flags.js'
+import {addKeywordActionFlags, idempotencyFlags} from '../../../lib/asa-flags.js'
+import {
+  type AddKeywordActionFlags,
+  hasAddKeywordActionFlags,
+  rebuildAddKeywordAction,
+} from '../../../lib/asa-keyword-action.js'
 import {isValidUuid} from '../../../lib/flags.js'
 import {printResponse} from '../../../lib/output.js'
 
@@ -13,13 +19,16 @@ export default class AsaAutomationsUpdate extends Command {
   static args = {
     automation_id: Args.string({description: 'Automation rule ID (UUID)', required: true}),
   }
-  static description = 'Change an automation rule: stop it, rename it, or replace parts of the rule'
+  static description =
+    'Change an automation rule: stop it, rename it, or replace parts of the rule. An add-as-keyword action flag turns the call into a read-modify-write: the rule is read, actions[0].params is rebuilt from the flags and the whole actions list is written back — an edit someone makes in the dashboard in between is overwritten. This is also the way to repair a rule whose stored params carry the wrong shape.'
   static enableJsonFlag = true
   static examples = [
     '<%= config.bin %> asa automations update UUID --stop',
     '<%= config.bin %> asa automations update UUID --file rule.json',
+    '<%= config.bin %> asa automations update UUID --target-ad-group AD_GROUP_ID --match-type EXACT --cpt-bid-type search_term_current_cpt',
   ]
   static flags = {
+    ...addKeywordActionFlags,
     ...confirmFlags,
     ...idempotencyFlags,
     file: Flags.string({description: 'JSON file with the parts to change, or - to read stdin'}),
@@ -37,13 +46,17 @@ export default class AsaAutomationsUpdate extends Command {
     if (flags.start) body.status = 1
     if (flags.stop) body.status = 0
 
-    if (Object.keys(body).length === 0) {
-      this.error('Nothing to change. Pass --stop, --start, --name or --file.', {exit: 2})
+    const actionFlags = hasAddKeywordActionFlags(flags)
+    if (Object.keys(body).length === 0 && !actionFlags) {
+      this.error('Nothing to change. Pass --stop, --start, --name, --file or an action flag.', {exit: 2})
     }
 
     if ('internal_id' in body) {
       this.error('Remove internal_id from the file: the rule ID comes from the command line.', {exit: 2})
     }
+
+    const client = await createAsaClient(this.config)
+    if (actionFlags) await this.rebuildAction(client, args.automation_id, body, flags)
 
     await confirmMutation(
       this,
@@ -51,7 +64,6 @@ export default class AsaAutomationsUpdate extends Command {
       flags.yes,
     )
 
-    const client = await createAsaClient(this.config)
     const {replayed, result} = await asaWrite<AsaAutomationMutationDTO>(
       client,
       'put',
@@ -85,5 +97,20 @@ export default class AsaAutomationsUpdate extends Command {
     const chunks: Buffer[] = []
     for await (const chunk of process.stdin) chunks.push(chunk as Buffer)
     return Buffer.concat(chunks).toString('utf8')
+  }
+
+  // Read-modify-write: the API replaces `actions` wholesale, so the whole list has to be sent back.
+  private async rebuildAction(
+    client: ApiClient,
+    automationId: string,
+    body: Record<string, unknown>,
+    flags: AddKeywordActionFlags,
+  ): Promise<void> {
+    const rule = await client.get<AsaAutomationDTO>(`/automations/${automationId}`)
+    try {
+      body.actions = rebuildAddKeywordAction(body.actions ?? rule.actions, body.operate_with ?? rule.operate_with, flags)
+    } catch (error) {
+      this.error(error instanceof Error ? error.message : String(error), {exit: 2})
+    }
   }
 }

@@ -187,6 +187,58 @@ Read `serving_status` / `serving_state_reasons` in the response: the command pri
 for the reasons above. For an existing LOC campaign, `asa campaigns update <id> --invoice-*...` sets the
 Invoicing Options.
 
+**"Automate it — harvest converting search terms into keywords"** — a rule, not a loop of writes.
+Never copy the `params` of a neighbouring rule: `params` is a union the API resolves by shape with no
+discriminator, so a key belonging to another action makes it choose that action and silently drop the
+rest — that is how a rule ends up as "Add as keyword (EXACT) to 0 ad groups". Build the file for the
+rule itself and let the flags write `params`:
+
+```sh
+cat > rule.json <<'JSON'
+{
+  "name": "Search term harvester",
+  "status": 1,
+  "operate_with": "search-term",
+  "apply_to": [{"internal_id": "CAMPAIGN_UUID", "type": "campaign"}],
+  "conditions": [
+    {
+      "operator": "gte",
+      "args": 10,
+      "operand": {
+        "field": "taps",
+        "field_type": "base_field",
+        "date_range_type": "last_7_d",
+        "date_range_size": 0,
+        "date_range_offset": 0,
+        "by_days": null
+      }
+    }
+  ],
+  "actions": [{"type": "add-as-keyword-to", "params": {}}],
+  "run_frequency": {"type": "daily", "hour": 8}
+}
+JSON
+adapty asa automations create --file rule.json --target-ad-group AD_GROUP_UUID \
+  --match-type EXACT --cpt-bid-type search_term_current_cpt --negate ad-group
+adapty asa automations run AUTOMATION_ID --dry-run
+```
+
+`--cpt-bid-type` and `--match-type` have no defaults anywhere — a bid and a match type are the user's
+call, so ask rather than pick. Which flags apply follows `operate_with`: `--negate` /
+`--no-negate` / `--skip-enable-duplicates` on a `search-term` rule, `--pause-original` on a
+`targeting-keyword` one, and the CLI exits 2 rather than sending a mismatch. Verify with
+`--dry-run` before letting it write to Apple; `asa automations get <id>` shows the stored `params`.
+
+**"Fix a rule that adds keywords to 0 ad groups"** — read-modify-write on the same flags; the rule's
+`params` are rebuilt from scratch, so the stray keys of the wrong shape are dropped instead of
+patched over. Whatever the broken `params` did not supply has to come from a flag:
+
+```sh
+adapty asa automations get AUTOMATION_ID --json
+adapty asa automations update AUTOMATION_ID --target-ad-group AD_GROUP_UUID \
+  --match-type EXACT --cpt-bid-type search_term_current_cpt
+```
+
 ## What the failed sessions did wrong (do not repeat)
 
 - Looped `--page 1..4` to build an account total → burned the 5/min budget, hit 429s, gave up.
@@ -196,3 +248,8 @@ Invoicing Options.
 - Added an unrequested previous-period comparison → doubled the calls; the user only asked for now.
 - Retried with a guessed `sleep 25` instead of the `Retry-After` value → wasted the retry inside the
   same window and struck the cool-down counter again.
+- Copied an `add-as-keyword-to` action's `params` off a neighbouring `add-as-negative-keyword` rule →
+  43 rules created that add keywords to 0 ad groups. The API answered 200 every time: it matched the
+  foreign shape, kept `targets.ids`, and dropped `cpt_bid`, `match_type`, `negate` and
+  `skip_enable_duplicate_keywords`. Right: `params` come from the action flags, never from another
+  rule of a different action type.
