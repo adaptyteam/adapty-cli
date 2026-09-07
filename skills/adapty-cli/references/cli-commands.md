@@ -184,8 +184,8 @@ every `asa` command answers `402 ads_manager_subscription_required`. Start with 
 | `asa creatives list`                 | the Apple `creative_id` an ad is created against; filter by `--app`         |
 | `asa product-pages sync`             | `--adam-id` optional; queued, 200 means already running or nothing to sync  |
 | `asa automations list` / `get <id>`  | `status` is 1 for active, 0 for stopped                                     |
-| `asa automations create`             | `--file rule.json` (or `-` for stdin); `--run-now` queues the first run      |
-| `asa automations update <id>`        | `--stop` / `--start` / `--name` / `--file`; the file must not carry `internal_id` |
+| `asa automations create`             | `--file rule.json` (or `-` for stdin), which must carry exactly one action and one condition; `--run-now` queues the first run; for an `add-as-keyword-to` action the params come from `--target-ad-group` (repeatable UUID), `--match-type`, `--cpt-bid-type`, `--cpt-bid`, `--negate` / `--no-negate`, `--skip-enable-duplicates` (search-term rules), `--pause-original` (targeting-keyword rules) — see README for the rule.json schema |
+| `asa automations update <id>`        | `--stop` / `--start` / `--name` / `--file`; the file must not carry `internal_id`; the same action flags as `create` — passing one reads the rule, rebuilds `actions[0].params` and writes the whole `actions` list back (two calls, overwrites a concurrent dashboard edit), which is also how a rule with the wrong `params` shape is repaired |
 | `asa automations run <id>`           | queued, prints a run ID; `--dry-run` evaluates without touching Apple        |
 | `asa automations runs <id>`          | past runs, including dry runs                                               |
 | `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day`; one server-sorted row per entity — top-N is one call |
