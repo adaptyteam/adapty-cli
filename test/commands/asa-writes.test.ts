@@ -383,7 +383,16 @@ describe('asa writes', () => {
   it('automations create reads the rule from a file and can request the first run', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'asa-cli-'))
     const path = join(dir, 'rule.json')
-    await writeFile(path, JSON.stringify({conditions: [], name: 'pause expensive', operate_with: 'targeting-keyword', status: 1}))
+    await writeFile(
+      path,
+      JSON.stringify({
+        actions: [{params: {mode: 'value', type: 'increase_by', value: 10}, type: 'change-bid'}],
+        conditions: [],
+        name: 'pause expensive',
+        operate_with: 'targeting-keyword',
+        status: 1,
+      }),
+    )
     fetchStub = mockFetch([{automation: {id: TEST_RESOURCE_ID, name: 'pause expensive'}}])
     await runCommand(`asa automations create --yes --file ${path} --run-now`)
     const body = JSON.parse(fetchStub.getCall(0).args[1].body as string)

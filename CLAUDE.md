@@ -42,8 +42,10 @@ src/
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
     app-url.ts       # dashboard base URL (ADAPTY_APP_URL): route building + rehosting API-issued links
     asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')
-    asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps
+    asa-flags.ts     # shared asa flags: scope filters, period, money, batch caps, add-as-keyword action
     asa-confirm.ts   # mutation preview + confirmation prompt (--yes; refuses when piped or --json)
+    asa-keyword-action.ts  # add-as-keyword-to params: rebuild from flags per operate_with, reject
+                     # the shapes the API would silently mis-resolve
     asa-schemas.ts   # response typings for asa entities
     preview.ts       # flow config normalization + render URL / gzip fragment building
 ```

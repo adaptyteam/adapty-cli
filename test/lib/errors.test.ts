@@ -76,7 +76,7 @@ describe('parseApiError', () => {
       'asa',
     )
     expect(error.errorCode).to.equal('first')
-    expect(error.detail).to.equal('too low; too long')
+    expect(error.detail).to.equal('bid_amount: too low; text: too long')
     expect(error.fieldErrors).to.deep.equal({bid_amount: ['too low'], text: ['too long']})
   })
 
