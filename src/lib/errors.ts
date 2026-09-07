@@ -29,7 +29,8 @@ export function describeListedError(error: ListedError): {code: string | undefin
   const code = error.error_code ?? error.apple_error_code ?? error.validation_error_code ?? undefined
   const reason = error.message ?? error.apple_error_message ?? error.validation_error_message ?? code ?? 'rejected'
   const position = error.input_ref === null || error.input_ref === undefined ? '' : ` (item ${error.input_ref + 1})`
-  return {code, text: `${reason}${position}`}
+  const field = error.field_name ? `${error.field_name}: ` : ''
+  return {code, text: `${field}${reason}${position}`}
 }
 
 export class ApiError extends Error {
