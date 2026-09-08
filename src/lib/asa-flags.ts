@@ -3,6 +3,7 @@ import {Flags} from '@oclif/core'
 import type {QueryParams} from './api-client.js'
 import type {AsaLocInvoiceDetails, AsaMoney, AsaMutationError} from './asa-schemas.js'
 
+import {CPT_BID_TYPES, KEYWORD_MATCH_TYPES, NEGATE_TYPES} from './asa-keyword-action.js'
 import {describeListedError} from './errors.js'
 import {isValidUuid} from './flags.js'
 
@@ -80,6 +81,20 @@ export const adScopeFlags = {
   ...searchFilter,
 }
 
+export const metricsScopeFlags = {
+  'ad-group': idFilter('ad group'),
+  app: idFilter('app'),
+  campaign: idFilter('campaign'),
+}
+
+export function metricsScopeBody(flags: {'ad-group'?: string[]; app?: string[]; campaign?: string[]}) {
+  return {
+    ...(flags['ad-group'] === undefined ? {} : {ad_group_id: flags['ad-group']}),
+    ...(flags.app === undefined ? {} : {app_id: flags.app}),
+    ...(flags.campaign === undefined ? {} : {campaign_id: flags.campaign}),
+  }
+}
+
 export const statusFilter = (options: string[]) => ({
   status: Flags.string({description: 'Keep only rows in this state', options}),
 })
@@ -147,6 +162,49 @@ export function moneyFlag(description: string, opts: {required?: boolean} = {}) 
 
 export const currencyFlag = {
   currency: Flags.string({default: 'USD', description: 'Currency code for the amounts in this call'}),
+}
+
+// Params of the add-as-keyword-to action, shared by `automations create` and `automations update`.
+// The API picks the params variant by shape, so which of these apply depends on the rule's
+// operate_with: --negate/--no-negate/--skip-enable-duplicates are search-term only,
+// --pause-original is targeting-keyword only. See lib/asa-keyword-action.ts.
+export const addKeywordActionFlags = {
+  'cpt-bid': Flags.string({
+    description:
+      'cpt_bid.value: the bid itself with --cpt-bid-type set_to, or a percent markup on the entity bid with ' +
+      'search_term_current_cpt / keyword_current_bid; not accepted with ad_group_default_bid',
+    parse: parseMoney,
+  }),
+  'cpt-bid-type': Flags.string({
+    description: 'Where the bid of the created keyword comes from; the API has no default',
+    options: CPT_BID_TYPES,
+  }),
+  'match-type': Flags.string({
+    description: 'Match type of the created keyword; the API has no default',
+    options: KEYWORD_MATCH_TYPES,
+  }),
+  negate: Flags.string({
+    description: 'Also add the search term as a negative keyword at this level (search-term rules)',
+    exclusive: ['no-negate'],
+    options: NEGATE_TYPES,
+  }),
+  'no-negate': Flags.boolean({
+    description: 'Leave no negative keyword behind (search-term rules)',
+    exclusive: ['negate'],
+  }),
+  'pause-original': Flags.boolean({
+    allowNo: true,
+    description: 'Pause the source keyword in its own ad group (targeting-keyword rules)',
+  }),
+  'skip-enable-duplicates': Flags.boolean({
+    allowNo: true,
+    description: 'Skip a keyword that already exists in the target ad group instead of enabling it (search-term rules)',
+  }),
+  'target-ad-group': Flags.string({
+    description: 'Ad group the keyword is added to (UUID), repeatable; a rule without one does nothing',
+    multiple: true,
+    parse: parseId,
+  }),
 }
 
 export const idempotencyFlags = {

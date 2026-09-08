@@ -383,7 +383,16 @@ describe('asa writes', () => {
   it('automations create reads the rule from a file and can request the first run', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'asa-cli-'))
     const path = join(dir, 'rule.json')
-    await writeFile(path, JSON.stringify({conditions: [], name: 'pause expensive', operate_with: 'targeting-keyword', status: 1}))
+    await writeFile(
+      path,
+      JSON.stringify({
+        actions: [{params: {mode: 'value', type: 'increase_by', value: 10}, type: 'change-bid'}],
+        conditions: [],
+        name: 'pause expensive',
+        operate_with: 'targeting-keyword',
+        status: 1,
+      }),
+    )
     fetchStub = mockFetch([{automation: {id: TEST_RESOURCE_ID, name: 'pause expensive'}}])
     await runCommand(`asa automations create --yes --file ${path} --run-now`)
     const body = JSON.parse(fetchStub.getCall(0).args[1].body as string)
@@ -448,13 +457,15 @@ describe('asa writes', () => {
     expect(body.by_days).to.deep.equal([7, 90])
 
     await runCommand(
-      'asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --by-days 90 --order-by gross_roas --order-by-day 90',
+      'asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 90 --order-by gross_roas --order-by-day 90',
     )
     const ranked = JSON.parse(fetchStub.getCall(1).args[1].body as string)
     expect(ranked).to.deep.include({order_by: 'gross_roas', order_by_day: 90})
 
     const byDays = Array.from({length: 17}, (_, index) => `--by-days ${index}`).join(' ')
-    const {error} = await runCommand(`asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 ${byDays}`)
+    const {error} = await runCommand(
+      `asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend ${byDays}`,
+    )
     expect(error?.message).to.contain('At most 16')
     expect(fetchStub.callCount).to.equal(2)
   })
