@@ -72,8 +72,11 @@ session and pace against those instead of against this table.
 
 Every refusal is a `429` with the exact wait in `Retry-After`; `cli_analytics_busy` means another
 analytics query is still running (wait ~5s), `cli_rate_limit_exceeded` means the window is full,
-`cli_cooldown_active` means stop entirely and tell the user when to retry. The CLI already waits out
-and retries the first 429 of a command on its own — a surfaced 429 means the second attempt failed too.
+`cli_cooldown_active` means stop entirely and tell the user when to retry. A `503
+cli_upstream_unavailable` is not the caller's doing at all — the Adapty API that identifies the company
+is down, nothing ran, and no cool-down strike is recorded; report the dependency, not the command. The
+CLI already waits out and retries the first 429 or 503 of a command on its own — a surfaced one means
+the second attempt failed too.
 `cli_response_too_large` is the exception: a 422 (a `metrics` page over the company's
 `max_breakdown_rows_per_page`, which `whoami` reports) with no `Retry-After` and no cool-down strike —
 waiting fixes nothing, change the request instead; the error names the exact `page[size]` that fits for

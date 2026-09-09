@@ -179,6 +179,12 @@ Three 429 codes, not one:
 - `cli_rate_limit_exceeded` — the per-minute window for that pair is full.
 - `cli_cooldown_active` — stop entirely; tell the user when to retry.
 
+A fourth refusal is a 503, not a 429: `cli_upstream_unavailable` means the Adapty API that
+identifies the company is temporarily unreachable. Nothing ran, the token is fine, and no
+cool-down strike is recorded. It carries a `Retry-After` and the CLI waits it out once, the
+same as a 429 — so if it reaches you, the outage outlasted the retry. Say the dependency is
+down rather than blaming the command.
+
 One refusal is a 422, not a 429: `cli_response_too_large` — a `metrics` page would exceed
 the company's `max_breakdown_rows_per_page` (see [Date window caps](#date-window-caps)). It
 carries no `Retry-After` and doesn't count toward the cool-down; retrying is pointless —

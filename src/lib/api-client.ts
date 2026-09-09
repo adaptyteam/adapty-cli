@@ -2,6 +2,8 @@ import {ApiError, type ApiErrorFormat, type ApiErrorOptions, NetworkError, parse
 
 const DEFAULT_API_URL = 'https://api-admin.adapty.io/api/v1/developer'
 const MAX_RETRY_AFTER_SECONDS = 60
+// 429 is the caller going too fast; 503 is a dependency being down. Both name a wait and clear up on their own.
+const RETRYABLE_STATUSES = new Set([429, 503])
 
 function ensureTrailingSlash(path: string): string {
   return path.endsWith('/') ? path : `${path}/`
@@ -26,10 +28,10 @@ export interface ApiClientOptions {
 
 interface RetryState {
   network: boolean
-  rateLimit: boolean
+  refused: boolean
 }
 
-const NO_RETRIES: RetryState = {network: false, rateLimit: false}
+const NO_RETRIES: RetryState = {network: false, refused: false}
 
 export class ApiClient {
   private baseUrl: string
@@ -109,10 +111,10 @@ export class ApiClient {
     return search.size === 0 ? url : `${url}?${search.toString()}`
   }
 
-  private isRetryableRateLimit(error: ApiError): boolean {
+  private isRetryableRefusal(error: ApiError): boolean {
     return (
       this.errorFormat === 'asa' &&
-      error.statusCode === 429 &&
+      RETRYABLE_STATUSES.has(error.statusCode) &&
       error.errorCode !== 'cli_cooldown_active' &&
       error.retryAfterSeconds !== undefined &&
       error.retryAfterSeconds <= MAX_RETRY_AFTER_SECONDS
@@ -171,18 +173,19 @@ export class ApiClient {
         error.message = 'Token expired or invalid. Run `adapty auth login`.'
       }
 
-      if (!retried.rateLimit && this.isRetryableRateLimit(error)) {
+      if (!retried.refused && this.isRetryableRefusal(error)) {
         const seconds = error.retryAfterSeconds ?? 0
         if (!this.quiet) {
+          const reason = error.statusCode === 429 ? 'Rate limited' : 'Temporarily unavailable'
           process.stderr.write(
-            `Rate limited (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`,
+            `${reason} (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`,
           )
         }
 
         await new Promise((resolve) => {
           setTimeout(resolve, seconds * 1000)
         })
-        return this.request<T>(url, init, opts, {...retried, rateLimit: true})
+        return this.request<T>(url, init, opts, {...retried, refused: true})
       }
 
       throw error
