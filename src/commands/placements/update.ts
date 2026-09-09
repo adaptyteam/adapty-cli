@@ -4,7 +4,9 @@ import type {PlacementAudienceEntryDTO, PlacementDetailDTO, PlacementWriteReques
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
+import {draftFlowError} from '../../lib/flow-help.js'
 import {printResponse} from '../../lib/output.js'
+import {audienceEntryProblem} from '../../lib/placement-audiences.js'
 
 export default class PlacementsUpdate extends Command {
   static args = {
@@ -13,13 +15,18 @@ export default class PlacementsUpdate extends Command {
 static description = 'Update a placement'
 static enableJsonFlag = true
 static examples = [
-    '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"segment_ids":[],"paywall_id":"PAYWALL_UUID","priority":0}]\'',
+    '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"content_type":"paywall","segment_ids":[],"paywall_id":"PAYWALL_UUID","priority":0}]\'',
+    '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"content_type":"flow","segment_ids":[],"flow_id":"FLOW_UUID","priority":0}]\'',
     '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --paywall-id PAYWALL_UUID',
   ]
 static flags = {
     ...appFlag,
     audiences: Flags.string({
-      description: 'JSON array of audience entries: [{segment_ids, paywall_id, priority}]',
+      description:
+        'JSON array of audience entries. Every entry needs an explicit content_type. ' +
+        'Paywall: {content_type:"paywall", segment_ids, paywall_id, priority}. ' +
+        'Flow: {content_type:"flow", segment_ids, flow_id, priority}. ' +
+        'A flow must be published first (flows publish) — attaching a draft flow returns 400.',
       exactlyOne: ['paywall-id', 'audiences'],
     }),
     'developer-id': Flags.string({description: 'Developer ID for the placement', required: true}),
@@ -56,15 +63,34 @@ static flags = {
       )
       body.paywall_id = flags['paywall-id']
     } else {
+      let parsed: unknown
       try {
-        body.audiences = JSON.parse(flags.audiences!) as PlacementAudienceEntryDTO[]
+        parsed = JSON.parse(flags.audiences!)
       } catch (error) {
         this.error(`Invalid --audiences JSON: ${error instanceof Error ? error.message : String(error)}`, {exit: 2})
       }
+
+      if (!Array.isArray(parsed)) {
+        this.error('--audiences must be a JSON array of audience entries.', {exit: 2})
+      }
+
+      for (const [index, entry] of parsed.entries()) {
+        const problem = audienceEntryProblem(entry)
+        if (problem) this.error(`--audiences[${index}]: ${problem}`, {exit: 2})
+      }
+
+      body.audiences = parsed as PlacementAudienceEntryDTO[]
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.put<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`, body)
+    let result: PlacementDetailDTO
+    try {
+      result = await client.put<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`, body)
+    } catch (error) {
+      const message = draftFlowError(error, flags.app, body.audiences)
+      if (message) this.error(message, {exit: 2})
+      throw error
+    }
 
     this.log('Placement updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))

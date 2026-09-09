@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -143,7 +143,8 @@
     "prepack": "oclif manifest && oclif readme",
     "prepublishOnly": "pnpm build && oclif manifest",
     "test": "mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "oclif readme && git add README.md"
+    "version": "oclif readme && git add README.md",
+    "publish:beta": "npm publish --tag beta"
   },
   "types": "dist/index.d.ts"
 }

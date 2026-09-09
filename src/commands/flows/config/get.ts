@@ -10,7 +10,9 @@ export default class FlowsConfigGet extends Command {
   static args = {
     flow_id: Args.string({description: 'Flow ID (UUID)', required: true}),
   }
-static description = 'Read the flow builder config (404 until the config has been written at least once)'
+static description =
+    'Read the flow builder config (404 until the config has been written at least once). ' +
+    'On a failed publish, `publication_status`, `transform_error` and `publication_error` show why.'
 static enableJsonFlag = true
 static examples = ['<%= config.bin %> flows config get --app UUID 550e8400-e29b-41d4-a716-446655440000']
 static flags = {
