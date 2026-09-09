@@ -18,7 +18,7 @@ export default class AsaCampaignsGet extends Command {
     const {args} = await this.parse(AsaCampaignsGet)
     if (!isValidUuid(args.campaign_id)) this.error('Invalid campaign ID format.', {exit: 2})
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<AsaCampaignDTO>(`/campaigns/${args.campaign_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))

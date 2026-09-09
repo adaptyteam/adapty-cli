@@ -18,7 +18,7 @@ export default class AsaCreativesList extends Command {
 
   async run(): Promise<PaginatedResponse<AsaCreativeDTO>> {
     const {flags} = await this.parse(AsaCreativesList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaCreativeDTO>>('/creatives', {
       ...paginationParams(flags),
       ...scopeParams(flags),

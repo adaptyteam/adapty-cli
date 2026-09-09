@@ -77,7 +77,7 @@ export default class AsaCampaignsUpdate extends Command {
       flags.yes,
     )
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const {replayed, result} = await asaWrite<AsaCampaignMutationDTO>(client, 'put', `/campaigns/${args.campaign_id}`, {
       body,
       idempotencyKey: flags['idempotency-key'],

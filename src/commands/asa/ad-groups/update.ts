@@ -53,7 +53,7 @@ export default class AsaAdGroupsUpdate extends Command {
       flags.yes,
     )
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const {replayed, result} = await asaWrite<AsaAdGroupMutationDTO>(client, 'put', `/ad-groups/${args.ad_group_id}`, {
       body,
       idempotencyKey: flags['idempotency-key'],

@@ -15,7 +15,7 @@ export default class AsaAppsList extends Command {
 
   async run(): Promise<PaginatedResponse<AsaAppDTO>> {
     const {flags} = await this.parse(AsaAppsList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaAppDTO>>('/apps', paginationParams(flags))
 
     printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta.pagination)

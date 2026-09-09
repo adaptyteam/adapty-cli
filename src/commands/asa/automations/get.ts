@@ -18,7 +18,7 @@ export default class AsaAutomationsGet extends Command {
     const {args} = await this.parse(AsaAutomationsGet)
     if (!isValidUuid(args.automation_id)) this.error('Invalid automation ID format.', {exit: 2})
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<AsaAutomationDTO>(`/automations/${args.automation_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))

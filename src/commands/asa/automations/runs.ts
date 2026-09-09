@@ -21,7 +21,7 @@ export default class AsaAutomationsRuns extends Command {
     const {args, flags} = await this.parse(AsaAutomationsRuns)
     if (!isValidUuid(args.automation_id)) this.error('Invalid automation ID format.', {exit: 2})
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaAutomationRunDTO>>(
       `/automations/${args.automation_id}/runs`,
       paginationParams(flags),

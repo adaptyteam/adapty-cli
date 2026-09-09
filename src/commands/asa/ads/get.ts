@@ -18,7 +18,7 @@ export default class AsaAdsGet extends Command {
     const {args} = await this.parse(AsaAdsGet)
     if (!isValidUuid(args.ad_id)) this.error('Invalid ad ID format.', {exit: 2})
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<AsaAdDTO>(`/ads/${args.ad_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))

@@ -18,7 +18,7 @@ export default class AsaSearchTermsList extends Command {
 
   async run(): Promise<PaginatedResponse<AsaSearchTermDTO>> {
     const {flags} = await this.parse(AsaSearchTermsList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaSearchTermDTO>>('/search-terms', {
       ...paginationParams(flags),
       ...periodParams(flags),

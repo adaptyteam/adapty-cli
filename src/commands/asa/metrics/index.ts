@@ -1,5 +1,7 @@
 import {Command, Flags} from '@oclif/core'
 
+import type {AsaMetricsResponse} from '../../../lib/asa-schemas.js'
+
 import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
 import {
   ASA_GROUP_BY_DIMENSIONS,
@@ -10,7 +12,7 @@ import {
   metricsScopeBody,
   metricsScopeFlags,
 } from '../../../lib/asa-flags.js'
-import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
+import {paginationParams} from '../../../lib/flags.js'
 import {printList} from '../../../lib/output.js'
 
 export default class AsaMetrics extends Command {
@@ -20,10 +22,16 @@ One row per entity, already aggregated server-side and sorted by --order-by, so 
 call with --order-by and --page-size N — never sum pages yourself. Account-level totals are one call to
 asa metrics overview instead. The date window is capped by the finest --group-by period: 28 days when
 day is grouped, 90 with no period grouping, 180 by week, 365 by month and coarser — widen the window by
-coarsening the grouping, not by splitting into more calls. Each page is also capped at 5000 breakdown
-rows (entities × countries × periods); over it the call fails with 422 cli_response_too_large — coarsen
-the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls per minute, at most
-2 per 10 seconds, one at a time.
+coarsening the grouping, not by splitting into more calls. Each page is also capped at a breakdown-row
+count (entities × countries × periods); over it the call fails with 422 cli_response_too_large naming the
+page[size] that fits — coarsen the grouping, narrow the window, or reduce page[size].
+
+Money columns are in the campaign group currency, not USD, and spend and local_spend carry the same
+figure; the currency itself comes from asa orgs list. Rate budgets and the breakdown-row cap are set per
+company: read the current ones with asa whoami rather than assuming a default. meta.pagination.count is the full entity count behind the filters, so take
+inventory from there instead of counting the rows on a page. meta.max_valid_day says how many days the
+youngest cohort in the window has lived — any --by-days window above it repeats the last real figure
+because that time has not passed yet, so treat those as unreached rather than as a plateau.
 
 --metric is required and every metric named is computed over the whole entity set, so ask for the
 columns you actually read. subscribers and paid_subscribers (and arppu / arpas, which derive from them)
@@ -66,15 +74,15 @@ to make any call fast, since cost follows the number of entities aggregated, not
     }),
   }
 
-  async run(): Promise<PaginatedResponse<Record<string, unknown>>> {
+  async run(): Promise<AsaMetricsResponse> {
     const {flags} = await this.parse(AsaMetrics)
     if (flags['by-days'] && flags['by-days'].length > MAX_BY_DAYS) {
       this.error(`At most ${MAX_BY_DAYS} renewal windows per call, got ${flags['by-days'].length}.`, {exit: 2})
     }
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
 
-    const {result} = await asaWrite<PaginatedResponse<Record<string, unknown>>>(client, 'post', '/metrics', {
+    const {result} = await asaWrite<AsaMetricsResponse>(client, 'post', '/metrics', {
       body: {
         date_from: flags['date-from'],
         date_to: flags['date-to'],
@@ -91,6 +99,14 @@ to make any call fast, since cost follows the number of entities aggregated, not
     })
 
     printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta?.pagination)
+
+    const horizon = result.meta?.max_valid_day
+    if (horizon !== undefined && flags['by-days']?.some((day) => day > horizon)) {
+      this.log(
+        `\nCohort windows past day ${horizon} have not been reached by this date range yet; they repeat the last ` +
+          `figure actually observed rather than projecting it.`,
+      )
+    }
 
     return result
   }

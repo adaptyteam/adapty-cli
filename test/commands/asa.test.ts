@@ -46,6 +46,25 @@ describe('asa', () => {
     expect(stdout).to.contain('402')
   })
 
+  it('whoami prints the budgets this company actually gets', async () => {
+    fetchStub = mockFetch([
+      {
+        ...ME_RESPONSE,
+        limits: {
+          keywords_read_limit_per_minute: 90,
+          max_breakdown_rows_per_page: 10_000,
+          metrics_burst_limit: 5,
+          metrics_inflight_limit: 1,
+          metrics_limit_per_minute: 20,
+          read_limit_per_minute: 120,
+        },
+      },
+    ])
+    const {stdout} = await runCommand('asa whoami')
+    expect(stdout).to.contain('Metrics Limit Per Minute: 20')
+    expect(stdout).to.contain('Max Breakdown Rows Per Page: 10000')
+  })
+
   it('apps list calls GET /apps with pagination', async () => {
     fetchStub = mockFetch([EMPTY_LIST_RESPONSE])
     await runCommand('asa apps list --page 2 --page-size 50')

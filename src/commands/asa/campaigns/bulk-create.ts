@@ -62,7 +62,7 @@ export default class AsaCampaignsBulkCreate extends Command {
 
   async run(): Promise<AsaBulkOperationStateDTO | Record<string, unknown>> {
     const {flags} = await this.parse(AsaCampaignsBulkCreate)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
 
     const body = flags['from-file'] ? await this.convertTemplate(client, flags) : await this.readStructure(flags.file!)
     if (flags.preview) {

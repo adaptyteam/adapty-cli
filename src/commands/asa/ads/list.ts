@@ -18,7 +18,7 @@ export default class AsaAdsList extends Command {
 
   async run(): Promise<PaginatedResponse<AsaAdDTO>> {
     const {flags} = await this.parse(AsaAdsList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaAdDTO>>('/ads', {
       ...paginationParams(flags),
       ...scopeParams(flags),

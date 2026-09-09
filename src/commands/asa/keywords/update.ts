@@ -56,7 +56,7 @@ export default class AsaKeywordsUpdate extends Command {
       flags.yes,
     )
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const {replayed, result} = await asaWrite<AsaKeywordMutationDTO>(client, 'put', '/keywords', {
       body,
       idempotencyKey: flags['idempotency-key'],

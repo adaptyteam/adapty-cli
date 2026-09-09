@@ -23,7 +23,7 @@ export default class AsaCampaignsBulkStatus extends Command {
     const operationId = args['operation-id']
     if (!isValidUuid(operationId)) this.error('Invalid operation ID format.', {exit: 2})
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const state = await client.get<AsaBulkOperationStateDTO>(`/bulk-operations/${operationId}`, paginationParams(flags))
 
     printResponse(state as unknown as Record<string, unknown>, this.log.bind(this))

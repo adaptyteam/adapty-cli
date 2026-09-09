@@ -40,7 +40,7 @@ export default class AsaCampaignsBulkList extends Command {
 
   async run(): Promise<AsaBulkOperationListDTO> {
     const {flags} = await this.parse(AsaCampaignsBulkList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<AsaBulkOperationListDTO>('/bulk-operations', {
       ...paginationParams(flags),
       app_id: flags.app,

@@ -18,7 +18,7 @@ export default class AsaAdGroupsGet extends Command {
     const {args} = await this.parse(AsaAdGroupsGet)
     if (!isValidUuid(args.ad_group_id)) this.error('Invalid ad group ID format.', {exit: 2})
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<AsaAdGroupDTO>(`/ad-groups/${args.ad_group_id}`)
 
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))

@@ -1,4 +1,4 @@
-import {ApiError, type ApiErrorFormat, NetworkError, parseApiError} from './errors.js'
+import {ApiError, type ApiErrorFormat, type ApiErrorOptions, NetworkError, parseApiError} from './errors.js'
 
 const DEFAULT_API_URL = 'https://api-admin.adapty.io/api/v1/developer'
 const MAX_RETRY_AFTER_SECONDS = 60
@@ -18,14 +18,23 @@ export interface ApiClientOptions {
   baseUrl?: string
   defaultBaseUrl?: string
   errorFormat?: ApiErrorFormat
+  quiet?: boolean
   token?: null | string
   urlEnvVar?: string
   userAgent?: string
 }
 
+interface RetryState {
+  network: boolean
+  rateLimit: boolean
+}
+
+const NO_RETRIES: RetryState = {network: false, rateLimit: false}
+
 export class ApiClient {
   private baseUrl: string
   private errorFormat: ApiErrorFormat
+  private quiet: boolean
   private token: null | string
   private userAgent: string
 
@@ -38,6 +47,7 @@ export class ApiClient {
     }
 
     this.errorFormat = opts.errorFormat ?? 'developer'
+    this.quiet = opts.quiet ?? false
     this.token = opts.token ?? null
     this.userAgent = opts.userAgent ?? 'adapty-cli'
   }
@@ -72,6 +82,20 @@ export class ApiClient {
     )
   }
 
+  // eslint-disable-next-line no-undef
+  private buildHeaders(init: RequestInit, opts: RequestOptions): Record<string, string> {
+    const headers: Record<string, string> = {'User-Agent': this.userAgent}
+    if (init.body && !(init.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
+    }
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+
+    return {...headers, ...opts.headers}
+  }
+
   private buildUrl(path: string, params?: QueryParams): string {
     const url = `${this.baseUrl}${ensureTrailingSlash(path)}`
     if (!params) return url
@@ -95,27 +119,39 @@ export class ApiClient {
     )
   }
 
+  private async readBody(response: Response, errorOptions: ApiErrorOptions): Promise<unknown> {
+    try {
+      return await response.json()
+    } catch {
+      if (!response.ok) {
+        throw new ApiError(response.status, `http_${response.status}`, {}, errorOptions)
+      }
+
+      throw new ApiError(
+        response.status,
+        'malformed_response',
+        {},
+        {
+          ...errorOptions,
+          detail:
+            `The server answered ${response.status} with a body that is not JSON, so the response was cut short ` +
+            'rather than refused. Nothing was read; retry the request.',
+        },
+      )
+    }
+  }
+
   // eslint-disable-next-line no-undef
-  private async request<T>(url: string, init: RequestInit, opts: RequestOptions = {}, retried = false): Promise<T> {
-    const headers: Record<string, string> = {
-      'User-Agent': this.userAgent,
-    }
-
-    if (init.body && !(init.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json'
-    }
-
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`
-    }
-
-    Object.assign(headers, opts.headers)
+  private async request<T>(url: string, init: RequestInit, opts: RequestOptions = {}, retried = NO_RETRIES): Promise<T> {
+    const headers = this.buildHeaders(init, opts)
 
     let response: Response
     try {
       response = await fetch(url, {...init, headers})
     } catch (error) {
-      throw new NetworkError(error instanceof Error ? error.message : 'Connection failed')
+      const failure = new NetworkError(error instanceof Error ? error.message : 'Connection failed')
+      if (retried.network || init.method !== 'GET') throw failure
+      return this.request<T>(url, init, opts, {...retried, network: true})
     }
 
     opts.onResponse?.(response.headers)
@@ -127,16 +163,7 @@ export class ApiClient {
     const retryAfter = Number.parseInt(response.headers.get('Retry-After') ?? '', 10)
     const errorOptions = this.errorFormat === 'asa' && !Number.isNaN(retryAfter) ? {retryAfterSeconds: retryAfter} : {}
 
-    let body: unknown
-    try {
-      body = await response.json()
-    } catch {
-      if (!response.ok) {
-        throw new ApiError(response.status, `http_${response.status}`, {}, errorOptions)
-      }
-
-      return undefined as T
-    }
+    const body = await this.readBody(response, errorOptions)
 
     if (!response.ok) {
       const error = parseApiError(response.status, body, errorOptions, this.errorFormat)
@@ -144,13 +171,18 @@ export class ApiClient {
         error.message = 'Token expired or invalid. Run `adapty auth login`.'
       }
 
-      if (!retried && this.isRetryableRateLimit(error)) {
+      if (!retried.rateLimit && this.isRetryableRateLimit(error)) {
         const seconds = error.retryAfterSeconds ?? 0
-        process.stderr.write(`Rate limited (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`)
+        if (!this.quiet) {
+          process.stderr.write(
+            `Rate limited (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`,
+          )
+        }
+
         await new Promise((resolve) => {
           setTimeout(resolve, seconds * 1000)
         })
-        return this.request<T>(url, init, opts, true)
+        return this.request<T>(url, init, opts, {...retried, rateLimit: true})
       }
 
       throw error

@@ -22,7 +22,7 @@ export default class AsaNegativeKeywordsList extends Command {
 
   async run(): Promise<PaginatedResponse<AsaNegativeKeywordDTO>> {
     const {flags} = await this.parse(AsaNegativeKeywordsList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaNegativeKeywordDTO>>('/negative-keywords', {
       ...paginationParams(flags),
       ...scopeParams(flags),

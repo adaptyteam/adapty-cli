@@ -33,7 +33,7 @@ export default class AsaCompetitorsSummary extends Command {
       this.error('App Store IDs are numbers, e.g. --app-ids 1668337467,6503873027.', {exit: 2})
     }
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const {result} = await asaWrite<AsaCompetitorsSummaryDTO>(client, 'post', '/competitors/summary', {
       body: {app_ids: appIds.map(Number)},
     })

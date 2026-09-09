@@ -18,7 +18,7 @@ export default class AsaProductPagesList extends Command {
 
   async run(): Promise<PaginatedResponse<AsaProductPageDTO>> {
     const {flags} = await this.parse(AsaProductPagesList)
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const result = await client.get<PaginatedResponse<AsaProductPageDTO>>('/product-pages', {
       ...paginationParams(flags),
       ...scopeParams(flags),

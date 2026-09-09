@@ -39,10 +39,28 @@ export interface AsaMetricsDTO {
   view_redownloads: number
 }
 
+export interface AsaMetricsResponse {
+  data: Record<string, unknown>[]
+  meta: {
+    max_valid_day?: number
+    pagination: {count: number; page: number; pages: number}
+  }
+}
+
+export interface AsaEffectiveLimitsDTO {
+  keywords_read_limit_per_minute: number
+  max_breakdown_rows_per_page: number
+  metrics_burst_limit: number
+  metrics_inflight_limit: number
+  metrics_limit_per_minute: number
+  read_limit_per_minute: number
+}
+
 export interface AsaMeDTO {
   access_source: AsaAccessSource
   apple_credentials_status: AsaAppleCredentialsStatus
   company_id: string
+  limits?: AsaEffectiveLimitsDTO
 }
 
 export interface AsaAppleOAuthDTO {

@@ -79,7 +79,7 @@ export default class AsaCampaignsCreate extends Command {
     }
     await confirmMutation(this, {body, method: 'POST', path: '/campaigns/', summary: `Create campaign ${flags.name}`}, flags.yes)
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const {replayed, result} = await asaWrite<AsaCampaignMutationDTO>(client, 'post', '/campaigns', {
       body,
       idempotencyKey: flags['idempotency-key'],

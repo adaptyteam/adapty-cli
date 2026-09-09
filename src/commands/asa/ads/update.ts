@@ -36,7 +36,7 @@ export default class AsaAdsUpdate extends Command {
 
     await confirmMutation(this, {body, method: 'PUT', path: `/ads/${args.ad_id}/`, summary: 'Update ad'}, flags.yes)
 
-    const client = await createAsaClient(this.config)
+    const client = await createAsaClient(this)
     const {replayed, result} = await asaWrite<AsaAdMutationDTO>(client, 'put', `/ads/${args.ad_id}`, {
       body,
       idempotencyKey: flags['idempotency-key'],
