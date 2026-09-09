@@ -1,47 +1,57 @@
-import {Args, Command, Flags} from '@oclif/core'
+import { Args, Command, Flags } from '@oclif/core';
 
-import type {AppDetailDTO, AppUpdateRequestDTO} from '../../lib/api-schemas.js'
+import { createAuthenticatedClient } from '../../lib/client-from-config.js';
+import { isValidUuid } from '../../lib/flags.js';
+import { printResponse } from '../../lib/output.js';
 
-import {createAuthenticatedClient} from '../../lib/client-from-config.js'
-import {isValidUuid} from '../../lib/flags.js'
-import {printResponse} from '../../lib/output.js'
+import type { AppDetailDTO, AppUpdateRequestDTO } from '../../lib/api-schemas.js';
 
 export default class AppsUpdate extends Command {
-  static args = {
-    app_id: Args.string({description: 'App ID (UUID)', required: true}),
-  }
-static description = 'Update an app'
-static enableJsonFlag = true
-static examples = ['<%= config.bin %> apps update 550e8400-... --title "My App"']
-static flags = {
-    'apple-bundle-id': Flags.string({description: 'Apple bundle ID'}),
-    'google-bundle-id': Flags.string({description: 'Google bundle ID'}),
-    title: Flags.string({description: 'App title'}),
-  }
+    static override args = {
+        app_id: Args.string({ description: 'App ID (UUID)', required: true }),
+    };
 
-  async run(): Promise<AppDetailDTO> {
-    const {args, flags} = await this.parse(AppsUpdate)
+    static override description = 'Update an app';
+    static override enableJsonFlag = true;
+    static override examples = ['<%= config.bin %> apps update 550e8400-... --title "My App"'];
+    static override flags = {
+        'apple-bundle-id': Flags.string({ description: 'Apple bundle ID' }),
+        'google-bundle-id': Flags.string({ description: 'Google bundle ID' }),
+        'title': Flags.string({ description: 'App title' }),
+    };
 
-    if (!isValidUuid(args.app_id)) {
-      this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', {exit: 2})
+    async run(): Promise<AppDetailDTO> {
+        const { args, flags } = await this.parse(AppsUpdate);
+
+        if (!isValidUuid(args.app_id)) {
+            this.error('Invalid app ID format. Run `adapty apps list` to find your app ID.', { exit: 2 });
+        }
+
+        if (!flags.title && !flags['apple-bundle-id'] && !flags['google-bundle-id']) {
+            this.error('At least one of --title, --apple-bundle-id, or --google-bundle-id is required', { exit: 2 });
+        }
+
+        const client = await createAuthenticatedClient(this.config);
+
+        const body: AppUpdateRequestDTO = {};
+
+        if (flags.title) {
+            body.title = flags.title;
+        }
+
+        if (flags['apple-bundle-id']) {
+            body.apple_bundle_id = flags['apple-bundle-id'];
+        }
+
+        if (flags['google-bundle-id']) {
+            body.google_bundle_id = flags['google-bundle-id'];
+        }
+
+        const result = await client.put<AppDetailDTO>(`/apps/${args.app_id}`, body);
+
+        this.log('App updated!');
+        printResponse(result, this.log.bind(this));
+
+        return result;
     }
-
-    if (!flags.title && !flags['apple-bundle-id'] && !flags['google-bundle-id']) {
-      this.error('At least one of --title, --apple-bundle-id, or --google-bundle-id is required', {exit: 2})
-    }
-
-    const client = await createAuthenticatedClient(this.config)
-
-    const body: AppUpdateRequestDTO = {}
-    if (flags.title) body.title = flags.title
-    if (flags['apple-bundle-id']) body.apple_bundle_id = flags['apple-bundle-id']
-    if (flags['google-bundle-id']) body.google_bundle_id = flags['google-bundle-id']
-
-    const result = await client.put<AppDetailDTO>(`/apps/${args.app_id}`, body)
-
-    this.log('App updated!')
-    printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
-
-    return result
-  }
 }
