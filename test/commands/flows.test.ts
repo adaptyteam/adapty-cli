@@ -129,6 +129,22 @@ describe('flows', () => {
     }
   })
 
+  it('publish prints async guidance in human mode and clean JSON with --json', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetch([FLOW_RESPONSE, {...FLOW_RESPONSE, status: 'publishing'}])
+    const human = await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes`)
+    if (!human.stdout.includes('This is asynchronous; the flow is NOT published yet.')) {
+      throw new Error(`Missing async guidance: ${human.stdout}`)
+    }
+
+    restoreFetch(fetchStub)
+    fetchStub = mockFetch([FLOW_RESPONSE, {...FLOW_RESPONSE, status: 'publishing'}])
+    const json = await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes --json`)
+    if (json.stdout.includes('This is asynchronous')) throw new Error(`Guidance leaked into --json stdout: ${json.stdout}`)
+    const parsed = JSON.parse(json.stdout) as {status: string}
+    if (parsed.status !== 'publishing') throw new Error(`Expected status publishing, got ${parsed.status}`)
+  })
+
   it('config get calls GET /apps/{app}/flows/{id}/config', async () => {
     process.env.ADAPTY_TOKEN = 'test-token'
     fetchStub = mockFetch([CONFIG_RESPONSE])

@@ -57,7 +57,14 @@ static flags = {
       throw error
     }
 
-    this.log('Publishing started — status: publishing. Publication completes asynchronously.')
+    if (!this.jsonEnabled()) {
+      this.log('Publishing started — status: publishing. This is asynchronous; the flow is NOT published yet.')
+      this.log(
+        `Check progress:  adapty flows get --app ${flags.app} ${args.flow_id}   (wait for status 'published' or 'publication_failed')`,
+      )
+      this.log(`If it fails:     adapty flows config get --app ${flags.app} ${args.flow_id}   (shows why)`)
+    }
+
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
 
     return result
