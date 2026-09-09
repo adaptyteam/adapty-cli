@@ -4,7 +4,9 @@ import {dirname, join} from 'node:path'
 
 export interface AdaptyConfig {
   access_token?: string
-  user?: {email: string; name: string}
+  // Optional fields: the API has not always returned both, and a missing one
+  // must not surface as "undefined" in the CLI output.
+  user?: {email?: string; name?: string}
 }
 
 const CONFIG_DIR = join(homedir(), '.config', 'adapty')

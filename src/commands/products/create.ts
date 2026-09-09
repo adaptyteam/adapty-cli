@@ -1,20 +1,9 @@
 import {Command, Flags} from '@oclif/core'
 
-import type {ProductCreateRequestDTO, ProductDTO, ProductPeriod} from '../../lib/api-schemas.js'
-
+import {type ProductCreateRequestDTO, type ProductDTO, type ProductPeriod, VALID_PERIODS} from '../../lib/api-schemas.js'
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag} from '../../lib/flags.js'
 import {printResponse} from '../../lib/output.js'
-
-const VALID_PERIODS = [
-  'weekly',
-  'monthly',
-  'two_months',
-  'trimonthly',
-  'semiannual',
-  'annual',
-  'lifetime',
-] as const satisfies readonly ProductPeriod[]
 
 const xor = (a?: string, b?: string) => (a === undefined) !== (b === undefined)
 
@@ -33,7 +22,7 @@ static flags = {
     'paddle-price-id': Flags.string({description: 'Paddle price ID (requires --paddle-product-id)', helpGroup: 'STORE BINDINGS'}),
     'paddle-product-id': Flags.string({description: 'Paddle product ID (requires --paddle-price-id)', helpGroup: 'STORE BINDINGS'}),
     period: Flags.string({
-      description: 'Subscription period (weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime)',
+      description: `Subscription period (${VALID_PERIODS.join(', ')})`,
       required: true,
     }),
     'stripe-price-id': Flags.string({description: 'Stripe price ID (requires --stripe-product-id)', helpGroup: 'STORE BINDINGS'}),
