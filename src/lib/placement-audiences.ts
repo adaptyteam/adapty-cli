@@ -9,23 +9,23 @@
  * explicit `content_type` ('paywall' | 'flow'); there is no implicit paywall.
  */
 export function audienceEntryProblem(entry: unknown): null | string {
-  if (typeof entry !== 'object' || entry === null) {
-    return 'each entry must be a JSON object'
-  }
+    if (typeof entry !== 'object' || entry === null) {
+        return 'each entry must be a JSON object';
+    }
 
-  const {content_type: contentType, flow_id: flowId, paywall_id: paywallId} = entry as Record<string, unknown>
+    const { content_type: contentType, flow_id: flowId, paywall_id: paywallId } = entry as Record<string, unknown>;
 
-  if (contentType !== 'flow' && contentType !== 'paywall') {
-    return 'content_type is required and must be "paywall" or "flow"'
-  }
+    if (contentType !== 'flow' && contentType !== 'paywall') {
+        return 'content_type is required and must be "paywall" or "flow"';
+    }
 
-  if (contentType === 'paywall' && typeof paywallId !== 'string') {
-    return 'a paywall entry requires paywall_id'
-  }
+    if (contentType === 'paywall' && typeof paywallId !== 'string') {
+        return 'a paywall entry requires paywall_id';
+    }
 
-  if (contentType === 'flow' && typeof flowId !== 'string') {
-    return 'a flow entry requires flow_id'
-  }
+    if (contentType === 'flow' && typeof flowId !== 'string') {
+        return 'a flow entry requires flow_id';
+    }
 
-  return null
+    return null;
 }

@@ -1,19 +1,22 @@
-import type {Config} from '@oclif/core'
+import { ApiClient } from './api-client.js';
+import { resolveToken } from './auth.js';
+import { AuthRequiredError } from './errors.js';
 
-import {ApiClient} from './api-client.js'
-import {resolveToken} from './auth.js'
-import {AuthRequiredError} from './errors.js'
+import type { Config } from '@oclif/core';
 
 export function buildUserAgent(config: Config): string {
-  return `adapty-cli/${config.version} node/${process.version} ${process.platform}/${process.arch}`
+    return `adapty-cli/${config.version} node/${process.version} ${process.platform}/${process.arch}`;
 }
 
 export async function createAuthenticatedClient(config: Config): Promise<ApiClient> {
-  const token = await resolveToken(config.configDir)
-  if (!token) throw new AuthRequiredError()
+    const token = await resolveToken(config.configDir);
 
-  return new ApiClient({
-    token,
-    userAgent: buildUserAgent(config),
-  })
+    if (!token) {
+        throw new AuthRequiredError();
+    }
+
+    return new ApiClient({
+        token,
+        userAgent: buildUserAgent(config),
+    });
 }

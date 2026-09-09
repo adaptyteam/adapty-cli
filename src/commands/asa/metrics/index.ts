@@ -1,20 +1,22 @@
-import {Command, Flags} from '@oclif/core'
+import { Command, Flags } from '@oclif/core';
 
-import {asaWrite, createAsaClient} from '../../../lib/asa-client.js'
+import { asaWrite, createAsaClient } from '../../../lib/asa-client.js';
 import {
-  ASA_GROUP_BY_DIMENSIONS,
-  ASA_METRIC_ENTITIES,
-  asaPaginationFlags,
-  byDaysFlag,
-  MAX_BY_DAYS,
-  metricsScopeBody,
-  metricsScopeFlags,
-} from '../../../lib/asa-flags.js'
-import {type PaginatedResponse, paginationParams} from '../../../lib/flags.js'
-import {printList} from '../../../lib/output.js'
+    ASA_GROUP_BY_DIMENSIONS,
+    ASA_METRIC_ENTITIES,
+    asaPaginationFlags,
+    byDaysFlag,
+    MAX_BY_DAYS,
+    metricsScopeBody,
+    metricsScopeFlags,
+} from '../../../lib/asa-flags.js';
+import { paginationParams } from '../../../lib/flags.js';
+import { printList } from '../../../lib/output.js';
+
+import type { PaginatedResponse } from '../../../lib/flags.js';
 
 export default class AsaMetrics extends Command {
-  static description = `Query metrics for any level of the account over a date range
+    static override description = `Query metrics for any level of the account over a date range
 
 One row per entity, already aggregated server-side and sorted by --order-by, so a top-N question is one
 call with --order-by and --page-size N — never sum pages yourself. Account-level totals are one call to
@@ -29,69 +31,73 @@ the grouping, narrow the window, or reduce page[size]. Budget: 5 metrics calls p
 columns you actually read. subscribers and paid_subscribers (and arppu / arpas, which derive from them)
 count unique profiles per entity and cost roughly seventeen times the rest; whatever the --entity, they
 are refused unless --campaign or --ad-group scopes the call. Those scope flags are also the cheapest way
-to make any call fast, since cost follows the number of entities aggregated, not the page size.`
-  static enableJsonFlag = true
-  static examples = [
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric adapty_installs',
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --order-by spend --page-size 5',
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --group-by country --page-size 1000',
-    '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric roas',
-    '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90',
-    '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric arpas --campaign 0f0e...',
-  ]
-  static flags = {
-    ...asaPaginationFlags,
-    ...byDaysFlag,
-    ...metricsScopeFlags,
-    'date-from': Flags.string({description: 'Start of the period (YYYY-MM-DD)', required: true}),
-    'date-to': Flags.string({description: 'End of the period (YYYY-MM-DD)', required: true}),
-    entity: Flags.string({description: 'What to report on', options: ASA_METRIC_ENTITIES, required: true}),
-    'group-by': Flags.string({
-      description: 'Break the rows down by a dimension, repeatable',
-      multiple: true,
-      options: ASA_GROUP_BY_DIMENSIONS,
-    }),
-    metric: Flags.string({
-      description:
+to make any call fast, since cost follows the number of entities aggregated, not the page size.`;
+
+    static override enableJsonFlag = true;
+    static override examples = [
+        '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric adapty_installs',
+        '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --order-by spend --page-size 5',
+        '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --group-by country --page-size 1000',
+        '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric spend --metric roas',
+        '<%= config.bin %> asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90',
+        '<%= config.bin %> asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 --metric arpas --campaign 0f0e...',
+    ];
+
+    static override flags = {
+        ...asaPaginationFlags,
+        ...byDaysFlag,
+        ...metricsScopeFlags,
+        'date-from': Flags.string({ description: 'Start of the period (YYYY-MM-DD)', required: true }),
+        'date-to': Flags.string({ description: 'End of the period (YYYY-MM-DD)', required: true }),
+        'entity': Flags.string({ description: 'What to report on', options: ASA_METRIC_ENTITIES, required: true }),
+        'group-by': Flags.string({
+            description: 'Break the rows down by a dimension, repeatable',
+            multiple: true,
+            options: ASA_GROUP_BY_DIMENSIONS,
+        }),
+        'metric': Flags.string({
+            description:
         'Metric name (dashboard nomenclature, e.g. spend, taps, gross_roas), repeatable and required; every metric asked for is computed over the whole entity set, so list only what you read; a wrong name fails listing all valid ones',
-      multiple: true,
-      required: true,
-    }),
-    order: Flags.string({default: 'desc', description: 'Sort direction', options: ['asc', 'desc']}),
-    'order-by': Flags.string({
-      description: 'Metric or field to sort by; cohort metrics rank via their gross_/proceeds_/net_ names',
-    }),
-    'order-by-day': Flags.integer({
-      description: 'Rank by a cohort metric at this renewal window; must be one of the --by-days values',
-    }),
-  }
+            multiple: true,
+            required: true,
+        }),
+        'order': Flags.string({ default: 'desc', description: 'Sort direction', options: ['asc', 'desc'] }),
+        'order-by': Flags.string({
+            description: 'Metric or field to sort by; cohort metrics rank via their gross_/proceeds_/net_ names',
+        }),
+        'order-by-day': Flags.integer({
+            description: 'Rank by a cohort metric at this renewal window; must be one of the --by-days values',
+        }),
+    };
 
-  async run(): Promise<PaginatedResponse<Record<string, unknown>>> {
-    const {flags} = await this.parse(AsaMetrics)
-    if (flags['by-days'] && flags['by-days'].length > MAX_BY_DAYS) {
-      this.error(`At most ${MAX_BY_DAYS} renewal windows per call, got ${flags['by-days'].length}.`, {exit: 2})
+    async run(): Promise<PaginatedResponse<Record<string, unknown>>> {
+        const { flags } = await this.parse(AsaMetrics);
+
+        if (flags['by-days'] && flags['by-days'].length > MAX_BY_DAYS) {
+            this.error(`At most ${MAX_BY_DAYS} renewal windows per call, got ${flags['by-days'].length}.`, { exit: 2 });
+        }
+
+        const client = await createAsaClient(this.config);
+
+        const { result } = await asaWrite<PaginatedResponse<Record<string, unknown>>>(client, 'post', '/metrics', {
+            body: {
+                date_from: flags['date-from'],
+                date_to: flags['date-to'],
+                entity: flags.entity,
+                metrics: flags.metric,
+                order: flags.order,
+                ...metricsScopeBody(flags),
+                ...(flags['by-days'] === undefined ? {} : { by_days: flags['by-days'] }),
+                ...(flags['group-by'] === undefined ? {} : { group_by: flags['group-by'] }),
+                ...(flags['order-by'] === undefined ? {} : { order_by: flags['order-by'] }),
+                ...(flags['order-by-day'] === undefined ? {} : { order_by_day: flags['order-by-day'] }),
+            },
+            params: paginationParams(flags),
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- FIXME if you see this
+        printList(result.data, this.log.bind(this), result.meta?.pagination);
+
+        return result;
     }
-
-    const client = await createAsaClient(this.config)
-
-    const {result} = await asaWrite<PaginatedResponse<Record<string, unknown>>>(client, 'post', '/metrics', {
-      body: {
-        date_from: flags['date-from'],
-        date_to: flags['date-to'],
-        entity: flags.entity,
-        metrics: flags.metric,
-        order: flags.order,
-        ...metricsScopeBody(flags),
-        ...(flags['by-days'] === undefined ? {} : {by_days: flags['by-days']}),
-        ...(flags['group-by'] === undefined ? {} : {group_by: flags['group-by']}),
-        ...(flags['order-by'] === undefined ? {} : {order_by: flags['order-by']}),
-        ...(flags['order-by-day'] === undefined ? {} : {order_by_day: flags['order-by-day']}),
-      },
-      params: paginationParams(flags),
-    })
-
-    printList(result.data as unknown as Record<string, unknown>[], this.log.bind(this), result.meta?.pagination)
-
-    return result
-  }
 }
