@@ -6,13 +6,16 @@ import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {confirmFlags, confirmMutation} from '../../lib/confirm.js'
 import {ApiError} from '../../lib/errors.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
+import {flowFixLinks} from '../../lib/flow-help.js'
 import {printResponse} from '../../lib/output.js'
 
 export default class FlowsPublish extends Command {
   static args = {
     flow_id: Args.string({description: 'Flow ID (UUID)', required: true}),
   }
-static description = 'Publish a flow (async — publication completes in the background)'
+static description =
+    'Publish a flow (async — publication completes in the background). ' +
+    'Publishing is async: returns status `publishing`. Poll `adapty flows get <flow_id>` for `published`/`publication_failed`; on failure, `adapty flows config get <flow_id>` shows why.'
 static enableJsonFlag = true
 static examples = ['<%= config.bin %> flows publish --app UUID 550e8400-e29b-41d4-a716-446655440000']
 static flags = {
@@ -48,8 +51,7 @@ static flags = {
         this.error(
           `Flow publish failed: ${error.message}\n` +
             'Publishing needs a flow with a valid config. Fix it, then run `adapty flows publish` again:\n' +
-            `  • Builder UI: https://app.adapty.io/flows/${args.flow_id}/builder\n` +
-            '  • Adapty flows agent skill: https://adapty.io/docs/flow-generator-skill',
+            flowFixLinks(args.flow_id),
           {exit: 1},
         )
       }

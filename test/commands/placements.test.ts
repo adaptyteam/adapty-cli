@@ -4,6 +4,7 @@ import sinon from 'sinon'
 import {
   assertFetch,
   mockFetch,
+  mockFetchFailure,
   restoreFetch,
   TEST_APP_ID,
   TEST_RESOURCE_ID,
@@ -161,6 +162,69 @@ describe('placements', () => {
     const exit = (error as undefined | {oclif?: {exit?: number}})?.oclif?.exit
     if (exit !== 2) throw new Error(`Expected exit code 2, got ${exit}`)
     if (fetchStub.callCount !== 0) throw new Error(`Expected no HTTP call, got ${fetchStub.callCount}`)
+  })
+
+  it('create enriches the draft-flow 400 with publish steps and the flow id', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetchFailure(
+      {
+        error_code: 'validation_error',
+        errors: {non_field_errors: ['Flow must be published before placing in a placement.']},
+        status_code: 400,
+      },
+      {status: 400},
+    )
+    const audiences = [{content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: []}]
+    const {error} = await runCommand([
+      'placements',
+      'create',
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    const exit = (error as undefined | {oclif?: {exit?: number}})?.oclif?.exit
+    if (exit === 0 || exit === undefined) throw new Error(`Expected non-zero exit, got ${exit}`)
+    const {message} = error as Error
+    for (const needle of [
+      `adapty flows publish --app ${TEST_APP_ID} ${FLOW_ID}`,
+      `https://app.adapty.io/flows/${FLOW_ID}/builder`,
+      'https://adapty.io/docs/flow-generator-skill',
+    ]) {
+      if (!message.includes(needle)) throw new Error(`Expected "${needle}" in error, got: ${message}`)
+    }
+  })
+
+  it('create relays a different 400 unchanged, with no publish steps', async () => {
+    process.env.ADAPTY_TOKEN = 'test-token'
+    fetchStub = mockFetchFailure(
+      {
+        error_code: 'validation_error',
+        errors: {audiences: ['Audiences must not mix flow and paywall content types.']},
+        status_code: 400,
+      },
+      {status: 400},
+    )
+    const audiences = [{content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: []}]
+    const {error} = await runCommand([
+      'placements',
+      'create',
+      '--app',
+      TEST_APP_ID,
+      '--title',
+      'Default',
+      '--developer-id',
+      'default',
+      '--audiences',
+      JSON.stringify(audiences),
+    ])
+    if (error === undefined) throw new Error('Expected the command to fail')
+    const {message} = error as Error
+    if (message.includes('adapty flows publish')) throw new Error(`Expected no publish steps, got: ${message}`)
   })
 
   it('update with --paywall-id sends paywall_id directly', async () => {

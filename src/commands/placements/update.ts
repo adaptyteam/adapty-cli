@@ -4,6 +4,7 @@ import type {PlacementAudienceEntryDTO, PlacementDetailDTO, PlacementWriteReques
 
 import {createAuthenticatedClient} from '../../lib/client-from-config.js'
 import {appFlag, isValidUuid} from '../../lib/flags.js'
+import {draftFlowError} from '../../lib/flow-help.js'
 import {printResponse} from '../../lib/output.js'
 import {audienceEntryProblem} from '../../lib/placement-audiences.js'
 
@@ -82,7 +83,14 @@ static flags = {
     }
 
     const client = await createAuthenticatedClient(this.config)
-    const result = await client.put<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`, body)
+    let result: PlacementDetailDTO
+    try {
+      result = await client.put<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`, body)
+    } catch (error) {
+      const message = draftFlowError(error, flags.app, body.audiences)
+      if (message) this.error(message, {exit: 2})
+      throw error
+    }
 
     this.log('Placement updated!')
     printResponse(result as unknown as Record<string, unknown>, this.log.bind(this))
