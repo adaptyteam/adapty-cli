@@ -4,7 +4,6 @@ import {readFile} from 'node:fs/promises'
 import type {AsaAutomationMutationDTO} from '../../../lib/asa-schemas.js'
 
 import {asaWrite, createAsaClient, noteReplay} from '../../../lib/asa-client.js'
-import {confirmFlags, confirmMutation} from '../../../lib/asa-confirm.js'
 import {addKeywordActionFlags, idempotencyFlags} from '../../../lib/asa-flags.js'
 import {
   type AddKeywordActionFlags,
@@ -12,6 +11,7 @@ import {
   rebuildAddKeywordAction,
   requireSingleAction,
 } from '../../../lib/asa-keyword-action.js'
+import {confirmFlags, confirmMutation} from '../../../lib/confirm.js'
 import {printResponse} from '../../../lib/output.js'
 
 export default class AsaAutomationsCreate extends Command {

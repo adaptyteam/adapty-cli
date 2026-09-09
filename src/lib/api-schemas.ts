@@ -121,8 +121,14 @@ export interface FlowRemoteConfigDTO {
 
 export interface FlowConfigDTO {
   config: Record<string, unknown>
+  /** Human message for a failed publication (raw passthrough from the flow version). */
+  publication_error?: null | string
+  /** Publication lifecycle of the flow version: transforming|transformed|uploading|uploaded|published|failed. */
+  publication_status?: string
   remote_configs: FlowRemoteConfigDTO[]
   status: FlowStatus
+  /** Raw transform failure: a JSON issues payload or a summary string. Parse with `parseFlowPublicationError`. */
+  transform_error?: null | string
   /** Millisecond timestamp of the last content change; the value `expected_updated_at` is compared against on write. */
   updated_at: number
 }
@@ -171,15 +177,28 @@ export interface SegmentDTO {
   title: string
 }
 
-export interface PlacementAudienceEntryDTO {
+export interface PlacementPaywallAudienceEntryDTO {
+  content_type: 'paywall'
   paywall_id: string
   priority: number
   segment_ids?: string[]
 }
 
+export interface PlacementFlowAudienceEntryDTO {
+  content_type: 'flow'
+  /** The flow must be `published` (not draft) — the backend returns 400 otherwise. */
+  flow_id: string
+  priority: number
+  segment_ids?: string[]
+}
+
+export type PlacementAudienceEntryDTO = PlacementFlowAudienceEntryDTO | PlacementPaywallAudienceEntryDTO
+
 export interface PlacementSummaryDTO {
   developer_id: string
   id: string
+  /** Placement activation state: true = Live, false = Inactive. */
+  is_active: boolean
   title: string
 }
 
@@ -187,6 +206,8 @@ export interface PlacementDetailDTO {
   audiences?: PlacementAudienceEntryDTO[]
   developer_id: string
   id: string
+  /** Placement activation state: true = Live, false = Inactive. */
+  is_active: boolean
   title: string
 }
 
