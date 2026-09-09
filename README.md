@@ -12,7 +12,7 @@
 npm install -g adapty
 ```
 
-Requires Node.js >= 18.
+Requires Node.js 22 or 24. Node 18 and 20 are past end-of-life and are not supported.
 
 ## Authentication
 
