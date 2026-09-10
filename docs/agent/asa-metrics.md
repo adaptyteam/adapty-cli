@@ -123,6 +123,41 @@ adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31
   --metric roas --by-days 7 --by-days 90 --order-by net_roas --order-by-day 90
 ```
 
+### Windows the cohort has not lived through yet
+
+A cohort metric is what has actually been observed so far, not a projection. A window longer
+than the cohort's age therefore repeats the last real figure instead of returning nothing — a
+July cohort read in August reports the same number at day 60, day 90 and day 300 as at day 28.
+
+`meta.max_valid_day` in the response is how many days the youngest cohort in the date range
+has lived, counted from `--date-to`. Treat any `--by-days` window above it as not reached:
+
+- Do not divide a clipped numerator by a full-window denominator. That understates the result,
+  and by roughly a third in the case that prompted this note.
+- Compare markets only at a window all of them have reached.
+- The CLI prints a warning when a requested window is past `max_valid_day`; in `--json` the
+  number is there to check yourself.
+
+## Money and currency
+
+Money columns — `spend`, `local_spend`, and every revenue-derived metric — are in the campaign
+group currency, not USD. `spend` and `local_spend` carry the same figure despite the naming.
+The currency belongs to the group rather than to a row, so read it from `adapty asa orgs list`
+before summing or comparing across accounts.
+
+## Counting entities
+
+The rows on a page are the page, not the inventory: `--order-by spend --page-size 1000` ranks
+across everything the filters allow, so a page can hold a fraction of one app's keywords.
+`meta.pagination.count` in the same response is the full count behind the filters — take
+inventory from there, and scope the call with `--app` or `--campaign` to make the ranking mean
+what you want.
+
+That count runs higher than the matching catalog list (`campaigns list`, `keywords list`).
+Both are right: an entity deleted in Apple keeps the spend it already booked, so metrics still
+report it, while the catalog lists show only what exists today. Use the catalog to answer "what
+do I have", metrics to answer "what did I spend".
+
 ## The analytics pool
 
 Three commands draw on one single-slot pool per company: `metrics`, `metrics overview`, and
@@ -130,22 +165,32 @@ Three commands draw on one single-slot pool per company: `metrics`, `metrics ove
 others can't use (`competitors summary` holds its own single slot). On top of that shared
 concurrency, each pair also carries its own per-minute budget:
 
-| Commands | Per-minute budget |
+Budgets are raised per company; the table is the platform default. `adapty asa whoami` reports
+the effective ones under `limits` — pace against those.
+
+| Commands | Default per-minute budget |
 |---|---|
-| `metrics`, `metrics overview` | 5/min, burst at most 2 per 10s |
+| `metrics`, `metrics overview` | 15/min, burst at most 5 per 10s |
 | `search-terms list`, `competitors summary` | 30/min |
 
 Three 429 codes, not one:
 
 - `cli_analytics_busy` — another analytics query is still running; wait about 5 seconds.
-- `cli_rate_limit_exceeded` — the per-minute window (5/min or 30/min, whichever pair) is
-  full.
+- `cli_rate_limit_exceeded` — the per-minute window for that pair is full.
 - `cli_cooldown_active` — stop entirely; tell the user when to retry.
 
+A fourth refusal is a 503, not a 429: `cli_upstream_unavailable` means the Adapty API that
+identifies the company is temporarily unreachable. Nothing ran, the token is fine, and no
+cool-down strike is recorded. It carries a `Retry-After` and the CLI waits it out once, the
+same as a 429 — so if it reaches you, the outage outlasted the retry. Say the dependency is
+down rather than blaming the command.
+
 One refusal is a 422, not a 429: `cli_response_too_large` — a `metrics` page would exceed
-5 000 breakdown rows (see [Date window caps](#date-window-caps)). It carries no
-`Retry-After` and doesn't count toward the cool-down; retrying is pointless — change the
-request instead (coarsen the grouping, narrow the window, or reduce `--page-size`).
+the company's `max_breakdown_rows_per_page` (see [Date window caps](#date-window-caps)). It
+carries no `Retry-After` and doesn't count toward the cool-down; retrying is pointless —
+change the request instead (coarsen the grouping, narrow the window, or reduce
+`--page-size`). The error names the `page[size]` that fits for the grouped period; use it
+verbatim.
 
 Every 429 carries the wait in `Retry-After`. The CLI already absorbs the first 429 of
 any single command on its own — it waits the exact `Retry-After` (up to 60s; cool-downs

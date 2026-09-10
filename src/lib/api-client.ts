@@ -1,9 +1,11 @@
 import { ApiError, NetworkError, parseApiError } from './errors.js';
 
-import type { ApiErrorFormat } from './errors.js';
+import type { ApiErrorFormat, ApiErrorOptions } from './errors.js';
 
 const DEFAULT_API_URL = 'https://api-admin.adapty.io/api/v1/developer';
 const MAX_RETRY_AFTER_SECONDS = 60;
+// 429 is the caller going too fast; 503 is a dependency being down. Both name a wait and clear up on their own.
+const RETRYABLE_STATUSES = new Set([429, 503]);
 
 function ensureTrailingSlash(path: string): string {
     return path.endsWith('/') ? path : `${path}/`;
@@ -20,14 +22,23 @@ export type ApiClientOptions = {
     baseUrl?: string;
     defaultBaseUrl?: string;
     errorFormat?: ApiErrorFormat;
+    quiet?: boolean;
     token?: null | string;
     urlEnvVar?: string;
     userAgent?: string;
 };
 
+type RetryState = {
+    network: boolean;
+    refused: boolean;
+};
+
+const NO_RETRIES: RetryState = { network: false, refused: false };
+
 export class ApiClient {
     private baseUrl: string;
     private errorFormat: ApiErrorFormat;
+    private quiet: boolean;
     private token: null | string;
     private userAgent: string;
 
@@ -41,6 +52,7 @@ export class ApiClient {
         }
 
         this.errorFormat = opts.errorFormat ?? 'developer';
+        this.quiet = opts.quiet ?? false;
         this.token = opts.token ?? null;
         this.userAgent = opts.userAgent ?? 'adapty-cli';
     }
@@ -75,6 +87,20 @@ export class ApiClient {
         );
     }
 
+    private buildHeaders(init: RequestInit, opts: RequestOptions): Record<string, string> {
+        const headers: Record<string, string> = { 'User-Agent': this.userAgent };
+
+        if (init.body && !(init.body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        if (this.token) {
+            headers.Authorization = `Bearer ${this.token}`;
+        }
+
+        return { ...headers, ...opts.headers };
+    }
+
     private buildUrl(path: string, params?: QueryParams): string {
         const url = `${this.baseUrl}${ensureTrailingSlash(path)}`;
 
@@ -97,37 +123,58 @@ export class ApiClient {
         return search.size === 0 ? url : `${url}?${search.toString()}`;
     }
 
-    private isRetryableRateLimit(error: ApiError): boolean {
+    private isRetryableRefusal(error: ApiError): boolean {
         return (
             this.errorFormat === 'asa'
-            && error.statusCode === 429
+            && RETRYABLE_STATUSES.has(error.statusCode)
             && error.errorCode !== 'cli_cooldown_active'
             && error.retryAfterSeconds !== undefined
             && error.retryAfterSeconds <= MAX_RETRY_AFTER_SECONDS
         );
     }
 
-    private async request<T>(url: string, init: RequestInit, opts: RequestOptions = {}, retried = false): Promise<T> {
-        const headers: Record<string, string> = {
-            'User-Agent': this.userAgent,
-        };
+    private async readBody(response: Response, errorOptions: ApiErrorOptions): Promise<unknown> {
+        try {
+            return await response.json();
+        } catch {
+            if (!response.ok) {
+                throw new ApiError(response.status, `http_${response.status}`, {}, errorOptions);
+            }
 
-        if (init.body && !(init.body instanceof FormData)) {
-            headers['Content-Type'] = 'application/json';
+            throw new ApiError(
+                response.status,
+                'malformed_response',
+                {},
+                {
+                    ...errorOptions,
+                    detail:
+                        `The server answered ${response.status} with a body that is not JSON, so the response was cut short `
+                        + 'rather than refused. Nothing was read; retry the request.',
+                },
+            );
         }
+    }
 
-        if (this.token) {
-            headers.Authorization = `Bearer ${this.token}`;
-        }
-
-        Object.assign(headers, opts.headers);
+    private async request<T>(
+        url: string,
+        init: RequestInit,
+        opts: RequestOptions = {},
+        retried = NO_RETRIES,
+    ): Promise<T> {
+        const headers = this.buildHeaders(init, opts);
 
         let response: Response;
 
         try {
             response = await fetch(url, { ...init, headers });
         } catch (error) {
-            throw new NetworkError(error instanceof Error ? error.message : 'Connection failed');
+            const failure = new NetworkError(error instanceof Error ? error.message : 'Connection failed');
+
+            if (retried.network || init.method !== 'GET') {
+                throw failure;
+            }
+
+            return this.request<T>(url, init, opts, { ...retried, network: true });
         }
 
         opts.onResponse?.(response.headers);
@@ -139,17 +186,7 @@ export class ApiClient {
         const retryAfter = Number.parseInt(response.headers.get('Retry-After') ?? '', 10);
         const errorOptions = this.errorFormat === 'asa' && !Number.isNaN(retryAfter) ? { retryAfterSeconds: retryAfter } : {};
 
-        let body: unknown;
-
-        try {
-            body = await response.json();
-        } catch {
-            if (!response.ok) {
-                throw new ApiError(response.status, `http_${response.status}`, {}, errorOptions);
-            }
-
-            return undefined as T;
-        }
+        const body = await this.readBody(response, errorOptions);
 
         if (!response.ok) {
             const error = parseApiError(response.status, body, errorOptions, this.errorFormat);
@@ -158,15 +195,19 @@ export class ApiClient {
                 error.message = 'Token expired or invalid. Run `adapty auth login`.';
             }
 
-            if (!retried && this.isRetryableRateLimit(error)) {
+            if (!retried.refused && this.isRetryableRefusal(error)) {
                 const seconds = error.retryAfterSeconds ?? 0;
-                process.stderr.write(`Rate limited (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`);
+
+                if (!this.quiet) {
+                    const reason = error.statusCode === 429 ? 'Rate limited' : 'Temporarily unavailable';
+                    process.stderr.write(`${reason} (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`);
+                }
 
                 await new Promise((resolve) => {
                     setTimeout(resolve, seconds * 1000);
                 });
 
-                return this.request<T>(url, init, opts, true);
+                return this.request<T>(url, init, opts, { ...retried, refused: true });
             }
 
             throw error;

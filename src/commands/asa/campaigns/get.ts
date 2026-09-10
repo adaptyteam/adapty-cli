@@ -22,7 +22,7 @@ export default class AsaCampaignsGet extends Command {
             this.error('Invalid campaign ID format.', { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<AsaCampaignDTO>(`/campaigns/${args.campaign_id}`);
 
         printResponse(result, this.log.bind(this));

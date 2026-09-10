@@ -50,7 +50,7 @@ export default class AsaAutomationsCreate extends Command {
         const summary = flags['run-now'] ? 'Create automation rule and run it immediately' : 'Create automation rule';
         await confirmMutation(this, { body, method: 'POST', path: '/automations/', summary }, flags.yes);
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaAutomationMutationDTO>(client, 'post', '/automations', {
             body,

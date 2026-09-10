@@ -16,7 +16,7 @@ export default class AsaOrgsList extends Command {
 
     async run(): Promise<PaginatedResponse<AsaCampaignGroupDTO>> {
         const { flags } = await this.parse(AsaOrgsList);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<PaginatedResponse<AsaCampaignGroupDTO>>('/campaign-groups', paginationParams(flags));
 
         printList(result.data, this.log.bind(this), result.meta.pagination);

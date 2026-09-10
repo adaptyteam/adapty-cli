@@ -65,7 +65,7 @@ export default class AsaCampaignsBulkCreate extends Command {
 
     async run(): Promise<AsaBulkOperationStateDTO | Record<string, unknown>> {
         const { flags } = await this.parse(AsaCampaignsBulkCreate);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- FIXME if you see this
         const body = flags['from-file'] ? await this.convertTemplate(client, flags) : await this.readStructure(flags.file!);

@@ -6,13 +6,19 @@ import { printResponse } from '../../lib/output.js';
 import type { AsaMeDTO } from '../../lib/asa-schemas.js';
 
 export default class AsaWhoami extends Command {
-    static override description = 'Show which company the token unlocks and whether Apple Ads is connected';
+    static override description = `Show which company the token unlocks, whether Apple Ads is connected, and the request budgets it gets
+
+Limits are raised per company, so read them here rather than assuming the defaults: metrics_limit_per_minute
+and metrics_burst_limit govern asa metrics, keywords_read_limit_per_minute the keyword lists,
+metrics_inflight_limit how many analytics calls may overlap, and max_breakdown_rows_per_page the size a
+grouped page may project to before it is refused.`;
+
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> asa whoami'];
 
     async run(): Promise<AsaMeDTO> {
         await this.parse(AsaWhoami);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<AsaMeDTO>('/me');
 
         printResponse(result, this.log.bind(this));

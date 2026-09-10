@@ -11,7 +11,13 @@ import type { Config } from '@oclif/core';
 export const ASA_API_URL = 'https://api-asa-admin.adapty.io/api/v1/cli';
 export const ASA_API_URL_ENV_VAR = 'ADAPTY_ASA_API_URL';
 
-export async function createAsaClient(config: Config): Promise<ApiClient> {
+export type AsaCommandContext = {
+    config: Config;
+    jsonEnabled: () => boolean;
+};
+
+export async function createAsaClient(command: AsaCommandContext): Promise<ApiClient> {
+    const { config } = command;
     const token = await resolveToken(config.configDir);
 
     if (!token) {
@@ -21,6 +27,7 @@ export async function createAsaClient(config: Config): Promise<ApiClient> {
     return new ApiClient({
         defaultBaseUrl: ASA_API_URL,
         errorFormat: 'asa',
+        quiet: command.jsonEnabled(),
         token,
         urlEnvVar: ASA_API_URL_ENV_VAR,
         userAgent: buildUserAgent(config),

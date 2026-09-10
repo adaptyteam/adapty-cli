@@ -38,10 +38,28 @@ export type AsaMetricsDTO = {
     view_redownloads: number;
 };
 
+export type AsaMetricsResponse = {
+    data: Record<string, unknown>[];
+    meta: {
+        max_valid_day?: number;
+        pagination: { count: number; page: number; pages: number };
+    };
+};
+
+export type AsaEffectiveLimitsDTO = {
+    keywords_read_limit_per_minute: number;
+    max_breakdown_rows_per_page: number;
+    metrics_burst_limit: number;
+    metrics_inflight_limit: number;
+    metrics_limit_per_minute: number;
+    read_limit_per_minute: number;
+};
+
 export type AsaMeDTO = {
     access_source: AsaAccessSource;
     apple_credentials_status: AsaAppleCredentialsStatus;
     company_id: string;
+    limits?: AsaEffectiveLimitsDTO;
 };
 
 export type AsaAppleOAuthDTO = {

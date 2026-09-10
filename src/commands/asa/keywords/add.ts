@@ -62,7 +62,7 @@ export default class AsaKeywordsAdd extends Command {
             flags.yes,
         );
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaKeywordMutationDTO>(client, 'post', '/keywords', {
             body,

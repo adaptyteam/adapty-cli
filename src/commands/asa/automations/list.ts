@@ -16,7 +16,7 @@ export default class AsaAutomationsList extends Command {
 
     async run(): Promise<PaginatedResponse<AsaAutomationDTO>> {
         const { flags } = await this.parse(AsaAutomationsList);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<PaginatedResponse<AsaAutomationDTO>>('/automations', paginationParams(flags));
 
         printList(result.data, this.log.bind(this), result.meta.pagination);

@@ -44,7 +44,7 @@ export default class AsaAutomationsRun extends Command {
             );
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaAutomationRunEnqueuedDTO>(
             client,

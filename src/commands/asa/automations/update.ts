@@ -73,7 +73,7 @@ export default class AsaAutomationsUpdate extends Command {
             this.error('Remove internal_id from the file: the rule ID comes from the command line.', { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         if (actionFlags) {
             await this.rebuildAction(client, args.automation_id, body, flags);

@@ -22,7 +22,7 @@ export default class AsaAdsGet extends Command {
             this.error('Invalid ad ID format.', { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<AsaAdDTO>(`/ads/${args.ad_id}`);
 
         printResponse(result, this.log.bind(this));

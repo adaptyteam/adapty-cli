@@ -20,7 +20,7 @@ export default class AsaAdGroupsList extends Command {
 
     async run(): Promise<PaginatedResponse<AsaAdGroupDTO>> {
         const { flags } = await this.parse(AsaAdGroupsList);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const result = await client.get<PaginatedResponse<AsaAdGroupDTO>>('/ad-groups', {
             ...paginationParams(flags),

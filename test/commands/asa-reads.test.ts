@@ -241,6 +241,94 @@ describe('asa reads', () => {
         expect(fetchStub.callCount).to.equal(1);
     });
 
+    it('keeps the retry notice out of the stream when --json is asked for', async () => {
+        fetchStub = sinon.stub(globalThis, 'fetch');
+
+        fetchStub.onFirstCall().resolves(
+            new Response(JSON.stringify({ errors: [{ error_code: 'cli_rate_limit_exceeded', message: 'slow down' }] }), {
+                headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
+                status: 429,
+            }),
+        );
+
+        fetchStub.onSecondCall().resolves(
+            new Response(JSON.stringify(EMPTY_LIST_RESPONSE), { headers: { 'Content-Type': 'application/json' }, status: 200 }),
+        );
+
+        const { error, stderr, stdout } = await runCommand('asa campaigns list --json');
+        expect(error).to.equal(undefined);
+        expect(stderr).to.not.contain('Rate limited');
+        expect(fetchStub.callCount).to.equal(2);
+
+        expect(() => {
+            JSON.parse(stdout);
+        }).to.not.throw();
+    });
+
+    it('waits out a 503 with a Retry-After, so an upstream outage is not the caller problem', async () => {
+        fetchStub = sinon.stub(globalThis, 'fetch');
+
+        fetchStub.onFirstCall().resolves(
+            new Response(JSON.stringify({ errors: [{ error_code: 'cli_upstream_unavailable', message: 'upstream down' }] }), {
+                headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
+                status: 503,
+            }),
+        );
+
+        fetchStub.onSecondCall().resolves(
+            new Response(JSON.stringify(EMPTY_LIST_RESPONSE), { headers: { 'Content-Type': 'application/json' }, status: 200 }),
+        );
+
+        const { error, stderr } = await runCommand('asa campaigns list');
+        expect(error).to.equal(undefined);
+        expect(stderr).to.contain('Temporarily unavailable');
+        expect(fetchStub.callCount).to.equal(2);
+    });
+
+    it('surfaces a 503 that carries no Retry-After instead of guessing a wait', async () => {
+        fetchStub = sinon.stub(globalThis, 'fetch').resolves(
+            new Response(JSON.stringify({ errors: [{ error_code: 'cli_upstream_unavailable', message: 'upstream down' }] }), {
+                headers: { 'Content-Type': 'application/json' },
+                status: 503,
+            }),
+        );
+
+        const { error } = await runCommand('asa campaigns list');
+        expect(error?.message).to.contain('upstream down');
+        expect(fetchStub.callCount).to.equal(1);
+    });
+
+    it('names a truncated 200 instead of failing on an undefined body', async () => {
+        fetchStub = sinon
+            .stub(globalThis, 'fetch')
+            .resolves(new Response('', { headers: { 'Content-Type': 'application/json' }, status: 200 }));
+
+        const { error } = await runCommand('asa campaigns list');
+        expect(error?.message).to.contain('not JSON');
+        expect(error?.message).to.not.contain('undefined');
+    });
+
+    it('retries a dropped read once, and only for reads', async () => {
+        fetchStub = sinon.stub(globalThis, 'fetch');
+        fetchStub.onFirstCall().rejects(new TypeError('fetch failed'));
+
+        fetchStub.onSecondCall().resolves(
+            new Response(JSON.stringify(EMPTY_LIST_RESPONSE), { headers: { 'Content-Type': 'application/json' }, status: 200 }),
+        );
+
+        const { error } = await runCommand('asa campaigns list');
+        expect(error).to.equal(undefined);
+        expect(fetchStub.callCount).to.equal(2);
+    });
+
+    it('gives up when a read keeps dropping', async () => {
+        fetchStub = sinon.stub(globalThis, 'fetch').rejects(new TypeError('fetch failed'));
+
+        const { error } = await runCommand('asa campaigns list');
+        expect(error?.message).to.contain('fetch failed');
+        expect(fetchStub.callCount).to.equal(2);
+    });
+
     it('accepts big pages up to the server cap and refuses above it', async () => {
         fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
         await runCommand('asa campaigns list --page-size 1000');

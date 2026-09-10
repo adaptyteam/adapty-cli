@@ -37,7 +37,7 @@ export default class AsaAdsCreate extends Command {
 
         await confirmMutation(this, { body, method: 'POST', path: '/ads/', summary: `Create ad ${flags.name}` }, flags.yes);
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaAdMutationDTO>(client, 'post', '/ads', {
             body,

@@ -20,7 +20,7 @@ export default class AsaKeywordsList extends Command {
 
     async run(): Promise<PaginatedResponse<AsaKeywordDTO>> {
         const { flags } = await this.parse(AsaKeywordsList);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const result = await client.get<PaginatedResponse<AsaKeywordDTO>>('/keywords', {
             ...paginationParams(flags),

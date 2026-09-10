@@ -570,6 +570,28 @@ describe('asa writes', () => {
         expect(fetchStub.callCount).to.equal(2);
     });
 
+    it('metrics flags the renewal windows the date range has not reached yet', async () => {
+        fetchStub = mockFetch([{ data: [], meta: { max_valid_day: 39, pagination: { count: 0, page: 1, pages: 1 } } }]);
+
+        const { stdout } = await runCommand(
+            'asa metrics --entity campaign --date-from 2026-08-01 --date-to 2026-08-31 --metric roas --by-days 30 --by-days 90',
+        );
+
+        expect(stdout).to.contain('past day 39');
+    });
+
+    it('metrics stays quiet when every requested window has been reached', async () => {
+        fetchStub = mockFetch([
+            { data: [], meta: { max_valid_day: 200, pagination: { count: 0, page: 1, pages: 1 } } },
+        ]);
+
+        const { stdout } = await runCommand(
+            'asa metrics --entity campaign --date-from 2026-01-01 --date-to 2026-01-31 --metric roas --by-days 30 --by-days 90',
+        );
+
+        expect(stdout).to.not.contain('past day');
+    });
+
     it('metrics overview caps the renewal windows client-side', async () => {
         fetchStub = mockFetch([{}]);
         const byDays = Array.from({ length: 17 }, (_, index) => `--by-days ${index}`).join(' ');

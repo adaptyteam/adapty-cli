@@ -25,7 +25,7 @@ export default class AsaAutomationsRuns extends Command {
             this.error('Invalid automation ID format.', { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const result = await client.get<PaginatedResponse<AsaAutomationRunDTO>>(
             `/automations/${args.automation_id}/runs`,

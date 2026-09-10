@@ -22,7 +22,7 @@ export default class AsaAdGroupsGet extends Command {
             this.error('Invalid ad group ID format.', { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<AsaAdGroupDTO>(`/ad-groups/${args.ad_group_id}`);
 
         printResponse(result, this.log.bind(this));

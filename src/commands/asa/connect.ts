@@ -18,7 +18,7 @@ export default class AsaConnect extends Command {
 
     async run(): Promise<AsaAppleOAuthDTO | AsaMeDTO> {
         const { flags } = await this.parse(AsaConnect);
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { auth_url: authUrl } = await client.get<AsaAppleOAuthDTO>('/apple/oauth');
         this.log(`If the browser doesn't open, visit: ${authUrl}\n`);

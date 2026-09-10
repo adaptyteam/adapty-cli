@@ -84,7 +84,7 @@ export default class AsaAdGroupsCreate extends Command {
             flags.yes,
         );
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaAdGroupMutationDTO>(client, 'post', '/ad-groups', {
             body,

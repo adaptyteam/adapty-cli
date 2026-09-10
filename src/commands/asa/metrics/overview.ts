@@ -42,7 +42,7 @@ the 5-per-minute metrics budget with asa metrics.`;
             this.error(`At most ${MAX_BY_DAYS} renewal windows per call, got ${flags['by-days'].length}.`, { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { result } = await asaWrite<Record<string, unknown>>(client, 'post', '/metrics/overview', {
             body: {

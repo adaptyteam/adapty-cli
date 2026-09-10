@@ -22,7 +22,7 @@ export default class AsaAutomationsGet extends Command {
             this.error('Invalid automation ID format.', { exit: 2 });
         }
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
         const result = await client.get<AsaAutomationDTO>(`/automations/${args.automation_id}`);
 
         printResponse(result, this.log.bind(this));

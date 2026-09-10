@@ -28,7 +28,7 @@ export default class AsaProductPagesSync extends Command {
             flags.yes,
         );
 
-        const client = await createAsaClient(this.config);
+        const client = await createAsaClient(this);
 
         const { result } = await asaWrite<AsaProductPageSyncDTO>(client, 'post', '/product-pages/sync', {
             body,
