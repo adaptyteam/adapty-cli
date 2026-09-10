@@ -110,7 +110,8 @@ export type FlowStatus = string;
 export type FlowDTO = {
     id: string;
     name: string;
-    status: FlowStatus;
+    /** Optional: the flows-update (rename) response leaves status out. Read it from flows get. */
+    status?: FlowStatus;
     updated_at: string;
 };
 
@@ -200,8 +201,11 @@ export type PlacementAudienceEntryDTO = PlacementFlowAudienceEntryDTO | Placemen
 export type PlacementSummaryDTO = {
     developer_id: string;
     id: string;
-    /** Placement activation state: true = Live, false = Inactive. */
-    is_active: boolean;
+    /**
+     * Placement activation state: true = Live, false = Inactive.
+     * Optional — the paywall placements list leaves it out.
+     */
+    is_active?: boolean;
     title: string;
 };
 
