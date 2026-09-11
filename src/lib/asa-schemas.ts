@@ -1,4 +1,4 @@
-export type AsaAccessSource = 'allowlist' | 'legacy' | 'none' | 'payg';
+export type AsaAccessSource = 'allowlist' | 'legacy' | 'none' | 'payg' | 'trial';
 
 export type AsaAppleCredentialsStatus = 'active' | 'expired' | 'invalid' | 'unset';
 

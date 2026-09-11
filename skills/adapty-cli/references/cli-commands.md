@@ -155,8 +155,9 @@ There is no file-based hand-off flag: the config always rides in the URL.
 ## Apple Search Ads (`asa` topic)
 
 Different service behind the same token. **No `--app`**: every command is scoped to the company the token
-belongs to. Requires a connected Apple Ads account plus an active Ads Manager subscription — without one
-every `asa` command answers `402 ads_manager_subscription_required`. Start with `asa whoami`.
+belongs to. Requires a connected Apple Ads account plus Ads Manager access — the 14-day trial counts, same
+as a paid subscription. Without access every `asa` command answers `402 ads_manager_subscription_required`.
+Start with `asa whoami`: its `access_source` says which one granted access (`trial`, `payg`, `legacy`).
 
 | Command                              | Required flags / notes                                                     |
 |-------------------------------------|----------------------------------------------------------------------------|
