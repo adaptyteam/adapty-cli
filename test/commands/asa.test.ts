@@ -43,8 +43,17 @@ describe('asa', () => {
         fetchStub = mockFetch([{ ...ME_RESPONSE, access_source: 'none', apple_credentials_status: 'unset' }]);
         const { stdout } = await runCommand('asa whoami');
         expect(stdout).to.contain('Access Source: none');
-        expect(stdout).to.contain('No active Ads Manager subscription');
+        expect(stdout).to.contain('No Ads Manager access');
+        expect(stdout).to.contain('trial');
         expect(stdout).to.contain('402');
+    });
+
+    it('whoami reports trial access and says it ends with the trial', async () => {
+        fetchStub = mockFetch([{ ...ME_RESPONSE, access_source: 'trial' }]);
+        const { stdout } = await runCommand('asa whoami');
+        expect(stdout).to.contain('Access Source: trial');
+        expect(stdout).to.contain('Ads Manager trial');
+        expect(stdout).to.not.contain('402');
     });
 
     it('whoami prints the budgets this company actually gets', async () => {

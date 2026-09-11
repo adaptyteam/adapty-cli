@@ -129,7 +129,7 @@ the dashboard usually means the token is scoped elsewhere.
 | `ERROR no_code_minted` | Login started but printed no code | Read `$TMPDIR/adapty-setup/auth.out` |
 | `User code not found or expired` in the browser | The waiter died, or the TTL ran out | Step 1 again, and surface the new code faster |
 | `AuthRequiredError` after `AUTHED` | Almost always a stale `ADAPTY_TOKEN` | `unset ADAPTY_TOKEN`, re-check |
-| `402 ads_manager_subscription_required` | Authenticated fine; the company has no Ads Manager subscription | **Not a setup bug.** Say so plainly and stop. No flag works around it |
+| `402 ads_manager_subscription_required` | Authenticated fine; the company has no Ads Manager access — neither the trial nor a subscription | **Not a setup bug.** Say so plainly and stop. No flag works around it |
 | `NetworkError`, including certificate `-25291` noise | Network or sandbox trust-store access failed before authentication could be checked | Return to the caller's quiet preflight retry. Never install or log in |
 
 ## ADAPTY_TOKEN
