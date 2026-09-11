@@ -50,6 +50,22 @@ src/
     preview.ts       # flow config normalization + render URL / gzip fragment building
 ```
 
+## Where new code goes
+
+The tree above is the pre-sdk stack, and it is **frozen**: no new file in `src/lib`, no new
+hand-written command in `src/commands`. New work goes to
+
+```
+src/
+  sdk/               # the API: core/ (transport, errors, session, clock) + adapty/ (resources, rules)
+  cli/               # the oclif adapter: base commands, session, exit codes, flags, views
+```
+
+A migrated command keeps a one-line re-export under `src/commands`, because oclif discovers
+commands only there. `test/architecture/frozen-legacy.test.ts` fails on any other new file, and the
+eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers and contracts:
+`docs/architecture.md`.
+
 ## Conventions
 
 - oclif topic separator is space (e.g. `adapty apps list`, not `adapty apps:list`)
@@ -57,6 +73,10 @@ src/
   token's company (`--app` there is only a list filter)
 - `list` commands use shared pagination flags (--page, --page-size)
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
+- Relative imports use explicit `.js` extensions, including `/index.js` for module entry points
+  (Node.js ESM + TypeScript `nodenext`)
+- Import the Adapty command adapter through `cli/base/adapty/index.js`; files inside that module
+  import each other directly
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
@@ -77,7 +97,14 @@ src/
 
 ## Key Patterns
 
-- Each command: single class extending `Command` in its own file
+- Each migrated command is a single class extending `BaseCommand` when authorization is optional,
+  or `AdaptyCommand` when an Adapty token is required. `BaseCommand` owns output, cancellation and
+  error mapping; the Adapty SDK and session belong in `cli/base/adapty/`
+- `AdaptyCommand` checks the token on access to `this.session` or `this.adapty`; parse and validate
+  input first. Auth commands use `openSession()` and `build()` explicitly as needed
+
+The following client factories and output helpers belong to the frozen legacy stack:
+
 - `createAuthenticatedClient(config)` — factory for token-aware ApiClient
 - `createAsaClient(config)` — same, against the ASA service; asa writes print the request body and ask for
   confirmation before sending (`asa-confirm.ts`)
