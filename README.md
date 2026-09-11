@@ -34,8 +34,13 @@ Other auth commands:
 adapty auth whoami     # verify token, show user info
 adapty auth status     # show local auth state
 adapty auth logout     # clear stored token (local only)
-adapty auth revoke     # revoke token server-side and clear local
+adapty auth revoke     # revoke active token and clear any matching stored session
 ```
+
+`auth revoke` uses `ADAPTY_TOKEN` when set, otherwise the stored token. A different token in the
+session file is preserved. After revoking an environment token, unset `ADAPTY_TOKEN`; a preserved
+stored session will then become active again. With no token, revoke succeeds without a request
+and returns `{"status":"not_authenticated"}` under `--json`.
 
 ## Commands
 

@@ -190,6 +190,10 @@ const formatting = tseslint.config(
 // Patterns match the import string as written, not the resolved path: a relative
 // specifier has no `sdk` segment and the number of `../` isn't known up front.
 // The form without `/**` catches a barrel import of the directory.
+// import-x/no-restricted-paths would express the same zones over real paths, but it resolves
+// the specifier first, and a '.js' specifier pointing at a '.ts' file resolves to nothing here —
+// the rule then passes silently. Making it work needs eslint-import-resolver-typescript; until
+// that is worth a dependency, patterns are the only boundary that actually fires.
 const noOclif = {
     group: ['@oclif/*'],
     message: 'sdk must not depend on oclif: the framework lives in src/cli',
@@ -205,17 +209,86 @@ const noProducts = {
     message: 'core must not know about products',
 };
 
-// src/sdk doesn't exist yet — these rules await the layer split and match nothing today.
+// Both layers live in src while the migration runs, so the arrow is spelled out.
+const noLegacy = {
+    group: ['**/lib', '**/lib/**'],
+    message: 'sdk must not import src/lib: that layer is what sdk replaces',
+};
+
+// src/lib is frozen (test/architecture/frozen-legacy.test.ts). These three are the whole of what
+// the new layer still borrows from it; a fourth one means either porting the helper into sdk, or
+// a deliberate edit here.
+//
+// `**/lib/*` and not `**/lib/**`: the patterns follow gitignore semantics, where a negation cannot
+// re-include a file whose parent directory the group already excluded. src/lib is flat, so one
+// level is the whole of it.
+const legacyBridgesOnly = {
+    group: [
+        '**/lib/*',
+        '!**/lib/app-url.js', '!**/lib/client-from-config.js', '!**/lib/output.js',
+    ],
+    message: 'src/lib is frozen: only app-url, client-from-config and output may still be borrowed',
+};
+
+// A command that outgrew one file keeps private helpers in its own lib/ (command-layout.test.ts).
+// `./lib/*` is the only way to spell "the lib next to me", so the freeze above can re-include
+// exactly that — another command's lib is still out of reach, and so is src/lib.
+const ownCommandLib = {
+    group: [...legacyBridgesOnly.group, '!./lib/*'],
+    message: 'src/lib is frozen to app-url, client-from-config and output; a lib/ inside another command is private to it',
+};
+
+// The transport stands on core primitives and pulls in no neighbours (testing, session, auth).
+// A pattern sees only the specifier, so the allowlist is spelled as negations.
+const corePrimitivesOnly = {
+    group: ['../*', '../*/**', '!../errors.js', '!../clock.js'],
+    message: 'the transport depends on core primitives only: errors and clock',
+};
+
+// core/http is a module with one door: its internals can be rearranged without touching consumers.
+const httpDoorOnly = {
+    group: ['**/core/http/*', '!**/core/http/index.js'],
+    message: 'core/http has one door: import it through core/http/index.js',
+};
+
+// Live for src/sdk/core; the blocks for products and for src/cli wait for those layers.
 const architecture = tseslint.config(
     {
         files: ['src/sdk/**/*.ts'],
-        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli] }] },
+        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noLegacy] }] },
     },
 
     {
         // A later block replaces rule options instead of merging, so sdk boundaries repeat here
         files: ['src/sdk/core/**/*.ts'],
-        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noProducts] }] },
+        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noLegacy, noProducts] }] },
+    },
+
+    {
+        files: ['src/sdk/core/http/**/*.ts'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [noOclif, noCli, noLegacy, noProducts, corePrimitivesOnly],
+            }],
+        },
+    },
+
+    {
+        // Products see the module, not its parts
+        files: ['src/sdk/adapty/**/*.ts', 'src/sdk/asa/**/*.ts'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noLegacy, httpDoorOnly] }] },
+    },
+
+    {
+        // The adapter keeps a few named bridges into src/lib until the commands move over
+        files: ['src/cli/**/*.ts'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [httpDoorOnly, legacyBridgesOnly] }] },
+    },
+
+    {
+        // ... plus, for a command, the lib/ it owns
+        files: ['src/cli/commands/**/*.ts'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [httpDoorOnly, ownCommandLib] }] },
     },
 );
 
