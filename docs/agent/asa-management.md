@@ -17,7 +17,7 @@ Every `list` and `get` command in this file returns metadata only, no metrics. E
 
 | Command | Flags | Notes |
 |---|---|---|
-| `asa whoami` | none | Company, how access was granted, Apple connection state. Run this first. No connected Apple Ads account or no active Ads Manager subscription answers `402 ads_manager_subscription_required` on every other `asa` command. |
+| `asa whoami` | none | Company, how access was granted, Apple connection state. Run this first. Ads Manager access comes from the trial (`access_source: trial`) or a subscription (`payg`, `legacy`); without either, every other `asa` command answers `402 ads_manager_subscription_required`. |
 | `asa connect` | `--no-wait` optional | Prints the Apple authorization link and waits for the link to be completed; `--no-wait` returns immediately instead of waiting. |
 | `asa apps list` | pagination only | Apps promoted in Apple Search Ads. Its rows supply `--adam-id` for `campaigns create`. |
 | `asa orgs list` | pagination only | Apple Search Ads organizations. Each row carries two identifiers, not interchangeable: `internal_id` (a UUID) and `org_id` (Apple's numeric id). `--org` on `campaigns create` takes `internal_id` — passing the numeric `org_id` fails with "Invalid org ID format." `payment_model` (`LOC`/`PAYG`) tells you whether campaigns in that organization need Invoicing Options — see [Line of credit](#line-of-credit-loc-organizations). |

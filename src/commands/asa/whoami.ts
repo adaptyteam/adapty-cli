@@ -28,8 +28,13 @@ grouped page may project to before it is refused.`;
         }
 
         if (result.access_source === 'none') {
-            this.log('\nNo active Ads Manager subscription for this company: connecting an account works, but every');
-            this.log('data command answers 402 until the subscription is in place.');
+            this.log('\nNo Ads Manager access for this company: connecting an account works, but every data command');
+            this.log('answers 402 until the Ads Manager trial is started or a subscription is in place.');
+        }
+
+        if (result.access_source === 'trial') {
+            this.log('\nAccess comes from the Ads Manager trial: every command works, and they stop working when');
+            this.log('the trial ends without a subscription.');
         }
 
         return result;
