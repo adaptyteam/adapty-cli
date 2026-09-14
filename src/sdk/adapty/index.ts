@@ -22,6 +22,7 @@ export type {
     Action,
     ActionKind,
     AvailableFlow,
+    CreateMigrationInput,
     Envelope,
     Issue,
     JsonSchema,
@@ -66,7 +67,7 @@ export type Adapty = {
 
 /** The assembly point of the developer API: one transport, resources on top of it. */
 export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
-    const http = createHttp({
+    const transport = {
         baseUrl: options.baseUrl ?? DEFAULT_ADAPTY_API_URL,
         clock: options.clock,
         fetch: options.fetch,
@@ -75,12 +76,19 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         parseError: developerErrorParser,
         signal: options.signal,
         token: options.token,
-    });
+    };
+
+    const http = createHttp(transport);
+
+    // Same host, same token, another service: /migrations is proxied through to the Wizard
+    // Service, which is not Django and answers 404 to the trailing slash the rest of this API
+    // requires. One client per convention, so neither resource has to remember the other's.
+    const wizard = createHttp({ ...transport, trailingSlash: false });
 
     return {
         accessLevels: accessLevels(http),
         apps: apps(http),
         auth: auth(http),
-        migrations: migrations(http),
+        migrations: migrations(wizard),
     };
 };

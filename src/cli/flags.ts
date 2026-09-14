@@ -26,6 +26,19 @@ export const appIdArg = {
     }),
 };
 
+/**
+ * `-m` is optional in every command of the migrations topic. The CLI stores nothing locally, so
+ * the id is resolved flag → $ADAPTY_MIGRATION → the only open migration of the account → an error
+ * listing the candidates; oclif covers the first two steps, the rest belongs to the commands.
+ */
+export const migrationFlags = {
+    migration: Flags.string({
+        char: 'm',
+        description: 'Migration ID (default: the only open migration of the account)',
+        env: 'ADAPTY_MIGRATION',
+    }),
+};
+
 /** The published defaults, so a migrated `list` asks for the same page as an untouched one. */
 export const paginationFlags = {
     'page': Flags.integer({ default: 1, description: 'Page number', min: 1 }),
