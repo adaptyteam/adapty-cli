@@ -4,10 +4,12 @@ import { accessLevels } from './access-levels.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
+import { migrations } from './migrations/index.js';
 
 import type { AccessLevelsApi } from './access-levels.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
+import type { MigrationApi } from './migrations/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
@@ -16,6 +18,23 @@ export { developerErrorParser } from './errors.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
+export type {
+    Action,
+    ActionKind,
+    AvailableFlow,
+    Envelope,
+    Issue,
+    JsonSchema,
+    Migration,
+    MigrationApi,
+    MigrationList,
+    MigrationState,
+    Progress,
+    ResourceRef,
+    Step,
+    StepStatus,
+    WizardError,
+} from './migrations/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
 
 /** Exported because the adapter compares the resolved URL with it and warns when they differ. */
@@ -42,6 +61,7 @@ export type Adapty = {
     accessLevels: AccessLevelsApi;
     apps: AppsApi;
     auth: AuthApi;
+    migrations: MigrationApi;
 };
 
 /** The assembly point of the developer API: one transport, resources on top of it. */
@@ -61,5 +81,6 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         accessLevels: accessLevels(http),
         apps: apps(http),
         auth: auth(http),
+        migrations: migrations(http),
     };
 };
