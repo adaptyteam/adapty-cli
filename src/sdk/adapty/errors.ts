@@ -13,6 +13,10 @@ type DeveloperErrorBody = {
  *
  * Wired once in createAdapty: which shapes a service speaks is product knowledge, and ASA speaks
  * another — which is why the transport takes the parser as a parameter.
+ *
+ * The Wizard Service sits behind the same transport (section 4.5 of the CLI–WS contract) and
+ * words its rejection as `{ error: { code, message } }` (`WizardError`) — one shape this parser
+ * now reads too, alongside the three the developer API already sends.
  */
 export const developerErrorParser: ErrorParser = (_status, body) => {
     if (typeof body !== 'object' || body === null) {
@@ -25,6 +29,14 @@ export const developerErrorParser: ErrorParser = (_status, body) => {
         // The bare code as the fallback message: what the published CLI prints, and still better
         // than an HTTP status when the server sends no field errors
         return { code: errorCode, message: fieldMessages(errors) ?? errorCode };
+    }
+
+    if (typeof error === 'object' && error !== null) {
+        const { code, message } = error as { code?: unknown; message?: unknown };
+
+        if (typeof code === 'string' && code !== '') {
+            return { code, message: typeof message === 'string' && message !== '' ? message : code };
+        }
     }
 
     if (typeof error === 'string' && error !== '') {
