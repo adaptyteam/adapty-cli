@@ -7,9 +7,10 @@ what lets the same product code run under another adapter (an MCP server) later.
 ```
 src/
 ├── sdk/
-│   ├── core/      # transport and primitives, no Adapty knowledge
-│   └── adapty/    # the Developer API: paths, shapes, rules
-└── cli/           # oclif adapter: flags, views, exit codes, env
+│   ├── core/         # transport and primitives, no Adapty knowledge
+│   ├── adapty/       # the Developer API: paths, shapes, rules
+│   └── attribution/  # the UA attribution backend: catalog, report, values
+└── cli/              # oclif adapter: flags, views, exit codes, env
 ```
 
 ## The dependency rule
@@ -18,7 +19,11 @@ src/
 | --- | --- |
 | `sdk/core` | itself |
 | `sdk/adapty` | `sdk/core` |
-| `src/cli` | both |
+| `sdk/attribution` | `sdk/core` |
+| `src/cli` | all of them |
+
+Products stand side by side on core and never import each other: attribution shares the bearer
+token with the Developer API, not its code.
 
 Plus two more: `sdk/core/http` is a module with a single door (`core/http/index.js`), and inside it
 the transport depends only on `core/errors` and `core/clock`.
@@ -81,6 +86,21 @@ input is camelCase, because that side is our API, not the server's.
 `AdaptyOptions` is deliberately narrower than `HttpOptions`: the transport seams are product
 knowledge, and two adapters overriding them would read the same answers differently.
 
+## sdk/attribution
+
+The UA attribution backend (`https://api-ua.adapty.io/api/v1/cli`), a second product on the same
+core. `createAttribution(options)` builds one transport — no trailing slash, the backend's
+`errors[]` envelope as the error parser — and hangs the four endpoints off it: `metrics` and
+`dimensions` (the catalog, GETs, not scoped to an app), `report` and `values` (POSTs scoped by
+`appId`).
+
+Its seams are the product's own: the attribution backend words a rejection as
+`{ errors: [{ message, error_code, status_code, field_name }] }`, so an `ApiError` carries the
+first item's `error_code`. `report` and `values` run analytics queries and are sent as
+non-idempotent — never retried, the server's `Retry-After` left on the error for the caller.
+Validation covers what needs no catalog (ISO days in order, a metric and a grouping, granularity
+only with a date grouping); which names exist is the backend's knowledge.
+
 ## src/cli
 
 The adapter. It resolves the environment, builds the sdk, turns flags into inputs and results into
@@ -97,6 +117,10 @@ text or JSON.
   User-Agent and retry warnings. Both authenticated commands and auth commands use it.
 - `base/adapty/adapty-command.ts` — resolves an Adapty session and lazily builds its SDK. "Needs
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
+- `base/attribution/` — the same four files for the attribution backend. `openSession.ts` takes
+  token, source, store and user from the Adapty `resolveSession`, swaps in
+  `ADAPTY_ATTRIBUTION_API_URL` (or the default) and warns only about a non-default attribution URL;
+  `ADAPTY_API_URL` does not move it. `AttributionCommand` mirrors `AdaptyCommand`.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
 - `flags.ts` — shared flags and args (app id UUID, pagination) and the one place flag names meet
@@ -109,9 +133,14 @@ text or JSON.
 ```text
 base/
 ├── base-command.ts
-└── adapty/
+├── adapty/
+│   ├── index.ts
+│   ├── adapty-command.ts
+│   ├── build.ts
+│   └── openSession.ts
+└── attribution/
     ├── index.ts
-    ├── adapty-command.ts
+    ├── attribution-command.ts
     ├── build.ts
     └── openSession.ts
 ```
@@ -123,8 +152,9 @@ a token, as required by login.
 
 Commands that require Adapty authorization extend `AdaptyCommand`. It resolves the session during
 `init()`, then checks the token when `this.session` or `this.adapty` is accessed. Parse and validate
-input before that access so input errors take precedence over a missing token. A future ASA adapter
-can live in `base/asa/` and extend the same `BaseCommand`.
+input before that access so input errors take precedence over a missing token. Commands of the
+attribution backend extend `AttributionCommand` (`this.attribution`) under the same rule. A future
+ASA adapter can live in `base/asa/` and extend the same `BaseCommand`.
 
 Commands import the Adapty adapter through its public entry point:
 
@@ -161,17 +191,19 @@ quietly changing what users parse.
 
 | Change | Place |
 | --- | --- |
-| New endpoint | a resource module in `sdk/adapty` |
+| New endpoint | a resource module in `sdk/adapty`, or in the product it belongs to (`sdk/attribution`) |
 | New rule ("X is required when Y") | next to the operation it constrains, in `sdk/adapty` |
 | New command | `cli/commands/...` + a re-export in `src/commands/...` |
 | New flag | the command, or `cli/flags.ts` if shared |
 | New error kind | `sdk/core/errors.ts` + `cli/errors.ts` (the compiler insists) |
 | Adapty session environment variables | `cli/base/adapty/openSession.ts` |
+| Attribution base URL environment variable | `cli/base/attribution/openSession.ts` |
 
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps` and `auth`.
+most topics. Migrated so far: `apps` and `auth`. `attribution` was written on the new stack from
+the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

@@ -1,0 +1,461 @@
+import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
+import * as sinon from 'sinon';
+
+import { exitCode } from '../../src/cli/errors.js';
+import { assertFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
+
+const BASE = 'https://api-ua.adapty.io/api/v1/cli';
+
+type Step = {
+    body: unknown;
+    headers?: Record<string, string>;
+    status?: number;
+};
+
+/** Answers each call with its own status and headers; mockFetch's canned responses are all 200. */
+const mockFetchSteps = (steps: Step[]): sinon.SinonStub => {
+    let index = 0;
+
+    return sinon.stub(globalThis, 'fetch').callsFake(() => {
+        const step = steps[index] ?? steps.at(-1);
+        index += 1;
+
+        return Promise.resolve(new Response(JSON.stringify(step?.body), {
+            headers: { 'content-type': 'application/json', ...step?.headers },
+            status: step?.status ?? 200,
+        }));
+    });
+};
+
+const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
+    const [url, init] = stub.getCall(callIndex).args as [string, RequestInit];
+
+    return {
+        body: typeof init.body === 'string' ? init.body : undefined,
+        headers: new Headers(init.headers),
+        method: init.method,
+        url,
+    };
+};
+
+const errorBody = (errorCode: string, statusCode: number, message: string, fieldName: null | string = null) => ({
+    errors: [{ error_code: errorCode, field_name: fieldName, message, status_code: statusCode }],
+});
+
+const PERIOD = '--date-from 2026-08-01 --date-to 2026-08-31';
+const REPORT = `attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spend --group-by campaign`;
+
+const reportAnswer = {
+    data: {
+        rows: [
+            { campaign_id: '42', campaign_name: 'Summer', roas_d7: null, spend: 10.5 },
+            { campaign_id: '43', campaign_name: null, roas_d7: 1.25, spend: 0 },
+        ],
+        totals: { roas_d7: null, spend: 10.5 },
+    },
+    meta: { max_valid_day: 45, query: { app_id: TEST_APP_ID, currency: 'USD' }, spend_channels: ['facebook'] },
+    success: true,
+};
+
+const metricsAnswer = {
+    data: {
+        metrics: [{
+            additive: true,
+            denominator: null,
+            description: 'Ad spend in USD',
+            example: null,
+            family: 'spend',
+            label: 'Spend',
+            name: 'spend',
+            pattern: null,
+            spend_based: true,
+            unit: 'usd',
+        }],
+    },
+    meta: null,
+    success: true,
+};
+
+const dimensionsAnswer = {
+    data: {
+        dimensions: [{
+            filterable: true,
+            granularities: ['day', 'week'],
+            groupable: true,
+            identity: 'value',
+            label: 'Date',
+            name: 'date',
+        }],
+    },
+    meta: null,
+    success: true,
+};
+
+const valuesAnswer = {
+    data: { dimension: 'campaign', items: [{ channel: 'facebook', id: '42', name: 'Summer' }] },
+    meta: { query: { app_id: TEST_APP_ID, dimension: 'campaign' } },
+    success: true,
+};
+
+describe('attribution', () => {
+    let fetchStub: sinon.SinonStub | undefined;
+
+    beforeEach(() => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+    });
+
+    afterEach(() => {
+        if (fetchStub !== undefined) {
+            restoreFetch(fetchStub);
+            fetchStub = undefined;
+        }
+
+        delete process.env.ADAPTY_TOKEN;
+        delete process.env.ADAPTY_API_URL;
+        delete process.env.ADAPTY_ATTRIBUTION_API_URL;
+    });
+
+    describe('report', () => {
+        it('sends one POST with every flag translated, and --json prints the answer unchanged', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { stdout } = await runCommand([
+                'attribution', 'report',
+                '--app', TEST_APP_ID,
+                '--date-from', '2026-08-01',
+                '--date-to', '2026-08-31',
+                '--metrics', 'spend,roas_d7',
+                '--metrics', 'installs',
+                '--group-by', 'date,campaign',
+                '--granularity', 'week',
+                '--filter', 'country=US,GB',
+                '--filter', 'channel=facebook',
+                '--revenue-basis', 'proceeds',
+                '--sort', 'spend:desc',
+                '--json',
+            ]);
+
+            expect(JSON.parse(stdout)).to.deep.equal(reportAnswer);
+            expect(fetchStub.callCount).to.equal(1);
+            assertFetch({ base: BASE, callIndex: 0, method: 'POST', path: '/report', stub: fetchStub });
+
+            const request = requestOf(fetchStub, 0);
+
+            expect(request.headers.get('authorization')).to.equal('Bearer test-token');
+            expect([...request.headers.keys()].filter(key => key.includes('app'))).to.deep.equal([]);
+
+            expect(JSON.parse(request.body ?? '')).to.deep.equal({
+                app_id: TEST_APP_ID,
+                date_from: '2026-08-01',
+                date_to: '2026-08-31',
+                filters: [
+                    { dimension: 'country', values: ['US', 'GB'] },
+                    { dimension: 'channel', values: ['facebook'] },
+                ],
+                granularity: 'week',
+                group_by: ['date', 'campaign'],
+                metrics: ['spend', 'roas_d7', 'installs'],
+                revenue_basis: 'proceeds',
+                sort: { direction: 'desc', field: 'spend' },
+            });
+        });
+
+        it('leaves optional fields to the backend and sorts ascending when no direction is given', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            await runCommand(`${REPORT} --sort spend --json`);
+
+            expect(JSON.parse(requestOf(fetchStub, 0).body ?? '')).to.deep.equal({
+                app_id: TEST_APP_ID,
+                date_from: '2026-08-01',
+                date_to: '2026-08-31',
+                group_by: ['campaign'],
+                metrics: ['spend'],
+                sort: { direction: 'asc', field: 'spend' },
+            });
+        });
+
+        it('prints one labelled block per row and a totals block, with a dash for null and never 0', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { stdout } = await runCommand(REPORT);
+
+            expect(stdout).to.equal([
+                'campaign_id: 42',
+                'campaign_name: Summer',
+                'roas_d7: —',
+                'spend: 10.5',
+                '---',
+                'campaign_id: 43',
+                'campaign_name: —',
+                'roas_d7: 1.25',
+                'spend: 0',
+                '',
+                'Totals',
+                'roas_d7: —',
+                'spend: 10.5',
+                '',
+            ].join('\n'));
+        });
+
+        it('exits 2 without a request when --date-to is missing', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { error } = await runCommand(
+                `attribution report --app ${TEST_APP_ID} --date-from 2026-08-01 --metrics spend --group-by campaign`,
+            );
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('date-to');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('exits 2 without a request for an app id that is not a uuid, with the published hint', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { error } = await runCommand(
+                `attribution report --app not-a-uuid ${PERIOD} --metrics spend --group-by campaign`,
+            );
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('Invalid app ID format. Run `adapty apps list` to find your app ID.');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('exits 2 without a request when --date-from is after --date-to, and names the flag', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { error } = await runCommand(
+                `attribution report --app ${TEST_APP_ID} --date-from 2026-09-01 --date-to 2026-08-31 --metrics spend --group-by campaign`,
+            );
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('--date-to');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('exits 2 without a request for malformed flag values', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const cases = [
+                { command: `${REPORT} --filter country`, message: 'dimension=value' },
+                { command: `${REPORT} --filter =US`, message: 'dimension=value' },
+                { command: `${REPORT} --sort spend:up`, message: 'asc or desc' },
+                { command: `attribution report --app ${TEST_APP_ID} --date-from 01.08.2026 --date-to 2026-08-31 --metrics spend --group-by campaign`, message: 'YYYY-MM-DD' },
+                { command: `attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spend --group-by planet`, message: 'planet' },
+                { command: `${REPORT} --granularity day`, message: '--granularity' },
+                { command: `${REPORT} --revenue-basis net_net`, message: 'net_net' },
+            ];
+
+            for (const { command, message } of cases) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
+                expect(error?.message, command).to.contain(message);
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('turns an unknown metric into exit 4 carrying the backend code in the --json error', async () => {
+            const rejection = {
+                body: errorBody('attribution_unknown_metric', 422, 'Unknown metric: roas_d9000', 'metrics'),
+                status: 422,
+            };
+
+            fetchStub = mockFetchSteps([rejection]);
+
+            const human = await runCommand(REPORT);
+
+            expect(human.error?.oclif?.exit).to.equal(exitCode.api);
+            expect(human.error?.message).to.equal('metrics: Unknown metric: roas_d9000');
+
+            const { stdout } = await runCommand(`${REPORT} --json`);
+            const { error } = JSON.parse(stdout) as { error: { code: string; status: number } };
+
+            expect(error.code).to.equal('attribution_unknown_metric');
+            expect(error.status).to.equal(422);
+        });
+
+        it('turns a company without attribution access into exit 4, without sending the user to log in', async () => {
+            fetchStub = mockFetchSteps([{
+                body: errorBody('attribution_access_required', 402, 'Attribution is not available on this plan'),
+                status: 402,
+            }]);
+
+            const { error } = await runCommand(REPORT);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('attribution_access_required');
+            expect(error?.message).to.not.contain('auth login');
+        });
+
+        it('exits 4 on a busy backend after exactly one request', async () => {
+            fetchStub = mockFetchSteps([
+                { body: errorBody('attribution_busy', 429, 'Another query is running'), headers: { 'retry-after': '5' }, status: 429 },
+                { body: reportAnswer },
+            ]);
+
+            const { error } = await runCommand(REPORT);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('attribution_busy');
+            expect(fetchStub.callCount).to.equal(1);
+        });
+
+        it('exits 3 when the backend refuses the token', async () => {
+            fetchStub = mockFetchSteps([{ body: errorBody('attribution_token_invalid', 401, 'Invalid token'), status: 401 }]);
+
+            const { error } = await runCommand(REPORT);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.auth);
+        });
+    });
+
+    describe('without a token', () => {
+        beforeEach(() => {
+            delete process.env.ADAPTY_TOKEN;
+        });
+
+        it('exits 3 before any request once the flags are valid', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const commands = [
+                REPORT,
+                `attribution values --app ${TEST_APP_ID} ${PERIOD} --dimension country`,
+                'attribution metrics',
+                'attribution dimensions',
+            ];
+
+            for (const command of commands) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.auth);
+                expect(error?.message, command).to.contain('Not authenticated');
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('reports bad input first, not the missing token', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { error } = await runCommand(
+                `attribution report --app ${TEST_APP_ID} --date-from 2026-09-01 --date-to 2026-08-31 --metrics spend --group-by campaign`,
+            );
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.not.contain('Not authenticated');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+    });
+
+    describe('base URL', () => {
+        it('goes to ADAPTY_ATTRIBUTION_API_URL and warns about it on stderr only', async () => {
+            process.env.ADAPTY_ATTRIBUTION_API_URL = 'https://ua.staging.example.com/api/v1/cli';
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { stderr, stdout } = await runCommand(`${REPORT} --json`);
+
+            assertFetch({ base: 'https://ua.staging.example.com/api/v1/cli', callIndex: 0, method: 'POST', path: '/report', stub: fetchStub });
+            expect(stderr).to.contain('Warning: Using non-default attribution API URL: https://ua.staging.example.com/api/v1/cli');
+            expect(stderr).to.not.contain('non-default API URL');
+            expect(JSON.parse(stdout)).to.deep.equal(reportAnswer);
+        });
+
+        it('stays on the attribution default, silently, when only ADAPTY_API_URL is redirected', async () => {
+            process.env.ADAPTY_API_URL = 'https://staging.example.com/api/v1/developer';
+            fetchStub = mockFetchSteps([{ body: metricsAnswer }]);
+
+            const { stderr } = await runCommand('attribution metrics --json');
+
+            assertFetch({ base: BASE, callIndex: 0, method: 'GET', path: '/metrics', stub: fetchStub });
+            expect(stderr).to.not.contain('Warning');
+        });
+    });
+
+    describe('catalog', () => {
+        it('reads metrics and dimensions with GETs that carry no app id', async () => {
+            const stub = mockFetchSteps([{ body: metricsAnswer }, { body: dimensionsAnswer }]);
+
+            fetchStub = stub;
+
+            const metrics = await runCommand('attribution metrics --json');
+            const dimensions = await runCommand('attribution dimensions --json');
+
+            expect(JSON.parse(metrics.stdout)).to.deep.equal(metricsAnswer);
+            expect(JSON.parse(dimensions.stdout)).to.deep.equal(dimensionsAnswer);
+
+            for (const index of [0, 1]) {
+                const request = requestOf(stub, index);
+
+                expect(request.body).to.equal(undefined);
+                expect(request.url).to.not.contain(TEST_APP_ID);
+                expect(request.url).to.not.contain('?');
+                expect([...request.headers.keys()].filter(key => key.includes('app'))).to.deep.equal([]);
+            }
+
+            assertFetch({ base: BASE, callIndex: 0, method: 'GET', path: '/metrics', stub });
+            assertFetch({ base: BASE, callIndex: 1, method: 'GET', path: '/dimensions', stub });
+        });
+
+        it('prints the catalogs for a human reader', async () => {
+            fetchStub = mockFetchSteps([{ body: metricsAnswer }, { body: dimensionsAnswer }]);
+
+            const metrics = await runCommand('attribution metrics');
+            const dimensions = await runCommand('attribution dimensions');
+
+            expect(metrics.stdout).to.contain('spend');
+            expect(metrics.stdout).to.contain('Ad spend in USD');
+            expect(dimensions.stdout).to.contain('date');
+            expect(dimensions.stdout).to.contain('day, week');
+        });
+    });
+
+    describe('values', () => {
+        it('sends one POST with the dimension and period, and --json prints the answer unchanged', async () => {
+            fetchStub = mockFetchSteps([{ body: valuesAnswer }]);
+
+            const { stdout } = await runCommand(
+                `attribution values --app ${TEST_APP_ID} ${PERIOD} --dimension campaign --revenue-basis net --json`,
+            );
+
+            expect(JSON.parse(stdout)).to.deep.equal(valuesAnswer);
+            assertFetch({ base: BASE, callIndex: 0, method: 'POST', path: '/values', stub: fetchStub });
+
+            expect(JSON.parse(requestOf(fetchStub, 0).body ?? '')).to.deep.equal({
+                app_id: TEST_APP_ID,
+                date_from: '2026-08-01',
+                date_to: '2026-08-31',
+                dimension: 'campaign',
+                revenue_basis: 'net',
+            });
+        });
+
+        it('prints the items for a human reader', async () => {
+            fetchStub = mockFetchSteps([{ body: valuesAnswer }]);
+
+            const { stdout } = await runCommand(`attribution values --app ${TEST_APP_ID} ${PERIOD} --dimension campaign`);
+
+            expect(stdout).to.contain('Summer');
+            expect(stdout).to.contain('42');
+            expect(stdout).to.contain('facebook');
+        });
+
+        it('exits 2 without a request when --dimension or --app is missing', async () => {
+            fetchStub = mockFetchSteps([{ body: valuesAnswer }]);
+
+            for (const command of [
+                `attribution values --app ${TEST_APP_ID} ${PERIOD}`,
+                `attribution values ${PERIOD} --dimension country`,
+            ]) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+    });
+});

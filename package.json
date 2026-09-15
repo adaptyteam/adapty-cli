@@ -99,6 +99,9 @@
       "segments": {
         "description": "List segments"
       },
+      "attribution": {
+        "description": "UA attribution analytics: reports across ad networks, and the metric and dimension catalogs"
+      },
       "asa": {
         "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"
       },

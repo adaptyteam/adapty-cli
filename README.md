@@ -387,6 +387,32 @@ too. A burst of 429s puts the token into an escalating cool-down (`cli_cooldown_
 not waiting out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID
 and the outcome shows up in `adapty asa automations runs`.
 
+### Attribution
+
+UA attribution analytics across ad networks live under `adapty attribution` and talk to the attribution service
+rather than the Developer API, with the same token. `report` and `values` take `--app`; the two catalogs take no
+app.
+
+```sh
+adapty attribution metrics       # metric names a report can ask for
+adapty attribution dimensions    # dimensions a report can group or filter by
+adapty attribution values --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --dimension campaign
+adapty attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 \
+  --metrics spend,installs,roas_d7 --group-by date,campaign --granularity week \
+  --filter country=US,GB --revenue-basis proceeds --sort spend:desc
+```
+
+Dates are inclusive days in the app's timezone. `--metrics` and `--group-by` take repeated flags or
+comma-separated lists; `--filter dimension=value[,value]` repeats, where one value matches exactly and several
+match any of them; `--sort field[:asc|desc]` is ascending unless told otherwise. `--json` prints the service's
+answer unchanged (`{"success", "data", "meta"}`). In the human view a metric that cannot be computed prints
+`—`, never `0`.
+
+A rejected request exits 4 and carries the service's `error_code` in the `--json` error, e.g.
+`attribution_unknown_metric` or `attribution_access_required` (the company has no attribution access — logging
+in again does not help). `report` and `values` are sent once and never retried: on `attribution_busy` (429) or
+an unavailable service (503), wait for the `Retry-After` the service sent before running the query again.
+
 ### Global Flags
 
 | Flag          | Description                            |
@@ -430,10 +456,11 @@ the flags and the size ceiling.
 | `ADAPTY_TOKEN`       | Override stored auth token                                                              |
 | `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
 | `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
+| `ADAPTY_ATTRIBUTION_API_URL` | Override attribution base URL (default: `https://api-ua.adapty.io/api/v1/cli`) |
 | `ADAPTY_APP_URL`     | Override dashboard base URL (default: `https://app.adapty.io`). Used by `flows config preview` for the fixed `/flow-preview` route, and by `auth login` to keep the verification link on that host |
 
-The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA
-default, and the other way round.
+The API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` and
+`adapty attribution` on their own defaults, and the other way round.
 
 ## Claude Code Skill
 

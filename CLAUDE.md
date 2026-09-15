@@ -58,6 +58,7 @@ hand-written command in `src/commands`. New work goes to
 ```
 src/
   sdk/               # the API: core/ (transport, errors, session, clock) + adapty/ (resources, rules)
+                     # + attribution/ (UA analytics: catalog, report, values)
   cli/               # the oclif adapter: base commands, session, exit codes, flags, views
 ```
 
@@ -75,8 +76,8 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
 - Relative imports use explicit `.js` extensions, including `/index.js` for module entry points
   (Node.js ESM + TypeScript `nodenext`)
-- Import the Adapty command adapter through `cli/base/adapty/index.js`; files inside that module
-  import each other directly
+- Import the Adapty command adapter through `cli/base/adapty/index.js` (the attribution one through
+  `cli/base/attribution/index.js`); files inside that module import each other directly
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
@@ -94,6 +95,9 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
   `detail`, `Retry-After` on 429)
+- `attribution` topic talks to the UA attribution service: base `https://api-ua.adapty.io/api/v1/cli`, overridden by
+  `ADAPTY_ATTRIBUTION_API_URL`; same bearer token, no app header (`report` and `values` take `--app`, the catalogs
+  none), errors in the `errors[]` envelope with `error_code`; `report` and `values` are POSTs that are never retried
 
 ## Key Patterns
 
