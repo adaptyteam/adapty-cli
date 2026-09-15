@@ -233,6 +233,47 @@ Before running any of these:
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 
+## UA Attribution (`attribution` topic)
+
+Cross-network UA analytics, the numbers of the UA dashboard, from a different service behind the same token.
+Read-only. `report` and `values` take `--app` and a day range in the app timezone; the two catalogs take no
+app. Without UA analytics access `report` and `values` answer `402 attribution_access_required`. The full
+agent guide is `docs/agent/attribution.md` in the adapty-cli repository.
+
+| Command                  | Required flags / notes                                                        |
+|--------------------------|-------------------------------------------------------------------------------|
+| `attribution metrics`    | no flags; the metric catalog: names, `unit`, `d{N}_` patterns, `denominator`, `spend_based` |
+| `attribution dimensions` | no flags; what a report can group and filter by; `identity: id` marks campaign, ad set and ad |
+| `attribution values`     | `--app`, `--date-from`, `--date-to`, `--dimension`; optional `--revenue-basis`; exact filter values, with campaigns, ad sets and ads as id, latest name and channel |
+| `attribution report`     | `--app`, `--date-from`, `--date-to`, `--metrics` (max 25), `--group-by`; optional `--granularity`, `--filter dimension=value[,value]` (repeatable), `--revenue-basis` (default `gross`), `--sort field:desc`; rows plus `totals` in one call |
+
+```sh
+adapty attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,d7_roas --group-by campaign --sort spend:desc --json
+```
+
+Before running any of these:
+
+- **Discover, don't guess.** Read `attribution metrics`, then `attribution dimensions`, then `attribution values`
+  when filtering, then run `report`. One unknown metric fails the whole report with
+  `422 attribution_unknown_metric`.
+- **`null` means not computable, never zero**: a ratio with a zero denominator, a missing prediction, or spend on
+  a paid channel without a UA spend source (today Apple Search Ads; `meta.spend_channels` lists what is
+  covered). The table view prints `—`.
+- **Units**: money in USD, percent on a 0–100 scale (`roas` 150 = 150%), `ipm` per 1,000 impressions.
+- **Cohorts and predictions**: `d{N}_revenue`, `d{N}_roas` and the like take any N from 0; a horizon above
+  `meta.max_valid_day` is not reached yet. `d{N}_predict_*` needs `--group-by date --granularity day` and
+  N ≤ 365.
+- **Caps**: 31 days by day, 180 by week, 366 by month, quarter or year, 92 without a date grouping; 10,000 rows,
+  25 metrics, 4 prediction horizons. Coarsen `--granularity` instead of splitting calls
+  (`422 attribution_query_too_large`).
+- **Campaign, ad set and ad filter by id**, never by name; the name shown is the latest within the period.
+  Organic and store-referrer rows have no id and cannot be filtered by one.
+- **Errors**: exit 4 with the service `error_code`. Never retry `402` or `404`. `report` and `values` are sent
+  once; on `429 attribution_busy` or a 503, wait the `retry_after_seconds` from the `--json` error before
+  running the query again.
+- **`asa` or `attribution`**: Apple-reported ad data comes from `asa`; cross-network UA, predictions and
+  dashboard parity come from `attribution`. Never sum numbers across the two topics.
+
 ## Validation Rules
 
 - `--app` must be a valid UUID

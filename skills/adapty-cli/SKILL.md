@@ -1,6 +1,6 @@
 ---
 name: adapty-cli
-description: Use when setting up or managing Adapty in-app subscriptions, paywalls, or placements via CLI.
+description: Use when setting up or managing Adapty in-app subscriptions, paywalls, or placements via CLI, or when reading UA attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`.
 ---
 
 # Adapty CLI Skill
@@ -162,6 +162,15 @@ Key notes:
 
 Apple Ads campaign management now lives in the dedicated agent skills, playbooks, and vertical guides at
 [adaptyteam/apple-ads-cli](https://github.com/adaptyteam/apple-ads-cli).
+
+---
+
+## UA Attribution Analytics
+
+Cross-network UA analytics (spend, installs, revenue, ROAS, cohort values, and predictions, as the UA dashboard
+shows them) live in the read-only `adapty attribution` topic. See the `attribution` section of
+`references/cli-commands.md`. Discover before querying: `adapty attribution metrics`, then `dimensions`, then
+`values`, then `report`. A `null` value means not computable, never zero.
 
 ---
 

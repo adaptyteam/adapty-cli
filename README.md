@@ -398,7 +398,7 @@ adapty attribution metrics       # metric names a report can ask for
 adapty attribution dimensions    # dimensions a report can group or filter by
 adapty attribution values --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --dimension campaign
 adapty attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 \
-  --metrics spend,installs,roas_d7 --group-by date,campaign --granularity week \
+  --metrics spend,installs,d7_roas --group-by date,campaign --granularity week \
   --filter country=US,GB --revenue-basis proceeds --sort spend:desc
 ```
 
@@ -411,7 +411,8 @@ answer unchanged (`{"success", "data", "meta"}`). In the human view a metric tha
 A rejected request exits 4 and carries the service's `error_code` in the `--json` error, e.g.
 `attribution_unknown_metric` or `attribution_access_required` (the company has no attribution access — logging
 in again does not help). `report` and `values` are sent once and never retried: on `attribution_busy` (429) or
-an unavailable service (503), wait for the `Retry-After` the service sent before running the query again.
+an unavailable service (503), wait for the `Retry-After` the service sent before running the query again. The
+`--json` error carries that wait as `retry_after_seconds`, whenever the service sent one.
 
 ### Global Flags
 
