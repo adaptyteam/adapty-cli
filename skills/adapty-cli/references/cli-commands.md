@@ -256,8 +256,8 @@ Before running any of these:
 - **Discover, don't guess.** Read `attribution metrics`, then `attribution dimensions`, then `attribution values`
   when filtering, then run `report`. One unknown metric fails the whole report with
   `422 attribution_unknown_metric`.
-- **`null` means not computable, never zero**: a ratio with a zero denominator, a missing prediction, or spend on
-  a paid channel without a UA spend source (today Apple Search Ads; `meta.spend_channels` lists what is
+- **`null` means not computable, never zero**: a ratio with a zero denominator, a missing prediction, or ad-network
+  metrics (spend, impressions, network clicks, and ratios over them) on a paid channel without a UA spend source (today Apple Search Ads; `meta.spend_channels` lists what is
   covered). The table view prints `—`.
 - **Units**: money in USD, percent on a 0–100 scale (`roas` 150 = 150%), `ipm` per 1,000 impressions.
 - **Cohorts and predictions**: `d{N}_revenue`, `d{N}_roas` and the like take any N from 0; a horizon above

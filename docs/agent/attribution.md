@@ -113,9 +113,11 @@ out and say why it is missing. A value is `null` when:
   or a denominator metric is missing, the ratio is `null`. So `cpi` with no installs is `null`, not 0.
 - **A prediction is missing.** A day whose prediction is absent is `null`. The `totals` prediction is `null`
   unless every row carries one.
-- **Spend has no UA source.** Spend and every spend-based metric (`spend_based: true` in the catalog, such as
-  `cpi`, `roas`, `ad_profit`, and `cost_per_trial`) are `null` on rows whose channel is a paid network with no
-  UA spend source. Today that network is Apple Search Ads, whose spend comes from the `asa` topic.
+- **Ad-network data has no UA source.** Every `spend_based: true` metric in the catalog is `null` on rows whose
+  channel is a paid network with no UA ad-network feed. That covers everything read from the feed: `spend`,
+  `impressions`, network `clicks`, `inline_link_clicks`, and the ratios over them, such as `cpi`, `cpm`, `ctr`,
+  `roas`, `ad_profit`, and `cost_per_trial`. `clicks_attributed` and `icr_attributed` come from UA's own click
+  tracking and stay numbers. Today that network is Apple Search Ads, whose spend comes from the `asa` topic.
   `meta.spend_channels` lists the channels whose spend is covered. In a report not grouped by channel, spend and
   spend-based figures cover only those channels. Never paste `asa` spend into these rows.
 - **An entity id is absent.** Rows without a campaign, ad set, or ad have `null` in both the `*_id` and the
