@@ -205,8 +205,16 @@ const noCli = {
 };
 
 const noProducts = {
-    group: ['**/adapty', '**/adapty/**', '**/asa', '**/asa/**'],
+    group: ['**/adapty', '**/adapty/**', '**/asa', '**/asa/**', '**/attribution', '**/attribution/**'],
     message: 'core must not know about products',
+};
+
+// Products stand side by side on core and never reach into each other: attribution shares the
+// bearer token with the developer API, not its code. A product's own files import each other
+// relatively, so its directory name never appears in their specifiers and the fence stays quiet.
+const noOtherProducts = {
+    group: noProducts.group,
+    message: 'a product depends on sdk/core only, never on another product',
 };
 
 // Both layers live in src while the migration runs, so the arrow is spelled out.
@@ -274,9 +282,13 @@ const architecture = tseslint.config(
     },
 
     {
-        // Products see the module, not its parts
-        files: ['src/sdk/adapty/**/*.ts', 'src/sdk/asa/**/*.ts'],
-        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noLegacy, httpDoorOnly] }] },
+        // Products see the module, not its parts — and not each other
+        files: ['src/sdk/adapty/**/*.ts', 'src/sdk/asa/**/*.ts', 'src/sdk/attribution/**/*.ts'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [noOclif, noCli, noLegacy, httpDoorOnly, noOtherProducts],
+            }],
+        },
     },
 
     {
