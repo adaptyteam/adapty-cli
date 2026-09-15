@@ -51,7 +51,7 @@ export default class AttributionReport extends AttributionCommand {
     static override description = 'Run a UA attribution report for an app: metrics over a period, grouped by dimensions';
 
     static override examples = [
-        '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,roas_d7 --group-by campaign',
+        '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,d7_roas --group-by campaign',
         '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend --group-by date --granularity week --filter country=US,GB --sort spend:desc',
     ];
 

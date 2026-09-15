@@ -33,7 +33,7 @@ const reportInput: ReportInput = {
     dateTo: '2026-08-31',
     granularity: 'day',
     groupBy: ['date', 'campaign'],
-    metrics: ['spend', 'roas_d7'],
+    metrics: ['spend', 'd7_roas'],
     revenueBasis: 'gross',
 };
 
@@ -64,8 +64,8 @@ describe('attribution', () => {
     it('sends a report as a POST without a trailing slash and passes the answer through unchanged', async () => {
         const answer = {
             data: {
-                rows: [{ campaign_id: '42', campaign_name: 'Summer', date: '2026-08-01', roas_d7: null, spend: 10.5 }],
-                totals: { roas_d7: null, spend: 10.5 },
+                rows: [{ campaign_id: '42', campaign_name: 'Summer', date: '2026-08-01', d7_roas: null, spend: 10.5 }],
+                totals: { d7_roas: null, spend: 10.5 },
             },
             meta: { max_valid_day: 45, query: { app_id: APP_ID, currency: 'USD' }, spend_channels: ['facebook'] },
             success: true,
@@ -87,7 +87,7 @@ describe('attribution', () => {
             date_to: '2026-08-31',
             granularity: 'day',
             group_by: ['date', 'campaign'],
-            metrics: ['spend', 'roas_d7'],
+            metrics: ['spend', 'd7_roas'],
             revenue_basis: 'gross',
         });
 
@@ -191,7 +191,7 @@ describe('attribution', () => {
 
     it('turns an unknown metric into an ApiError that keeps the code and names the field', async () => {
         const { attribution } = setup([{
-            body: errorBody('attribution_unknown_metric', 422, 'Unknown metric: roas_d9000', 'metrics'),
+            body: errorBody('attribution_unknown_metric', 422, 'Unknown metric: d9000_roas', 'metrics'),
             status: 422,
         }]);
 
@@ -200,7 +200,7 @@ describe('attribution', () => {
         expect(error).to.be.instanceOf(ApiError);
         expect((error as ApiError).status).to.equal(422);
         expect((error as ApiError).code).to.equal('attribution_unknown_metric');
-        expect((error as ApiError).message).to.equal('metrics: Unknown metric: roas_d9000');
+        expect((error as ApiError).message).to.equal('metrics: Unknown metric: d9000_roas');
     });
 
     it('turns a company without attribution into an ApiError with the access code', async () => {

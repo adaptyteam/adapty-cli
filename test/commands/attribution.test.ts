@@ -49,10 +49,10 @@ const REPORT = `attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spen
 const reportAnswer = {
     data: {
         rows: [
-            { campaign_id: '42', campaign_name: 'Summer', roas_d7: null, spend: 10.5 },
-            { campaign_id: '43', campaign_name: null, roas_d7: 1.25, spend: 0 },
+            { campaign_id: '42', campaign_name: 'Summer', d7_roas: null, spend: 10.5 },
+            { campaign_id: '43', campaign_name: null, d7_roas: 1.25, spend: 0 },
         ],
-        totals: { roas_d7: null, spend: 10.5 },
+        totals: { d7_roas: null, spend: 10.5 },
     },
     meta: { max_valid_day: 45, query: { app_id: TEST_APP_ID, currency: 'USD' }, spend_channels: ['facebook'] },
     success: true,
@@ -125,7 +125,7 @@ describe('attribution', () => {
                 '--app', TEST_APP_ID,
                 '--date-from', '2026-08-01',
                 '--date-to', '2026-08-31',
-                '--metrics', 'spend,roas_d7',
+                '--metrics', 'spend,d7_roas',
                 '--metrics', 'installs',
                 '--group-by', 'date,campaign',
                 '--granularity', 'week',
@@ -155,7 +155,7 @@ describe('attribution', () => {
                 ],
                 granularity: 'week',
                 group_by: ['date', 'campaign'],
-                metrics: ['spend', 'roas_d7', 'installs'],
+                metrics: ['spend', 'd7_roas', 'installs'],
                 revenue_basis: 'proceeds',
                 sort: { direction: 'desc', field: 'spend' },
             });
@@ -184,16 +184,16 @@ describe('attribution', () => {
             expect(stdout).to.equal([
                 'campaign_id: 42',
                 'campaign_name: Summer',
-                'roas_d7: —',
+                'd7_roas: —',
                 'spend: 10.5',
                 '---',
                 'campaign_id: 43',
                 'campaign_name: —',
-                'roas_d7: 1.25',
+                'd7_roas: 1.25',
                 'spend: 0',
                 '',
                 'Totals',
-                'roas_d7: —',
+                'd7_roas: —',
                 'spend: 10.5',
                 '',
             ].join('\n'));
@@ -260,7 +260,7 @@ describe('attribution', () => {
 
         it('turns an unknown metric into exit 4 carrying the backend code in the --json error', async () => {
             const rejection = {
-                body: errorBody('attribution_unknown_metric', 422, 'Unknown metric: roas_d9000', 'metrics'),
+                body: errorBody('attribution_unknown_metric', 422, 'Unknown metric: d9000_roas', 'metrics'),
                 status: 422,
             };
 
@@ -269,7 +269,7 @@ describe('attribution', () => {
             const human = await runCommand(REPORT);
 
             expect(human.error?.oclif?.exit).to.equal(exitCode.api);
-            expect(human.error?.message).to.equal('metrics: Unknown metric: roas_d9000');
+            expect(human.error?.message).to.equal('metrics: Unknown metric: d9000_roas');
 
             const { stdout } = await runCommand(`${REPORT} --json`);
             const { error } = JSON.parse(stdout) as { error: { code: string; status: number } };
@@ -291,17 +291,27 @@ describe('attribution', () => {
             expect(error?.message).to.not.contain('auth login');
         });
 
-        it('exits 4 on a busy backend after exactly one request', async () => {
-            fetchStub = mockFetchSteps([
-                { body: errorBody('attribution_busy', 429, 'Another query is running'), headers: { 'retry-after': '5' }, status: 429 },
-                { body: reportAnswer },
-            ]);
+        it('exits 4 on a busy backend after exactly one request, and hands the wait to --json', async () => {
+            const busy = {
+                body: errorBody('attribution_busy', 429, 'Another query is running'),
+                headers: { 'retry-after': '5' },
+                status: 429,
+            };
+
+            fetchStub = mockFetchSteps([busy, busy, { body: reportAnswer }]);
 
             const { error } = await runCommand(REPORT);
 
             expect(error?.oclif?.exit).to.equal(exitCode.api);
             expect(error?.code).to.equal('attribution_busy');
             expect(fetchStub.callCount).to.equal(1);
+
+            const { stdout } = await runCommand(`${REPORT} --json`);
+            const json = JSON.parse(stdout) as { error: { error_code: string; retry_after_seconds?: number } };
+
+            expect(json.error.error_code).to.equal('attribution_busy');
+            expect(json.error.retry_after_seconds).to.equal(5);
+            expect(fetchStub.callCount).to.equal(2);
         });
 
         it('exits 3 when the backend refuses the token', async () => {

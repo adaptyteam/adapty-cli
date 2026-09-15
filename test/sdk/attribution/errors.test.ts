@@ -9,14 +9,14 @@ describe('attributionErrorParser', () => {
             errors: [{
                 error_code: 'attribution_unknown_metric',
                 field_name: 'metrics',
-                message: 'Unknown metric: roas_d9000',
+                message: 'Unknown metric: d9000_roas',
                 status_code: 422,
             }],
         });
 
         expect(parsed).to.deep.equal({
             code: 'attribution_unknown_metric',
-            message: 'metrics: Unknown metric: roas_d9000',
+            message: 'metrics: Unknown metric: d9000_roas',
         });
     });
 

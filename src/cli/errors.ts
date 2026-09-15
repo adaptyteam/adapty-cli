@@ -26,6 +26,8 @@ export type ErrorJson = {
     error_code?: string | undefined;
     errors?: unknown;
     message: string;
+    /** The server's Retry-After in whole seconds, rounded up; absent when the server asked for no wait. */
+    retry_after_seconds?: number | undefined;
     status?: number | undefined;
     status_code?: number | undefined;
 };
@@ -81,6 +83,10 @@ export const toCliError = (error: unknown): Error => {
                 errors: fields,
                 status: error.status,
                 status_code: error.status,
+                // Only when the server asked for a wait: an agent reads it instead of guessing one
+                ...(error.retryAfterMs === undefined
+                    ? {}
+                    : { retry_after_seconds: Math.ceil(error.retryAfterMs / 1000) }),
             });
         }
 

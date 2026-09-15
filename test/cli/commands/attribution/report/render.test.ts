@@ -14,9 +14,9 @@ const response = (data: ReportResponse['data']): ReportResponse => ({
 describe('renderReport', () => {
     it('prints a dash for a value that could not be computed, and a real zero as 0', () => {
         expect(renderReport(response({
-            rows: [{ country: 'US', installs: 0, roas_d7: null }],
-            totals: { installs: 0, roas_d7: null },
-        }))).to.equal('country: US\ninstalls: 0\nroas_d7: —\n\nTotals\ninstalls: 0\nroas_d7: —');
+            rows: [{ country: 'US', installs: 0, d7_roas: null }],
+            totals: { installs: 0, d7_roas: null },
+        }))).to.equal('country: US\ninstalls: 0\nd7_roas: —\n\nTotals\ninstalls: 0\nd7_roas: —');
     });
 
     it('separates rows with --- and leaves the totals block out when there are none', () => {
