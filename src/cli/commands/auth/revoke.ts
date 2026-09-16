@@ -24,6 +24,7 @@ export default class AuthRevoke extends BaseCommand {
         // the server and no local copy to revoke it with — only the dashboard could undo that.
         const adapty = build(session, {
             config: this.config,
+            interactive: this.interactive,
             signal: this.signal,
             warn: message => this.warn(message),
         });

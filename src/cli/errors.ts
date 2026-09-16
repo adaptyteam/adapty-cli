@@ -2,6 +2,9 @@ import { Errors } from '@oclif/core';
 
 import { isSdkError } from '../sdk/core/errors.js';
 
+import { wizardDiagnostics, wizardErrorMessage } from './errors/wizard.js';
+
+import type { WizardDiagnostics } from './errors/wizard.js';
 import type { Issue } from '../sdk/core/errors.js';
 
 /**
@@ -10,18 +13,20 @@ import type { Issue } from '../sdk/core/errors.js';
  *   3  auth      — no token, an expired one, or a refused authorization
  *   4  api       — the server rejected a well-formed request
  *   5  network   — the server was never reached
+ *   6  confirm   — nothing was done: the action changes production data and wants --yes
  * 130  cancelled — Ctrl+C, by the shell convention 128 + SIGINT
  */
 export const exitCode = {
     api: 4,
     auth: 3,
     cancelled: 130,
+    confirmRequired: 6,
     network: 5,
     usage: 2,
 } as const;
 
 /** HTTP status is separate from the process exit code. Snake_case fields preserve the old JSON contract. */
-export type ErrorJson = {
+export type ErrorJson = WizardDiagnostics & {
     code?: string | undefined;
     error_code?: string | undefined;
     errors?: unknown;
@@ -61,6 +66,12 @@ const describeIssue = (issue: Issue): string =>
  */
 export const toCliError = (error: unknown): Error => {
     if (!isSdkError(error)) {
+        // Parser errors carry only oclif.exit; JSON handling reads exitCode instead.
+        // Preserve the error instance and its diagnostics, including any explicit non-usage exit.
+        if (error instanceof Errors.CLIError && typeof error.oclif.exit === 'number' && !('exitCode' in error)) {
+            return Object.assign(error, { exitCode: error.oclif.exit });
+        }
+
         return error instanceof Error ? error : new Error(String(error));
     }
 
@@ -75,10 +86,16 @@ export const toCliError = (error: unknown): Error => {
                 ? error.details.errors
                 : undefined;
 
-            return cliError(error.message, exitCode.api, code, {
+            const diagnostics = wizardDiagnostics(error.details);
+            // A permission denial is an auth failure; retain the server's explanation and diagnostics.
+            const exit = error.status === 403 ? exitCode.auth : exitCode.api;
+
+            return cliError(wizardErrorMessage(error.message, diagnostics), exit, code, {
+                ...diagnostics,
                 code: jsonCode,
                 error_code: jsonCode,
                 errors: fields,
+                message: error.message,
                 status: error.status,
                 status_code: error.status,
             });

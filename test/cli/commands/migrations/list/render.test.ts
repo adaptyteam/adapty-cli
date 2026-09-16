@@ -85,6 +85,6 @@ describe('renderMigrationList', () => {
 
     it('shows a start hint for an empty list', () => {
         expect(renderMigrationList({ available: [], items: [] }))
-            .to.equal('No migrations yet. Start one: `adapty migration create --name <app name>`');
+            .to.equal('No migrations yet. Start one: `adapty migrations create --name "My app"`');
     });
 });

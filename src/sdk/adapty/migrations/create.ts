@@ -1,16 +1,9 @@
 import type { Issue } from '../../core/errors.js';
 
-/**
- * The flow that starts a migration from scratch: it reads the RevenueCat catalog and creates the
- * Adapty app along the way. Every other flow (transactions, store events) runs for an app this
- * one has already created, which is why only this name is spelled out here.
- */
+/** The main flow creates the Adapty app; other flows require an existing app. */
 const MAIN_FLOW = 'main';
 
-/**
- * Permissive on purpose: the two shapes the server accepts are "name a new app" and "a flow for an
- * app that exists", and telling a user which one they half-typed is the rule below, not the type.
- */
+/** Keep fields optional so incomplete input produces a validation error. */
 export type CreateMigrationInput = {
     appId?: string | undefined;
     appName?: string | undefined;
@@ -23,11 +16,7 @@ type CreateMigrationRequest = {
     flow: string;
 };
 
-/**
- * The rule of `create`: exactly one of the two shapes, never a mix. An Issue path names the flag
- * the user typed (src/cli/errors.ts turns `app` into `--app`), and a path is left out when the
- * problem is the input as a whole rather than one field.
- */
+/** Accept either a new app name or an existing app ID with a flow. Issue paths identify CLI flags. */
 export const validateCreateMigration = (input: CreateMigrationInput): Issue[] => {
     const { appId, appName, flow } = input;
 
@@ -62,7 +51,6 @@ export const validateCreateMigration = (input: CreateMigrationInput): Issue[] =>
     return issues;
 };
 
-/** Two bodies, one endpoint. The flow of a new app is not the caller's to choose: it is `main`. */
 export const toCreateRequest = (input: CreateMigrationInput): CreateMigrationRequest => {
     const { appId, appName, flow } = input;
 
@@ -71,8 +59,7 @@ export const toCreateRequest = (input: CreateMigrationInput): CreateMigrationReq
     }
 
     if (appId === undefined || flow === undefined) {
-        // Unreachable through the resource, which validates first: a caller that skipped the rule
-        // has a bug, and a bug is not a ValidationError the user could act on.
+        // The resource validates first; reaching this branch means a caller skipped validation.
         throw new Error('createMigration needs either appName, or appId with flow');
     }
 

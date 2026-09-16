@@ -1,5 +1,5 @@
 import { AdaptyCommand } from '../../base/adapty/index.js';
-import { pageParams, paginationFlags } from '../../flags.js';
+import { pageParams, paginationFlags } from '../../input/pagination.js';
 import { renderPage } from '../../views/list.js';
 
 import type { AppSummary, Paginated } from '../../../sdk/adapty/index.js';

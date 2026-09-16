@@ -7,6 +7,7 @@ import type { Config } from '@oclif/core';
 
 type CommandContext = {
     config: Config;
+    interactive: boolean;
     signal: AbortSignal;
     warn: (message: string) => void;
 };
@@ -14,6 +15,7 @@ type CommandContext = {
 /** Shared by authenticated commands and login/revoke, which can run without a token. */
 export const build = (session: ResolvedSession, context: CommandContext): Adapty => createAdapty({
     baseUrl: session.apiUrl,
+    interactive: context.interactive,
     onRetry: ({ attempt, delayMs }) => {
         context.warn(`Request failed, retrying in ${delayMs / 1000}s (attempt ${attempt + 1})`);
     },

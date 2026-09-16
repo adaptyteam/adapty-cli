@@ -3,11 +3,11 @@ import { fileURLToPath } from 'node:url';
 
 import { expect } from 'chai';
 
-import { renderEnvelope } from '../../../src/cli/views/envelope.js';
+import { renderEnvelope } from '../../../../src/cli/views/migrations/index.js';
 
-import type { Envelope } from '../../../src/sdk/adapty/index.js';
+import type { Envelope } from '../../../../src/sdk/adapty/index.js';
 
-const FIXTURE_PATH = fileURLToPath(new URL('../../fixtures/migration-envelope.json', import.meta.url));
+const FIXTURE_PATH = fileURLToPath(new URL('../../../fixtures/migration-envelope.json', import.meta.url));
 const ENVELOPE = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as Envelope;
 
 const withMigration = (patch: Partial<Envelope['migration']>): Envelope =>
@@ -27,6 +27,20 @@ describe('renderEnvelope', () => {
         expect(renderEnvelope(withMigration({ app: null }))).to.contain('App: not created yet');
     });
 
+    it('preserves an unknown state and explains that the CLI needs updating', () => {
+        const result = renderEnvelope(withMigration({ state: 'paused_for_review' }));
+
+        expect(result).to.contain('mig_01H9Z  main  paused_for_review');
+        expect(result).to.contain(ENVELOPE.migration.summary);
+        expect(result).to.contain('This migration state needs a newer adapty-cli');
+    });
+
+    for (const state of ['running', 'action_required', 'completed', 'failed', 'canceled']) {
+        it(`does not suggest an upgrade for the known state ${state}`, () => {
+            expect(renderEnvelope(withMigration({ state }))).to.not.contain('needs a newer adapty-cli');
+        });
+    }
+
     it('leaves out an unknown total rather than printing null', () => {
         const result = renderEnvelope(withMigration({ progress: { done: 12, total: null, unit: 'profiles' } }));
 
@@ -39,8 +53,30 @@ describe('renderEnvelope', () => {
         expect(result).to.contain('Do next:');
         expect(result).to.contain('  act_confirm_paywalls  (input)  Migrate paywalls');
         expect(result).to.contain('    This will replace the paywalls in the target app.');
-        expect(result).to.contain('    Read first: adapty migrations show step_paywalls');
-        expect(result).to.contain('    Changes production data: needs --yes');
+        expect(result).to.contain('    Read first: adapty migrations show step_paywalls -m mig_01H9Z');
+        expect(result).to.contain('    Confirmation:\n      This cannot be undone. Continue?');
+        expect(result).to.contain('    Review this text before passing --yes.');
+    });
+
+    it('keeps every line of confirmation text and marks uploads as unsupported', () => {
+        const result = renderEnvelope({
+            ...ENVELOPE,
+            next_actions: [{
+                action_id: 'upload_data',
+                confirm: 'Existing data will be replaced.\nReview the report first.',
+                detail: null,
+                kind: 'upload',
+                reads: [],
+                step_id: 'import',
+                title: 'Upload data',
+            }],
+        });
+
+        expect(result).to.contain('      Existing data will be replaced.\n      Review the report first.');
+        expect(result).to.contain('File uploads are not supported by this CLI.');
+        expect(result).to.contain('Use the dashboard or an offered Cloud Export action.');
+        expect(result).to.not.contain('--yes');
+        expect(result).to.not.contain('needs a newer adapty-cli');
     });
 
     it('keeps optional actions apart from the ones that block the migration, and prints their link', () => {

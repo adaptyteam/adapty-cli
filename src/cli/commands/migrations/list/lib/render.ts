@@ -2,7 +2,6 @@ import type { AvailableFlow, Migration, MigrationList } from '../../../../../sdk
 
 type App = Migration['app'];
 
-/** One block per Adapty App: its migrations, then the optional flows WS says can start for it. */
 type Group = {
     app: App;
     available: AvailableFlow[];
@@ -103,10 +102,10 @@ const renderGroup = (group: Group): string => [
     ...renderAvailable(group.available),
 ].join('\n');
 
-/** Grouped by app and, inside an app, by state. */
+/** Group by app, then by migration state. */
 export const renderMigrationList = (list: MigrationList): string => {
     if (list.items.length === 0 && list.available.length === 0) {
-        return 'No migrations yet. Start one: `adapty migration create --name <app name>`';
+        return 'No migrations yet. Start one: `adapty migrations create --name "My app"`';
     }
 
     return groupByApp(list).map(group => renderGroup(group)).join('\n\n');
