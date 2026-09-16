@@ -5,6 +5,13 @@ import { CliError, toCliError } from '../errors.js';
 import type { ErrorJson } from '../errors.js';
 
 /**
+ * On a pipe Node leaves `isTTY` absent, not false, while @types/node promises a boolean. Taken at
+ * its word, a piped run answers `undefined` — a third answer to a two-answer question. The
+ * parameter type is the one place to say so.
+ */
+const attachedToTerminal = (stream: { isTTY?: boolean }): boolean => stream.isTTY === true;
+
+/**
  * What every command gets and nothing more: the output channel, cancellation, the single place
  * where sdk errors become CLI errors. Product SDKs and sessions belong to their adapters.
  *
@@ -22,6 +29,15 @@ export abstract class BaseCommand extends Command {
     readonly #onSigint = (): void => {
         this.#abort.abort();
     };
+
+    /**
+     * Whether a person is watching this run. --json means a program is reading, even from a
+     * terminal, and a pipe means one is reading whatever the flags say. The sdk sends the answer
+     * as `X-Adapty-Interactive`; `migrations run` asks it before opening a browser.
+     */
+    protected get interactive(): boolean {
+        return attachedToTerminal(process.stdout) && !this.jsonEnabled();
+    }
 
     protected get signal(): AbortSignal {
         return this.#abort.signal;

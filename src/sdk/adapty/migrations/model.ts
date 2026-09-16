@@ -30,7 +30,8 @@ export type Migration = {
     id: string;
     flow: string;
     revision: number;
-    state: MigrationState;
+    /** Known values are MigrationState; newer servers may introduce others. */
+    state: string;
     app: { id: string; name: string } | null;
     poll_after_seconds: number;
     progress: Progress | null;
@@ -73,7 +74,7 @@ export type Action = ActionBase & (
     | { kind: 'input'; input_schema: JsonSchema | null }
     | { kind: 'upload' }
     | { kind: 'external'; href: string }
-    // A newer WS may send a kind this build does not know; href is kept so it can still be shown
+    // Preserve links for action kinds introduced by newer servers.
     | { kind: string; href?: string }
 );
 

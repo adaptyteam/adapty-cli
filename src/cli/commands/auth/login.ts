@@ -25,6 +25,7 @@ export default class AuthLogin extends BaseCommand {
         // No token yet: the same factory without one, which leaves only auth reachable
         const adapty = build({ ...session, token: undefined }, {
             config: this.config,
+            interactive: this.interactive,
             signal: this.signal,
             warn: message => this.warn(message),
         });

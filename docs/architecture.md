@@ -99,10 +99,31 @@ text or JSON.
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
-- `flags.ts` — shared flags and args (app id UUID, pagination) and the one place flag names meet
-  sdk field names.
+- `input/` — shared flags and args (app id UUID, pagination, migration id), one module per concern,
+  and the one place flag names meet sdk field names.
 - `views/` — plain functions, value in, string out.
 - `commands/` — one class per command.
+
+### The shape of a command
+
+A command is one file for as long as it fits in one: `commands/apps/get.ts`. When it outgrows that,
+it becomes a directory of three parts, and `test/cli/command-layout.test.ts` holds them apart:
+
+```text
+commands/migrations/status/
+├── command.ts    # the class oclif runs
+├── index.ts      # the door: `export { default } from './command.js';` and nothing else
+└── lib/          # this command's own helpers, private to it
+```
+
+The door exists because the re-export under `src/commands` names a directory, and Node.js ESM
+resolves a directory only through its `index.js`. Keeping the class out of it means one spelling for
+"where does this command begin": `command.ts`, whether or not the directory has grown a `lib/`.
+
+A `lib/` belongs to the command beside it, never to a topic: a helper two commands need is not a
+helper any more, and moves to `cli/input` or `cli/views` (adapter) or to `sdk/adapty` (product).
+Eslint blocks the import of a stranger's `lib/`; the layout test covers what a specifier pattern
+cannot see.
 
 ### Command bases and imports
 
@@ -164,9 +185,14 @@ quietly changing what users parse.
 | New endpoint | a resource module in `sdk/adapty` |
 | New rule ("X is required when Y") | next to the operation it constrains, in `sdk/adapty` |
 | New command | `cli/commands/...` + a re-export in `src/commands/...` |
-| New flag | the command, or `cli/flags.ts` if shared |
+| New flag or argument | the command (or its `lib/flags.ts` for complex parsing); shared input belongs in `cli/input/<concern>.ts` |
 | New error kind | `sdk/core/errors.ts` + `cli/errors.ts` (the compiler insists) |
 | Adapty session environment variables | `cli/base/adapty/openSession.ts` |
+
+Shared input modules group declarations, private parsers and SDK parameter mapping by concern
+(for example, `cli/input/pagination.ts`). Import each module directly; there is no barrel index.
+Keep command-specific input local until another command needs it, and export only what consumers
+use. Global flags belong to the base command; shared subsets stay composable objects.
 
 ## Migration state
 

@@ -1,3 +1,4 @@
+import { Errors } from '@oclif/core';
 import { expect } from 'chai';
 
 import { exitCode, toCliError } from '../../src/cli/errors.js';
@@ -18,6 +19,11 @@ type CliError = Error & { code?: string; exitCode?: number; oclif?: { exit?: num
 
 const cases: [AnySdkError, number][] = [
     [new ApiError({ code: 'validation_error', message: 'title: is required', status: 400 }), exitCode.api],
+    [new ApiError({ code: 'forbidden', message: 'Access denied', status: 403 }), exitCode.auth],
+    [new ApiError({ code: 'migration_wizard_no_company', message: 'No company', status: 403 }), exitCode.auth],
+    [new ApiError({ message: 'Forbidden', status: 403 }), exitCode.auth],
+    [new ApiError({ code: 'revision_conflict', message: 'Revision changed', status: 409 }), exitCode.api],
+    [new ApiError({ code: 'validation_failed', message: 'Invalid input', status: 422 }), exitCode.api],
     [new AuthRequiredError('missing'), exitCode.auth],
     [new AuthRequiredError('rejected'), exitCode.auth],
     [new CancelledError(), exitCode.cancelled],
@@ -33,6 +39,7 @@ describe('toCliError', () => {
             const mapped = toCliError(error) as CliError;
 
             expect(mapped.exitCode, error.kind).to.equal(exit);
+            expect(mapped.oclif?.exit, error.kind).to.equal(exit);
             expect(mapped.message, error.kind).to.not.equal('');
         }
     });
@@ -43,6 +50,30 @@ describe('toCliError', () => {
 
         expect(mapped.oclif?.exit).to.equal(130);
         expect(mapped.exitCode).to.equal(130);
+    });
+
+    it('preserves oclif errors and their assigned exits for JSON handling', () => {
+        for (const exit of [exitCode.usage, exitCode.cancelled]) {
+            const error = new Errors.CLIError('Invalid flag', { code: 'invalid_flag', exit, suggestions: ['Use --help'] });
+            const mapped = toCliError(error) as CliError;
+
+            expect(mapped).to.equal(error);
+            expect(mapped.exitCode).to.equal(exit);
+            expect(mapped.oclif?.exit).to.equal(exit);
+            expect(mapped.message).to.equal('Invalid flag');
+            expect(mapped.code).to.equal('invalid_flag');
+            expect(error.suggestions).to.deep.equal(['Use --help']);
+        }
+    });
+
+    it('keeps an existing exitCode and does not turn non-exiting errors into usage errors', () => {
+        const explicit = Object.assign(new Errors.CLIError('Already mapped', { exit: 4 }), { exitCode: 4 });
+        const nonExiting = new Errors.CLIError('Handled elsewhere', { exit: false });
+
+        expect(toCliError(explicit)).to.equal(explicit);
+        expect(explicit.exitCode).to.equal(4);
+        expect(toCliError(nonExiting)).to.equal(nonExiting);
+        expect(nonExiting).to.not.have.property('exitCode');
     });
 
     it('names the flag the user typed, not the sdk field, for a validation issue', () => {
@@ -74,6 +105,7 @@ describe('toCliError', () => {
         const foreign = new TypeError('boom');
 
         expect(toCliError(foreign)).to.equal(foreign);
+        expect(foreign).to.not.have.property('exitCode');
         expect(toCliError('boom').message).to.equal('boom');
     });
 });

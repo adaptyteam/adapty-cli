@@ -27,6 +27,7 @@ export abstract class AdaptyCommand extends BaseCommand {
     protected get adapty(): Adapty {
         this.#adapty ??= build(this.session, {
             config: this.config,
+            interactive: this.interactive,
             signal: this.signal,
             warn: message => this.warn(message),
         });

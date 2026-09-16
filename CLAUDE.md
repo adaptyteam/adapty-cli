@@ -27,6 +27,9 @@ src/
                      # capture is the caller's job, the CLI only builds the URL;
                      # validate — advisory publishability check, always 200, exits non-zero when invalid);
                      # media/ (upload — multipart image upload, returns CDN url to reference in a config)
+    migrations/      # create, list, status (--wait), steps, show, run, close — a thin client of the
+                     # Wizard Service: the flow lives on the server, every answer is one envelope.
+                     # Implementation in src/cli/commands/migrations, contract in docs/plans
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
