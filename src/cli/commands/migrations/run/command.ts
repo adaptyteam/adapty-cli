@@ -1,6 +1,6 @@
 import { Args, Flags } from '@oclif/core';
 
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { MigrationCommand } from '../../../base/adapty/index.js';
 import { CliError, exitCode } from '../../../errors.js';
 import { migrationFlags } from '../../../input/migration.js';
 import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
@@ -11,12 +11,12 @@ import { readActionInput } from './lib/input.js';
 import { openLink } from './lib/open-link.js';
 
 import type { Action, Envelope } from '../../../../sdk/adapty/index.js';
+import type { MigrationSelection } from '../../../context/migration/index.js';
 
 type RunContext = {
     action: Action;
     envelope: Envelope;
     flags: {
-        'migration': string;
         'no-browser': boolean;
         'open': boolean;
         'yes': boolean;
@@ -24,9 +24,10 @@ type RunContext = {
     /** Set for every action the server hands over as a link, whatever kind it calls itself. */
     href: string | undefined;
     input: unknown;
+    selection: MigrationSelection;
 };
 
-export default class Run extends AdaptyCommand {
+export default class Run extends MigrationCommand {
     static override summary = 'Run an input action or open an external action link';
     static override description = [
         'Choose an action ID from next_actions or available_actions in `adapty migrations status -m ID --json`.',
@@ -45,6 +46,10 @@ export default class Run extends AdaptyCommand {
     ].join('\n');
 
     static override examples = [
+        {
+            description: 'Run an offered action on the saved migration after reviewing confirm:',
+            command: '<%= config.bin %> migrations run ACTION_ID --yes',
+        },
         {
             description: 'Read current action IDs and input schemas first:',
             command: '<%= config.bin %> migrations status -m mig_7x2 --json',
@@ -119,7 +124,8 @@ export default class Run extends AdaptyCommand {
         const fromStdin = flags['input-file'] === '-';
         const input = fromStdin ? undefined : await readActionInput(flags);
 
-        const envelope = await this.adapty.migrations.get(flags.migration);
+        const selection = await this.currentMigration.require(flags.migration);
+        const envelope = await this.adapty.migrations.get(selection.currentMigrationId);
         const action = findAction(envelope, args.action_id);
 
         if (action === undefined) {
@@ -137,7 +143,7 @@ export default class Run extends AdaptyCommand {
         }
 
         return {
-            action, envelope, flags, href,
+            action, envelope, flags, href, selection,
             input: fromStdin && action.kind === 'input' ? await readActionInput(flags) : input,
         };
     }
@@ -149,7 +155,7 @@ export default class Run extends AdaptyCommand {
         return context.envelope;
     }
 
-    private async runInputAction({ action, envelope, flags, input }: RunContext): Promise<Envelope> {
+    private async runInputAction({ action, envelope, flags, input, selection }: RunContext): Promise<Envelope> {
         if (action.kind !== 'input' && action.kind !== 'upload' && action.kind !== 'external') {
             this.render({ action, migrationId: envelope.migration.id }, actionView);
 
@@ -166,7 +172,11 @@ export default class Run extends AdaptyCommand {
             throw new CliError(message, exitCode.confirmRequired, 'confirm_required');
         }
 
-        const result = await this.adapty.migrations.runAction(flags.migration, action.action_id, {
+        if (selection.source === 'context') {
+            process.stderr.write(`Using saved migration: ${selection.currentMigrationId}\n`);
+        }
+
+        const result = await this.adapty.migrations.runAction(selection.currentMigrationId, action.action_id, {
             expectedRevision: envelope.migration.revision,
             input,
         });

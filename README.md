@@ -33,14 +33,22 @@ Other auth commands:
 ```sh
 adapty auth whoami     # verify token, show user info
 adapty auth status     # show local auth state
-adapty auth logout     # clear stored token (local only)
-adapty auth revoke     # revoke active token and clear any matching stored session
+adapty auth logout     # clear stored credentials and migration selection (local only)
+adapty auth revoke     # revoke active token and clear matching credentials and selection
 ```
 
 `auth revoke` uses `ADAPTY_TOKEN` when set, otherwise the stored token. A different token in the
 session file is preserved. After revoking an environment token, unset `ADAPTY_TOKEN`; a preserved
 stored session will then become active again. With no token, revoke succeeds without a request
 and returns `{"status":"not_authenticated"}` under `--json`.
+
+`auth logout` removes the saved migration selection even without stored credentials or with a
+malformed context. `auth revoke` removes selection only after server success and only when it
+belongs to the revoked token. Failed revocation preserves both files. Both cleanup operations
+are attempted independently; incomplete cleanup returns exit 1 (`auth_cleanup_failed`). If the
+server already revoked the token, the error says so: fix local files without repeating revocation.
+Environment variables remain in the parent shell; unset `ADAPTY_TOKEN` and `ADAPTY_MIGRATION`
+there when needed.
 
 ## Commands
 
@@ -125,11 +133,32 @@ adapty migrations create --flow FLOW --app APP_ID --json
 ```
 
 These are alternative creation modes: `--name` cannot be combined with `--flow` or `--app`.
-Creation starts the flow; the returned JSON contains its ID in `migration.id`.
+Creation starts the flow and saves it as current; the returned JSON contains its ID in `migration.id`.
+Use `--no-select` to create without changing the saved selection. If creation succeeds but saving
+fails, the command still succeeds and prints a warning with the explicit continuation command.
 
-Commands operating on a migration require `-m, --migration` or `ADAPTY_MIGRATION`. An explicit
-flag overrides the environment variable. The CLI does not select a migration automatically.
+Commands choose a migration in this order: `-m, --migration`, non-empty `ADAPTY_MIGRATION`,
+then the saved selection for the current token. Explicit IDs do not change the saved selection.
 Replace `mig_7x2` below with an ID from `create` or `list`; agents should pass `-m` explicitly.
+
+#### Manage a saved selection
+
+```sh
+adapty migrations use mig_7x2
+adapty migrations current --json
+adapty migrations unuse
+```
+
+`use` verifies access through the API, then saves the returned ID for the current token.
+`current` reads the effective selection locally: `ADAPTY_MIGRATION` takes precedence over the
+saved context. `unuse` removes the saved selection without authentication; an environment override
+must be unset in your shell. Changing tokens makes the previous token's selection inapplicable.
+
+The selection is shared across terminals and survives restarting the CLI. After `use` or `create`,
+you can run `adapty migrations status`, `steps`, `show`, `run` or `close` without `-m`.
+An operation keeps its initially selected ID even if another terminal changes the selection.
+`run` and `close` print the target on stderr before a mutation that uses saved selection.
+Scripts should pass explicit IDs and use `create --no-select` to preserve the shared default.
 
 #### Inspect and run an action
 

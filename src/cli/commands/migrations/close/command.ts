@@ -1,12 +1,12 @@
 import { Flags } from '@oclif/core';
 
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { MigrationCommand } from '../../../base/adapty/index.js';
 import { migrationFlags } from '../../../input/migration.js';
 import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
 import type { Envelope } from '../../../../sdk/adapty/index.js';
 
-export default class Close extends AdaptyCommand {
+export default class Close extends MigrationCommand {
     static override summary = 'Permanently finish or cancel a migration';
     static override description = [
         'Choose finish to mark the migration as completed, or cancel to abandon it.',
@@ -16,6 +16,10 @@ export default class Close extends AdaptyCommand {
     ].join('\n');
 
     static override examples = [
+        {
+            description: 'Finish the saved migration:',
+            command: '<%= config.bin %> migrations close --outcome finish --yes',
+        },
         {
             description: 'Mark the migration as finished:',
             command: '<%= config.bin %> migrations close -m mig_7x2 --outcome finish --yes',
@@ -46,9 +50,15 @@ export default class Close extends AdaptyCommand {
 
     async run(): Promise<Envelope> {
         const { flags } = await this.parse(Close);
-        const { migration } = await this.adapty.migrations.get(flags.migration);
 
-        const envelope = await this.adapty.migrations.close(flags.migration, {
+        const selection = await this.currentMigration.require(flags.migration);
+        const { migration } = await this.adapty.migrations.get(selection.currentMigrationId);
+
+        if (selection.source === 'context') {
+            process.stderr.write(`Using saved migration: ${selection.currentMigrationId}\n`);
+        }
+
+        const envelope = await this.adapty.migrations.close(selection.currentMigrationId, {
             expectedRevision: migration.revision,
             outcome: flags.outcome,
         });

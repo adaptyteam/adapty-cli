@@ -1,12 +1,15 @@
-import { build, openSession } from '../../base/adapty/index.js';
-import { BaseCommand } from '../../base/base-command.js';
+import { build, openSession } from '../../../base/adapty/index.js';
+import { BaseCommand } from '../../../base/base-command.js';
+import { openCurrentMigration } from '../../../context/migration/index.js';
+
+import { clearRevokedSession } from './lib/cleanup.js';
 
 type Result
     = | { status: 'not_authenticated' }
         | { env_token_set: boolean; status: 'revoked' };
 
 export default class AuthRevoke extends BaseCommand {
-    static override description = 'Revoke the current token on the server and remove any matching stored session';
+    static override description = 'Revoke the current token and remove matching stored credentials and migration selection';
     static override examples = ['<%= config.bin %> auth revoke'];
 
     async run(): Promise<Result> {
@@ -32,11 +35,11 @@ export default class AuthRevoke extends BaseCommand {
         await adapty.auth.revokeToken(session.token);
 
         // ADAPTY_TOKEN may override a different, still-valid session in the file.
-        const stored = await session.store.load();
-
-        if (stored?.token === session.token) {
-            await session.store.clear();
-        }
+        await clearRevokedSession(
+            session.store,
+            openCurrentMigration({ configDir: this.config.configDir, session }),
+            session.token,
+        );
 
         const result: Result = { env_token_set: session.source === 'env', status: 'revoked' };
 

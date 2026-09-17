@@ -35,6 +35,17 @@ export type ErrorJson = WizardDiagnostics & {
     status_code?: number | undefined;
 };
 
+export type CliErrorOptions = {
+    /**
+     * The failure this error explains. It is not printed and not serialized: a foreign message may
+     * quote whatever was handed to the syscall, and these paths handle credentials. It travels so
+     * that a stack, a debugger or a test can still reach the original.
+     */
+    cause?: unknown;
+    /** Fields for --json beyond `message` and `code`. */
+    json?: Partial<ErrorJson> | undefined;
+};
+
 /**
  * oclif takes the exit code from two places: `handle()` reads `oclif.exit`, Command.catch under
  * --json reads `exitCode` and never rethrows. Set one and the other mode exits 1.
@@ -43,16 +54,74 @@ export class CliError extends Errors.CLIError {
     readonly exitCode: number;
     readonly json: ErrorJson;
 
-    constructor(message: string, exit: number, code?: string, data: Partial<ErrorJson> = {}) {
+    constructor(message: string, exit: number, code?: string, options: CliErrorOptions = {}) {
         super(message, { exit });
         this.exitCode = exit;
         this.code = code;
-        this.json = { message, code, ...data };
+        this.json = { message, code, ...options.json };
+
+        // Assigned only when there is one: an own `cause: undefined` would read as "none known"
+        // where none was ever offered.
+        if (options.cause !== undefined) {
+            this.cause = options.cause;
+        }
     }
 }
 
-const cliError = (message: string, exit: number, code?: string, data?: Partial<ErrorJson>): Error =>
-    new CliError(message, exit, code, data);
+const cliError = (message: string, exit: number, code?: string, json?: Partial<ErrorJson>): Error => {
+    return new CliError(message, exit, code, { json });
+};
+
+/**
+ * An errno — ENOSPC, EACCES, EROFS — classifies a failure without repeating it. It is the part of
+ * a foreign error that is safe to show: a full disk and a denied write are fixed differently, and
+ * a message that only says "could not access" sends whoever reads it looking in the wrong place.
+ */
+export const errorCode = (error: unknown): string | undefined => {
+    return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
+};
+
+/** What a nested failure adds to an error of ours: our own text, or a stranger's errno alone. */
+const describeFailure = (error: unknown): string => {
+    if (error instanceof CliError || isSdkError(error)) {
+        return error.message;
+    }
+
+    return errorCode(error) ?? 'unknown error';
+};
+
+export type CleanupFailure = {
+    cause: unknown;
+    file: string;
+    reason: string;
+};
+
+/** `reason` is `any` on the settled result; naming it `unknown` is what keeps it from spreading. */
+const rejectionOf = (result: PromiseSettledResult<unknown> | undefined): { reason: unknown } | undefined => {
+    return result?.status === 'rejected' ? result : undefined;
+};
+
+/**
+ * Which files a best-effort cleanup could not finish, and why. Files and settled results are
+ * positional siblings, one per attempt: "could not remove these two" alone leaves the next person
+ * guessing between a permission, a read-only mount and a directory sitting where a file belongs.
+ */
+export const describeCleanupFailures = (
+    files: readonly string[],
+    results: readonly PromiseSettledResult<unknown>[],
+): CleanupFailure[] => {
+    const failures: CleanupFailure[] = [];
+
+    for (const [index, file] of files.entries()) {
+        const rejection = rejectionOf(results[index]);
+
+        if (rejection) {
+            failures.push({ cause: rejection.reason, file, reason: describeFailure(rejection.reason) });
+        }
+    }
+
+    return failures;
+};
 
 /** Issue.path is a camelCase sdk field; the user typed a kebab-case flag. */
 const flagName = (path: string): string => `--${path.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`)}`;

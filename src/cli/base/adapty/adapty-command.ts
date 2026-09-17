@@ -17,10 +17,6 @@ export type AuthenticatedSession = ResolvedSession & { token: string };
  * branch into all 75 commands, and one of them would forget it.
  */
 export abstract class AdaptyCommand extends BaseCommand {
-    // Keep one own static so oclif's manifest cache walks through this intermediate class and
-    // includes statics inherited from BaseCommand.
-    static override enableJsonFlag = true;
-
     #adapty: Adapty | undefined;
     #resolved: ResolvedSession | undefined;
 
@@ -35,8 +31,8 @@ export abstract class AdaptyCommand extends BaseCommand {
         return this.#adapty;
     }
 
-    /** Narrowed once here, so nothing downstream re-checks the token. */
-    protected get session(): AuthenticatedSession {
+    /** Effective session without enforcing auth, for local input resolution before SDK access. */
+    protected get resolvedSession(): ResolvedSession {
         const resolved = this.#resolved;
 
         if (resolved === undefined) {
@@ -44,6 +40,13 @@ export abstract class AdaptyCommand extends BaseCommand {
             // stack instead of passing for a normal scenario.
             throw new Error('session is available only after init()');
         }
+
+        return resolved;
+    }
+
+    /** Narrowed once here, so nothing downstream re-checks the token. */
+    protected get session(): AuthenticatedSession {
+        const resolved = this.resolvedSession;
 
         if (resolved.token === undefined) {
             throw new AuthRequiredError('missing');

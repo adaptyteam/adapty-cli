@@ -1,13 +1,13 @@
 import { Args } from '@oclif/core';
 
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { MigrationCommand } from '../../../base/adapty/index.js';
 import { migrationFlags } from '../../../input/migration.js';
 
 import { renderResources, renderResult } from './lib/render.js';
 
 import type { Envelope } from '../../../../sdk/adapty/index.js';
 
-export default class Show extends AdaptyCommand {
+export default class Show extends MigrationCommand {
     static override summary = 'List migration resources or read one resource';
     static override description = [
         'Omit RESOURCE to list what can be read now. Use a name from that list, such as apps, mapping, or report.',
@@ -17,6 +17,10 @@ export default class Show extends AdaptyCommand {
     ].join('\n');
 
     static override examples = [
+        {
+            description: 'Read the saved migration report:',
+            command: '<%= config.bin %> migrations show report',
+        },
         {
             description: 'List resource names available now:',
             command: '<%= config.bin %> migrations show -m mig_7x2',
@@ -41,11 +45,13 @@ export default class Show extends AdaptyCommand {
 
     async run(): Promise<Envelope> {
         const { args, flags } = await this.parse(Show);
+
+        const selection = await this.currentMigration.require(flags.migration);
         const { resource } = args;
 
         const envelope = resource === undefined
-            ? await this.adapty.migrations.get(flags.migration)
-            : await this.adapty.migrations.resource(flags.migration, resource);
+            ? await this.adapty.migrations.get(selection.currentMigrationId)
+            : await this.adapty.migrations.resource(selection.currentMigrationId, resource);
 
         this.render(envelope, resource === undefined ? renderResources : renderResult);
 

@@ -134,8 +134,20 @@ describe('cli base commands', () => {
         await createFileSessionStore(config.configDir).clear();
     });
 
-    it('keeps an own static on the intermediate authenticated base for oclif manifest caching', () => {
-        expect(Object.hasOwn(AdaptyCommand, 'enableJsonFlag')).to.equal(true);
+    /**
+     * `--json` is declared once, on `BaseCommand`, and reaches a command through two intermediate
+     * bases. Caching is where that could silently break, so the flag assertions are on the cached
+     * command oclif builds — the same shape `oclif manifest` writes. `enableJsonFlag` itself never
+     * reaches that shape: oclif copies a class's own enumerable statics, and this one is inherited.
+     * The loaded class is where the inheritance the cached flag rests on can be seen.
+     */
+    it('inherits --json through the intermediate bases, and leaves login opted out', async () => {
+        const status = await config.findCommand('migrations:status')?.load();
+
+        expect(status?.enableJsonFlag).to.equal(true);
+        expect(config.findCommand('migrations:status')?.flags).to.have.property('json');
+        expect(config.findCommand('apps:list')?.flags).to.have.property('json');
+        expect(config.findCommand('auth:login')?.flags).not.to.have.property('json');
     });
 
     it('turns a missing token into exit 3 and the login hint', async () => {

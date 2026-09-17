@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { expect } from 'chai';
 
-import { renderEnvelope } from '../../../../src/cli/views/migrations/index.js';
+import { renderEnvelope } from '../../../../src/cli/views/migrations/envelope/envelope.js';
 
 import type { Envelope } from '../../../../src/sdk/adapty/index.js';
 

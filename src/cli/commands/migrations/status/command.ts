@@ -1,4 +1,4 @@
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { MigrationCommand } from '../../../base/adapty/index.js';
 import { migrationFlags } from '../../../input/migration.js';
 import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
@@ -7,7 +7,7 @@ import { pollNotice } from './lib/notice.js';
 
 import type { Envelope } from '../../../../sdk/adapty/index.js';
 
-export default class Status extends AdaptyCommand {
+export default class Status extends MigrationCommand {
     static override summary = 'Show migration state, issues, and available actions';
     static override description = [
         'Read next_actions for the next steps and available_actions for optional actions.',
@@ -19,6 +19,10 @@ export default class Status extends AdaptyCommand {
     ].join('\n');
 
     static override examples = [
+        {
+            description: 'Inspect the saved migration:',
+            command: '<%= config.bin %> migrations status',
+        },
         {
             description: 'See the current state and what to do next:',
             command: '<%= config.bin %> migrations status -m mig_7x2',
@@ -38,9 +42,11 @@ export default class Status extends AdaptyCommand {
     async run(): Promise<Envelope> {
         const { flags } = await this.parse(Status);
 
+        const selection = await this.currentMigration.require(flags.migration);
+
         const envelope = flags.wait
-            ? await this.waitForMigration(flags.migration, flags.timeout)
-            : await this.adapty.migrations.get(flags.migration);
+            ? await this.waitForMigration(selection.currentMigrationId, flags.timeout)
+            : await this.adapty.migrations.get(selection.currentMigrationId);
 
         this.render(envelope, renderEnvelope);
 

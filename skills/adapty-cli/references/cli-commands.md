@@ -10,8 +10,8 @@ All commands support `--json` for machine-readable output.
 | Command               | Description                        |
 |-----------------------|-----------------------------------|
 | `auth login`          | OAuth device flow (opens browser) |
-| `auth logout`         | Remove stored token               |
-| `auth revoke`         | Revoke token server-side + logout |
+| `auth logout`         | Remove stored credentials and migration selection locally |
+| `auth revoke`         | Revoke effective token, then remove matching credentials and selection |
 | `auth whoami`         | Show authenticated user info      |
 | `auth status`         | Show local auth state             |
 
@@ -102,8 +102,11 @@ available flows, steps, actions and input schemas. Choose values from the curren
 
 | Command | Flags |
 |---------|-------|
-| `migrations create` | `--name <app name>` (main flow), or `--flow <flow> --app <app_id>` |
+| `migrations create` | `--name <app name>` (main flow), or `--flow <flow> --app <app_id>`; `--no-select` |
 | `migrations list` | — |
+| `migrations use <id>` | Verify access and save the selection for the current token |
+| `migrations current` | Show the effective local selection and source; no network |
+| `migrations unuse` | Clear saved selection without authentication; no network |
 | `migrations status` | `-m`, `--wait`, `--timeout <duration>` (needs `--wait`, default 120s, range 1–600s) |
 | `migrations steps` | `-m` |
 | `migrations show [<resource>]` | `-m`; no argument lists what can be read |
@@ -112,9 +115,25 @@ available flows, steps, actions and input schemas. Choose values from the curren
 
 **Scope and creation.** `create --name` starts a catalog migration into a new app. For an existing
 app, choose a flow and its app from `list.available`, then pass `--flow` and `--app` together.
-These modes are mutually exclusive. Creation starts the flow and returns its ID in `migration.id`.
+These modes are mutually exclusive. Creation starts the flow, returns its ID in `migration.id`
+and saves it as current unless `--no-select` is supplied. A local save failure warns on stderr
+but preserves the successful creation response; do not retry creation to repair local state.
 For `status`, `steps`, `show`, `run` and `close`, pass `-m <id>` explicitly. The CLI also accepts
-`ADAPTY_MIGRATION`; the flag takes precedence. There is no automatic migration selection.
+`ADAPTY_MIGRATION` or saved context, with priority `-m` > non-empty environment > saved selection.
+
+**Saved selection.** `use` verifies access before saving the returned ID. `current --json` returns
+`{ "currentMigrationId": "...", "source": "env" }` or source `"context"`; both fields are null
+when no selection applies. `unuse` clears saved state even if malformed, but cannot unset
+`ADAPTY_MIGRATION` in the parent shell. Selection is shared across terminals, but each operation
+captures its target once, including polling and GET/POST pairs. `run` and `close` identify a saved
+target on stderr before mutation. Use explicit IDs and `create --no-select` in scripts to avoid
+changing or depending on the shared default.
+
+`auth logout` removes saved context even without credentials. `auth revoke` removes it only after
+successful server revocation and only for the revoked token; other tokens' context is preserved.
+Failed revocation preserves local state. Incomplete local cleanup returns exit 1 with
+`auth_cleanup_failed`; if the error says the token was revoked, repair local state without repeating
+the revoke request. Shell environment overrides must be unset separately.
 
 **Inspect before acting.** Use `status --json` to read `next_actions` and `available_actions`.
 Select an action relevant to the task; optional actions are not a queue to execute. `steps` is a

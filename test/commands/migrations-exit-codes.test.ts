@@ -6,7 +6,7 @@ import { expect } from 'chai';
 const ROOT = join(import.meta.dirname, '..', '..');
 
 const cases = [
-    { args: ['status'], message: 'Missing required flag migration', name: 'missing migration ID' },
+    { args: ['status'], message: 'No migration selected', name: 'missing migration ID' },
     { args: ['run', '-m', 'mig_test'], message: 'action_id', name: 'missing action argument' },
     {
         args: ['create', '--name', 'My app', '--flow', 'transactions', '--app', 'app_test'],
@@ -111,7 +111,12 @@ describe('migration process exit codes', () => {
                     const output = JSON.parse(child.stdout) as { error: { message: string } };
 
                     expect(output.error.message).to.contain(message);
-                    expect(output.error).to.have.all.keys('message');
+
+                    if (name === 'missing migration ID') {
+                        expect(output.error).to.include({ code: 'migration_required' });
+                    } else {
+                        expect(output.error).to.have.all.keys('message');
+                    }
                 } else {
                     expect(child.stdout).to.equal('');
                     expect(child.stderr).to.contain(message);

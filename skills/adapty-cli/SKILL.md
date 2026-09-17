@@ -163,7 +163,8 @@ For migrations into Adapty, read [Migrations in the command reference](reference
 The server supplies the available flows, action IDs and input schemas.
 
 - Create with `--name` for a new app, or `--flow` and `--app` together for an existing app, as offered by `migrations list`
-- Pass `-m` explicitly when operating on a migration; the CLI accepts `ADAPTY_MIGRATION` but never selects one automatically
+- Pass `-m` explicitly in scripts; otherwise the CLI uses `ADAPTY_MIGRATION`, then the selection saved by `use` or `create`
+- Use `create --no-select` to preserve the shared default; `current` shows selection and `unuse` clears saved selection
 - Use `status --json` to read the current action's `reads`, `input_schema` and `confirm` before running it
 - Review `confirm` before passing `--yes`; migration commands do not show interactive confirmation prompts
 - Check `migration.state` after each action or wait; exit 0 does not mean the migration completed

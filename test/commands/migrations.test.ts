@@ -545,7 +545,7 @@ describe('migrations', () => {
 
         expect(stdout).to.contain('Migration created.');
         expect(stdout).to.contain('mig_01H9Z  main  action_required');
-        expect(stdout).to.contain('adapty migrations status -m mig_01H9Z');
+        expect(stdout).to.contain('Continue with `adapty migrations status`.');
     });
 
     it('create starts an optional flow for an app that exists', async () => {
