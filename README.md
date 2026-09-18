@@ -33,14 +33,22 @@ Other auth commands:
 ```sh
 adapty auth whoami     # verify token, show user info
 adapty auth status     # show local auth state
-adapty auth logout     # clear stored token (local only)
-adapty auth revoke     # revoke active token and clear any matching stored session
+adapty auth logout     # clear stored credentials and migration selection (local only)
+adapty auth revoke     # revoke active token and clear matching credentials and selection
 ```
 
 `auth revoke` uses `ADAPTY_TOKEN` when set, otherwise the stored token. A different token in the
 session file is preserved. After revoking an environment token, unset `ADAPTY_TOKEN`; a preserved
 stored session will then become active again. With no token, revoke succeeds without a request
 and returns `{"status":"not_authenticated"}` under `--json`.
+
+`auth logout` removes the saved migration selection even without stored credentials or with a
+malformed context. `auth revoke` removes selection only after server success and only when it
+belongs to the revoked token. Failed revocation preserves both files. Both cleanup operations
+are attempted independently; incomplete cleanup returns exit 1 (`auth_cleanup_failed`). If the
+server already revoked the token, the error says so: fix local files without repeating revocation.
+Environment variables remain in the parent shell; unset `ADAPTY_TOKEN` and `ADAPTY_MIGRATION`
+there when needed.
 
 ## Commands
 
@@ -103,6 +111,142 @@ adapty access-levels list --app UUID [--page N] [--page-size N]
 adapty access-levels get --app UUID ACCESS_LEVEL_ID
 adapty access-levels create --app UUID [flags]
 adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
+```
+
+### Migrations
+
+Manage migrations into Adapty: catalog, transactions and store events. The server provides the
+steps, available actions and input schemas; use the current response to choose what to do next.
+
+#### Start or find a migration
+
+```sh
+adapty migrations list
+adapty migrations create --name "Acme Fitness" --json
+```
+
+`--name` starts a catalog migration into a new Adapty app. For an existing app, choose a flow and
+its app from `list` and pass both flags (replace `FLOW` and `APP_ID` with those values):
+
+```sh
+adapty migrations create --flow FLOW --app APP_ID --json
+```
+
+These are alternative creation modes: `--name` cannot be combined with `--flow` or `--app`.
+Creation starts the flow and saves it as current; the returned JSON contains its ID in `migration.id`.
+Use `--no-select` to create without changing the saved selection. If creation succeeds but saving
+fails, the command still succeeds and prints a warning with the explicit continuation command.
+
+Commands choose a migration in this order: `-m, --migration`, non-empty `ADAPTY_MIGRATION`,
+then the saved selection for the current token. Explicit IDs do not change the saved selection.
+Replace `mig_7x2` below with an ID from `create` or `list`; agents should pass `-m` explicitly.
+
+#### Manage a saved selection
+
+```sh
+adapty migrations use mig_7x2
+adapty migrations current --json
+adapty migrations unuse
+```
+
+`use` verifies access through the API, then saves the returned ID for the current token.
+`current` reads the effective selection locally: `ADAPTY_MIGRATION` takes precedence over the
+saved context. `unuse` removes the saved selection without authentication; an environment override
+must be unset in your shell. Changing tokens makes the previous token's selection inapplicable.
+
+The selection is shared across terminals and survives restarting the CLI. After `use` or `create`,
+you can run `adapty migrations status`, `steps`, `show`, `run` or `close` without `-m`.
+An operation keeps its initially selected ID even if another terminal changes the selection.
+`run` and `close` print the target on stderr before a mutation that uses saved selection.
+Scripts should pass explicit IDs and use `create --no-select` to preserve the shared default.
+
+#### Inspect and run an action
+
+```sh
+adapty migrations status -m mig_7x2 --json
+adapty migrations steps -m mig_7x2
+adapty migrations show -m mig_7x2
+```
+
+`steps` shows the checklist. `show` lists readable resource names; pass one as `RESOURCE` to read
+its data. Choose `ACTION_ID` from `next_actions` or `available_actions` in the status response.
+For an input action, read its `reads` resources and prepare a JSON object matching `input_schema`:
+
+```sh
+adapty migrations show RESOURCE -m mig_7x2
+adapty migrations run ACTION_ID -m mig_7x2 --input-file ./decisions.json --json
+```
+
+Alternatively, use `--input-file -` with stdin (`< ./decisions.json`), or `--input '{}'` if the
+schema allows an empty object. Omitting input also sends `{}`. Use only one input option.
+
+Read the action's full `confirm` text in `status` or `status --json` before adding `--yes`. Input actions
+requiring confirmation exit **6** without it; there is no interactive prompt. The CLI reads
+status before refusing, but does not send the action request. After an action, check status again.
+After `revision_conflict`, read status and review the current action, input and confirmation before retrying.
+
+For an `external` action, complete the step in the browser, then check status:
+
+```sh
+adapty migrations run ACTION_ID -m mig_7x2 --no-browser
+```
+
+`--no-browser` prints the action details and link. By default, the browser opens in an interactive
+terminal; pipes and `--json` require `--open`. `BROWSER=none` disables opening, and only HTTPS
+links are supported. External actions do not send an action request; their JSON response reflects
+the migration before the browser step. Passing `--input` or `--input-file` to an external action
+returns a usage error (exit 2). File uploads are marked unsupported in `status`: use the dashboard or an
+offered Cloud Export action. `list --all` is also unsupported.
+
+#### Wait for a change or close a migration
+
+```sh
+adapty migrations status -m mig_7x2 --wait --timeout 5m --json
+```
+
+`--wait` returns when the revision changes, the state is no longer `running`, or the polling budget
+cannot accommodate another pause. `--timeout` requires `--wait`: default 120s, range 1–600s,
+with formats such as `300`, `300s` or `5m`. In-flight requests and retries may take longer.
+Exit **0** means the request succeeded, even when the migration is still running or has failed;
+inspect `migration.state`. Progress goes to stderr; Ctrl+C exits **130**.
+
+To permanently mark a migration as completed:
+
+```sh
+adapty migrations close -m mig_7x2 --outcome finish --yes
+```
+
+To abandon it instead:
+
+```sh
+adapty migrations close -m mig_7x2 --outcome cancel --yes
+```
+
+Both outcomes require `--yes`; there is no confirmation prompt.
+
+#### JSON output
+
+With `--json`, `list` returns `{items, available}`. All other migration commands return the full
+migration response (the envelope):
+
+| Data | JSON field |
+| --- | --- |
+| Migration ID, state and revision | `migration` |
+| Next and optional actions | `next_actions`, `available_actions` |
+| Checklist | `steps` |
+| Readable resource names | `resources` |
+| Data from `show RESOURCE` | `result` (may be `null`) |
+
+Without `--json`, `show RESOURCE` prints just the resource data as JSON, or a message if empty.
+Wizard Service errors preserve `detail`, `fields`, `next_step`, `request_id`, `retryable` and
+`retry_after_seconds` under `error` in JSON when supplied. Human output includes details, field
+errors, the next step and request ID. Retry metadata in the response does not change automatic retry behavior.
+
+To extract specific fields from the full response, these examples require the separate `jq` utility:
+
+```sh
+adapty migrations steps -m mig_7x2 --json | jq '.steps'
+adapty migrations show RESOURCE -m mig_7x2 --json | jq '.result'
 ```
 
 ### Apple Search Ads
@@ -429,6 +573,7 @@ the flags and the size ceiling.
 | `ADAPTY_TOKEN`       | Override stored auth token                                                              |
 | `ADAPTY_API_URL`     | Override Developer API base URL (default: `https://api-admin.adapty.io/api/v1/developer`) |
 | `ADAPTY_ASA_API_URL` | Override Apple Search Ads base URL (default: `https://api-asa-admin.adapty.io/api/v1/cli`) |
+| `ADAPTY_MIGRATION`   | Migration id used by `adapty migrations` when `-m` is not given                          |
 | `ADAPTY_APP_URL`     | Override dashboard base URL (default: `https://app.adapty.io`). Used by `flows config preview` for the fixed `/flow-preview` route, and by `auth login` to keep the verification link on that host |
 
 The two API URLs are independent: pointing `ADAPTY_API_URL` at a staging host leaves `adapty asa` on the ASA

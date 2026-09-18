@@ -1,5 +1,9 @@
-import { openSession } from '../../base/adapty/index.js';
-import { BaseCommand } from '../../base/base-command.js';
+import { createFileSessionStore } from '../../../../sdk/core/session.js';
+import { BaseCommand } from '../../../base/base-command.js';
+import { openCurrentMigration } from '../../../context/migration/index.js';
+import { envSuppliesMigration } from '../../../views/migrations/notices.js';
+
+import { clearLocalSession } from './lib/cleanup.js';
 
 type Result = {
     /** The env var outlives the file, so "Logged out" alone would be a lie. */
@@ -17,22 +21,26 @@ const ENV_STILL_SET
     = 'ADAPTY_TOKEN is still set in the environment, so commands stay authenticated. Unset it to finish logging out.';
 
 export default class AuthLogout extends BaseCommand {
-    static override description = 'Remove the stored session';
+    static override description = 'Remove stored credentials and the saved migration selection';
     static override examples = ['<%= config.bin %> auth logout'];
 
     async run(): Promise<Result> {
         await this.parse(AuthLogout);
 
-        const session = await openSession(this.config);
-        const stored = await session.store.load();
+        const envTokenSet = process.env.ADAPTY_TOKEN !== undefined && process.env.ADAPTY_TOKEN !== '';
 
-        if (stored !== undefined) {
-            await session.store.clear();
+        // No session: an orphaned selection has to go even when the credentials cannot be read.
+        const current = openCurrentMigration({ configDir: this.config.configDir });
+
+        if (current.overridden) {
+            process.stderr.write(envSuppliesMigration);
         }
 
+        const hadSession = await clearLocalSession(createFileSessionStore(this.config.configDir), current);
+
         const result: Result = {
-            env_token_set: session.source === 'env',
-            status: stored === undefined ? 'not_authenticated' : 'logged_out',
+            env_token_set: envTokenSet,
+            status: hadSession ? 'logged_out' : 'not_authenticated',
         };
 
         this.render(result, status => (status.env_token_set

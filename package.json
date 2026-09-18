@@ -99,6 +99,9 @@
       "segments": {
         "description": "List segments"
       },
+      "migrations": {
+        "description": "Manage migrations: catalog, transactions and store events"
+      },
       "asa": {
         "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"
       },

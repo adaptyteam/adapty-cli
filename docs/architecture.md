@@ -46,7 +46,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`).
+resources off it (`apps`, `auth`, `accessLevels`, `migrations`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -88,8 +88,9 @@ text or JSON.
 
 - `base/base-command.ts` — output channel, `SIGINT` → abort signal, error mapping, `render()`.
   It owns no product SDK or session, so another product such as ASA can reuse it directly.
-- `base/adapty/index.ts` — the public entry point: commands import `AdaptyCommand`, `build`,
-  `openSession` and session types from here. Implementation files import each other directly.
+- `base/adapty/index.ts` — the public entry point: commands import `AdaptyCommand`,
+  `MigrationCommand`, `build`, `openSession` and session types from here. Implementation files
+  import each other directly.
 - `base/adapty/openSession.ts` — reads `ADAPTY_TOKEN` and `ADAPTY_API_URL`, picks the config dir
   from oclif, and returns where to talk, as whom, and the store to write through. `openSession(config)`
   also warns about a non-default API URL.
@@ -97,12 +98,54 @@ text or JSON.
   User-Agent and retry warnings. Both authenticated commands and auth commands use it.
 - `base/adapty/adapty-command.ts` — resolves an Adapty session and lazily builds its SDK. "Needs
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
+- `base/adapty/migration-command.ts` — `AdaptyCommand` plus `this.currentMigration`. "Works on the
+  saved migration" is the second thing a command says by what it extends.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
-- `flags.ts` — shared flags and args (app id UUID, pagination) and the one place flag names meet
-  sdk field names.
+- `input/` — shared flags and args (app id UUID, pagination, migration id), one module per concern,
+  and the one place flag names meet sdk field names.
+- `context/migration/` — CLI-owned migration selection in `context.json` beside credentials.
+  `model.ts` defines and validates the record and token fingerprint; `store.ts` owns file I/O and
+  storage errors; `resolve.ts` chooses an ID by source priority. `current.ts` binds those three
+  into the object the door exports: `openCurrentMigration({ configDir, session, env })` answers
+  `get`, `require`, `set`, `clear`, `clearFor` and `overridden`. A command asks that object a
+  question; it never assembles a store, a session and an environment variable of its own, and
+  `ADAPTY_MIGRATION` is read here and nowhere else. Files within the module import each other
+  directly, and a test may open any of them.
+  The store replaces records atomically; the resolver checks the effective token fingerprint
+  and reads the file only when no explicit ID is supplied. API URL is not part of the context.
+  Its two error codes are stable, but the texts are per operation: a read, a write and a removal
+  are fixed in three different places, so each says which failed and names the errno. The message
+  never repeats the underlying one — it may quote the record, and the record carries a token
+  fingerprint — so the original travels as `cause`.
+  `migrations use` verifies access before saving; `current` resolves the selection locally;
+  `unuse` removes it without authentication and without a session. Migration operations resolve
+  once after input validation, using flag > environment > saved context; polling and mutations
+  retain that captured ID. `create` saves by default, with `--no-select` to opt out; local save
+  failures warn without failing creation. The SDK remains unaware of this local selection.
 - `views/` — plain functions, value in, string out.
 - `commands/` — one class per command.
+
+### The shape of a command
+
+A command is one file for as long as it fits in one: `commands/apps/get.ts`. When it outgrows that,
+it becomes a directory of three parts, and `test/cli/command-layout.test.ts` holds them apart:
+
+```text
+commands/migrations/status/
+├── command.ts    # the class oclif runs
+├── index.ts      # the door: `export { default } from './command.js';` and nothing else
+└── lib/          # this command's own helpers, private to it
+```
+
+The door exists because the re-export under `src/commands` names a directory, and Node.js ESM
+resolves a directory only through its `index.js`. Keeping the class out of it means one spelling for
+"where does this command begin": `command.ts`, whether or not the directory has grown a `lib/`.
+
+A `lib/` belongs to the command beside it, never to a topic: a helper two commands need is not a
+helper any more, and moves to `cli/input` or `cli/views` (adapter) or to `sdk/adapty` (product).
+Eslint blocks the import of a stranger's `lib/`; the layout test covers what a specifier pattern
+cannot see.
 
 ### Command bases and imports
 
@@ -112,6 +155,7 @@ base/
 └── adapty/
     ├── index.ts
     ├── adapty-command.ts
+    ├── migration-command.ts
     ├── build.ts
     └── openSession.ts
 ```
@@ -125,6 +169,15 @@ Commands that require Adapty authorization extend `AdaptyCommand`. It resolves t
 `init()`, then checks the token when `this.session` or `this.adapty` is accessed. Parse and validate
 input before that access so input errors take precedence over a missing token. A future ASA adapter
 can live in `base/asa/` and extend the same `BaseCommand`.
+
+Commands that work on the saved migration extend `MigrationCommand`, a file in the same adapter that
+adds one lazy getter, `this.currentMigration`, over `AdaptyCommand`. Selection is one topic out of
+ten, so it stays out of `AdaptyCommand`, where all 75 commands would pay for it.
+The two commands that answer without credentials — `current` and `unuse` — stay on `BaseCommand`
+and call `openCurrentMigration` themselves, as `auth logout` and `auth revoke` do for their cleanup.
+
+`this.resolvedSession` exposes the same captured session without requiring a token, for local
+input resolution before authentication. It does not build the SDK or make a network request.
 
 Commands import the Adapty adapter through its public entry point:
 
@@ -164,14 +217,20 @@ quietly changing what users parse.
 | New endpoint | a resource module in `sdk/adapty` |
 | New rule ("X is required when Y") | next to the operation it constrains, in `sdk/adapty` |
 | New command | `cli/commands/...` + a re-export in `src/commands/...` |
-| New flag | the command, or `cli/flags.ts` if shared |
+| New flag or argument | the command (or its `lib/flags.ts` for complex parsing); shared input belongs in `cli/input/<concern>.ts` |
 | New error kind | `sdk/core/errors.ts` + `cli/errors.ts` (the compiler insists) |
 | Adapty session environment variables | `cli/base/adapty/openSession.ts` |
+| `ADAPTY_MIGRATION`, or anything about the saved selection | `cli/context/migration/current.ts` |
+
+Shared input modules group declarations, private parsers and SDK parameter mapping by concern
+(for example, `cli/input/pagination.ts`). Import each module directly; there is no barrel index.
+Keep command-specific input local until another command needs it, and export only what consumers
+use. Global flags belong to the base command; shared subsets stay composable objects.
 
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps` and `auth`.
+most topics. Migrated so far: `apps`, `auth` and `migrations`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.
@@ -183,6 +242,18 @@ Both stacks read and write the same session file — `{ "access_token", "user" }
 command targeted only the token in the file. It removes the stored session only if its token matches
 the revoked one; a different stored token remains usable. With no effective token, it keeps the old
 successful no-op and `{ "status": "not_authenticated" }` JSON result.
+
+`auth/logout/` and `auth/revoke/` keep command classes in `command.ts` and local cleanup in
+`lib/cleanup.ts`. Logout opens the session store and the migration context directly, so it can
+remove malformed credentials and an orphaned selection without resolving a usable session. Revoke
+removes the selection through `clearFor(token)` — only when its fingerprint matches the revoked
+token, independently of the stored credentials; the comparison itself lives with the record. Both commands
+attempt both cleanup operations; failures become exit 1 with `auth_cleanup_failed` and one line per
+file that survived, naming why. Redaction is about foreign text, not about diagnostics: an error of
+ours contributes its own message, a stranger's contributes its errno alone, and the original travels
+as `cause` (`describeCleanupFailures` in `cli/errors.ts`). Revoke errors explicitly distinguish
+successful server revocation from failed local cleanup. Credentials stay in the SDK session store;
+migration cleanup belongs to the CLI.
 
 The apps adapter runs the SDK's pure validation rules before requiring a token. The SDK also keeps
 its own validation so other adapters cannot bypass the rules.

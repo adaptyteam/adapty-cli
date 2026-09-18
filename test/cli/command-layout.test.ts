@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 import { expect } from 'chai';
 
@@ -8,9 +8,9 @@ const SRC = join(ROOT, 'src');
 const COMMANDS = join(SRC, 'cli', 'commands');
 
 /**
- * A command that outgrows one file becomes a directory: `apps/create/index.ts` is the command
- * (oclif collapses `index` into the directory's id) and `apps/create/lib/*.ts` is its own
- * business, nobody else's.
+ * A command that outgrows one file becomes a directory: `apps/create/command.ts` declares the class,
+ * `apps/create/index.ts` is the door the command id resolves to, and `apps/create/lib/*.ts` is its
+ * own business, nobody else's.
  *
  * Eslint blocks the flat spelling of a stranger's helper: the freeze on src/lib re-includes only
  * `./lib/*`, the lib next to the importer. Left over for here is what a specifier pattern cannot
@@ -19,6 +19,9 @@ const COMMANDS = join(SRC, 'cli', 'commands');
  * free to reach into a command's lib to exercise it directly.
  */
 const SPECIFIER = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g;
+
+/** The whole of a door. A directory command is read by opening `command.ts`, never by comparing two. */
+const DOOR = /^export \{ default \} from '\.\/command\.js';$/m;
 
 async function tsFiles(dir: string): Promise<string[]> {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -83,23 +86,23 @@ describe('command layout', () => {
             }
         }
 
-        expect(outsiders, 'move it to cli/views or cli/flags (adapter) or to sdk/adapty (product)').to.deep.equal([]);
+        expect(outsiders, 'move it to cli/views or cli/input (adapter) or to sdk/adapty (product)').to.deep.equal([]);
     });
 
     it('lets only a command own a lib/, so no topic grows a shared one', () => {
         const known = new Set(files);
 
         const orphans = [...new Set(files.map(file => ownerOf(file)))]
-            .filter(owner => owner !== undefined && !known.has(join(owner, 'index.ts')))
+            .filter(owner => owner !== undefined && !known.has(join(owner, 'command.ts')))
             .map(owner => relative(SRC, owner ?? ''));
 
-        expect(orphans, 'a lib/ needs an index.ts next to it').to.deep.equal([]);
+        expect(orphans, 'a lib/ needs the command.ts it serves next to it').to.deep.equal([]);
     });
 
     it('keeps a helper out of the command tree itself, where it would become a command', async () => {
         // The glob exempts `lib/` and nothing else, so `status/result.ts` next to `status/index.ts`
-        // would ship as the command `auth status result`. A command file is the one that declares
-        // the class oclif runs.
+        // would ship as the command `auth status result`. Two files are allowed to sit there: the
+        // one that declares the class, and the door that points at it.
         const strays: string[] = [];
 
         for (const file of files.filter(candidate => candidate.startsWith(COMMANDS + sep))) {
@@ -108,13 +111,14 @@ describe('command layout', () => {
             }
 
             const source = await readFile(file, 'utf8');
+            const belongs = basename(file) === 'index.ts' ? DOOR.test(source) : source.includes('export default class');
 
-            if (!source.includes('export default class')) {
+            if (!belongs) {
                 strays.push(relative(SRC, file));
             }
         }
 
-        expect(strays, 'a file that is not a command belongs in that command lib/').to.deep.equal([]);
+        expect(strays, 'a command declares its class in command.ts, and its index.ts only re-exports it').to.deep.equal([]);
     });
 
     it('tells oclif to skip lib/ when it looks for commands', async () => {
