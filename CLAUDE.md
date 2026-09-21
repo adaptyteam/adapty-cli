@@ -29,7 +29,7 @@ src/
                      # media/ (upload — multipart image upload, returns CDN url to reference in a config)
     segments/        # list, get
     access-levels/   # list, get, create, update
-    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
+    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
                      # competitors
   lib/
