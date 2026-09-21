@@ -233,6 +233,7 @@ Every `asa` command is rate limited per company, not per token:
 |---|---|
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
+| `keywords recommend` | 10/min, one in-flight `brand`/`generic` rebuild at a time, `Retry-After: 5` on `cli_analytics_busy` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
@@ -241,7 +242,9 @@ Every `asa` command is rate limited per company, not per token:
 the account-size reason to filter it in Scope filters. `metrics`, `metrics overview`,
 `search-terms list`, and `competitors summary` share a separate analytics pool with its own
 budget and its own `429 cli_analytics_busy`; that pool and its numbers live in the metrics
-reference, not here.
+reference, not here. `keywords recommend` raises the same `cli_analytics_busy` code from a
+different, one-slot pool of its own, so a busy `brand`/`generic` rebuild answers with this
+section's `Retry-After: 5`, not the metrics pool's numbers.
 
 A budget running out answers `429 cli_rate_limit_exceeded` with the wait in `Retry-After` —
 a different code from `cli_analytics_busy` (that other pool's concurrency cap) and from

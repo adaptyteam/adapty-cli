@@ -185,6 +185,7 @@ Keywords are always applied as a batch, at most 100 per call, and a partial reje
 
 ```sh
 adapty asa keywords list
+adapty asa keywords recommend --adam-id 1668337467 --type brand|generic|competitor [--country US...]
 adapty asa keywords add --ad-group UUID --text "running shoes" --text "trail shoes" [--bid 1.20] [--match-type EXACT]
 adapty asa keywords add --ad-group UUID --from-file keywords.txt
 adapty asa keywords update KEYWORD_ID [KEYWORD_ID...] [--bid 2.00] [--status PAUSED]
