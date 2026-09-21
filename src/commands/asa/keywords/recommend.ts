@@ -4,14 +4,17 @@ import { createAsaClient } from '../../../lib/asa-client.js';
 import { printList, printResponse } from '../../../lib/output.js';
 
 import type {
+    AsaBrandKeywordDTO,
     AsaBrandKeywordPoolDTO,
     AsaCompetitorBrandKeywordPoolsDTO,
     AsaGenericKeywordPoolDTO,
+    AsaKeywordPoolStatus,
 } from '../../../lib/asa-schemas.js';
 
 const TYPES = ['brand', 'generic', 'competitor'] as const;
 
 type RecommendationType = (typeof TYPES)[number];
+type PoolType = 'brand' | 'generic';
 
 const PATHS: Record<RecommendationType, string> = {
     brand: '/keyword-recommendations/brand',
@@ -34,7 +37,7 @@ export default class AsaKeywordsRecommend extends Command {
     ];
 
     static override flags = {
-        'adam-id': Flags.string({
+        'adam-id': Flags.integer({
             description: 'Apple App Store ID (adam_id) of your app, from `asa apps list`',
             required: true,
         }),
@@ -48,10 +51,6 @@ export default class AsaKeywordsRecommend extends Command {
     async run(): Promise<RecommendationResult> {
         const { flags } = await this.parse(AsaKeywordsRecommend);
 
-        if (!/^\d+$/.test(flags['adam-id'])) {
-            this.error('--adam-id is a number, e.g. --adam-id 1668337467.', { exit: 2 });
-        }
-
         const countries = (flags.country ?? []).map(code => code.trim().toUpperCase());
 
         if (countries.some(code => !/^[A-Z]{2}$/.test(code))) {
@@ -60,7 +59,7 @@ export default class AsaKeywordsRecommend extends Command {
 
         const type = flags.type as RecommendationType;
         const client = await createAsaClient(this);
-        const params = { adam_id: flags['adam-id'], country: countries.length > 0 ? countries : undefined };
+        const params = { adam_id: String(flags['adam-id']), country: countries.length > 0 ? countries : undefined };
 
         if (type === 'competitor') {
             const pools = await client.get<AsaCompetitorBrandKeywordPoolsDTO>(PATHS.competitor, params);
@@ -70,7 +69,7 @@ export default class AsaKeywordsRecommend extends Command {
         }
 
         const pool = await client.get<PoolDTO>(PATHS[type], params);
-        this.printPool(pool);
+        this.printPool(pool, type);
 
         return pool;
     }
@@ -86,14 +85,21 @@ export default class AsaKeywordsRecommend extends Command {
             printResponse(
                 {
                     competitor_adam_id: pool.competitor_adam_id,
-                    keywords_count: pool.keywords.length,
                     status: pool.status,
+                    keywords_count: pool.keywords.length,
                 },
                 this.log.bind(this),
             );
 
+            const hint = this.statusHint(pool.status);
+
+            if (hint !== undefined) {
+                this.log(hint);
+            }
+
             if (pool.keywords.length > 0) {
-                printList(pool.keywords, this.log.bind(this));
+                this.log('');
+                printList(pool.keywords.map(keyword => this.omitAdamId(keyword)), this.log.bind(this));
             }
 
             if (i < result.pools.length - 1) {
@@ -102,18 +108,47 @@ export default class AsaKeywordsRecommend extends Command {
         }
     }
 
-    private printPool(pool: PoolDTO): void {
-        const header: Record<string, unknown> = { keywords_count: pool.keywords.length, status: pool.status };
+    private printPool(pool: PoolDTO, type: PoolType): void {
+        const header: Record<string, unknown> = { status: pool.status, keywords_count: pool.keywords.length };
 
-        if ('brand' in pool) {
-            header.brand_terms = pool.brand?.brand_terms ?? [];
+        if (type === 'brand') {
+            header.brand_terms = (pool as AsaBrandKeywordPoolDTO).brand?.brand_terms ?? [];
         }
 
         printResponse(header, this.log.bind(this));
 
+        const hint = this.statusHint(pool.status);
+
+        if (hint !== undefined) {
+            this.log(hint);
+        }
+
         if (pool.keywords.length > 0) {
             this.log('');
-            printList(pool.keywords, this.log.bind(this));
+
+            const keywords = type === 'brand'
+                ? (pool.keywords as AsaBrandKeywordDTO[]).map(keyword => this.omitAdamId(keyword))
+                : pool.keywords;
+
+            printList(keywords, this.log.bind(this));
         }
+    }
+
+    private omitAdamId(keyword: AsaBrandKeywordDTO): Record<string, unknown> {
+        const { adam_id: _adamId, ...rest } = keyword;
+
+        return rest;
+    }
+
+    private statusHint(status: AsaKeywordPoolStatus): string | undefined {
+        if (status === 'building') {
+            return 'Still building — retry in about a minute.';
+        }
+
+        if (status === 'failed') {
+            return 'The pool build failed — retry later or contact support.';
+        }
+
+        return undefined;
     }
 }
