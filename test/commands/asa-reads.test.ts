@@ -346,4 +346,51 @@ describe('asa reads', () => {
         expect(error?.message).to.contain('1000');
         expect(fetchStub.callCount).to.equal(1);
     });
+
+    it('keywords recommend reads the brand pool for one app with repeatable, upper-cased countries', async () => {
+        fetchStub = mockFetch([{ brand: null, keywords: [], status: 'empty' }]);
+        await runCommand('asa keywords recommend --adam-id 1668337467 --type brand --country us --country GB');
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/keyword-recommendations/brand/',
+            query: { adam_id: '1668337467' },
+            stub: fetchStub,
+        });
+
+        const { searchParams } = new URL(fetchStub.getCall(0).args[0] as string);
+        expect(searchParams.getAll('country')).to.deep.equal(['US', 'GB']);
+    });
+
+    it('keywords recommend maps --type competitor onto the competitor-brand route', async () => {
+        fetchStub = mockFetch([{ pools: [] }]);
+        await runCommand('asa keywords recommend --adam-id 1668337467 --type competitor');
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/keyword-recommendations/competitor-brand/',
+            query: { adam_id: '1668337467' },
+            stub: fetchStub,
+        });
+
+        const { searchParams } = new URL(fetchStub.getCall(0).args[0] as string);
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- FIXME if you see this
+        expect(searchParams.has('country')).to.be.false;
+    });
+
+    it('keywords recommend refuses a non-numeric adam id and a bad country before the network', async () => {
+        fetchStub = mockFetch([{ keywords: [], status: 'empty' }]);
+        const badId = await runCommand('asa keywords recommend --adam-id abc --type generic');
+        const badCountry = await runCommand('asa keywords recommend --adam-id 1 --type generic --country USA');
+        const badType = await runCommand('asa keywords recommend --adam-id 1 --type organic');
+
+        expect(badId.error?.message).to.contain('--adam-id');
+        expect(badCountry.error?.message).to.contain('--country');
+        expect(badType.error?.message).to.contain('--type');
+        expect(fetchStub.callCount).to.equal(0);
+    });
 });
