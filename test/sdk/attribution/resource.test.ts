@@ -3,6 +3,7 @@ import { expect } from 'chai';
 import { createAttribution, DEFAULT_ATTRIBUTION_API_URL } from '../../../src/sdk/attribution/index.js';
 import { ApiError, AuthRequiredError, ValidationError } from '../../../src/sdk/core/errors.js';
 import { createFakeClock, createScriptedFetch } from '../../../src/sdk/core/testing.js';
+import { errorBody } from '../../helpers/attribution-errors.js';
 import { rejection } from '../../helpers/rejection.js';
 
 import type { ReportInput } from '../../../src/sdk/attribution/index.js';
@@ -37,12 +38,18 @@ const reportInput: ReportInput = {
     revenueBasis: 'gross',
 };
 
-const errorBody = (errorCode: string, statusCode: number, message: string, fieldName: null | string = null) => ({
-    errors: [{ error_code: errorCode, field_name: fieldName, message, status_code: statusCode }],
-});
-
 const metricsBody = {
     data: {
+        limits: {
+            max_filter_values: 100,
+            max_keyword_length: 256,
+            max_metrics: 25,
+            max_prediction_day: 365,
+            max_prediction_horizons: 4,
+            max_prediction_non_date_dimensions: 2,
+            max_rows: 10_000,
+            max_window_days: { day: 31, week: 180, month: 366, quarter: 366, year: 366, no_date_grouping: 92 },
+        },
         metrics: [{
             additive: true,
             denominator: null,
@@ -67,7 +74,7 @@ describe('attribution', () => {
                 rows: [{ campaign_id: '42', campaign_name: 'Summer', date: '2026-08-01', d7_roas: null, spend: 10.5 }],
                 totals: { d7_roas: null, spend: 10.5 },
             },
-            meta: { max_valid_day: 45, query: { app_id: APP_ID, currency: 'USD' }, spend_channels: ['facebook'] },
+            meta: { query: { app_id: APP_ID, currency: 'USD' } },
             success: true,
         };
 
@@ -272,5 +279,47 @@ describe('attribution', () => {
         expect(calls).to.have.length(2);
         expect(clock.sleeps).to.deep.equal([2000]);
         expect(result).to.deep.equal(metricsBody);
+    });
+
+    it('does not sleep through a long server wait on a catalog read: the error carries the delay instead', async () => {
+        const { attribution, calls, clock } = setup([
+            { body: errorBody('attribution_upstream_unavailable', 503, 'Down'), headers: { 'retry-after': '60' }, status: 503 },
+            { body: metricsBody },
+        ]);
+
+        const error = await rejection(attribution.metrics());
+
+        expect(calls).to.have.length(1);
+        expect(clock.sleeps).to.deep.equal([]);
+        expect(error).to.be.instanceOf(ApiError);
+        expect((error as ApiError).retryAfterMs).to.equal(60_000);
+    });
+
+    it('refuses a success whose body is not JSON, such as a proxy page, instead of passing the text on', async () => {
+        const attribution = createAttribution({
+            baseUrl: BASE,
+            fetch: () => Promise.resolve(new Response('<html><body>Service Unavailable</body></html>', {
+                headers: { 'content-type': 'text/html' },
+                status: 200,
+            })),
+            token: 't',
+        });
+
+        const error = await rejection(attribution.report(reportInput));
+
+        expect(error).to.be.instanceOf(ApiError);
+        expect((error as ApiError).code).to.equal('malformed_response');
+        expect((error as ApiError).status).to.equal(200);
+    });
+
+    it('refuses a JSON success without its data, on a catalog read too, and does not retry it', async () => {
+        const { attribution, calls, clock } = setup([{ body: { meta: null, success: true } }, { body: metricsBody }]);
+
+        const error = await rejection(attribution.metrics());
+
+        expect(error).to.be.instanceOf(ApiError);
+        expect((error as ApiError).code).to.equal('malformed_response');
+        expect(calls).to.have.length(1);
+        expect(clock.sleeps).to.deep.equal([]);
     });
 });

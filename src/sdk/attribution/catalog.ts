@@ -22,7 +22,21 @@ export type Metric = {
     unit: MetricUnit;
 };
 
+/** The caps a report is held to, so a request can be sized before it is sent rather than refused. */
+export type ReportLimits = {
+    max_filter_values: number;
+    max_keyword_length: number;
+    max_metrics: number;
+    max_prediction_day: number;
+    max_prediction_horizons: number;
+    max_prediction_non_date_dimensions: number;
+    max_rows: number;
+    /** The widest period in days, both ends counted: per date granularity, and `no_date_grouping`. */
+    max_window_days: Record<string, number>;
+};
+
 export type MetricCatalog = {
+    limits: ReportLimits;
     metrics: Metric[];
 };
 

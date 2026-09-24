@@ -1,16 +1,14 @@
-import { Errors, Flags } from '@oclif/core';
+import { Flags } from '@oclif/core';
 
 import { granularities, reportGroupBy, sortDirections, validateReport } from '../../../../sdk/attribution/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
 import { AttributionCommand } from '../../../base/attribution/index.js';
-import { exitCode } from '../../../errors.js';
+import { usageError } from '../../../errors.js';
 import { appFlag, periodFlags, periodParams, revenueBasisFlag } from '../../../flags.js';
 
 import { renderReport } from './lib/render.js';
 
 import type { ReportFilter, ReportInput, ReportResponse, ReportSort, SortDirection } from '../../../../sdk/attribution/index.js';
-
-const usage = (message: string): Errors.CLIError => new Errors.CLIError(message, { exit: exitCode.usage });
 
 /** A comma not preceded by a backslash: `\,` keeps a comma inside a value, as oclif's own delimiter does. */
 const VALUE_SEPARATOR = /(?<!\\),/;
@@ -26,7 +24,7 @@ const parseFilter = (input: string): Promise<ReportFilter> => {
                 .filter(value => value !== '');
 
     return dimension === '' || values.length === 0
-        ? Promise.reject(usage(`Expected dimension=value[,value], got "${input}".`))
+        ? Promise.reject(usageError(`Expected dimension=value[,value], got "${input}".`))
         : Promise.resolve({ dimension, values });
 };
 
@@ -39,12 +37,12 @@ const parseSort = (input: string): Promise<ReportSort> => {
     const direction = separator === -1 ? 'asc' : input.slice(separator + 1).trim();
 
     if (field === '') {
-        return Promise.reject(usage(`Expected field[:asc|desc], got "${input}".`));
+        return Promise.reject(usageError(`Expected field[:asc|desc], got "${input}".`));
     }
 
     return isDirection(direction)
         ? Promise.resolve({ direction, field })
-        : Promise.reject(usage(`The sort direction must be asc or desc, got "${direction}".`));
+        : Promise.reject(usageError(`The sort direction must be asc or desc, got "${direction}".`));
 };
 
 export default class AttributionReport extends AttributionCommand {
@@ -53,10 +51,11 @@ export default class AttributionReport extends AttributionCommand {
     static override examples = [
         '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,d7_roas --group-by campaign',
         '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend --group-by date --granularity week --filter country=US,GB --sort spend:desc',
+        '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,d7_roas --group-by campaign --json',
     ];
 
-    // Input shape here; the rules (dates in order, granularity only with a date grouping) live in
-    // sdk/attribution/report.ts, and which names exist is the backend catalog's knowledge.
+    // Input shape here; the rules (dates in order, a granularity exactly when grouping by date) live
+    // in sdk/attribution/report.ts, and which names exist is the backend catalog's knowledge.
     static override flags = {
         ...appFlag,
         ...periodFlags,
@@ -74,7 +73,7 @@ export default class AttributionReport extends AttributionCommand {
             required: true,
         })(),
         'granularity': Flags.option({
-            description: 'Date bucket; applies only with --group-by date',
+            description: 'Date bucket; required with --group-by date, and allowed only with it',
             options: granularities,
         })(),
         'filter': Flags.custom<ReportFilter>({

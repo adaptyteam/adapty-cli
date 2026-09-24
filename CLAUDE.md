@@ -71,7 +71,8 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 
 - oclif topic separator is space (e.g. `adapty apps list`, not `adapty apps:list`)
 - All resource commands scoped under `--app APP_ID` (UUID, validated) — except `asa`, which is scoped by the
-  token's company (`--app` there is only a list filter)
+  token's company (`--app` there is only a list filter), and the `attribution metrics` and `attribution dimensions`
+  catalog reads, which are the same for every app and take no `--app`
 - `list` commands use shared pagination flags (--page, --page-size)
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
 - Relative imports use explicit `.js` extensions, including `/index.js` for module entry points

@@ -98,8 +98,10 @@ Its seams are the product's own: the attribution backend words a rejection as
 `{ errors: [{ message, error_code, status_code, field_name }] }`, so an `ApiError` carries the
 first item's `error_code`. `report` and `values` run analytics queries and are sent as
 non-idempotent — never retried, the server's `Retry-After` left on the error for the caller.
-Validation covers what needs no catalog (ISO days in order, a metric and a grouping, granularity
-only with a date grouping); which names exist is the backend's knowledge.
+Validation covers what needs no catalog (ISO days in order, a metric and a grouping, a granularity
+exactly when grouping by date); which names exist is the backend's knowledge. A success without the
+service's `{ success, data }` envelope becomes an `ApiError` coded `malformed_response`, so a proxy
+page never passes for an answer.
 
 ## src/cli
 
@@ -123,8 +125,9 @@ text or JSON.
   `ADAPTY_API_URL` does not move it. `AttributionCommand` mirrors `AdaptyCommand`.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
-- `flags.ts` — shared flags and args (app id UUID, pagination) and the one place flag names meet
-  sdk field names.
+- `flags.ts` — shared flags and args (`appIdArg` and `appFlag` for the app id UUID, `periodFlags`
+  for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, pagination) and the one
+  place flag names meet sdk field names (`pageParams`, `periodParams`).
 - `views/` — plain functions, value in, string out.
 - `commands/` — one class per command.
 

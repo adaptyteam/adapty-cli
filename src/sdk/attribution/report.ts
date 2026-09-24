@@ -59,13 +59,12 @@ export type ReportData = {
 };
 
 export type ReportMeta = {
-    max_valid_day: number;
     /** The query as the backend resolved it: timezone, currency and defaults filled in. */
     query: Record<string, unknown>;
-    spend_channels: string[];
 };
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** The `YYYY-MM-DD` shape alone, shared with the adapter's date flag parser. */
+export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The shape alone lets 2026-02-30 through; a round trip through Date does not. */
 const isIsoDate = (value: string): boolean => {
@@ -116,8 +115,18 @@ export const validateReport = (input: ReportInput): Issue[] => {
         issues.push({ message: 'at least one grouping is required', path: 'groupBy' });
     }
 
-    if (input.granularity !== undefined && !input.groupBy.includes('date')) {
+    const groupsByDate = input.groupBy.includes('date');
+
+    if (input.granularity !== undefined && !groupsByDate) {
         issues.push({ message: 'applies only when grouping by date', path: 'granularity' });
+    }
+
+    // The backend's rule, in its wording: without a bucket a date grouping is refused there anyway
+    if (input.granularity === undefined && groupsByDate) {
+        issues.push({
+            message: `grouping by date requires exactly one granularity: ${granularities.join(', ')}`,
+            path: 'granularity',
+        });
     }
 
     return issues;

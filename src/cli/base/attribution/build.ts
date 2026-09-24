@@ -3,13 +3,7 @@ import { createAttribution } from '../../../sdk/attribution/index.js';
 
 import type { Attribution } from '../../../sdk/attribution/index.js';
 import type { ResolvedSession } from '../adapty/index.js';
-import type { Config } from '@oclif/core';
-
-type CommandContext = {
-    config: Config;
-    signal: AbortSignal;
-    warn: (message: string) => void;
-};
+import type { CommandContext } from '../base-command.js';
 
 /** Mirrors the Adapty build: the retry warning is heard only on the catalog reads, the POSTs never retry. */
 export const build = (session: ResolvedSession, context: CommandContext): Attribution => createAttribution({

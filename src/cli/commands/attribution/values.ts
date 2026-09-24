@@ -9,10 +9,10 @@ import type { ValuesData, ValuesInput, ValuesResponse } from '../../../sdk/attri
 
 const describeItem = (item: ValuesData['items'][number]): string => {
     if ('value' in item) {
-        return item.value;
+        return item.value ?? '—';
     }
 
-    return `${item.name ?? '—'} (${item.channel}, id ${item.id ?? '—'})`;
+    return `${item.name ?? '—'} (${item.channel ?? '—'}, id ${item.id ?? '—'})`;
 };
 
 const renderValues = ({ data }: ValuesResponse): string => (data.items.length === 0
@@ -24,6 +24,7 @@ export default class AttributionValues extends AttributionCommand {
 
     static override examples = [
         '<%= config.bin %> attribution values --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --dimension campaign',
+        '<%= config.bin %> attribution values --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --dimension country --json',
     ];
 
     static override flags = {

@@ -8,7 +8,8 @@ const describeDimension = (dimension: Dimension): string => {
 
     const granularities = dimension.granularities === null ? '' : `; granularities ${dimension.granularities.join(', ')}`;
 
-    return `${dimension.name}: ${dimension.label} (${uses.join(', ') || 'no use'}${granularities})`;
+    // identity says what a filter takes: an entity id, or the value itself
+    return `${dimension.name}: ${dimension.label} (${uses.join(', ') || 'no use'}; identity ${dimension.identity}${granularities})`;
 };
 
 export default class AttributionDimensions extends AttributionCommand {

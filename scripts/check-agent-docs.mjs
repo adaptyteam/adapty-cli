@@ -305,6 +305,7 @@ const attributionContracts = [
     ['`null` means the value cannot be computed — never zero', 'null meaning'],
     ['Campaign, ad set, and ad filters take ids, never names.', 'id-filter rule'],
     ['\n## Crosswalk with `asa metrics`\n', 'crosswalk heading'],
+    ['`attribution metrics` also returns these caps as numbers in `data.limits`', 'catalog limits'],
 ];
 
 for (const [contract, label] of attributionContracts) {

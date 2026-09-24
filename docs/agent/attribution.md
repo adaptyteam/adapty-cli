@@ -16,15 +16,23 @@ Apple-reported campaign data belongs to the `asa` topic, not this one. Which top
 
 | Command | Flags | Notes |
 |---|---|---|
-| `attribution metrics` | none besides `--json` | The metric catalog: every name `report` accepts, each with `unit`, `label`, `description`, `family`, `pattern` (a `d{N}_…` name template, with an `example`), `denominator` (the metrics a ratio divides by), `spend_based`, and `additive`. Not scoped to an app. |
+| `attribution metrics` | none besides `--json` | The metric catalog: every name `report` accepts, each with `unit`, `label`, `description`, `family`, `pattern` (a `d{N}_…` name template, with an `example`), `denominator` (the metrics a ratio divides by), `spend_based`, and `additive`. It also returns `limits`, the report caps as numbers (see [Caps](#caps)). Not scoped to an app. |
 | `attribution dimensions` | none besides `--json` | What `--group-by` and `--filter` accept: `groupable`, `filterable`, the `granularities` of `date`, and `identity`. `identity: id` marks campaign, ad set, and ad, which filter by id; `identity: value` marks the rest. Not scoped to an app. |
 | `attribution values` | `--app`, `--date-from`, `--date-to`, `--dimension` required; `--revenue-basis` (`gross`/`proceeds`/`net`) optional | The values one filterable dimension takes for the app over the period, which are exactly what `report --filter` accepts. An `id` dimension returns `{id, name, channel}` items and the rest return `{value}` items. It runs an analytics query, so the CLI sends it once and never retries it. |
-| `attribution report` | `--app`, `--date-from`, `--date-to`, `--metrics` (repeatable or comma-separated, max 25), `--group-by` (repeatable or comma-separated) required; `--granularity` (`day`/`week`/`month`/`quarter`/`year`, only with `--group-by date`), `--filter` (repeatable, `dimension=value[,value]`), `--revenue-basis` (`gross`/`proceeds`/`net`, default `gross`), `--sort` (`field:asc` or `field:desc`, ascending when the suffix is left out) optional | Rows for every combination of the `--group-by` dimensions, plus `totals`, in one call. Rows come already sorted by `--sort`, with nulls last. `meta.query` echoes the query as the service resolved it (timezone, `currency`, revenue basis). `meta.max_valid_day` and `meta.spend_channels` are explained below. Read a total from `totals`: ratios and unique counts do not add up across rows. The CLI sends it once and never retries it. |
+| `attribution report` | `--app`, `--date-from`, `--date-to`, `--metrics` (repeatable or comma-separated, max 25), `--group-by` (repeatable or comma-separated) required; `--granularity` (`day`/`week`/`month`/`quarter`/`year`, required with `--group-by date` and allowed only with it), `--filter` (repeatable, `dimension=value[,value]`, one per dimension), `--revenue-basis` (`gross`/`proceeds`/`net`, default `gross`), `--sort` (`field:asc` or `field:desc`, ascending when the suffix is left out) optional | Rows for every combination of the `--group-by` dimensions, plus `totals`, in one call. Rows come already sorted by `--sort`, with nulls last. `meta.query` echoes the query as the service resolved it (timezone, `currency`, revenue basis). Read a total from `totals`: ratios and unique counts do not add up across rows. The CLI sends it once and never retries it. |
 
-Dates are inclusive days in the app's reporting timezone. The CLI has no timezone override. `--group-by` takes
-`date`, `campaign`, `adset`, `ad`, `keyword`, `channel`, `country`, and `store`, and at least one is required.
-When grouping by `date`, pass `--granularity` too. Each `date` key is the ISO start day of its bucket, so a
-week row is keyed by the first day of that week. Duplicate metrics or groupings are dropped in first-seen order.
+Dates are inclusive days in the app's reporting timezone. The CLI has no timezone override, and no command reports
+the timezone on its own: it appears only as `meta.query.timezone` in a `report` or `values` answer. The cheapest
+call that reveals it is a one-day `values` query, read for `meta.query.timezone`:
+
+```sh
+adapty attribution values --app APP_UUID --date-from 2026-08-31 --date-to 2026-08-31 --dimension channel --json
+```
+
+`--group-by` takes `date`, `campaign`, `adset`, `ad`, `keyword`, `channel`, `country`, and `store`, and at least
+one is required. Grouping by `date` requires `--granularity`, and `--granularity` is allowed only then; the CLI
+refuses either mistake before sending anything. Each `date` key is the ISO start day of its bucket, so a week row
+is keyed by the first day of that week. Duplicate metrics or groupings are dropped in first-seen order.
 
 ## Discovery order
 
@@ -113,13 +121,22 @@ out and say why it is missing. A value is `null` when:
   or a denominator metric is missing, the ratio is `null`. So `cpi` with no installs is `null`, not 0.
 - **A prediction is missing.** A day whose prediction is absent is `null`. The `totals` prediction is `null`
   unless every row carries one.
-- **Ad-network data has no UA source.** Every `spend_based: true` metric in the catalog is `null` on rows whose
-  channel is a paid network with no UA ad-network feed. That covers everything read from the feed: `spend`,
-  `impressions`, network `clicks`, `inline_link_clicks`, and the ratios over them, such as `cpi`, `cpm`, `ctr`,
-  `roas`, `ad_profit`, and `cost_per_trial`. `clicks_attributed` and `icr_attributed` come from UA's own click
-  tracking and stay numbers. Today that network is Apple Search Ads, whose spend comes from the `asa` topic.
-  `meta.spend_channels` lists the channels whose spend is covered. In a report not grouped by channel, spend and
-  spend-based figures cover only those channels. Never paste `asa` spend into these rows.
+- **The channel has no ad-spend source.** Every `spend_based: true` metric in the catalog reads ad-network data:
+  `spend`, `impressions`, network `clicks`, `inline_link_clicks`, and the metrics computed from them, such as
+  `cpi`, `cpm`, `ctr`, `roas`, `ad_profit`, and `cost_per_trial`, in their `d{N}_` and prediction forms too.
+  `clicks_attributed` and `icr_attributed` come from UA's own click tracking and stay numbers.
+  UA collects spend for `facebook`, `tiktok`, and `google` only. A paid channel outside that list has no ad-spend
+  source in UA; today that is `apple_search_ads`, whose spend comes from the `asa` topic. Spend-based metrics are:
+  - `null` on every row whose channel has no ad-spend source;
+  - `null` on every row and in `totals` when the report's `channel` filter lists only such channels;
+  - in `totals`, once any row is spend-unknown, `null` for the spend-based ratios and for the profit metrics
+    (`ad_profit`, `d{N}_ad_profit`, `d{N}_predict_ad_profit`), while the pure ad-network sums (`spend`,
+    `impressions`, `clicks`, `inline_link_clicks`) still add up the rows that have a spend source, and are `null`
+    when no row has one;
+  - with a mixed `channel` filter, or none, not split by spend source inside a row that mixes channels, so such a
+    row counts spend from `facebook`, `tiktok`, and `google` only.
+
+  Never paste `asa` spend into these rows.
 - **An entity id is absent.** Rows without a campaign, ad set, or ad have `null` in both the `*_id` and the
   `*_name` field. See [Grouping and filtering](#grouping-and-filtering).
 
@@ -134,14 +151,17 @@ A `d{N}_` metric counts the users who installed during the period, and what they
 installing. A cohort that has not lived N days yet reports only what it has done so far, so a young cohort looks
 worse than it will be.
 
-`meta.max_valid_day` is how many days the youngest cohort in the period has lived: the days from `--date-to` to
-today, in the app timezone. It is 0 for a period that ends today. Treat any `d{N}` with N above it as not reached:
+The youngest cohort in the period has lived the days from `--date-to` to today, in the app timezone
+(`meta.query.timezone`); for a period that ends today that is 0. Treat any `d{N}` with N above that age as not
+reached:
 
 - Compare periods, campaigns, or countries only at a horizon all of them have reached.
 - Do not divide a clipped cohort value by a full-horizon value, such as `d90_revenue` of a young cohort against
   a mature cohort's `d90_revenue`.
-- Days earlier in the period are older than `max_valid_day` by their distance from `--date-to`. The check covers
-  the period, not each row.
+- Days earlier in the period are older by their distance from `--date-to`. The check covers the period, not each
+  row.
+
+The report does not flag these metrics: compare each requested horizon with the youngest cohort's age yourself.
 
 ## Predictions
 
@@ -181,8 +201,10 @@ Filter values are checked per dimension:
 - `country` takes ISO 3166 alpha-2 codes in upper case, such as `US` or `GB`.
 - `keyword` takes free text.
 
-One value matches exactly, and several comma-separated values match any of them. Write `\,` for a comma
-inside a value. Each additional `--filter` narrows the result further.
+Pass one `--filter` per dimension, with every value for that dimension in it. One value matches exactly, and
+several comma-separated values match any of them. Write `\,` for a comma inside a value. A second `--filter` on
+the same dimension is refused with `422 attribution_validation_error`. Filters on different dimensions combine
+with AND, so each one narrows the result further.
 
 `--sort` takes one of the requested metrics or `--group-by` dimensions, never another metric. Rows with a `null`
 in the sort field come last whatever the direction.
@@ -208,12 +230,19 @@ more calls. A year of data is one call at `--granularity month`, not twelve mont
 A report is also refused, with `422 attribution_query_too_large`, when:
 
 - it would return more than 10,000 rows;
-- it asks for more than 25 metrics;
 - it asks for more than 4 distinct prediction horizons, or a prediction horizon above 365.
 
 The refusal names what to coarsen. For rows, coarsen the date grouping first. Then drop the widest grouping
 (`keyword` or `ad`), filter to the campaigns in question, or shorten the window. Retrying the same request is
 pointless.
+
+More than 25 distinct metrics, more than 100 values in one filter, or a `keyword` value over 256 characters is
+refused with `422 attribution_validation_error` instead. Ask for fewer metrics or values; coarsening does not help.
+
+`attribution metrics` also returns these caps as numbers in `data.limits`: `max_metrics`, `max_filter_values`,
+`max_keyword_length`, `max_rows`, `max_prediction_horizons`, `max_prediction_day`,
+`max_prediction_non_date_dimensions`, and `max_window_days` (one entry per granularity, plus `no_date_grouping`).
+Size a request from them rather than from the numbers written here.
 
 The service runs only a few queries per company at a time. Run `report` and `values` calls one after another,
 never in parallel.
@@ -221,17 +250,19 @@ never in parallel.
 ## Errors, exit codes, and retries
 
 A rejected request exits 4. Under `--json`, the error carries the service's `error_code` and the HTTP `status`.
-Input the CLI can reject by itself (a malformed UUID or date, `--granularity` without `--group-by date`) exits 2
-before any request is sent. A 401 exits 3, and an unreachable service exits 5.
+Input the CLI can reject by itself (a malformed UUID or date, `--granularity` without `--group-by date`, or
+`--group-by date` without `--granularity`) exits 2 before any request is sent. A 401 exits 3, and an unreachable
+service exits 5. A success that is not the service's JSON answer, such as a proxy's error page, exits 4 with
+`malformed_response`: nothing was read.
 
 | Code | HTTP | Meaning | What to do |
 |---|---|---|---|
 | `attribution_token_invalid` | 401 | The token is missing, expired, or not a developer token. The CLI reports it as `auth_required` and exits 3. | Log in again with `adapty auth login`, once. |
 | `attribution_access_required` | 402 | The company has no UA analytics access. | Stop and tell the user. Logging in again does not help. |
-| `attribution_app_not_found` | 404 | The app is unknown, belongs to another company, or is not set up for UA. | Check the UUID with `adapty apps list`. Do not retry. |
+| `attribution_app_not_found` | 404 | The app is unknown, belongs to another company, is not set up for UA, or your Adapty user has no access to it (a member can be limited to some of the company's apps). | Check the UUID with `adapty apps list`, which lists only the apps you can read. Do not retry. |
 | `attribution_unknown_metric` | 422 | One or more metric names are not in the catalog. The message names each one. | Fix the names from `attribution metrics`. |
-| `attribution_validation_error` | 422 | A dimension, filter value, sort field, or date range is not accepted. | Fix the request from the message. |
-| `attribution_query_too_large` | 422 | A window, row, metric, or prediction cap was exceeded, or predictions were asked for without day grain. | Coarsen as the message says. See [Caps](#caps). |
+| `attribution_validation_error` | 422 | A dimension, filter, filter value, sort field, or date range is not accepted, or the report names more than 25 metrics. | Fix the request from the message. |
+| `attribution_query_too_large` | 422 | A window, row, or prediction cap was exceeded, or predictions were asked for without day grain. | Coarsen as the message says. See [Caps](#caps). |
 | `attribution_busy` | 429 | The company already has as many queries running as it may. | Wait `retry_after_seconds`, then run the query once more. |
 | `attribution_upstream_unavailable` | 503 | The Adapty service that verifies the token is unreachable. Nothing ran. | Wait `retry_after_seconds`. If it persists, say the dependency is down. |
 | `attribution_query_unavailable` | 503 | The analytics query failed or ran past its time limit. | Wait `retry_after_seconds`. If it repeats, make the query smaller. |

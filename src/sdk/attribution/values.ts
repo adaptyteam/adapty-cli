@@ -22,12 +22,13 @@ type ValuesRequest = {
 
 /** An item of a dimension whose catalog identity is `value`. */
 export type ValuesItemByValue = {
-    value: string;
+    /** null for rows the backend could not attribute to any value. */
+    value: null | string;
 };
 
 /** An item of a dimension whose catalog identity is `id`: an entity of one ad network. */
 export type ValuesItemById = {
-    channel: string;
+    channel: null | string;
     id: null | string;
     name: null | string;
 };

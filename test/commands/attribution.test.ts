@@ -3,6 +3,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 
 import { exitCode } from '../../src/cli/errors.js';
+import { errorBody } from '../helpers/attribution-errors.js';
 import { assertFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 const BASE = 'https://api-ua.adapty.io/api/v1/cli';
@@ -39,10 +40,6 @@ const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
     };
 };
 
-const errorBody = (errorCode: string, statusCode: number, message: string, fieldName: null | string = null) => ({
-    errors: [{ error_code: errorCode, field_name: fieldName, message, status_code: statusCode }],
-});
-
 const PERIOD = '--date-from 2026-08-01 --date-to 2026-08-31';
 const REPORT = `attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spend --group-by campaign`;
 
@@ -54,12 +51,22 @@ const reportAnswer = {
         ],
         totals: { d7_roas: null, spend: 10.5 },
     },
-    meta: { max_valid_day: 45, query: { app_id: TEST_APP_ID, currency: 'USD' }, spend_channels: ['facebook'] },
+    meta: { query: { app_id: TEST_APP_ID, currency: 'USD' } },
     success: true,
 };
 
 const metricsAnswer = {
     data: {
+        limits: {
+            max_filter_values: 100,
+            max_keyword_length: 256,
+            max_metrics: 25,
+            max_prediction_day: 365,
+            max_prediction_horizons: 4,
+            max_prediction_non_date_dimensions: 2,
+            max_rows: 10_000,
+            max_window_days: { day: 31, week: 180, month: 366, quarter: 366, year: 366, no_date_grouping: 92 },
+        },
         metrics: [{
             additive: true,
             denominator: null,
@@ -71,6 +78,17 @@ const metricsAnswer = {
             pattern: null,
             spend_based: true,
             unit: 'usd',
+        }, {
+            additive: false,
+            denominator: ['spend'],
+            description: 'd{N}_revenue / Spend * 100.',
+            example: 'd7_roas',
+            family: 'cohort',
+            label: 'ROAS by day N',
+            name: 'd{N}_roas',
+            pattern: 'd{N}_roas',
+            spend_based: true,
+            unit: 'percent',
         }],
     },
     meta: null,
@@ -176,6 +194,35 @@ describe('attribution', () => {
             });
         });
 
+        it('keeps an escaped comma inside a --filter value', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            await runCommand([
+                'attribution', 'report',
+                '--app', TEST_APP_ID,
+                '--date-from', '2026-08-01',
+                '--date-to', '2026-08-31',
+                '--metrics', 'spend',
+                '--group-by', 'campaign',
+                '--filter', String.raw`campaign=Q4\,Launch,Other`,
+                '--json',
+            ]);
+
+            const { filters } = JSON.parse(requestOf(fetchStub, 0).body ?? '') as { filters: unknown };
+
+            expect(filters).to.deep.equal([{ dimension: 'campaign', values: ['Q4,Launch', 'Other'] }]);
+        });
+
+        it('drops an empty segment of --metrics instead of sending an empty name', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            await runCommand(`attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spend,,installs --group-by campaign --json`);
+
+            const { metrics } = JSON.parse(requestOf(fetchStub, 0).body ?? '') as { metrics: unknown };
+
+            expect(metrics).to.deep.equal(['spend', 'installs']);
+        });
+
         it('prints one labelled block per row and a totals block, with a dash for null and never 0', async () => {
             fetchStub = mockFetchSteps([{ body: reportAnswer }]);
 
@@ -258,6 +305,38 @@ describe('attribution', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
 
+        it('exits 2 without a request when --group-by date comes without --granularity, as the backend would refuse it', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+
+            const { error } = await runCommand(`attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spend --group-by date,campaign`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+
+            expect(error?.message).to.contain(
+                '--granularity: grouping by date requires exactly one granularity: day, week, month, quarter, year',
+            );
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('exits 2 under --json too, naming the flag in the error object', async () => {
+            fetchStub = mockFetchSteps([{ body: reportAnswer }]);
+            // oclif keeps an exit code an earlier command left behind, so start from none
+            process.exitCode = undefined;
+
+            const { stdout } = await runCommand(`${REPORT} --filter country --json`);
+            const exit = process.exitCode;
+
+            process.exitCode = 0;
+
+            const { error } = JSON.parse(stdout) as { error: { message: string } };
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(error.message).to.contain('--filter');
+            expect(error.message).to.contain('dimension=value');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
         it('turns an unknown metric into exit 4 carrying the backend code in the --json error', async () => {
             const rejection = {
                 body: errorBody('attribution_unknown_metric', 422, 'Unknown metric: d9000_roas', 'metrics'),
@@ -320,6 +399,36 @@ describe('attribution', () => {
             const { error } = await runCommand(REPORT);
 
             expect(error?.oclif?.exit).to.equal(exitCode.auth);
+        });
+
+        it('exits 4 after one request when the app is not found', async () => {
+            fetchStub = mockFetchSteps([{
+                body: errorBody('attribution_app_not_found', 404, 'App not found'),
+                status: 404,
+            }]);
+
+            const { error } = await runCommand(REPORT);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('attribution_app_not_found');
+            expect(fetchStub.callCount).to.equal(1);
+        });
+
+        it('exits 5 after one attempt when the backend cannot be reached, with network_error under --json', async () => {
+            fetchStub = sinon.stub(globalThis, 'fetch').rejects(new TypeError('fetch failed'));
+            // oclif keeps an exit code an earlier command left behind, so start from none
+            process.exitCode = undefined;
+
+            const { stdout } = await runCommand(`${REPORT} --json`);
+            const exit = process.exitCode;
+
+            process.exitCode = 0;
+
+            const { error } = JSON.parse(stdout) as { error: { code: string } };
+
+            expect(exit).to.equal(exitCode.network);
+            expect(error.code).to.equal('network_error');
+            expect(fetchStub.callCount).to.equal(1);
         });
     });
 
@@ -410,16 +519,51 @@ describe('attribution', () => {
             assertFetch({ base: BASE, callIndex: 1, method: 'GET', path: '/dimensions', stub });
         });
 
-        it('prints the catalogs for a human reader', async () => {
+        it('prints the catalogs for a human reader: traits, limits, and what a dimension filters by', async () => {
             fetchStub = mockFetchSteps([{ body: metricsAnswer }, { body: dimensionsAnswer }]);
 
             const metrics = await runCommand('attribution metrics');
             const dimensions = await runCommand('attribution dimensions');
 
-            expect(metrics.stdout).to.contain('spend');
-            expect(metrics.stdout).to.contain('Ad spend in USD');
-            expect(dimensions.stdout).to.contain('date');
-            expect(dimensions.stdout).to.contain('day, week');
+            expect(metrics.stdout).to.equal([
+                'spend (usd, spend_based)',
+                '  Spend: Ad spend in USD',
+                'd{N}_roas (percent, spend_based, denominator spend) — pattern d{N}_roas, e.g. d7_roas',
+                '  ROAS by day N: d{N}_revenue / Spend * 100.',
+                '',
+                'Limits: 25 metrics, 100 values per filter, 256 characters per keyword, 10000 rows',
+                '  Widest period in days: day 31, week 180, month 366, quarter 366, year 366, no date grouping 92',
+                '  Predictions: 4 horizons, day 365 at most, 2 dimensions besides date',
+                '',
+            ].join('\n'));
+
+            expect(dimensions.stdout).to.equal('date: Date (group, filter; identity value; granularities day, week)\n');
+        });
+
+        it('describes a metric family by its pattern and example, and a ratio by every metric it divides by', async () => {
+            const arpas = {
+                additive: false,
+                denominator: ['d{N}_count_subscription_started', 'd{N}_count_trial_started'],
+                description: 'd{N}_revenue / (subscriptions started + trials started), in USD.',
+                example: 'd7_arpas',
+                family: 'cohort',
+                label: 'ARPAS by day N',
+                name: 'd{N}_arpas',
+                pattern: 'd{N}_arpas',
+                spend_based: false,
+                unit: 'usd',
+            };
+
+            const answer = { ...metricsAnswer, data: { ...metricsAnswer.data, metrics: [arpas] } };
+
+            fetchStub = mockFetchSteps([{ body: answer }]);
+
+            const { stdout } = await runCommand('attribution metrics');
+
+            expect(stdout.split('\n').slice(0, 2)).to.deep.equal([
+                'd{N}_arpas (usd, denominator d{N}_count_subscription_started + d{N}_count_trial_started) — pattern d{N}_arpas, e.g. d7_arpas',
+                '  ARPAS by day N: d{N}_revenue / (subscriptions started + trials started), in USD.',
+            ]);
         });
     });
 
@@ -451,6 +595,22 @@ describe('attribution', () => {
             expect(stdout).to.contain('Summer');
             expect(stdout).to.contain('42');
             expect(stdout).to.contain('facebook');
+        });
+
+        it('prints value items as they are, and a dash where the backend has no value or channel', async () => {
+            fetchStub = mockFetchSteps([
+                { body: { data: { dimension: 'country', items: [{ value: 'US' }, { value: null }] }, meta: { query: {} }, success: true } },
+                { body: { data: { dimension: 'campaign', items: [{ channel: null, id: null, name: null }] }, meta: { query: {} }, success: true } },
+            ]);
+
+            const countries = await runCommand(`attribution values --app ${TEST_APP_ID} ${PERIOD} --dimension country`);
+
+            expect(countries.stdout.split('\n').filter(line => line !== '')).to.deep.equal(['US', '—']);
+
+            const campaigns = await runCommand(`attribution values --app ${TEST_APP_ID} ${PERIOD} --dimension campaign`);
+
+            expect(campaigns.stdout).to.contain('— (—, id —)');
+            expect(campaigns.stdout).to.not.contain('null');
         });
 
         it('exits 2 without a request when --dimension or --app is missing', async () => {

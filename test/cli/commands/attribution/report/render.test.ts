@@ -6,7 +6,7 @@ import type { ReportResponse } from '../../../../../src/sdk/attribution/index.js
 
 const response = (data: ReportResponse['data']): ReportResponse => ({
     data,
-    meta: { max_valid_day: 45, query: {}, spend_channels: [] },
+    meta: { query: {} },
     success: true,
 });
 

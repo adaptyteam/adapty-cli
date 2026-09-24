@@ -27,6 +27,7 @@ describe('validateReport', () => {
         { expected: ['metrics'], input: { ...valid, metrics: [] }, name: 'no metrics' },
         { expected: ['groupBy'], input: { ...valid, groupBy: [] }, name: 'no grouping' },
         { expected: ['granularity'], input: { ...valid, granularity: 'day' }, name: 'granularity without date grouped' },
+        { expected: ['granularity'], input: { ...valid, groupBy: ['date', 'campaign'] }, name: 'date grouped without a granularity' },
         {
             expected: ['dateTo', 'metrics', 'groupBy'],
             input: { ...valid, dateFrom: '2026-09-01', dateTo: '2026-08-01', groupBy: [], metrics: [] },

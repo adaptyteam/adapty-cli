@@ -1,13 +1,12 @@
-import { Args, Errors, Flags } from '@oclif/core';
+import { Args, Flags } from '@oclif/core';
 
-import { revenueBases } from '../sdk/attribution/index.js';
+import { ISO_DATE, revenueBases } from '../sdk/attribution/index.js';
 
-import { exitCode } from './errors.js';
+import { usageError } from './errors.js';
 
 import type { PageParams } from '../sdk/adapty/index.js';
 
 const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The published wording of both the `app_id` arg and the `--app` flag. */
 const APP_ID_HINT = 'Invalid app ID format. Run `adapty apps list` to find your app ID.';
@@ -21,12 +20,12 @@ export const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
  */
 const uuidParser = (hint: string) => (input: string): Promise<string> => (isUuid(input)
     ? Promise.resolve(input)
-    : Promise.reject(new Errors.CLIError(hint, { exit: exitCode.usage })));
+    : Promise.reject(usageError(hint)));
 
 /** The shape only: whether the day exists and the order of the two are sdk rules. */
-const dateParser = (input: string): Promise<string> => (DATE_PATTERN.test(input)
+const dateParser = (input: string): Promise<string> => (ISO_DATE.test(input)
     ? Promise.resolve(input)
-    : Promise.reject(new Errors.CLIError('Dates must be written as YYYY-MM-DD.', { exit: exitCode.usage })));
+    : Promise.reject(usageError('Dates must be written as YYYY-MM-DD.')));
 
 /** Spread into a command: `static args = { ...appIdArg }`. Texts kept as published. */
 export const appIdArg = {
