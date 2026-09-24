@@ -1,12 +1,10 @@
-import { Args, Errors, Flags } from '@oclif/core';
+import { Args, Errors } from '@oclif/core';
 
-import { exitCode } from './errors.js';
-
-import type { PageParams } from '../sdk/adapty/index.js';
+import { exitCode } from '../errors.js';
 
 const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
-export const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
+const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
 
 /**
  * Checking the shape of a value is the parser's job, so a run() never starts with one. oclif turns
@@ -25,13 +23,3 @@ export const appIdArg = {
         required: true,
     }),
 };
-
-/** The published defaults, so a migrated `list` asks for the same page as an untouched one. */
-export const paginationFlags = {
-    'page': Flags.integer({ default: 1, description: 'Page number', min: 1 }),
-    'page-size': Flags.integer({ default: 20, description: 'Items per page (max 100)', max: 100, min: 1 }),
-};
-
-/** The one place where flag names meet sdk field names. */
-export const pageParams = (flags: { 'page': number; 'page-size': number }): PageParams =>
-    ({ page: flags.page, pageSize: flags['page-size'] });

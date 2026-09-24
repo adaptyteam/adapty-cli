@@ -71,6 +71,15 @@ class ErrorProbe extends BaseCommand {
     }
 }
 
+/** The one question two consumers ask: the header the sdk sends, and the browser `run` may open. */
+class InteractiveProbe extends BaseCommand {
+    async run(): Promise<{ interactive: boolean }> {
+        await this.parse(InteractiveProbe);
+
+        return { interactive: this.interactive };
+    }
+}
+
 let viewCalls = 0;
 
 class RenderProbe extends BaseCommand {
@@ -86,6 +95,25 @@ class RenderProbe extends BaseCommand {
         return { ok: true };
     }
 }
+
+/** Node deletes isTTY on a pipe rather than setting it false, so a stub has nothing to replace. */
+const withTty = async (isTTY: boolean, body: () => Promise<void>): Promise<void> => {
+    const stream = process.stdout as { isTTY?: boolean | undefined };
+    const had = Object.hasOwn(stream, 'isTTY');
+    const original = stream.isTTY;
+
+    stream.isTTY = isTTY;
+
+    try {
+        await body();
+    } finally {
+        if (had) {
+            stream.isTTY = original;
+        } else {
+            delete stream.isTTY;
+        }
+    }
+};
 
 const requestHeaders = (stub: sinon.SinonStub, callIndex: number): Headers => {
     const init = stub.getCall(callIndex).args[1] as RequestInit;
@@ -106,8 +134,20 @@ describe('cli base commands', () => {
         await createFileSessionStore(config.configDir).clear();
     });
 
-    it('keeps an own static on the intermediate authenticated base for oclif manifest caching', () => {
-        expect(Object.hasOwn(AdaptyCommand, 'enableJsonFlag')).to.equal(true);
+    /**
+     * `--json` is declared once, on `BaseCommand`, and reaches a command through two intermediate
+     * bases. Caching is where that could silently break, so the flag assertions are on the cached
+     * command oclif builds — the same shape `oclif manifest` writes. `enableJsonFlag` itself never
+     * reaches that shape: oclif copies a class's own enumerable statics, and this one is inherited.
+     * The loaded class is where the inheritance the cached flag rests on can be seen.
+     */
+    it('inherits --json through the intermediate bases, and leaves login opted out', async () => {
+        const status = await config.findCommand('migrations:status')?.load();
+
+        expect(status?.enableJsonFlag).to.equal(true);
+        expect(config.findCommand('migrations:status')?.flags).to.have.property('json');
+        expect(config.findCommand('apps:list')?.flags).to.have.property('json');
+        expect(config.findCommand('auth:login')?.flags).not.to.have.property('json');
     });
 
     it('turns a missing token into exit 3 and the login hint', async () => {
@@ -206,9 +246,36 @@ describe('cli base commands', () => {
             expect(headers.get('authorization')).to.equal('Bearer stored-token');
             // oclif's own config.userAgent would read `adapty/<version> darwin-arm64 …`
             expect(headers.get('user-agent')).to.contain(`adapty-cli/${config.version}`);
+            // The suite runs piped, which is the answer the server is told: section 3 wants this
+            // recorded either way, so `false` travels as a value, not as a missing header.
+            expect(headers.get('x-adapty-interactive')).to.equal('false');
         } finally {
             stub.restore();
         }
+    });
+
+    it('calls a run interactive only when a terminal is there and nothing is parsing the output', async () => {
+        await withTty(true, async () => {
+            const { result: watched } = await captureOutput<{ interactive: boolean }>(
+                async () => InteractiveProbe.run([], config),
+            );
+
+            const { result: parsed } = await captureOutput<{ interactive: boolean }>(
+                async () => InteractiveProbe.run(['--json'], config),
+            );
+
+            expect(watched?.interactive).to.equal(true);
+            // A terminal is still there; --json says a program is reading what it prints.
+            expect(parsed?.interactive).to.equal(false);
+        });
+    });
+
+    it('answers false, not undefined, on the pipe where Node leaves isTTY unset', async () => {
+        const { result } = await captureOutput<{ interactive: boolean }>(
+            async () => InteractiveProbe.run([], config),
+        );
+
+        expect(result?.interactive).to.equal(false);
     });
 
     it('turns Ctrl+C into an abort and exit 130 instead of a silent success', async () => {

@@ -1,0 +1,45 @@
+{
+    "migration": {
+        "id": "mig_01H9Z",
+        "flow": "main",
+        "revision": 3,
+        "state": "action_required",
+        "app": { "id": "app_1", "name": "Demo" },
+        "poll_after_seconds": 5,
+        "progress": { "done": 2, "total": 5, "unit": "steps" },
+        "summary": "Waiting on your confirmation to migrate paywalls",
+        "created_at": "2026-09-10T12:00:00Z",
+        "updated_at": "2026-09-11T09:30:00Z"
+    },
+    "steps": [
+        { "step_id": "step_apps", "title": "Apps", "status": "done", "summary": "2 apps migrated" },
+        { "step_id": "step_paywalls", "title": "Paywalls", "status": "active", "summary": null }
+    ],
+    "issues": [],
+    "next_actions": [
+        {
+            "action_id": "act_confirm_paywalls",
+            "step_id": "step_paywalls",
+            "title": "Migrate paywalls",
+            "detail": "This will replace the paywalls in the target app.",
+            "reads": ["step_paywalls"],
+            "confirm": "This cannot be undone. Continue?",
+            "kind": "input",
+            "input_schema": null
+        }
+    ],
+    "available_actions": [
+        {
+            "action_id": "act_open_report",
+            "step_id": "step_paywalls",
+            "title": "Open migration report",
+            "detail": null,
+            "reads": [],
+            "confirm": null,
+            "kind": "external",
+            "href": "https://app.adapty.io/migrations/mig_01H9Z/report"
+        }
+    ],
+    "resources": [{ "name": "report", "title": "Migration report" }],
+    "result": null
+}
