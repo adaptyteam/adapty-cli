@@ -9,7 +9,7 @@ src/
 ├── sdk/
 │   ├── core/         # transport and primitives, no Adapty knowledge
 │   ├── adapty/       # the Developer API: paths, shapes, rules
-│   └── attribution/  # the UA attribution backend: catalog, report, values
+│   └── attribution/  # the Attribution backend: catalog, report, values
 └── cli/              # oclif adapter: flags, views, exit codes, env
 ```
 

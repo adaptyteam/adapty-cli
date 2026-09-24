@@ -58,7 +58,7 @@ hand-written command in `src/commands`. New work goes to
 ```
 src/
   sdk/               # the API: core/ (transport, errors, session, clock) + adapty/ (resources, rules)
-                     # + attribution/ (UA analytics: catalog, report, values)
+                     # + attribution/ (Attribution analytics: catalog, report, values)
   cli/               # the oclif adapter: base commands, session, exit codes, flags, views
 ```
 

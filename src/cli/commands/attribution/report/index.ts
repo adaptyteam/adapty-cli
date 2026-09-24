@@ -46,7 +46,7 @@ const parseSort = (input: string): Promise<ReportSort> => {
 };
 
 export default class AttributionReport extends AttributionCommand {
-    static override description = 'Run a UA attribution report for an app: metrics over a period, grouped by dimensions';
+    static override description = 'Run an Attribution report for an app: metrics over a period, grouped by dimensions';
 
     static override examples = [
         '<%= config.bin %> attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,d7_roas --group-by campaign',

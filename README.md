@@ -389,7 +389,7 @@ and the outcome shows up in `adapty asa automations runs`.
 
 ### Attribution
 
-UA attribution analytics across ad networks live under `adapty attribution` and talk to the attribution service
+Attribution analytics across ad networks live under `adapty attribution` and talk to the attribution service
 rather than the Developer API, with the same token. `report` and `values` take `--app`; the two catalogs take no
 app.
 

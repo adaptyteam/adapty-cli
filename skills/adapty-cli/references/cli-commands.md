@@ -235,11 +235,11 @@ Before running any of these:
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 
-## UA Attribution (`attribution` topic)
+## Attribution (`attribution` topic)
 
-Cross-network UA analytics, the numbers of the UA dashboard, from a different service behind the same token.
+Cross-network attribution analytics, the numbers of the Attribution dashboard, from a different service behind the same token.
 Read-only. `report` and `values` take `--app` and a day range in the app timezone; the two catalogs take no
-app. Without UA analytics access `report` and `values` answer `402 attribution_access_required`. The full
+app. Without Attribution access `report` and `values` answer `402 attribution_access_required`. The full
 agent guide is `docs/agent/attribution.md` in the adapty-cli repository.
 
 | Command                  | Required flags / notes                                                        |
@@ -259,7 +259,7 @@ Before running any of these:
   when filtering, then run `report`. One unknown metric fails the whole report with
   `422 attribution_unknown_metric`.
 - **`null` means not computable, never zero**: a ratio with a zero denominator, a missing prediction, or
-  spend-based metrics (spend, impressions, network clicks, and metrics over them) where the channel has no UA
+  spend-based metrics (spend, impressions, network clicks, and metrics over them) where the channel has no Attribution
   ad-spend source (today `apple_search_ads`): on its rows, on every row and in `totals` when the `channel` filter
   keeps only such channels, and for spend-based ratios and profit in `totals` once any row lacks spend. A row that
   mixes channels counts spend from `facebook`, `tiktok`, and `google` only. The table view prints `—`.
@@ -279,7 +279,7 @@ Before running any of these:
 - **Errors**: exit 4 with the service `error_code`. Never retry `402` or `404`. `report` and `values` are sent
   once; on `429 attribution_busy` or a 503, wait the `retry_after_seconds` from the `--json` error before
   running the query again.
-- **`asa` or `attribution`**: Apple-reported ad data comes from `asa`; cross-network UA, predictions and
+- **`asa` or `attribution`**: Apple-reported ad data comes from `asa`; cross-network attribution, predictions and
   dashboard parity come from `attribution`. Never sum numbers across the two topics.
 
 ## Validation Rules

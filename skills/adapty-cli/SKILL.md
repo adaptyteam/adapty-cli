@@ -1,6 +1,6 @@
 ---
 name: adapty-cli
-description: Use when setting up or managing Adapty in-app subscriptions, paywalls, or placements via CLI, or when reading UA attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`.
+description: Use when setting up or managing Adapty in-app subscriptions, paywalls, or placements via CLI, or when reading Attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`.
 ---
 
 # Adapty CLI Skill
@@ -169,10 +169,10 @@ and cannot be undone.
 
 ---
 
-## UA Attribution Analytics
+## Attribution Analytics
 
-Cross-network UA analytics (spend, installs, revenue, ROAS, cohort values, and predictions, as the UA dashboard
-shows them) live in the read-only `adapty attribution` topic. See the `attribution` section of
+Cross-network attribution analytics (spend, installs, revenue, ROAS, cohort values, and predictions, as the
+Attribution dashboard shows them) live in the read-only `adapty attribution` topic. See the `attribution` section of
 `references/cli-commands.md`. Discover before querying: `adapty attribution metrics`, then `dimensions`, then
 `values`, then `report`. A `null` value means not computable, never zero.
 

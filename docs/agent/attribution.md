@@ -1,11 +1,11 @@
-# UA Attribution — Reports and Metrics
+# Attribution — Reports and Metrics
 
-The `attribution` topic reads the UA dashboard's own numbers for one app: spend, installs, revenue, ROAS,
+The `attribution` topic reads the Attribution dashboard's own numbers for one app: spend, installs, revenue, ROAS,
 cohort values, and predictions across every connected ad network. Every command is read-only and uses the
 same login as the rest of the CLI. There is no separate credential.
 
 `report` and `values` take `--app` (the app UUID from `adapty apps list`) and a day range. `metrics` and
-`dimensions` take neither, because the vocabulary is the same for every app. A company without UA analytics
+`dimensions` take neither, because the vocabulary is the same for every app. A company without Attribution analytics
 access gets `402 attribution_access_required` from `report` and `values`, never an empty result. The two
 catalogs answer without that access, so a working `metrics` call proves the login, not the access.
 
@@ -64,7 +64,7 @@ It is not the full list; the catalog is.
 
 ## Metric vocabulary
 
-Metric names are the UA dashboard's own names.
+Metric names are the Attribution dashboard's own names.
 
 **Base metrics:** `spend`, `impressions`, `clicks`, `clicks_attributed`, `inline_link_clicks`, `cpc`, `cpm`,
 `ctr`, `cost_per_inline_link_click`, `inline_link_click_ctr`, `installs`, `total_revenue`, `payers`, `cpi`,
@@ -103,7 +103,7 @@ Each catalog entry carries a `unit`:
 Every revenue-based metric follows `--revenue-basis`. That includes `roas`, `arpu`, `ad_profit`, and their
 `d{N}_` and prediction forms. The choices are:
 
-- `gross`: the default, and the UA dashboard's default.
+- `gross`: the default, and the Attribution dashboard's default.
 - `proceeds`: after store commission.
 - `net`: after store commission and taxes.
 
@@ -124,9 +124,10 @@ out and say why it is missing. A value is `null` when:
 - **The channel has no ad-spend source.** Every `spend_based: true` metric in the catalog reads ad-network data:
   `spend`, `impressions`, network `clicks`, `inline_link_clicks`, and the metrics computed from them, such as
   `cpi`, `cpm`, `ctr`, `roas`, `ad_profit`, and `cost_per_trial`, in their `d{N}_` and prediction forms too.
-  `clicks_attributed` and `icr_attributed` come from UA's own click tracking and stay numbers.
-  UA collects spend for `facebook`, `tiktok`, and `google` only. A paid channel outside that list has no ad-spend
-  source in UA; today that is `apple_search_ads`, whose spend comes from the `asa` topic. Spend-based metrics are:
+  `clicks_attributed` and `icr_attributed` come from Attribution's own click tracking and stay numbers.
+  Attribution collects spend for `facebook`, `tiktok`, and `google` only. A paid channel outside that list has no
+  ad-spend source in Attribution; today that is `apple_search_ads`, whose spend comes from the `asa` topic.
+  Spend-based metrics are:
   - `null` on every row whose channel has no ad-spend source;
   - `null` on every row and in `totals` when the report's `channel` filter lists only such channels;
   - in `totals`, once any row is spend-unknown, `null` for the spend-based ratios and for the profit metrics
@@ -258,8 +259,8 @@ service exits 5. A success that is not the service's JSON answer, such as a prox
 | Code | HTTP | Meaning | What to do |
 |---|---|---|---|
 | `attribution_token_invalid` | 401 | The token is missing, expired, or not a developer token. The CLI reports it as `auth_required` and exits 3. | Log in again with `adapty auth login`, once. |
-| `attribution_access_required` | 402 | The company has no UA analytics access. | Stop and tell the user. Logging in again does not help. |
-| `attribution_app_not_found` | 404 | The app is unknown, belongs to another company, is not set up for UA, or your Adapty user has no access to it (a member can be limited to some of the company's apps). | Check the UUID with `adapty apps list`, which lists only the apps you can read. Do not retry. |
+| `attribution_access_required` | 402 | The company has no Attribution access. | Stop and tell the user. Logging in again does not help. |
+| `attribution_app_not_found` | 404 | The app is unknown, belongs to another company, is not set up for Attribution, or your Adapty user has no access to it (a member can be limited to some of the company's apps). | Check the UUID with `adapty apps list`, which lists only the apps you can read. Do not retry. |
 | `attribution_unknown_metric` | 422 | One or more metric names are not in the catalog. The message names each one. | Fix the names from `attribution metrics`. |
 | `attribution_validation_error` | 422 | A dimension, filter, filter value, sort field, or date range is not accepted, or the report names more than 25 metrics. | Fix the request from the message. |
 | `attribution_query_too_large` | 422 | A window, row, or prediction cap was exceeded, or predictions were asked for without day grain. | Coarsen as the message says. See [Caps](#caps). |
@@ -286,7 +287,7 @@ look the same while meaning different things.
 
 - Apple-reported ad data comes from `asa`. That covers Apple Search Ads spend, taps, impressions, and keywords
   as Apple counts them, in the campaign group currency.
-- Cross-network UA, predictions, and parity with the UA dashboard come from `attribution`.
+- Cross-network attribution, predictions, and parity with the Attribution dashboard come from `attribution`.
 - Never add, subtract, or merge numbers across the two topics. Where both topics can answer a question, pick
   one and say which.
 
@@ -296,7 +297,7 @@ look the same while meaning different things.
 | `trials_started` | `count_trial_started` | Same concept, different names. |
 | `trials_converted` | `count_trial_converted` | Same concept, different names. |
 | `subscriptions_started` | `count_subscription_started` | Same concept, different names. |
-| `spend` | `spend` | Same name, different data. `asa` spend is Apple-reported, in the campaign group currency. `attribution` spend is USD from the UA spend sources, and `null` on Apple Search Ads rows. |
+| `spend` | `spend` | Same name, different data. `asa` spend is Apple-reported, in the campaign group currency. `attribution` spend is USD from the Attribution spend sources, and `null` on Apple Search Ads rows. |
 | `roas` | `roas`, `d{N}_roas` | Same name, different rules. `asa` expands `roas` into `gross_`, `proceeds_`, and `net_` variants read at `--by-days` windows. `attribution` takes the basis from `--revenue-basis`, on a 0–100 percent scale, with cohort horizons as `d{N}_roas`. |
-| `ipm` | `ipm` | Same name, different counts. `asa` divides Apple-reported installs, while `attribution` divides UA-attributed installs, per 1,000 impressions. |
-| `cost_per_trial` | `cost_per_trial` | Same name, different spend. `asa` divides Apple spend in the group currency, while `attribution` divides UA spend in USD. It is `null` on Apple Search Ads rows. |
+| `ipm` | `ipm` | Same name, different counts. `asa` divides Apple-reported installs, while `attribution` divides the installs Attribution attributes, per 1,000 impressions. |
+| `cost_per_trial` | `cost_per_trial` | Same name, different spend. `asa` divides Apple spend in the group currency, while `attribution` divides Attribution spend in USD. It is `null` on Apple Search Ads rows. |
