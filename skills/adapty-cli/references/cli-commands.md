@@ -158,6 +158,8 @@ Different service behind the same token. **No `--app`**: every command is scoped
 belongs to. Requires a connected Apple Ads account plus Ads Manager access — the 14-day trial counts, same
 as a paid subscription. Without access every `asa` command answers `402 ads_manager_subscription_required`.
 Start with `asa whoami`: its `access_source` says which one granted access (`trial`, `payg`, `legacy`).
+The rules for writing to a live ad account, and the campaign playbooks, live in the `apple-ads` skill
+([adaptyteam/apple-ads-cli](https://github.com/adaptyteam/apple-ads-cli)): open it before any write.
 
 | Command                              | Required flags / notes                                                     |
 |-------------------------------------|----------------------------------------------------------------------------|
@@ -232,6 +234,53 @@ Before running any of these:
   `meta.pagination.count` answers "how many" without reading the rows.
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
+
+## Attribution (`attribution` topic)
+
+Cross-network attribution analytics, the numbers of the Attribution dashboard, from a different service behind the same token.
+Read-only. `report` and `values` take `--app` and a day range in the app timezone; the two catalogs take no
+app. Without Attribution access `report` and `values` answer `402 attribution_access_required`. The full
+agent guide is `docs/agent/attribution.md` in the adapty-cli repository.
+
+| Command                  | Required flags / notes                                                        |
+|--------------------------|-------------------------------------------------------------------------------|
+| `attribution metrics`    | no flags; the metric catalog: names, `unit`, `d{N}_` patterns, `denominator`, `spend_based`, and `limits` (every report cap as a number) |
+| `attribution dimensions` | no flags; what a report can group and filter by; `identity: id` marks campaign, ad set and ad |
+| `attribution values`     | `--app`, `--date-from`, `--date-to`, `--dimension`; optional `--revenue-basis`; exact filter values, with campaigns, ad sets and ads as id, latest name and channel |
+| `attribution report`     | `--app`, `--date-from`, `--date-to`, `--metrics` (max 25), `--group-by`; `--granularity` required with `--group-by date` and only then; optional `--filter dimension=value[,value]` (repeatable, one per dimension), `--revenue-basis` (default `gross`), `--sort field:desc`; rows plus `totals` in one call |
+
+```sh
+adapty attribution report --app APP_UUID --date-from 2026-08-01 --date-to 2026-08-31 --metrics spend,installs,d7_roas --group-by campaign --sort spend:desc --json
+```
+
+Before running any of these:
+
+- **Discover, don't guess.** Read `attribution metrics`, then `attribution dimensions`, then `attribution values`
+  when filtering, then run `report`. One unknown metric fails the whole report with
+  `422 attribution_unknown_metric`.
+- **`null` means not computable, never zero**: a ratio with a zero denominator, a missing prediction, or
+  spend-based metrics (spend, impressions, network clicks, and metrics over them) where the channel has no Attribution
+  ad-spend source (today `apple_search_ads`): on its rows, on every row and in `totals` when the `channel` filter
+  keeps only such channels, and for spend-based ratios and profit in `totals` once any row lacks spend. A row that
+  mixes channels counts spend from `facebook`, `tiktok`, and `google` only. The table view prints `—`.
+- **Units**: money in USD, percent on a 0–100 scale (`roas` 150 = 150%), `ipm` per 1,000 impressions.
+- **Cohorts and predictions**: `d{N}_revenue`, `d{N}_roas` and the like take any N from 0; a horizon longer than
+  the days from `--date-to` to today (app timezone) is not reached yet. `d{N}_predict_*` needs `--group-by date --granularity day` and
+  N ≤ 365.
+- **Caps**: 31 days by day, 180 by week, 366 by month, quarter or year, 92 without a date grouping; 10,000 rows,
+  4 prediction horizons. Coarsen `--granularity` instead of splitting calls (`422 attribution_query_too_large`).
+  More than 25 metrics, or more than 100 values in one filter, is `422 attribution_validation_error`.
+  `attribution metrics` returns every cap in `data.limits`.
+- **Timezone**: the app's reporting timezone shows only as `meta.query.timezone` in a `report` or `values` answer;
+  a one-day `values` call with `--json` is the cheapest way to read it.
+- **Campaign, ad set and ad filter by id**, never by name; the name shown is the latest within the period.
+  Organic and store-referrer rows have no id and cannot be filtered by one. One `--filter` per dimension, its values
+  matching any of them; filters on different dimensions combine with AND.
+- **Errors**: exit 4 with the service `error_code`. Never retry `402` or `404`. `report` and `values` are sent
+  once; on `429 attribution_busy` or a 503, wait the `retry_after_seconds` from the `--json` error before
+  running the query again.
+- **`asa` or `attribution`**: Apple-reported ad data comes from `asa`; cross-network attribution, predictions and
+  dashboard parity come from `attribution`. Never sum numbers across the two topics.
 
 ## Validation Rules
 

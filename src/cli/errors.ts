@@ -26,6 +26,8 @@ export type ErrorJson = {
     error_code?: string | undefined;
     errors?: unknown;
     message: string;
+    /** The server's Retry-After in whole seconds, rounded up; absent when the server asked for no wait. */
+    retry_after_seconds?: number | undefined;
     status?: number | undefined;
     status_code?: number | undefined;
 };
@@ -36,15 +38,23 @@ export type ErrorJson = {
  */
 export class CliError extends Errors.CLIError {
     readonly exitCode: number;
-    readonly json: ErrorJson;
+    readonly #data: Partial<ErrorJson>;
 
     constructor(message: string, exit: number, code?: string, data: Partial<ErrorJson> = {}) {
         super(message, { exit });
         this.exitCode = exit;
         this.code = code;
-        this.json = { message, code, ...data };
+        this.#data = data;
+    }
+
+    /** Built when printed, not when thrown: oclif prefixes a flag parser's message with the flag it came from. */
+    get json(): ErrorJson {
+        return { message: this.message, code: this.code, ...this.#data };
     }
 }
+
+/** Bad input found by a flag parser: exit 2 in both human and --json mode, hence a CliError. */
+export const usageError = (message: string): CliError => new CliError(message, exitCode.usage);
 
 const cliError = (message: string, exit: number, code?: string, data?: Partial<ErrorJson>): Error =>
     new CliError(message, exit, code, data);
@@ -81,6 +91,10 @@ export const toCliError = (error: unknown): Error => {
                 errors: fields,
                 status: error.status,
                 status_code: error.status,
+                // Only when the server asked for a wait: an agent reads it instead of guessing one
+                ...(error.retryAfterMs === undefined
+                    ? {}
+                    : { retry_after_seconds: Math.ceil(error.retryAfterMs / 1000) }),
             });
         }
 
