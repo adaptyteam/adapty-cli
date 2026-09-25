@@ -94,7 +94,8 @@ adapty flows config update --app UUID FLOW_ID (--config JSON | --config-file PAT
 
 A freshly created flow has no config until the first `flows config update`; `flows config get` returns 404
 until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of
-overwriting a concurrent dashboard edit.
+overwriting a concurrent dashboard edit. Human output of `config get`/`config update` shows the scalar fields
+and a one-line summary of the config (screen and locale counts, byte size); pass `--json` for the full config.
 
 ### Access Levels
 

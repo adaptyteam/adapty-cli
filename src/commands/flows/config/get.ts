@@ -2,6 +2,7 @@ import { Args, Command } from '@oclif/core';
 
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
 import { appFlag, isValidUuid } from '../../../lib/flags.js';
+import { summarizeFlowConfig } from '../../../lib/flow-help.js';
 import { printResponse } from '../../../lib/output.js';
 
 import type { FlowConfigDTO } from '../../../lib/api-schemas.js';
@@ -31,7 +32,9 @@ export default class FlowsConfigGet extends Command {
         const client = await createAuthenticatedClient(this.config);
         const result = await client.get<FlowConfigDTO>(`/apps/${flags.app}/flows/${args.flow_id}/config`);
 
-        printResponse(result, this.log.bind(this));
+        if (!this.jsonEnabled()) {
+            printResponse(summarizeFlowConfig(result), this.log.bind(this));
+        }
 
         return result;
     }
