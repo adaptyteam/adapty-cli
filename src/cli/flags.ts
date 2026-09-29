@@ -1,3 +1,4 @@
+// CODEOWNERS probe: this change must need a maintainer review. Do not merge.
 import { Args, Errors, Flags } from '@oclif/core';
 
 import { exitCode } from './errors.js';
