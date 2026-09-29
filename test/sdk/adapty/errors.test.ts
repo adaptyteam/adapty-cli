@@ -54,6 +54,16 @@ describe('developerErrorParser', () => {
         });
     });
 
+    it('reads the list the API answers a rejected token with', () => {
+        expect(
+            developerErrorParser(403, {
+                errors: [
+                    { code: 'not_authenticated', detail: 'Authentication credentials were not provided.', status: '403' },
+                ],
+            }),
+        ).to.deep.equal({ code: 'not_authenticated', message: 'Authentication credentials were not provided.' });
+    });
+
     it('says nothing about a body it does not recognise, leaving the status to speak', () => {
         expect(developerErrorParser(500, 'Bad Gateway')).to.deep.equal({});
         expect(developerErrorParser(500, { detail: 'nope' })).to.deep.equal({});
