@@ -11,6 +11,7 @@ import {
     ValidationError,
 } from '../../src/sdk/core/errors.js';
 
+import type { ErrorJson } from '../../src/cli/errors.js';
 import type { AnySdkError } from '../../src/sdk/core/errors.js';
 
 /** What oclif reads off a thrown error, in the two places it looks. */
@@ -62,6 +63,25 @@ describe('toCliError', () => {
 
         expect((real as CliError).code).to.equal('validation_error');
         expect((synthetic as CliError).code).to.equal(undefined);
+    });
+
+    it('carries the server wait as retry_after_seconds, rounded up, and only when there is one', () => {
+        const waited = toCliError(
+            new ApiError({ code: 'attribution_busy', message: 'busy', retryAfterMs: 30_000, status: 429 }),
+        ) as CliError & { json: ErrorJson };
+
+        const rounded = toCliError(
+            new ApiError({ code: 'attribution_busy', message: 'busy', retryAfterMs: 1500, status: 429 }),
+        ) as CliError & { json: ErrorJson };
+
+        const plain = toCliError(
+            new ApiError({ code: 'validation_error', message: 'title: is required', status: 400 }),
+        ) as CliError & { json: ErrorJson };
+
+        expect(waited.json.retry_after_seconds).to.equal(30);
+        expect(waited.json.error_code).to.equal('attribution_busy');
+        expect(rounded.json.retry_after_seconds).to.equal(2);
+        expect(plain.json).to.not.have.property('retry_after_seconds');
     });
 
     it('tells which host could not be reached', () => {

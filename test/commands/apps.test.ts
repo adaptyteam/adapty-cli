@@ -124,6 +124,25 @@ describe('apps', () => {
         expect(fetchStub.callCount).to.equal(0);
     });
 
+    it('rejects an app id that is not a uuid under --json too: exit 2, the published wording as it is', async () => {
+        fetchStub = mockFetch([{}]);
+        // oclif keeps an exit code an earlier command left behind, so start from none
+        process.exitCode = undefined;
+
+        const { stdout } = await runCommand('apps get not-a-uuid --json');
+        const exit = process.exitCode;
+
+        process.exitCode = 0;
+
+        expect(exit).to.equal(exitCode.usage);
+
+        expect(JSON.parse(stdout)).to.deep.equal({
+            error: { message: 'Invalid app ID format. Run `adapty apps list` to find your app ID.' },
+        });
+
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
     it('will not create an ios app without a bundle id, and names the flag', async () => {
         fetchStub = mockFetch([{}]);
 

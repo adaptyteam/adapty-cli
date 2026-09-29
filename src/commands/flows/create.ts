@@ -1,7 +1,7 @@
 import { Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/flags.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { FlowDTO, FlowWriteRequestDTO } from '../../lib/api-schemas.js';
@@ -11,7 +11,7 @@ export default class FlowsCreate extends Command {
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> flows create --app UUID --name "Onboarding"'];
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         name: Flags.string({ description: 'Flow name', required: true }),
     };
 

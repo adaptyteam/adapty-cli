@@ -26,6 +26,8 @@ export type ErrorJson = {
     error_code?: string | undefined;
     errors?: unknown;
     message: string;
+    /** The server's Retry-After in whole seconds, rounded up; absent when the server asked for no wait. */
+    retry_after_seconds?: number | undefined;
     status?: number | undefined;
     status_code?: number | undefined;
 };
@@ -44,7 +46,21 @@ export class CliError extends Errors.CLIError {
         this.code = code;
         this.json = { message, code, ...data };
     }
+
+    /**
+     * What a command still on oclif's own Command prints under --json, where the error object is
+     * serialized as it is: the same `{ message, ... }` a migrated command prints, not its internals.
+     */
+    toJSON(): ErrorJson {
+        return this.json;
+    }
 }
+
+/**
+ * Bad input found by a flag parser: exit 2 in both human and --json mode, hence a CliError. Its
+ * json keeps the text as written; oclif prefixes only the human message with the flag's name.
+ */
+export const usageError = (message: string): CliError => new CliError(message, exitCode.usage);
 
 const cliError = (message: string, exit: number, code?: string, data?: Partial<ErrorJson>): Error =>
     new CliError(message, exit, code, data);
@@ -81,6 +97,10 @@ export const toCliError = (error: unknown): Error => {
                 errors: fields,
                 status: error.status,
                 status_code: error.status,
+                // Only when the server asked for a wait: an agent reads it instead of guessing one
+                ...(error.retryAfterMs === undefined
+                    ? {}
+                    : { retry_after_seconds: Math.ceil(error.retryAfterMs / 1000) }),
             });
         }
 

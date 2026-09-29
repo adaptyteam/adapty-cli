@@ -1,7 +1,8 @@
 import { Args, Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/flags.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag, isValidUuid } from '../../lib/flags.js';
+import { isValidUuid } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { ProductDTO, ProductUpdateRequestDTO } from '../../lib/api-schemas.js';
@@ -18,7 +19,7 @@ export default class ProductsUpdate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         'access-level-id': Flags.string({ description: 'Access level ID (UUID)', required: true }),
         'title': Flags.string({ description: 'Product title', required: true }),
     };

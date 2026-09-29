@@ -1,5 +1,7 @@
 import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
 
+import { exitCode } from '../../src/cli/errors.js';
 import {
     assertFetch,
     EMPTY_LIST_RESPONSE,
@@ -12,6 +14,7 @@ import {
 import type sinon from 'sinon';
 
 const PAYWALL_RESPONSE = { id: TEST_RESOURCE_ID, title: 'Default Paywall' };
+const APP_ID_HINT = 'Invalid app ID format. Run `adapty apps list` to find your app ID.';
 
 describe('paywalls', () => {
     let fetchStub: sinon.SinonStub;
@@ -74,5 +77,30 @@ describe('paywalls', () => {
             path: `/apps/${TEST_APP_ID}/paywalls/${TEST_RESOURCE_ID}/placements/`,
             stub: fetchStub,
         });
+    });
+
+    it('rejects an --app that is not a uuid with exit 2 before any request, under --json too', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+
+        const human = await runCommand('paywalls list --app not-a-uuid');
+
+        // oclif keeps an exit code an earlier command left behind, so start from none
+        process.exitCode = undefined;
+
+        const json = await runCommand('paywalls list --app not-a-uuid --json');
+        const exit = process.exitCode;
+
+        process.exitCode = 0;
+
+        expect(human.error?.oclif?.exit).to.equal(exitCode.usage);
+        expect(human.error?.message).to.contain(APP_ID_HINT);
+        expect(exit).to.equal(exitCode.usage);
+
+        // A legacy command extends oclif's Command, which serializes the error object itself:
+        // CliError.toJSON makes that the same clean shape a migrated command prints
+        expect(JSON.parse(json.stdout)).to.deep.equal({ error: { message: APP_ID_HINT } });
+
+        expect(fetchStub.callCount).to.equal(0);
     });
 });

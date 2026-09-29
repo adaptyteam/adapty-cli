@@ -3,6 +3,14 @@ import { Command } from '@oclif/core';
 import { CliError, toCliError } from '../errors.js';
 
 import type { ErrorJson } from '../errors.js';
+import type { Config } from '@oclif/core';
+
+/** What a product's `build()` takes from the command that calls it. */
+export type CommandContext = {
+    config: Config;
+    signal: AbortSignal;
+    warn: (message: string) => void;
+};
 
 /**
  * What every command gets and nothing more: the output channel, cancellation, the single place

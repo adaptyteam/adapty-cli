@@ -1,15 +1,9 @@
 import { buildUserAgent } from '../../../lib/client-from-config.js';
 import { createAdapty } from '../../../sdk/adapty/index.js';
 
-import type { ResolvedSession } from './openSession.js';
 import type { Adapty } from '../../../sdk/adapty/index.js';
-import type { Config } from '@oclif/core';
-
-type CommandContext = {
-    config: Config;
-    signal: AbortSignal;
-    warn: (message: string) => void;
-};
+import type { CommandContext } from '../base-command.js';
+import type { ResolvedSession } from '../session.js';
 
 /** Shared by authenticated commands and login/revoke, which can run without a token. */
 export const build = (session: ResolvedSession, context: CommandContext): Adapty => createAdapty({
