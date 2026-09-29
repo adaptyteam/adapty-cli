@@ -44,3 +44,26 @@ export function draftFlowError(
         + flowFixLinks(flowId)
     );
 }
+
+/**
+ * Human view of a `FlowConfigDTO`: the scalar fields, plus a one-line summary standing in for the
+ * opaque `config` blob (and for `remote_configs`). Builder configs reach tens of megabytes, so
+ * rendering them line by line is unreadable and used to overflow the stack; `--json` still
+ * returns the full payload.
+ */
+export function summarizeFlowConfig(
+    result: { config: Record<string, unknown>; remote_configs?: unknown[] } & Record<string, unknown>,
+): Record<string, unknown> {
+    const { config, remote_configs: remoteConfigs, ...scalars } = result;
+    const bytes = Buffer.byteLength(JSON.stringify(config), 'utf8');
+    const screens = Array.isArray(config.screens) ? `${config.screens.length} screens, ` : '';
+    const locales = Array.isArray(config.locales) ? `${config.locales.length} locales, ` : '';
+
+    return {
+        ...scalars,
+        config: `${screens}${locales}${bytes} bytes (use --json for the full config)`,
+        ...(Array.isArray(remoteConfigs) && remoteConfigs.length > 0
+            ? { remote_configs: `${remoteConfigs.length} entries (use --json for the full payload)` }
+            : {}),
+    };
+}

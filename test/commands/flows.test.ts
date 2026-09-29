@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
 import sinon from 'sinon';
 
 import {
@@ -201,6 +202,44 @@ describe('flows', () => {
             path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
             stub: fetchStub,
         });
+    });
+
+    it('config get prints a config summary instead of the raw blob, and the full blob with --json', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([CONFIG_RESPONSE, CONFIG_RESPONSE]);
+
+        const human = await runCommand(`flows config get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+        expect(human.stdout).to.include('Status: draft');
+        expect(human.stdout).to.include('Updated At: 1755001800000');
+        expect(human.stdout).to.match(/Config: 1 screens, 1 locales, \d+ bytes \(use --json for the full config\)/);
+        expect(human.stdout).to.not.include('welcome');
+
+        const json = await runCommand(`flows config get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --json`);
+        expect(JSON.parse(json.stdout)).to.deep.equal(CONFIG_RESPONSE);
+    });
+
+    it('config get survives a ~5 MiB, deeply nested config', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+
+        // 1000 levels is far past the renderer's cap; deeper than ~5000 the wire JSON itself stops
+        // round-tripping through JSON.stringify/parse, which is outside the CLI's control.
+        let deep: Record<string, unknown> = { value: 'bottom' };
+
+        for (let i = 0; i < 1000; i++) {
+            deep = { child: deep };
+        }
+
+        const screens = Array.from({ length: 150_000 }, (_, i) => ({ id: `element-${i}`, kind: 'text' }));
+        const big = { ...CONFIG_RESPONSE, config: { deep, locales: [], screens } };
+        fetchStub = mockFetch([big, big]);
+
+        const human = await runCommand(`flows config get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+        expect(human.error).to.equal(undefined);
+        expect(human.stdout).to.match(/Config: 150000 screens, 0 locales, \d+ bytes/);
+
+        const json = await runCommand(`flows config get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --json`);
+        expect(json.error).to.equal(undefined);
+        expect((JSON.parse(json.stdout) as typeof big).config.screens).to.have.length(150_000);
     });
 
     it('config update calls PUT /apps/{app}/flows/{id}/config with the inline config', async () => {

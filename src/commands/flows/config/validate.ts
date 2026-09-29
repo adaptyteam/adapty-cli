@@ -52,8 +52,10 @@ export default class FlowsConfigValidate extends Command {
             body,
         );
 
-        this.log(result.valid ? 'Config is publishable.' : 'Config is NOT publishable.');
-        printResponse(result, this.log.bind(this));
+        if (!this.jsonEnabled()) {
+            this.log(result.valid ? 'Config is publishable.' : 'Config is NOT publishable.');
+            printResponse(result, this.log.bind(this));
+        }
 
         // Advisory endpoint always returns HTTP 200; surface the verdict as an exit code so scripts and agents
         // can gate on it. The JSON/`valid` field stays the source of truth for programmatic consumers.
