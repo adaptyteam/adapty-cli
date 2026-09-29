@@ -19,6 +19,7 @@ describe('validateCreateMigration', () => {
         { expected: ['flow'], input: { appId: 'app-1' }, name: 'an app without a flow' },
         { expected: ['flow', 'app'], input: { flow: '' }, name: 'an empty flow and no app' },
         { expected: ['app'], input: { flow: 'transactions' }, name: 'a flow without an app' },
+        { expected: ['flow'], input: { appId: 'app-1', flow: 'main' }, name: 'the main flow for an app that exists' },
     ];
 
     for (const { expected, input, name } of cases) {
