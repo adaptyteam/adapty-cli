@@ -16,7 +16,7 @@ type DeveloperErrorBody = {
  *
  * The Wizard Service sits behind the same transport (section 4.5 of the CLI–WS contract) and
  * words its rejection as `{ error: { code, message } }` (`WizardError`) — one shape this parser
- * now reads too, alongside the three the developer API already sends.
+ * now reads too, alongside the ones the developer API sends.
  */
 export const developerErrorParser: ErrorParser = (_status, body) => {
     if (typeof body !== 'object' || body === null) {
@@ -43,8 +43,28 @@ export const developerErrorParser: ErrorParser = (_status, body) => {
         return { code: error, message: error };
     }
 
+    if (Array.isArray(errors)) {
+        return listedErrors(errors);
+    }
+
     return {};
 };
+
+/** `{ errors: [{ detail, code, status }] }`: how the API turns a token away, `not_authenticated` on a 403. */
+const listedErrors = (errors: unknown[]): ReturnType<ErrorParser> => {
+    const items = errors.filter(item => typeof item === 'object' && item !== null) as { code?: unknown; detail?: unknown }[];
+    const details = items.map(item => item.detail).filter(isText);
+    const code = items.map(item => item.code).find(isText);
+    const message = details.length > 0 ? details.join('; ') : code;
+
+    if (message === undefined) {
+        return {};
+    }
+
+    return code === undefined ? { message } : { code, message };
+};
+
+const isText = (value: unknown): value is string => typeof value === 'string' && value !== '';
 
 /** `non_field_errors` is the server's name for "about the request as a whole": printed bare. */
 const fieldMessages = (errors: unknown): string | undefined => {
