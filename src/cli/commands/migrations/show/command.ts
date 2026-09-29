@@ -10,7 +10,7 @@ import type { Envelope } from '../../../../sdk/adapty/index.js';
 export default class Show extends MigrationCommand {
     static override summary = 'List migration resources or read one resource';
     static override description = [
-        'Omit RESOURCE to list what can be read now. Use a name from that list, such as apps, mapping, or report.',
+        'Omit RESOURCE to list what can be read now. Use a name from that list, such as apps or mapping.',
         '',
         'Reading a resource prints its data as JSON. With --json, returns the full migration response.',
         'Resource data is in result (null if no data is available yet).',
@@ -18,8 +18,8 @@ export default class Show extends MigrationCommand {
 
     static override examples = [
         {
-            description: 'Read the saved migration report:',
-            command: '<%= config.bin %> migrations show report',
+            description: 'Read the RevenueCat apps of the selected migration:',
+            command: '<%= config.bin %> migrations show apps',
         },
         {
             description: 'List resource names available now:',
