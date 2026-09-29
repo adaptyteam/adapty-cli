@@ -2,8 +2,9 @@ import { readFile } from 'node:fs/promises';
 
 import { Args, Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../../cli/flags.js';
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
-import { appFlag, isValidUuid } from '../../../lib/flags.js';
+import { isValidUuid } from '../../../lib/flags.js';
 import { printResponse } from '../../../lib/output.js';
 
 import type { FlowConfigDTO, FlowConfigWriteRequestDTO, FlowRemoteConfigDTO } from '../../../lib/api-schemas.js';
@@ -22,7 +23,7 @@ export default class FlowsConfigUpdate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         'config': Flags.string({
             description: 'Builder config as a JSON string',
             exactlyOne: ['config', 'config-file'],

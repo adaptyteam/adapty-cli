@@ -38,7 +38,7 @@ src/
     auth.ts          # token resolution (config or ADAPTY_TOKEN env)
     client-from-config.ts  # factory: reads config → ApiClient
     errors.ts        # ApiError, NetworkError, AuthRequiredError
-    flags.ts         # shared flags: --app (UUID), pagination
+    flags.ts         # shared flags: pagination, UUID check (--app is appIdFlag in cli/flags.ts)
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
     app-url.ts       # dashboard base URL (ADAPTY_APP_URL): route building + rehosting API-issued links
     asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')

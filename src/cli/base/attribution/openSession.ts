@@ -1,19 +1,18 @@
 import { DEFAULT_ATTRIBUTION_API_URL } from '../../../sdk/attribution/index.js';
-import { resolveSession } from '../adapty/index.js';
+import { loadSession } from '../session.js';
 
-import type { ResolvedSession } from '../adapty/index.js';
+import type { ResolvedSession } from '../session.js';
 import type { Config } from '@oclif/core';
 
 /**
  * The attribution backend takes the Adapty developer token, so the token, its source, the store and
- * the user come from the Adapty session as they are. Only the destination is this product's own:
+ * the user are the shared session as it is. Only the destination is this product's own:
  * ADAPTY_ATTRIBUTION_API_URL, independent of ADAPTY_API_URL.
  */
-export const resolveAttributionSession = async (config: Config): Promise<ResolvedSession> => {
-    const session = await resolveSession(config);
-
-    return { ...session, apiUrl: process.env.ADAPTY_ATTRIBUTION_API_URL ?? DEFAULT_ATTRIBUTION_API_URL };
-};
+export const resolveAttributionSession = async (config: Config): Promise<ResolvedSession> => ({
+    apiUrl: process.env.ADAPTY_ATTRIBUTION_API_URL ?? DEFAULT_ATTRIBUTION_API_URL,
+    ...await loadSession(config),
+});
 
 export const openSession = async (config: Config): Promise<ResolvedSession> => {
     const session = await resolveAttributionSession(config);

@@ -1,7 +1,8 @@
 import { Args, Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/flags.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag, isValidUuid } from '../../lib/flags.js';
+import { isValidUuid } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { AccessLevelDTO, AccessLevelUpdateRequestDTO } from '../../lib/api-schemas.js';
@@ -18,7 +19,7 @@ export default class AccessLevelsUpdate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         title: Flags.string({ description: 'Access level title', required: true }),
     };
 

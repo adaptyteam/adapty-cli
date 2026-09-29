@@ -319,7 +319,7 @@ describe('attribution', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
 
-        it('exits 2 under --json too, naming the flag in the error object', async () => {
+        it('exits 2 under --json too, with the parser\'s own text in the error object', async () => {
             fetchStub = mockFetchSteps([{ body: reportAnswer }]);
             // oclif keeps an exit code an earlier command left behind, so start from none
             process.exitCode = undefined;
@@ -332,8 +332,9 @@ describe('attribution', () => {
             const { error } = JSON.parse(stdout) as { error: { message: string } };
 
             expect(exit).to.equal(exitCode.usage);
-            expect(error.message).to.contain('--filter');
             expect(error.message).to.contain('dimension=value');
+            // oclif's prefix belongs to the human view only
+            expect(error.message).to.not.contain('Parsing --filter');
             expect(fetchStub.callCount).to.equal(0);
         });
 

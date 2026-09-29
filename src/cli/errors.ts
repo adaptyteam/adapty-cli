@@ -38,22 +38,28 @@ export type ErrorJson = {
  */
 export class CliError extends Errors.CLIError {
     readonly exitCode: number;
-    readonly #data: Partial<ErrorJson>;
+    readonly json: ErrorJson;
 
     constructor(message: string, exit: number, code?: string, data: Partial<ErrorJson> = {}) {
         super(message, { exit });
         this.exitCode = exit;
         this.code = code;
-        this.#data = data;
+        this.json = { message, code, ...data };
     }
 
-    /** Built when printed, not when thrown: oclif prefixes a flag parser's message with the flag it came from. */
-    get json(): ErrorJson {
-        return { message: this.message, code: this.code, ...this.#data };
+    /**
+     * What a command still on oclif's own Command prints under --json, where the error object is
+     * serialized as it is: the same `{ message, ... }` a migrated command prints, not its internals.
+     */
+    toJSON(): ErrorJson {
+        return this.json;
     }
 }
 
-/** Bad input found by a flag parser: exit 2 in both human and --json mode, hence a CliError. */
+/**
+ * Bad input found by a flag parser: exit 2 in both human and --json mode, hence a CliError. Its
+ * json keeps the text as written; oclif prefixes only the human message with the flag's name.
+ */
 export const usageError = (message: string): CliError => new CliError(message, exitCode.usage);
 
 const cliError = (message: string, exit: number, code?: string, data?: Partial<ErrorJson>): Error =>

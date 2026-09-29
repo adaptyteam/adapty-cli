@@ -2,9 +2,9 @@ import { Flags } from '@oclif/core';
 
 import { granularities, reportGroupBy, sortDirections, validateReport } from '../../../../sdk/attribution/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
-import { AttributionCommand } from '../../../base/attribution/index.js';
+import { AttributionCommand, periodFlags, periodParams, revenueBasisFlag } from '../../../base/attribution/index.js';
 import { usageError } from '../../../errors.js';
-import { appFlag, periodFlags, periodParams, revenueBasisFlag } from '../../../flags.js';
+import { appIdFlag } from '../../../flags.js';
 
 import { renderReport } from './lib/render.js';
 
@@ -57,7 +57,7 @@ export default class AttributionReport extends AttributionCommand {
     // Input shape here; the rules (dates in order, a granularity exactly when grouping by date) live
     // in sdk/attribution/report.ts, and which names exist is the backend catalog's knowledge.
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         ...periodFlags,
         'metrics': Flags.string({
             delimiter: ',',

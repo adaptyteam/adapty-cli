@@ -1,7 +1,7 @@
 import { Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/flags.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { AccessLevelCreateRequestDTO, AccessLevelDTO } from '../../lib/api-schemas.js';
@@ -14,7 +14,7 @@ export default class AccessLevelsCreate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         'sdk-id': Flags.string({ description: 'Access level SDK identifier', required: true }),
         'title': Flags.string({ description: 'Access level title', required: true }),
     };

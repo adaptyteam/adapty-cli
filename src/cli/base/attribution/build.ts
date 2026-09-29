@@ -2,8 +2,8 @@ import { buildUserAgent } from '../../../lib/client-from-config.js';
 import { createAttribution } from '../../../sdk/attribution/index.js';
 
 import type { Attribution } from '../../../sdk/attribution/index.js';
-import type { ResolvedSession } from '../adapty/index.js';
 import type { CommandContext } from '../base-command.js';
+import type { ResolvedSession } from '../session.js';
 
 /** Mirrors the Adapty build: the retry warning is heard only on the catalog reads, the POSTs never retry. */
 export const build = (session: ResolvedSession, context: CommandContext): Attribution => createAttribution({

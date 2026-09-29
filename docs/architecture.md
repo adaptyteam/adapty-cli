@@ -23,7 +23,8 @@ src/
 | `src/cli` | all of them |
 
 Products stand side by side on core and never import each other: attribution shares the bearer
-token with the Developer API, not its code.
+token with the Developer API, not its code. Their adapters under `cli/base/<product>/` keep the same
+distance: what they share, the token and the session file, lives in `cli/base/session.ts`.
 
 Plus two more: `sdk/core/http` is a module with a single door (`core/http/index.js`), and inside it
 the transport depends only on `core/errors` and `core/clock`.
@@ -110,24 +111,29 @@ text or JSON.
 
 - `base/base-command.ts` — output channel, `SIGINT` → abort signal, error mapping, `render()`.
   It owns no product SDK or session, so another product such as ASA can reuse it directly.
+- `base/session.ts` — what every product's session shares: picks the config dir from oclif, lets
+  `ADAPTY_TOKEN` win over the stored session, and returns the token, its source, the user and the
+  store to write through (`loadSession`). It also holds the `ResolvedSession` and
+  `AuthenticatedSession` types. A product adapter adds only where to talk.
 - `base/adapty/index.ts` — the public entry point: commands import `AdaptyCommand`, `build`,
   `openSession` and session types from here. Implementation files import each other directly.
-- `base/adapty/openSession.ts` — reads `ADAPTY_TOKEN` and `ADAPTY_API_URL`, picks the config dir
-  from oclif, and returns where to talk, as whom, and the store to write through. `openSession(config)`
-  also warns about a non-default API URL.
+- `base/adapty/openSession.ts` — adds `ADAPTY_API_URL` (or the default) to the shared session and
+  returns where to talk, as whom, and the store to write through. `openSession(config)` also warns
+  about a non-default API URL.
 - `base/adapty/build.ts` — `build(session, context)` assembles the SDK with cancellation,
   User-Agent and retry warnings. Both authenticated commands and auth commands use it.
 - `base/adapty/adapty-command.ts` — resolves an Adapty session and lazily builds its SDK. "Needs
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
-- `base/attribution/` — the same four files for the attribution backend. `openSession.ts` takes
-  token, source, store and user from the Adapty `resolveSession`, swaps in
-  `ADAPTY_ATTRIBUTION_API_URL` (or the default) and warns only about a non-default attribution URL;
-  `ADAPTY_API_URL` does not move it. `AttributionCommand` mirrors `AdaptyCommand`.
+- `base/attribution/` — the same four files for the attribution backend, plus its flags.
+  `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
+  only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
+  mirrors `AdaptyCommand`. `flags.ts` holds the flags only attribution commands take: `periodFlags`
+  for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, and `periodParams`.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
-- `flags.ts` — shared flags and args (`appIdArg` and `appFlag` for the app id UUID, `periodFlags`
-  for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, pagination) and the one
-  place flag names meet sdk field names (`pageParams`, `periodParams`).
+- `flags.ts` — flags and args that several products take: the app id UUID as a positional and as
+  `--app` (`appIdArg`, `appIdFlag`), pagination, and where those names meet sdk field names
+  (`pageParams`). Legacy commands take `--app` from here too.
 - `views/` — plain functions, value in, string out.
 - `commands/` — one class per command.
 
@@ -136,6 +142,7 @@ text or JSON.
 ```text
 base/
 ├── base-command.ts
+├── session.ts
 ├── adapty/
 │   ├── index.ts
 │   ├── adapty-command.ts
@@ -145,8 +152,13 @@ base/
     ├── index.ts
     ├── attribution-command.ts
     ├── build.ts
+    ├── flags.ts
     └── openSession.ts
 ```
+
+A flag that only one product's commands take goes to that product's adapter,
+`base/<product>/flags.ts`, and commands import it through the adapter's `index.ts`. `cli/flags.ts`
+keeps only what several products share, so a command never loads another product's sdk for a flag.
 
 Commands that can run without authorization extend `BaseCommand`; it neither opens a session nor
 requires a token. This includes `auth login`, `auth status`, `auth logout` and `auth revoke`.
@@ -197,9 +209,10 @@ quietly changing what users parse.
 | New endpoint | a resource module in `sdk/adapty`, or in the product it belongs to (`sdk/attribution`) |
 | New rule ("X is required when Y") | next to the operation it constrains, in `sdk/adapty` |
 | New command | `cli/commands/...` + a re-export in `src/commands/...` |
-| New flag | the command, or `cli/flags.ts` if shared |
+| New flag | the command; `cli/base/<product>/flags.ts` if shared within a product; `cli/flags.ts` if shared across products |
 | New error kind | `sdk/core/errors.ts` + `cli/errors.ts` (the compiler insists) |
-| Adapty session environment variables | `cli/base/adapty/openSession.ts` |
+| Token and session file (`ADAPTY_TOKEN`, config dir) | `cli/base/session.ts` |
+| Adapty base URL environment variable | `cli/base/adapty/openSession.ts` |
 | Attribution base URL environment variable | `cli/base/attribution/openSession.ts` |
 
 ## Migration state

@@ -5,7 +5,7 @@ import { build } from './build.js';
 import { openSession } from './openSession.js';
 
 import type { Attribution } from '../../../sdk/attribution/index.js';
-import type { AuthenticatedSession, ResolvedSession } from '../adapty/index.js';
+import type { AuthenticatedSession, ResolvedSession } from '../session.js';
 
 /**
  * Commands of the attribution backend, which all require a token. The same shape as AdaptyCommand:
