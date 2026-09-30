@@ -185,6 +185,16 @@ requiring confirmation exit **6** without it; there is no interactive prompt. Th
 status before refusing, but does not send the action request. After an action, check status again.
 After `revision_conflict`, read status and review the current action, input and confirmation before retrying.
 
+For an `agent` action (`migrate_code`), run it from a clean checkout of the app's git repository. It picks
+Claude Code or Codex from `PATH` (`--agent` to choose), installs the Adapty skills into it, writes the migration's
+data to `.git/adapty/`, and runs the agent headless on a branch named `adapty-migrate`. The changes stay
+uncommitted for you to review, with the steps left to you in `ADAPTY_SETUP.md`:
+
+```sh
+adapty migrations run choose_paywall_ui --input '{"paywall_ui":"native"}'
+adapty migrations run migrate_code
+```
+
 For an `external` action, complete the step in the browser, then check status:
 
 ```sh

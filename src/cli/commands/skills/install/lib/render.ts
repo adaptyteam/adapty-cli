@@ -1,6 +1,6 @@
-import { agents, fallback, FALLBACK_COMMAND } from './agents.js';
+import { agents, fallback, FALLBACK_COMMAND } from '../../../../agents/index.js';
 
-import type { InstallResult } from './agents.js';
+import type { InstallResult } from '../../../../agents/index.js';
 
 const known = [...agents, fallback];
 

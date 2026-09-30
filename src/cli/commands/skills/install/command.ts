@@ -1,13 +1,12 @@
 import { Flags } from '@oclif/core';
 
+import { agentIds, agents, choose, fallback, install, onPath, runQuietly } from '../../../agents/index.js';
 import { BaseCommand } from '../../../base/base-command.js';
 import { CliError, exitCode } from '../../../errors.js';
 
-import { agentIds, agents, fallback, install, onPath, runQuietly } from './lib/agents.js';
-import { choose } from './lib/choose.js';
 import { renderInstall } from './lib/render.js';
 
-import type { Agent, InstallResult } from './lib/agents.js';
+import type { Agent, InstallResult } from '../../../agents/index.js';
 
 export default class SkillsInstall extends BaseCommand {
     static override description = 'Install the Adapty skills into the coding agents on this machine';
