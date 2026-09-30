@@ -170,7 +170,7 @@ The rules for writing to a live ad account, and the campaign playbooks, live in 
 | `asa campaigns list`                 | metadata only, no metrics; filters below                                    |
 | `asa campaigns get <campaign_id>`    | positional UUID                                                             |
 | `asa campaigns create`               | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--target-cpa`, `--bidding-strategy`; LOC orgs: all five `--invoice-*` flags. A `MAX_CONVERSIONS` campaign also needs `ad-groups create --automated` or it stays `NOT_RUNNING` (`AUTOMATED_KEYWORDS_REQUIRED_AD_GROUP_MISSING`) |
-| `asa campaigns update <campaign_id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--budget`, `--target-cpa`, `--bidding-strategy`, or the five `--invoice-*` flags together (fixes `MISSING_BO_OR_INVOICING_FIELDS`) |
+| `asa campaigns update <campaign_id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--target-cpa`, `--bidding-strategy`, or the five `--invoice-*` flags together (fixes `MISSING_BO_OR_INVOICING_FIELDS`) |
 | `asa ad-groups list` / `get <id>`    | metadata only, like campaigns; numbers come from `asa metrics`              |
 | `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today). `--automated` = the automated group for Max Conversions: no `--start-time`, no `--status PAUSED`, `--default-bid` optional |
 | `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
@@ -220,6 +220,11 @@ Before running any of these:
   creating a second entity; the same key with a different body fails with `422 cli_idempotency_key_reuse`, and
   a concurrent duplicate with `409 cli_idempotency_in_progress`. One network error is retried automatically
   with the same key.
+- **Budget always means `--daily-budget`.** Apple does not support lifetime budgets; if the user gives a total
+  for a period, divide it by the number of days and confirm the daily amount.
+- **A campaign serves only when the campaign, its ad groups and its keywords are all enabled** (`ENABLED`;
+  keywords `ACTIVE`). Create them `PAUSED` only if the user asks; after setup, list anything still paused and
+  offer to enable it.
 - **Keyword and negative-keyword calls are batches.** One bad ID fails the whole batch before Apple is
   called; Apple may still reject individual items, and each rejection comes back with its reason.
 - **Analytics budgets are tight and per company**: `metrics`/`metrics overview` get 5 calls/min (max 2 per
