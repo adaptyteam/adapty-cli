@@ -1,8 +1,8 @@
 import { createInterface } from 'node:readline/promises';
 
-import { CliError, exitCode } from '../errors.js';
+import { CliError, exitCode } from '../../../../errors.js';
 
-import type { Agent } from './catalog.js';
+import type { Agent } from './agents.js';
 
 /** `1,3` or `1 3` picks those; an empty answer picks all of them. Anything else is asked again. */
 export const parseChoice = (answer: string, count: number): number[] | undefined => {
