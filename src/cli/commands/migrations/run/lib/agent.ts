@@ -46,8 +46,8 @@ export const buildHandoff = ({ actionId, appId, files, guides, migrationId }: Ha
         + 'If this session does not have the skill, run `adapty skills install --agent <claude-code, codex or gemini-cli: '
         + 'the agent you are>`, then restart the agent.',
         '',
-        '- Before changing any file, create a branch: `git switch -c adapty-migrate`. Leave the changes uncommitted for '
-        + 'the developer to review.',
+        '- Before changing any file, create a branch: `git switch -c adapty-migrate`, or `adapty-migrate-2` and so on '
+        + 'when that name is taken. Leave the changes uncommitted for the developer to review.',
         `- The Adapty app is ${appId}. The migration already created its catalog: do not create again anything the `
         + 'report lists as created.',
         '- paywallApproach comes from `code-plan`, per placement: `native` is the skill\'s `custom`, `flow_builder` is '
@@ -59,6 +59,8 @@ export const buildHandoff = ({ actionId, appId, files, guides, migrationId }: Ha
         '',
         ...guides.flatMap(guide => [guide.trim(), '']),
         `When the code is done, report it: \`adapty migrations run ${actionId} -m ${migrationId} --input `
-        + '\'{"summary": "<one sentence: what changed and how many steps ADAPTY_SETUP.md leaves>"}\'`.',
+        + '\'{"summary": "<one sentence: what changed and how many steps ADAPTY_SETUP.md leaves>"}\'`. The migration '
+        + `stays open and keeps the summary: the developer closes it with \`adapty migrations close -m ${migrationId} `
+        + '--outcome finish`.',
     ].join('\n'),
 });
