@@ -8,6 +8,10 @@ import { agents, install, onPath } from '../../../../../src/cli/commands/skills/
 
 import type { Run } from '../../../../../src/cli/commands/skills/install/lib/agents.js';
 
+// The fakes are POSIX scripts found by their executable bit; Windows finds commands by PATHEXT instead.
+const posix = process.platform === 'win32' ? it.skip : it;
+const windows = process.platform === 'win32' ? it : it.skip;
+
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the table is a constant
 const claude = agents.find(agent => agent.id === 'claude-code')!;
 
@@ -74,14 +78,21 @@ describe('skills install: agents', () => {
             await rm(dir, { force: true, recursive: true });
         });
 
-        it('finds an executable in a PATH directory', async () => {
+        posix('finds an executable in a PATH directory', async () => {
             await writeFile(join(dir, 'claude'), '');
             await chmod(join(dir, 'claude'), 0o755);
 
             expect(await onPath('claude')).to.equal(true);
         });
 
-        it('does not find a file that is not executable, or no file at all', async () => {
+        windows('finds a command by the extensions PATHEXT lists', async () => {
+            await writeFile(join(dir, 'claude.cmd'), '');
+
+            expect(await onPath('claude')).to.equal(true);
+            expect(await onPath('codex')).to.equal(false);
+        });
+
+        posix('does not find a file that is not executable, or no file at all', async () => {
             await writeFile(join(dir, 'codex'), '');
 
             expect(await onPath('codex')).to.equal(false);
