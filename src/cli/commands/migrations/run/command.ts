@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 
 import { Args, Flags } from '@oclif/core';
 
@@ -10,7 +10,7 @@ import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
 import { actionView } from './lib/action-view.js';
 import { findAction, unknownActionMessage, unsupportedActionMessage } from './lib/actions.js';
-import { buildHandoff, repository } from './lib/agent.js';
+import { buildHandoff, repository, RESOURCE_FILE_NAME } from './lib/agent.js';
 import { readActionInput } from './lib/input.js';
 import { openLink } from './lib/open-link.js';
 
@@ -50,7 +50,8 @@ export default class Run extends MigrationCommand {
         'coding agent needs to do it. Run it from the agent, or paste its output into one. The agent reports the',
         'result by running the action again with --input.',
         '',
-        'With --json, returns the full migration response (before the browser step for external actions).',
+        'With --json, returns the full migration response (before the browser step for external actions). For an agent',
+        'action without --input, returns { action_id, files, instructions }: the files written and the text for the agent.',
         'After a revision_conflict error, read status and review the action before retrying.',
     ].join('\n');
 
@@ -162,7 +163,7 @@ export default class Run extends MigrationCommand {
     }
 
     /** The agent that ran this command, or the one the developer pastes the output into, does the work. */
-    private async handOff({ action, envelope, selection }: RunContext): Promise<Handoff> {
+    private async handOff({ action, selection }: RunContext): Promise<Handoff> {
         const repo = await repository(process.cwd());
 
         if (repo === undefined) {
@@ -185,18 +186,17 @@ export default class Run extends MigrationCommand {
 
             if (typeof result === 'object' && result !== null && 'markdown' in result && typeof result.markdown === 'string') {
                 guides.push(result.markdown);
-            } else {
+            } else if (RESOURCE_FILE_NAME.test(name)) {
                 const file = join(dir, `${name}.json`);
 
                 await writeFile(file, `${JSON.stringify(result, null, 2)}\n`);
-                // A worktree's git directory sits outside it: say where the file is from anywhere.
-                files.push(`\`${name}\`: ${file.startsWith(repo.root) ? relative(repo.root, file) : file}`);
+                files.push(`\`${name}\`: ${file}`);
+            } else {
+                throw new CliError(`The server named a resource \`${name}\` that cannot be a file name.`, 1, 'resource_name_invalid');
             }
         }
 
-        const handoff = buildHandoff({
-            actionId: action.action_id, appId: envelope.migration.app?.id ?? '', files, guides, migrationId,
-        });
+        const handoff = buildHandoff({ actionId: action.action_id, files, guides });
 
         this.render(handoff, ({ instructions }) => instructions);
 

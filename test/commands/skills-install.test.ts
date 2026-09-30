@@ -39,14 +39,17 @@ describe('skills install', () => {
         await rm(dir, { force: true, recursive: true });
     });
 
-    posix('runs the skills CLI when none of the agents is on PATH', async () => {
+    posix('prints the skills CLI command instead of running it when nobody can say yes', async () => {
         await stub('npx');
 
         const { status, stdout } = install('--json');
 
-        expect(status).to.equal(0);
-        expect(JSON.parse(stdout)).to.deep.equal([{ agent: 'other', installed: true }]);
-        expect(await calls()).to.equal('npx --yes skills add adaptyteam/adapty-skills --all --global\n');
+        const { error } = JSON.parse(stdout) as { error: { code: string; message: string } };
+
+        expect(status).to.equal(2);
+        expect(error.code).to.equal('fallback_confirmation_required');
+        expect(error.message).to.contain('run `npx skills@1.7.0 add adaptyteam/adapty-skills --all --global` yourself');
+        expect(await calls()).to.equal('');
     });
 
     it('says so when there is not even npx to fall back on', () => {
@@ -81,13 +84,13 @@ describe('skills install', () => {
         expect(await calls()).to.equal('');
     });
 
-    posix('falls back to the skills CLI with --yes too when none of the agents is on PATH', async () => {
+    posix('does not run the skills CLI on --yes, which covers the agents it found only', async () => {
         await stub('npx');
 
-        const { status, stdout } = install('--yes', '--json');
+        const { status } = install('--yes', '--json');
 
-        expect(status).to.equal(0);
-        expect(JSON.parse(stdout)).to.deep.equal([{ agent: 'other', installed: true }]);
+        expect(status).to.equal(2);
+        expect(await calls()).to.equal('');
     });
 
     posix('installs into every agent found with --yes', async () => {

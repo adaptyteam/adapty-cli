@@ -5,17 +5,13 @@ import { promisify } from 'node:util';
 const git = promisify(execFile);
 
 /** In a worktree or a submodule `.git` is a file, so the git directory comes from git itself. */
-export const repository = async (cwd: string): Promise<{ gitDir: string; root: string } | undefined> => {
+export const repository = async (cwd: string): Promise<{ gitDir: string } | undefined> => {
     try {
-        const { stdout } = await git('git', ['rev-parse', '--show-toplevel', '--absolute-git-dir'], { cwd });
-        const [root, gitDir] = stdout.trim().split('\n');
-
-        if (root === undefined || gitDir === undefined) {
-            return undefined;
-        }
+        const { stdout } = await git('git', ['rev-parse', '--absolute-git-dir'], { cwd });
+        const gitDir = stdout.trim();
 
         // git prints forward slashes on Windows too: resolve() gives the platform's own form.
-        return { gitDir: resolve(gitDir), root: resolve(root) };
+        return gitDir === '' ? undefined : { gitDir: resolve(gitDir) };
     } catch {
         return undefined;
     }
@@ -23,44 +19,29 @@ export const repository = async (cwd: string): Promise<{ gitDir: string; root: s
 
 export type HandoffInput = {
     actionId: string;
-    appId: string;
-    /** `name`: path, one per resource written to a file. */
+    /** `name`: absolute path, one per resource written to a file. */
     files: string[];
-    /** Markdown resources, handed to the agent as they are. */
+    /** Markdown resources, the server's instructions for this migration, handed to the agent as they are. */
     guides: string[];
-    migrationId: string;
 };
 
 /** What `--json` returns for an agent action, and what the human view prints. */
 export type Handoff = { action_id: string; files: string[]; instructions: string };
 
+/** A resource name becomes a file name, so it may only be one: no separators, no dots to climb out with. */
+export const RESOURCE_FILE_NAME = /^[a-z0-9][a-z0-9-]*$/;
+
 /**
- * The lines only the CLI can write: which skill, where the data is, how to report back. What the data
- * means comes from the server, in `guides`.
+ * The server says what to do; the CLI adds the one thing only it knows, where it put the data. Paths
+ * are absolute, so they open from any folder the agent runs in, a monorepo's app folder included.
  */
-export const buildHandoff = ({ actionId, appId, files, guides, migrationId }: HandoffInput): Handoff => ({
+export const buildHandoff = ({ actionId, files, guides }: HandoffInput): Handoff => ({
     action_id: actionId,
     files,
     instructions: [
-        'Migrate this app from RevenueCat to Adapty with the adapty-integration skill, in RevenueCat migration mode. '
-        + 'If this session does not have the skill, run `adapty skills install --agent <claude-code, codex or gemini-cli: '
-        + 'the agent you are>`, then restart the agent.',
-        '',
-        '- Before changing any file, create a branch: `git switch -c adapty-migrate`, or `adapty-migrate-2` and so on '
-        + 'when that name is taken. Leave the changes uncommitted for the developer to review.',
-        `- The Adapty app is ${appId}. The migration already created its catalog: do not create again anything the `
-        + 'report lists as created.',
-        '- paywallApproach comes from `code-plan`, per placement: `native` is the skill\'s `custom`, `flow_builder` is '
-        + '`flow_builder`.',
-        `- The skill's run ID is ${migrationId}. \`adapty migrations show <resource> -m ${migrationId}\` reads this migration.`,
-        '',
-        'The migration\'s data:',
+        'adapty-cli wrote this migration\'s data to:',
         ...files.map(file => `- ${file}`),
         '',
-        ...guides.flatMap(guide => [guide.trim(), '']),
-        `When the code is done, report it: \`adapty migrations run ${actionId} -m ${migrationId} --input `
-        + '\'{"summary": "<one sentence: what changed and how many steps ADAPTY_SETUP.md leaves>"}\'`. The migration '
-        + `stays open and keeps the summary: the developer closes it with \`adapty migrations close -m ${migrationId} `
-        + '--outcome finish`.',
+        ...guides.map(guide => guide.trim()),
     ].join('\n'),
 });

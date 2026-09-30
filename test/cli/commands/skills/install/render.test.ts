@@ -11,7 +11,7 @@ describe('renderInstall', () => {
             '✓ Claude Code: installed. Restart it to load the skills.',
             '✗ Codex: Plugin not found',
             '',
-            'Another agent? Run `npx skills add adaptyteam/adapty-skills --all --global`.',
+            'Another agent? Run `npx skills@1.7.0 add adaptyteam/adapty-skills --all --global`.',
         ].join('\n'));
     });
 

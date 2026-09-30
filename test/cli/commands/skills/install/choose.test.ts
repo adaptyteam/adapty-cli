@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 
-import { parseChoice } from '../../../../../src/cli/commands/skills/install/lib/choose.js';
+import { parseChoice, parseConsent } from '../../../../../src/cli/commands/skills/install/lib/choose.js';
 
 describe('skills install: parseChoice', () => {
     it('picks every agent on an empty answer', () => {
@@ -16,4 +16,16 @@ describe('skills install: parseChoice', () => {
             expect(parseChoice(answer, 3)).to.equal(undefined);
         });
     }
+});
+
+describe('skills install: parseConsent', () => {
+    for (const [answer, expected] of [['y', true], [' YES ', true], ['n', false], ['no', false], ['', false]] as const) {
+        it(`reads "${answer}" as ${String(expected)}`, () => {
+            expect(parseConsent(answer)).to.equal(expected);
+        });
+    }
+
+    it('asks again after anything else', () => {
+        expect(parseConsent('sure')).to.equal(undefined);
+    });
 });
