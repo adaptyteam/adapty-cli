@@ -1,9 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { delimiter, join, relative } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { Args, Flags } from '@oclif/core';
 
-import { agents, choose, extractSummary, headlessAgentIds, install, onPath, runHeadless, runQuietly } from '../../../agents/index.js';
 import { MigrationCommand } from '../../../base/adapty/index.js';
 import { CliError, exitCode } from '../../../errors.js';
 import { migrationFlags } from '../../../input/migration.js';
@@ -11,19 +10,18 @@ import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
 import { actionView } from './lib/action-view.js';
 import { findAction, unknownActionMessage, unsupportedActionMessage } from './lib/actions.js';
-import { BRANCH, buildPrompt, hasUncommittedChanges, repositoryRoot, switchToBranch, writeCliShim } from './lib/agent.js';
+import { buildHandoff, repositoryRoot } from './lib/agent.js';
 import { readActionInput } from './lib/input.js';
 import { openLink } from './lib/open-link.js';
 
+import type { Handoff } from './lib/agent.js';
 import type { Action, Envelope } from '../../../../sdk/adapty/index.js';
-import type { Agent, HeadlessAgentId } from '../../../agents/index.js';
 import type { MigrationSelection } from '../../../context/migration/index.js';
 
 type RunContext = {
     action: Action;
     envelope: Envelope;
     flags: {
-        'agent': HeadlessAgentId | undefined;
         'no-browser': boolean;
         'open': boolean;
         'yes': boolean;
@@ -35,7 +33,7 @@ type RunContext = {
 };
 
 export default class Run extends MigrationCommand {
-    static override summary = 'Run an input action, open an external action link, or run an agent action on the app code';
+    static override summary = 'Run an input action, open an external action link, or hand an agent action to a coding agent';
     static override description = [
         'Choose an action ID from next_actions or available_actions in `adapty migrations status -m ID --json`.',
         'Replace ACTION_ID in the examples with an offered action ID.',
@@ -48,8 +46,9 @@ export default class Run extends MigrationCommand {
         'Pipes and --json require --open to launch a browser; BROWSER=none disables it.',
         'File uploads are not supported; use the dashboard or an offered Cloud Export action.',
         '',
-        'Agent actions run a coding agent (Claude Code or Codex) on the app in the current git repository, on the',
-        `${BRANCH} branch, with the resources in reads. The working tree must be clean.`,
+        'An agent action writes the resources in reads to .git/adapty/ in the app\'s git repository and prints what a',
+        'coding agent needs to do it. Run it from the agent, or paste its output into one. The agent reports the',
+        'result by running the action again with --input.',
         '',
         'With --json, returns the full migration response (before the browser step for external actions).',
         'After a revision_conflict error, read status and review the action before retrying.',
@@ -116,21 +115,17 @@ export default class Run extends MigrationCommand {
             description: 'Show the external action without opening a browser',
             exclusive: ['open'],
         }),
-        'agent': Flags.option({
-            description: 'Coding agent for an agent action. Default: the one found on PATH',
-            options: headlessAgentIds,
-        })(),
     };
 
-    async run(): Promise<Envelope> {
+    async run(): Promise<Envelope | Handoff> {
         const context = await this.prepare();
 
         if (context.href !== undefined) {
             return this.runExternalAction(context, context.href);
         }
 
-        if (context.action.kind === 'agent') {
-            return this.runAgentAction(context);
+        if (context.action.kind === 'agent' && context.input === undefined) {
+            return this.handOff(context);
         }
 
         return this.runInputAction(context);
@@ -162,22 +157,19 @@ export default class Run extends MigrationCommand {
 
         return {
             action, envelope, flags, href, selection,
-            input: fromStdin && action.kind === 'input' ? await readActionInput(flags) : input,
+            input: fromStdin && (action.kind === 'input' || action.kind === 'agent') ? await readActionInput(flags) : input,
         };
     }
 
-    private async runAgentAction({ action, envelope, flags, selection }: RunContext): Promise<Envelope> {
+    /** The agent that ran this command, or the one the developer pastes the output into, does the work. */
+    private async handOff({ action, envelope, selection }: RunContext): Promise<Handoff> {
         const root = await repositoryRoot(process.cwd());
 
         if (root === undefined) {
-            throw new CliError(`\`${action.action_id}\` changes the app code: run it from the app's git repository.`, exitCode.usage, 'not_a_repository');
-        }
-
-        if (await hasUncommittedChanges(root)) {
             throw new CliError(
-                'The repository has uncommitted changes. Commit or stash them first, so the migration stays one reviewable diff.',
+                `\`${action.action_id}\` works on the app code: run it from the app's git repository.`,
                 exitCode.usage,
-                'repository_dirty',
+                'not_a_repository',
             );
         }
 
@@ -186,8 +178,6 @@ export default class Run extends MigrationCommand {
         const files: string[] = [];
         const guides: string[] = [];
 
-        // Read first: a resource the step is not ready for (no paywall choice yet) stops the run before it costs
-        // anything.
         await mkdir(dir, { recursive: true });
 
         for (const name of action.reads) {
@@ -203,82 +193,13 @@ export default class Run extends MigrationCommand {
             }
         }
 
-        const agent = await this.pickAgent(flags.agent);
-        const skills = await install(agent, runQuietly);
-
-        if (!skills.installed) {
-            throw new CliError(`Could not install the Adapty skills into ${agent.name}: ${skills.error ?? 'unknown error'}`, 1, 'skills_install_failed');
-        }
-
-        await switchToBranch(root);
-        const shimDir = await writeCliShim(dir);
-
-        process.stderr.write(`Running ${agent.name} on ${root}, branch ${BRANCH}. This usually takes a few minutes.\n`);
-
-        const run = await runHeadless({
-            agent: agent.id as HeadlessAgentId,
-            cwd: root,
-            env: { ...process.env, PATH: `${shimDir}${delimiter}${process.env.PATH ?? ''}` },
-            prompt: buildPrompt({ appId: envelope.migration.app?.id ?? '', files, guides, migrationId }),
-            signal: this.signal,
+        const handoff = buildHandoff({
+            actionId: action.action_id, appId: envelope.migration.app?.id ?? '', files, guides, migrationId,
         });
 
-        const summary = extractSummary(run.finalText);
+        this.render(handoff, ({ instructions }) => instructions);
 
-        if (summary === undefined) {
-            const said = (run.finalText === '' ? run.stderr : run.finalText).trim().split('\n').slice(-5).join('\n');
-
-            throw new CliError(`${agent.name} ended without a summary, so the step is not marked done. It last said:\n${said}`, 1, 'agent_no_summary');
-        }
-
-        const latest = await this.adapty.migrations.get(migrationId);
-
-        const result = await this.adapty.migrations.runAction(migrationId, action.action_id, {
-            expectedRevision: latest.migration.revision,
-            input: { summary },
-        });
-
-        this.render(result, renderEnvelope);
-
-        // The step keeps the summary but shows it only once done, so say it now: it names what still waits on the
-        // developer, such as a flow to publish.
-        process.stderr.write(`\n${agent.name}: ${summary}\n`);
-
-        process.stderr.write(
-            `Review the changes on branch ${BRANCH} and the steps left in ADAPTY_SETUP.md, then finish with `
-            + '`adapty migrations close --outcome finish --yes`.\n',
-        );
-
-        return result;
-    }
-
-    private async pickAgent(asked: HeadlessAgentId | undefined): Promise<Agent> {
-        const headless = agents.filter(agent => (headlessAgentIds as readonly string[]).includes(agent.id));
-        const found: Agent[] = [];
-
-        for (const agent of headless) {
-            if ((asked === undefined || agent.id === asked) && await onPath(agent.bin)) {
-                found.push(agent);
-            }
-        }
-
-        if (found.length === 0) {
-            const names = headless.map(agent => `\`${agent.bin}\``).join(' or ');
-
-            throw new CliError(`Found neither ${names} on PATH: install Claude Code or Codex to migrate the app code.`, exitCode.usage, 'no_agent_found');
-        }
-
-        if (found.length === 1) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length checked
-            return found[0]!;
-        }
-
-        if (!this.interactive || !process.stdin.isTTY) {
-            throw new CliError(`Found ${found.map(agent => agent.name).join(', ')}. Choose one with --agent.`, exitCode.usage, 'agent_choice_required');
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- choose returns at least one
-        return (await choose(found, this.signal))[0]!;
+        return handoff;
     }
 
     private async runExternalAction(context: RunContext, href: string): Promise<Envelope> {
@@ -289,13 +210,13 @@ export default class Run extends MigrationCommand {
     }
 
     private async runInputAction({ action, envelope, flags, input, selection }: RunContext): Promise<Envelope> {
-        if (action.kind !== 'input' && action.kind !== 'upload' && action.kind !== 'external') {
+        if (action.kind !== 'input' && action.kind !== 'upload' && action.kind !== 'external' && action.kind !== 'agent') {
             this.render({ action, migrationId: envelope.migration.id }, actionView);
 
             return envelope;
         }
 
-        if (action.kind !== 'input') {
+        if (action.kind !== 'input' && action.kind !== 'agent') {
             throw new CliError(unsupportedActionMessage(action), exitCode.usage, 'action_unsupported');
         }
 

@@ -4,9 +4,9 @@ import { join } from 'node:path';
 
 import { expect } from 'chai';
 
-import { agents, install, onPath } from '../../../src/cli/agents/catalog.js';
+import { agents, install, onPath } from '../../../../../src/cli/commands/skills/install/lib/agents.js';
 
-import type { Run } from '../../../src/cli/agents/catalog.js';
+import type { Run } from '../../../../../src/cli/commands/skills/install/lib/agents.js';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the table is a constant
 const claude = agents.find(agent => agent.id === 'claude-code')!;
