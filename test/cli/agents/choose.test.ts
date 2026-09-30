@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 
-import { parseChoice } from '../../../../../src/cli/commands/skills/install/lib/choose.js';
+import { parseChoice } from '../../../src/cli/agents/choose.js';
 
 describe('skills install: parseChoice', () => {
     it('picks every agent on an empty answer', () => {

@@ -123,6 +123,9 @@ text or JSON.
   once after input validation, using flag > environment > saved context; polling and mutations
   retain that captured ID. `create` saves by default, with `--no-select` to opt out; local save
   failures warn without failing creation. The SDK remains unaware of this local selection.
+- `agents/` — the coding agents on this machine: which ones are on `PATH`, installing the Adapty skills into
+  them (`skills install`), and running one headless on the app code (`migrations run` on an `agent` action).
+  The tools a headless agent may use are fixed here, never taken from a server answer.
 - `views/` — plain functions, value in, string out.
 - `commands/` — one class per command.
 
