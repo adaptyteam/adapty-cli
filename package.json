@@ -99,6 +99,9 @@
       "segments": {
         "description": "List segments"
       },
+      "skills": {
+        "description": "Install the Adapty skills into coding agents"
+      },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
       },
