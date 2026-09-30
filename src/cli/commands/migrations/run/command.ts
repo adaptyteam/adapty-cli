@@ -240,6 +240,10 @@ export default class Run extends MigrationCommand {
 
         this.render(result, renderEnvelope);
 
+        // The step keeps the summary but shows it only once done, so say it now: it names what still waits on the
+        // developer, such as a flow to publish.
+        process.stderr.write(`\n${agent.name}: ${summary}\n`);
+
         process.stderr.write(
             `Review the changes on branch ${BRANCH} and the steps left in ADAPTY_SETUP.md, then finish with `
             + '`adapty migrations close --outcome finish --yes`.\n',
