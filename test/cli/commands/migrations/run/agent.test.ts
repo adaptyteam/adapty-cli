@@ -13,6 +13,7 @@ describe('migrations run: agent handoff', () => {
 
     it('names the skill, the app, the migration as the run ID, and every file the server data went to', () => {
         expect(handoff.instructions).to.contain('the adapty-integration skill');
+        expect(handoff.instructions).to.contain('Before changing any file, create a branch: `git switch -c adapty-migrate`.');
         expect(handoff.instructions).to.contain('The Adapty app is app_1');
         expect(handoff.instructions).to.contain('The skill\'s run ID is mig_1.');
         expect(handoff.instructions).to.contain('- `report`: .git/adapty/report.json\n- `code-plan`: .git/adapty/code-plan.json');

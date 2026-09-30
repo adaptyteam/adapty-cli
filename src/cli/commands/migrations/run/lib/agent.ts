@@ -35,6 +35,8 @@ export const buildHandoff = ({ actionId, appId, files, guides, migrationId }: Ha
         'Migrate this app from RevenueCat to Adapty with the adapty-integration skill, in RevenueCat migration mode. '
         + 'If this session does not have the skill, run `adapty skills install`, then restart the agent.',
         '',
+        '- Before changing any file, create a branch: `git switch -c adapty-migrate`. Leave the changes uncommitted for '
+        + 'the developer to review.',
         `- The Adapty app is ${appId}. The migration already created its catalog: do not create again anything the `
         + 'report lists as created.',
         '- paywallApproach comes from `code-plan`, per placement: `native` is the skill\'s `custom`, `flow_builder` is '

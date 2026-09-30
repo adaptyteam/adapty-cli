@@ -12,6 +12,9 @@ const ROOT = join(import.meta.dirname, '..', '..');
  * it was called and exits as told. Neither stdin nor stdout is a terminal there, so nobody can
  * answer a prompt — the case the choice has to handle without one.
  */
+// The stubs are POSIX scripts; on Windows only the case that needs no stub runs.
+const posix = process.platform === 'win32' ? it.skip : it;
+
 describe('skills install', () => {
     let dir: string;
 
@@ -36,7 +39,7 @@ describe('skills install', () => {
         await rm(dir, { force: true, recursive: true });
     });
 
-    it('runs the skills CLI when none of the agents is on PATH', async () => {
+    posix('runs the skills CLI when none of the agents is on PATH', async () => {
         await stub('npx');
 
         const { status, stdout } = install('--json');
@@ -53,7 +56,7 @@ describe('skills install', () => {
         expect(stderr).to.contain('Found none of `claude`, `codex`, `gemini`, and no `npx`');
     });
 
-    it('installs the one agent found without asking', async () => {
+    posix('installs the one agent found without asking', async () => {
         await stub('codex');
 
         const { status, stdout } = install('--json');
@@ -62,7 +65,7 @@ describe('skills install', () => {
         expect(JSON.parse(stdout)).to.deep.equal([{ agent: 'codex', installed: true }]);
     });
 
-    it('refuses to guess when several agents are found and nobody can choose', async () => {
+    posix('refuses to guess when several agents are found and nobody can choose', async () => {
         await stub('claude');
         await stub('codex');
 
@@ -78,7 +81,7 @@ describe('skills install', () => {
         expect(await calls()).to.equal('');
     });
 
-    it('installs into every agent found with --yes', async () => {
+    posix('installs into every agent found with --yes', async () => {
         await stub('claude');
         await stub('codex');
 
@@ -92,7 +95,7 @@ describe('skills install', () => {
         ]);
     });
 
-    it('installs only the agent asked for, and reports one asked for that is not on PATH', async () => {
+    posix('installs only the agent asked for, and reports one asked for that is not on PATH', async () => {
         await stub('claude');
         await stub('codex');
 
