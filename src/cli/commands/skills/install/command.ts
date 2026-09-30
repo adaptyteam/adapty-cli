@@ -3,8 +3,8 @@ import { Flags } from '@oclif/core';
 import { BaseCommand } from '../../../base/base-command.js';
 import { CliError, exitCode } from '../../../errors.js';
 
-import { agentIds, agents, fallback, install, onPath, runQuietly } from './lib/agents.js';
-import { choose } from './lib/choose.js';
+import { agentIds, agents, fallback, FALLBACK_COMMAND, install, onPath, runQuietly } from './lib/agents.js';
+import { choose, confirm } from './lib/choose.js';
 import { renderInstall } from './lib/render.js';
 
 import type { Agent, InstallResult } from './lib/agents.js';
@@ -25,7 +25,8 @@ export default class SkillsInstall extends BaseCommand {
         })(),
         yes: Flags.boolean({
             char: 'y',
-            description: 'Install into every agent found without asking; required when several are found and no one can answer',
+            description: 'Install into every agent found without asking; required when several are found and no one can answer. '
+                + 'Never runs the npx fallback, which is always asked for',
         }),
     };
 
@@ -60,13 +61,7 @@ export default class SkillsInstall extends BaseCommand {
 
     private async targets({ found, named, yes }: { found: Agent[]; named: boolean; yes: boolean }): Promise<Agent[]> {
         if (found.length === 0 && !named) {
-            if (!(await onPath(fallback.bin))) {
-                const bins = agents.map(agent => `\`${agent.bin}\``).join(', ');
-
-                throw new CliError(`Found none of ${bins}, and no \`npx\` to run the skills CLI with.`, 1, 'no_agent_found');
-            }
-
-            return [fallback];
+            return this.fallbackTarget();
         }
 
         if (named || yes || found.length === 1) {
@@ -84,5 +79,31 @@ export default class SkillsInstall extends BaseCommand {
         }
 
         return choose(found, this.signal);
+    }
+
+    /** The skills CLI runs code from npm, so it needs a yes from someone at a terminal, whatever the flags say. */
+    private async fallbackTarget(): Promise<Agent[]> {
+        const bins = agents.map(agent => `\`${agent.bin}\``).join(', ');
+
+        if (!(await onPath(fallback.bin))) {
+            throw new CliError(`Found none of ${bins}, and no \`npx\` to run the skills CLI with.`, 1, 'no_agent_found');
+        }
+
+        if (!this.interactive || !process.stdin.isTTY) {
+            throw new CliError(
+                `Found none of ${bins}. To install with the skills CLI, run \`${FALLBACK_COMMAND}\` yourself.`,
+                exitCode.usage,
+                'fallback_confirmation_required',
+            );
+        }
+
+        const question = `Found none of ${bins}. Run \`${FALLBACK_COMMAND}\`? It downloads the skills CLI from npm `
+            + 'and installs the Adapty skills into every agent it finds.';
+
+        if (!(await confirm(question, this.signal))) {
+            throw new CliError('Nothing installed.', 1, 'fallback_declined');
+        }
+
+        return [fallback];
     }
 }

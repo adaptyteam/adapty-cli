@@ -32,15 +32,21 @@ export const agents: readonly Agent<AgentId>[] = [
     { bin: 'gemini', id: 'gemini-cli', name: 'Gemini CLI', steps: [['skills', 'install', `https://github.com/${SOURCE}`]] },
 ];
 
-/** For a machine where none of the agents above is found: the skills CLI detects the rest itself. */
+/** Pinned: the fallback runs this package from npm, so a new release is taken on purpose, not by accident. */
+const SKILLS_CLI = 'skills@1.7.0';
+
+/**
+ * For a machine where none of the agents above is found: the skills CLI detects the rest itself and
+ * installs into every agent it finds. It runs code from npm, so it only ever runs after a yes.
+ */
 export const fallback: Agent = {
     bin: 'npx',
     id: 'other',
     name: 'Other agents (skills CLI)',
-    steps: [['--yes', 'skills', 'add', SOURCE, '--all', '--global']],
+    steps: [['--yes', SKILLS_CLI, 'add', SOURCE, '--all', '--global']],
 };
 
-export const FALLBACK_COMMAND = `npx skills add ${SOURCE} --all --global`;
+export const FALLBACK_COMMAND = `npx ${SKILLS_CLI} add ${SOURCE} --all --global`;
 
 export type Run = (bin: string, args: readonly string[]) => Promise<{ code: number | null; stderr: string }>;
 
