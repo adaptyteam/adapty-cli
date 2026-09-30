@@ -1,11 +1,21 @@
 import { execFile } from 'node:child_process';
+import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 const git = promisify(execFile);
 
-export const repositoryRoot = async (cwd: string): Promise<string | undefined> => {
+/** In a worktree or a submodule `.git` is a file, so the git directory comes from git itself. */
+export const repository = async (cwd: string): Promise<{ gitDir: string; root: string } | undefined> => {
     try {
-        return (await git('git', ['rev-parse', '--show-toplevel'], { cwd })).stdout.trim();
+        const { stdout } = await git('git', ['rev-parse', '--show-toplevel', '--absolute-git-dir'], { cwd });
+        const [root, gitDir] = stdout.trim().split('\n');
+
+        if (root === undefined || gitDir === undefined) {
+            return undefined;
+        }
+
+        // git prints forward slashes on Windows too: resolve() gives the platform's own form.
+        return { gitDir: resolve(gitDir), root: resolve(root) };
     } catch {
         return undefined;
     }
@@ -33,7 +43,8 @@ export const buildHandoff = ({ actionId, appId, files, guides, migrationId }: Ha
     files,
     instructions: [
         'Migrate this app from RevenueCat to Adapty with the adapty-integration skill, in RevenueCat migration mode. '
-        + 'If this session does not have the skill, run `adapty skills install`, then restart the agent.',
+        + 'If this session does not have the skill, run `adapty skills install --agent <claude-code, codex or gemini-cli: '
+        + 'the agent you are>`, then restart the agent.',
         '',
         '- Before changing any file, create a branch: `git switch -c adapty-migrate`. Leave the changes uncommitted for '
         + 'the developer to review.',

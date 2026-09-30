@@ -40,10 +40,14 @@ describe('skills install: agents', () => {
         ]);
     });
 
-    it('installs when the marketplace was already added', async () => {
+    it('installs when the marketplace was already there, and warns that its source may be another one', async () => {
         const { run } = scripted({ code: 1, stderr: 'Marketplace already exists' }, { code: 0, stderr: '' });
 
-        expect(await install(claude, run)).to.deep.equal({ agent: 'claude-code', installed: true });
+        const result = await install(claude, run);
+
+        expect(result.installed).to.equal(true);
+        expect(result.warning).to.contain('adding the marketplace failed (Marketplace already exists)');
+        expect(result.warning).to.contain('`claude plugin marketplace list`');
     });
 
     it('reports the last lines the failing install wrote to stderr', async () => {

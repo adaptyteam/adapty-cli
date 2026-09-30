@@ -44,7 +44,7 @@ export const FALLBACK_COMMAND = `npx skills add ${SOURCE} --all --global`;
 
 export type Run = (bin: string, args: readonly string[]) => Promise<{ code: number | null; stderr: string }>;
 
-export type InstallResult = { agent: Agent['id']; error?: string; installed: boolean };
+export type InstallResult = { agent: Agent['id']; error?: string; installed: boolean; warning?: string };
 
 // A Windows agent is a .cmd shim that only a shell resolves.
 const windows = process.platform === 'win32';
@@ -85,18 +85,34 @@ export const onPath = async (bin: string): Promise<boolean> => {
     return false;
 };
 
+const tailOf = (stderr: string): string => stderr.trim().split('\n').slice(-STDERR_TAIL_LINES).join('\n');
+
 export const install = async (agent: Agent, run: Run): Promise<InstallResult> => {
-    let last = { code: null as number | null, stderr: '' };
+    const results = [];
 
     for (const step of agent.steps) {
-        last = await run(agent.bin, step);
+        results.push(await run(agent.bin, step));
     }
 
-    if (last.code === 0) {
-        return { agent: agent.id, installed: true };
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- every agent has at least one step
+    const last = results.at(-1)!;
+
+    if (last.code !== 0) {
+        const error = tailOf(last.stderr) || `\`${agent.bin}\` exited with code ${String(last.code)}`;
+
+        return { agent: agent.id, error, installed: false };
     }
 
-    const tail = last.stderr.trim().split('\n').slice(-STDERR_TAIL_LINES).join('\n');
+    // A marketplace that is already there fails the step, whether it is ours or another source under
+    // the same name; only the second installs someone else's skills, and the CLI cannot tell them apart.
+    const marketplace = results.length > 1 ? results[0] : undefined;
 
-    return { agent: agent.id, error: tail || `\`${agent.bin}\` exited with code ${String(last.code)}`, installed: false };
+    if (marketplace !== undefined && marketplace.code !== 0) {
+        const warning = `adding the marketplace failed (${tailOf(marketplace.stderr) || 'no message'}). If an \`adapty\` `
+            + `marketplace already existed, the skills came from its source: check it with \`${agent.bin} plugin marketplace list\`.`;
+
+        return { agent: agent.id, installed: true, warning };
+    }
+
+    return { agent: agent.id, installed: true };
 };
