@@ -12,6 +12,9 @@ attribution/
 attribution-*
 attribution.*
 
+# Shared skills
+/skills/adapty-cli/references/cli-commands.md
+
 # Topic teams bump the version to release.
 /package.json
 
