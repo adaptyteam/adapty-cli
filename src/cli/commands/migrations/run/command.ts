@@ -10,7 +10,7 @@ import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
 import { actionView } from './lib/action-view.js';
 import { findAction, unknownActionMessage, unsupportedActionMessage } from './lib/actions.js';
-import { buildHandoff, repositoryRoot } from './lib/agent.js';
+import { buildHandoff, repository } from './lib/agent.js';
 import { readActionInput } from './lib/input.js';
 import { openLink } from './lib/open-link.js';
 
@@ -163,9 +163,9 @@ export default class Run extends MigrationCommand {
 
     /** The agent that ran this command, or the one the developer pastes the output into, does the work. */
     private async handOff({ action, envelope, selection }: RunContext): Promise<Handoff> {
-        const root = await repositoryRoot(process.cwd());
+        const repo = await repository(process.cwd());
 
-        if (root === undefined) {
+        if (repo === undefined) {
             throw new CliError(
                 `\`${action.action_id}\` works on the app code: run it from the app's git repository.`,
                 exitCode.usage,
@@ -174,7 +174,7 @@ export default class Run extends MigrationCommand {
         }
 
         const migrationId = selection.currentMigrationId;
-        const dir = join(root, '.git', 'adapty');
+        const dir = join(repo.gitDir, 'adapty');
         const files: string[] = [];
         const guides: string[] = [];
 
@@ -189,7 +189,8 @@ export default class Run extends MigrationCommand {
                 const file = join(dir, `${name}.json`);
 
                 await writeFile(file, `${JSON.stringify(result, null, 2)}\n`);
-                files.push(`\`${name}\`: ${relative(root, file)}`);
+                // A worktree's git directory sits outside it: say where the file is from anywhere.
+                files.push(`\`${name}\`: ${file.startsWith(repo.root) ? relative(repo.root, file) : file}`);
             }
         }
 

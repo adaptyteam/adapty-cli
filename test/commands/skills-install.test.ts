@@ -81,6 +81,15 @@ describe('skills install', () => {
         expect(await calls()).to.equal('');
     });
 
+    posix('falls back to the skills CLI with --yes too when none of the agents is on PATH', async () => {
+        await stub('npx');
+
+        const { status, stdout } = install('--yes', '--json');
+
+        expect(status).to.equal(0);
+        expect(JSON.parse(stdout)).to.deep.equal([{ agent: 'other', installed: true }]);
+    });
+
     posix('installs into every agent found with --yes', async () => {
         await stub('claude');
         await stub('codex');

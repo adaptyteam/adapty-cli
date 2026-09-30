@@ -19,4 +19,9 @@ describe('renderInstall', () => {
         expect(renderInstall([{ agent: 'other', installed: true }]))
             .to.equal('✓ Other agents (skills CLI): installed. Restart it to load the skills.');
     });
+
+    it('puts a warning under the install it belongs to', () => {
+        expect(renderInstall([{ agent: 'claude-code', installed: true, warning: 'check the marketplace' }]).split('\n').slice(0, 2))
+            .to.deep.equal(['✓ Claude Code: installed. Restart it to load the skills.', '  Warning: check the marketplace']);
+    });
 });

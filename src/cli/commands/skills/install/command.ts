@@ -59,11 +59,7 @@ export default class SkillsInstall extends BaseCommand {
     }
 
     private async targets({ found, named, yes }: { found: Agent[]; named: boolean; yes: boolean }): Promise<Agent[]> {
-        if (named || yes || found.length === 1) {
-            return found;
-        }
-
-        if (found.length === 0) {
+        if (found.length === 0 && !named) {
             if (!(await onPath(fallback.bin))) {
                 const bins = agents.map(agent => `\`${agent.bin}\``).join(', ');
 
@@ -71,6 +67,10 @@ export default class SkillsInstall extends BaseCommand {
             }
 
             return [fallback];
+        }
+
+        if (named || yes || found.length === 1) {
+            return found;
         }
 
         if (!this.interactive || !process.stdin.isTTY) {
