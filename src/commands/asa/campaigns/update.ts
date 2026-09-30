@@ -22,7 +22,7 @@ export default class AsaCampaignsUpdate extends Command {
     };
 
     static override description
-        = 'Change a campaign: daily budget, countries, status, schedule or Invoicing Options (all five --invoice-* flags together; they replace the stored set)';
+        = 'Change a campaign: daily budget, countries, status or Invoicing Options (all five --invoice-* flags together; they replace the stored set)';
 
     static override enableJsonFlag = true;
     static override examples = [
