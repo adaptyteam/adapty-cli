@@ -19,7 +19,7 @@ describe('migrations run: agent handoff', () => {
     it('names the skill, the app, the migration as the run ID, and every file the server data went to', () => {
         expect(handoff.instructions).to.contain('the adapty-integration skill');
         expect(handoff.instructions).to.contain('`adapty skills install --agent <claude-code, codex or gemini-cli');
-        expect(handoff.instructions).to.contain('Before changing any file, create a branch: `git switch -c adapty-migrate`.');
+        expect(handoff.instructions).to.contain('create a branch: `git switch -c adapty-migrate`, or `adapty-migrate-2`');
         expect(handoff.instructions).to.contain('The Adapty app is app_1');
         expect(handoff.instructions).to.contain('The skill\'s run ID is mig_1.');
         expect(handoff.instructions).to.contain('- `report`: .git/adapty/report.json\n- `code-plan`: .git/adapty/code-plan.json');
@@ -28,6 +28,8 @@ describe('migrations run: agent handoff', () => {
     it('carries the server\'s guide as it is, then the command that reports the result back', () => {
         expect(handoff.instructions).to.contain('\nHow to read the report.\n\nWhen the code is done, report it: '
             + '`adapty migrations run migrate_code -m mig_1 --input \'{"summary": ');
+
+        expect(handoff.instructions).to.contain('the developer closes it with `adapty migrations close -m mig_1 --outcome finish`.');
     });
 
     it('returns the action and the files next to the text, for --json', () => {
