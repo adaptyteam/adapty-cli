@@ -31,6 +31,11 @@ export type ErrorJson = WizardDiagnostics & {
     error_code?: string | undefined;
     errors?: unknown;
     message: string;
+    /**
+     * The server's wait in whole seconds: Retry-After rounded up, else the Wizard envelope's own field,
+     * which says null for no wait. Absent when the server said nothing.
+     */
+    retry_after_seconds?: number | null | undefined;
     status?: number | undefined;
     status_code?: number | undefined;
 };
@@ -66,7 +71,21 @@ export class CliError extends Errors.CLIError {
             this.cause = options.cause;
         }
     }
+
+    /**
+     * What a command still on oclif's own Command prints under --json, where the error object is
+     * serialized as it is: the same `{ message, ... }` a migrated command prints, not its internals.
+     */
+    toJSON(): ErrorJson {
+        return this.json;
+    }
 }
+
+/**
+ * Bad input found by a flag parser: exit 2 in both human and --json mode, hence a CliError. Its
+ * json keeps the text as written; oclif prefixes only the human message with the flag's name.
+ */
+export const usageError = (message: string): CliError => new CliError(message, exitCode.usage);
 
 const cliError = (message: string, exit: number, code?: string, json?: Partial<ErrorJson>): Error => {
     return new CliError(message, exit, code, { json });
@@ -167,6 +186,10 @@ export const toCliError = (error: unknown): Error => {
                 message: error.message,
                 status: error.status,
                 status_code: error.status,
+                // Only when the server asked for a wait: an agent reads it instead of guessing one
+                ...(error.retryAfterMs === undefined
+                    ? {}
+                    : { retry_after_seconds: Math.ceil(error.retryAfterMs / 1000) }),
             });
         }
 

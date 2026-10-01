@@ -28,11 +28,20 @@ Every `list` and `get` command in this file returns metadata only, no metrics. E
 |---|---|---|
 | `asa campaigns list` | scope filters only | Metadata only. |
 | `asa campaigns get <id>` | positional UUID | Metadata only. |
-| `asa campaigns create` | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--status` (`ENABLED`/`PAUSED`, no default), `--budget` (lifetime), `--target-cpa`, `--bidding-strategy`, `--supply-source` (repeatable, default `APPSTORE_SEARCH_RESULTS`), `--billing-event` (`IMPRESSIONS`/`TAPS`, default `TAPS`), `--ad-channel-type` (`DISPLAY`/`SEARCH`, default `SEARCH`), `--invoice-advertiser`, `--invoice-order-number`, `--invoice-contact-name`, `--invoice-contact-email`, `--invoice-billing-email` (all five together, LOC organizations only) | `--org` takes the UUID (`internal_id`) from `asa orgs list`, not that row's numeric `org_id`; `--adam-id` comes from `asa apps list`. `--status` has no default — pass `--status PAUSED` to launch without spending until you enable it. The response carries `serving_status` and `serving_state_reasons`; when the campaign is `NOT_RUNNING` the command prints the reason and the fixing command — see [Max Conversions](#max-conversions-campaigns) and [Line of credit](#line-of-credit-loc-organizations). |
-| `asa campaigns update <id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--budget`, `--target-cpa`, `--bidding-strategy`, or `--invoice-advertiser`, `--invoice-order-number`, `--invoice-contact-name`, `--invoice-contact-email`, `--invoice-billing-email` together | The `--invoice-*` flags replace the stored Invoicing Options as a whole — pass all five, a partial set exits 2 before the network. |
+| `asa campaigns create` | `--org`, `--name`, `--adam-id`, `--country` (repeatable), `--daily-budget`; optional `--status` (`ENABLED`/`PAUSED`, no default), `--target-cpa`, `--bidding-strategy`, `--supply-source` (repeatable, default `APPSTORE_SEARCH_RESULTS`), `--billing-event` (`IMPRESSIONS`/`TAPS`, default `TAPS`), `--ad-channel-type` (`DISPLAY`/`SEARCH`, default `SEARCH`), `--invoice-advertiser`, `--invoice-order-number`, `--invoice-contact-name`, `--invoice-contact-email`, `--invoice-billing-email` (all five together, LOC organizations only) | `--org` takes the UUID (`internal_id`) from `asa orgs list`, not that row's numeric `org_id`; `--adam-id` comes from `asa apps list`. `--status` has no default — pass `--status PAUSED` only when the user asks to launch without spending (see [Budget and serving](#budget-and-serving)). The response carries `serving_status` and `serving_state_reasons`; when the campaign is `NOT_RUNNING` the command prints the reason and the fixing command — see [Max Conversions](#max-conversions-campaigns) and [Line of credit](#line-of-credit-loc-organizations). |
+| `asa campaigns update <id>` | at least one of `--name`, `--status`, `--country`, `--daily-budget`, `--target-cpa`, `--bidding-strategy`, or `--invoice-advertiser`, `--invoice-order-number`, `--invoice-contact-name`, `--invoice-contact-email`, `--invoice-billing-email` together | The `--invoice-*` flags replace the stored Invoicing Options as a whole — pass all five, a partial set exits 2 before the network. |
 | `asa campaigns bulk-create` | exactly one of `--file` (JSON structure, `-` for stdin) / `--from-file` (Apple Ads template, `.xlsx` or keywords `.csv`); `--org-id` required with `--from-file`; optional `--preview`, `--no-wait`, `--poll-interval` (default `5`), `--timeout` (default `900`) | Creates a whole structure — campaigns → ad groups → keywords/negative keywords/ads — as one queued operation. `--org-id` is the exception to this file's UUID rule: it takes the **numeric** `org_id` from `asa orgs list` (Apple's `campaign_group_id`), not the `internal_id` UUID that `campaigns create --org` takes. `--from-file` converts the template server-side first (its own budget — see [Request budgets](#request-budgets)); with `--preview` the command prints the converted request and creates nothing. By default it polls until the operation finishes (`success`/`partial`/`failed`, per-object failures listed); `--no-wait` prints the `operation_id` and returns — follow up with `bulk-status`. |
 | `asa campaigns bulk-status <operation-id>` | positional operation id, printed by `bulk-create` | Progress of one bulk operation: status, applied/failed counts, and the per-object log with each failure's reason. |
 | `asa campaigns bulk-list` | optional `--status` (`pending`/`running`/`success`/`partial`/`failed`, repeatable), `--app` (UUID), `--created-from`/`--created-to` (YYYY-MM-DD) | This company's bulk operations, newest first — one row per operation with its verdict and timestamps, no per-object detail. Use it to find an `operation_id` you lost or to check what ran recently, then drill in with `bulk-status`. Cheap catalog read. |
+
+### Budget and serving
+
+- Budget always means `--daily-budget`. Apple does not support lifetime budgets; if the user gives a total for a
+  period, divide it by the number of days and confirm the daily amount before writing.
+- A campaign serves only when the campaign, its ad groups and its keywords are all enabled (`ENABLED`; keywords
+  `ACTIVE`). Create them `PAUSED` only if the user asks; after setup, list anything still paused and offer to enable
+  it (`asa campaigns update <id> --status ENABLED`, `asa ad-groups update <id> --status ENABLED`,
+  `asa keywords update <id> --status ACTIVE`).
 
 ### Max Conversions campaigns
 
@@ -91,6 +100,7 @@ Invoicing Options. They map to `loc_invoice_details` in the request: advertiser 
 | Command | Flags | Notes |
 |---|---|---|
 | `asa keywords list` | scope filters only | Metadata only. Filter by `--ad-group` — unfiltered, this is the widest read in the surface. |
+| `asa keywords recommend` | `--adam-id` (Apple App Store ID from `asa apps list`), `--type` (`brand` / `generic` / `competitor`); optional `--country` (ISO code, repeatable) | Ready-made keyword pools computed by Adapty's Autopilot for one of your apps — the same sets the dashboard's campaign setup uses. `brand`: the app's own brand terms, spelling variants and organic terms carrying the brand. `generic`: non-brand terms the app and its top organic competitors rank for, minus every known brand term; `relevance_tier: top_organic` marks terms where the app is already in the organic top 10. `competitor`: one pool per competitor selected for the app in the dashboard's Autopilot setup — empty until the client selects competitors there. Read `status` before the list: `building` means come back later, `empty` is a real answer, `failed` needs a retry another day. A cold `brand` or `generic` call builds the pool in-request and can take tens of seconds; only one such call runs at a time per company (429 with `Retry-After` otherwise), and the budget is 10 calls a minute. Terms come without bids or match types — choose those per the playbook and load them with `asa keywords add`. |
 | `asa keywords add` | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; optional `--bid`, `--match-type` (`BROAD`/`EXACT`, default `BROAD`), `--status` (`ACTIVE`/`PAUSED`, default `ACTIVE`) | Batch call, capped at 100 keywords per call — the skill's own practice caps a single call lower, at 15 (see `SKILL.md`'s `## Never`). `--from-file` reads one keyword per line, trims each line, drops blank lines, and combines the result with any `--text` values. Default match type is `BROAD`, which widens spend beyond exact matches; pass `--match-type EXACT` to narrow it. |
 | `asa keywords update <id> [<id>...]` | one or more positional ids | The same change (e.g. `--bid`, `--status`) is applied to every id in the list. `--text` is only valid when a single id is given — you cannot bulk-rename keyword text. |
 
@@ -232,6 +242,7 @@ Every `asa` command is rate limited per company, not per token:
 |---|---|
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
+| `keywords recommend` | 10/min, one in-flight `brand`/`generic` rebuild at a time, `Retry-After: 5` on `cli_analytics_busy` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
@@ -240,7 +251,9 @@ Every `asa` command is rate limited per company, not per token:
 the account-size reason to filter it in Scope filters. `metrics`, `metrics overview`,
 `search-terms list`, and `competitors summary` share a separate analytics pool with its own
 budget and its own `429 cli_analytics_busy`; that pool and its numbers live in the metrics
-reference, not here.
+reference, not here. `keywords recommend` raises the same `cli_analytics_busy` code from a
+different, one-slot pool of its own, so a busy `brand`/`generic` rebuild answers with this
+section's `Retry-After: 5`, not the metrics pool's numbers.
 
 A budget running out answers `429 cli_rate_limit_exceeded` with the wait in `Retry-After` —
 a different code from `cli_analytics_busy` (that other pool's concurrency cap) and from

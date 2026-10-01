@@ -3,6 +3,14 @@ import { Command } from '@oclif/core';
 import { CliError, toCliError } from '../errors.js';
 
 import type { ErrorJson } from '../errors.js';
+import type { Config } from '@oclif/core';
+
+/** What a product's `build()` takes from the command that calls it. */
+export type CommandContext = {
+    config: Config;
+    signal: AbortSignal;
+    warn: (message: string) => void;
+};
 
 /**
  * On a pipe Node leaves `isTTY` absent, not false, while @types/node promises a boolean. Taken at

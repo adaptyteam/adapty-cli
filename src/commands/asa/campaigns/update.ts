@@ -22,7 +22,7 @@ export default class AsaCampaignsUpdate extends Command {
     };
 
     static override description
-        = 'Change a campaign: budgets, countries, status, schedule or Invoicing Options (all five --invoice-* flags together; they replace the stored set)';
+        = 'Change a campaign: daily budget, countries, status or Invoicing Options (all five --invoice-* flags together; they replace the stored set)';
 
     static override enableJsonFlag = true;
     static override examples = [
@@ -40,7 +40,6 @@ export default class AsaCampaignsUpdate extends Command {
             description: 'Bidding strategy',
             options: ['MANUAL_CPT', 'MAX_CONVERSIONS'],
         }),
-        'budget': moneyFlag('Lifetime budget'),
         'country': Flags.string({ description: 'Replace the country list, repeatable', multiple: true }),
         'daily-budget': moneyFlag('Daily budget'),
         'name': Flags.string({ description: 'Campaign name' }),
@@ -71,10 +70,6 @@ export default class AsaCampaignsUpdate extends Command {
 
         if (flags['daily-budget'] !== undefined) {
             body.daily_budget_amount = money(flags['daily-budget'], flags.currency);
-        }
-
-        if (flags.budget !== undefined) {
-            body.budget_amount = money(flags.budget, flags.currency);
         }
 
         if (flags['target-cpa'] !== undefined) {

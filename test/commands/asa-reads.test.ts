@@ -346,4 +346,126 @@ describe('asa reads', () => {
         expect(error?.message).to.contain('1000');
         expect(fetchStub.callCount).to.equal(1);
     });
+
+    it('keywords recommend reads the brand pool for one app with repeatable, upper-cased countries', async () => {
+        fetchStub = mockFetch([
+            {
+                brand: { adam_id: 1_668_337_467, brand_terms: ['calm', 'calm app'], source: 'llm' },
+                keywords: [
+                    {
+                        adam_id: 1_668_337_467,
+                        country: 'US',
+                        median_organic_rank: 3,
+                        popularity: 80,
+                        score: 0.92,
+                        source: 'organic',
+                        text: 'calm',
+                    },
+                ],
+                status: 'ready',
+            },
+        ]);
+
+        const { stdout } = await runCommand(
+            'asa keywords recommend --adam-id 1668337467 --type brand --country us --country GB',
+        );
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/keyword-recommendations/brand/',
+            query: { adam_id: '1668337467' },
+            stub: fetchStub,
+        });
+
+        const { searchParams } = new URL(fetchStub.getCall(0).args[0] as string);
+        expect(searchParams.getAll('country')).to.deep.equal(['US', 'GB']);
+
+        const statusIndex = stdout.indexOf('Status: ready');
+        const countIndex = stdout.indexOf('Keywords Count: 1');
+        expect(statusIndex).to.be.greaterThan(-1);
+        expect(countIndex).to.be.greaterThan(statusIndex);
+        expect(stdout).to.contain('Brand Terms: calm, calm app');
+        expect(stdout).to.contain('Text: calm');
+    });
+
+    it('keywords recommend maps --type competitor onto the competitor-brand route and reports no competitors', async () => {
+        fetchStub = mockFetch([{ pools: [] }]);
+        const { stdout } = await runCommand('asa keywords recommend --adam-id 1668337467 --type competitor');
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/keyword-recommendations/competitor-brand/',
+            query: { adam_id: '1668337467' },
+            stub: fetchStub,
+        });
+
+        const { searchParams } = new URL(fetchStub.getCall(0).args[0] as string);
+        expect(searchParams.getAll('country')).to.deep.equal([]);
+        expect(stdout).to.contain('No competitors selected for this app yet');
+    });
+
+    it('keywords recommend prints competitor pools with a header, blank line and separator', async () => {
+        fetchStub = mockFetch([
+            {
+                pools: [
+                    {
+                        competitor_adam_id: 111,
+                        keywords: [
+                            {
+                                adam_id: 111,
+                                country: 'US',
+                                median_organic_rank: 5,
+                                popularity: 40,
+                                score: 0.5,
+                                source: 'organic',
+                                text: 'headspace',
+                            },
+                        ],
+                        status: 'ready',
+                    },
+                    { competitor_adam_id: 222, keywords: [], status: 'empty' },
+                ],
+            },
+        ]);
+
+        const { stdout } = await runCommand('asa keywords recommend --adam-id 1668337467 --type competitor');
+
+        expect(stdout).to.contain('Competitor Adam ID: 111\nStatus: ready\nKeywords Count: 1\n\nCountry: US');
+        expect(stdout).to.contain('===');
+        expect(stdout).to.not.contain('\nAdam ID:');
+    });
+
+    it('keywords recommend hints at a retry for a pool that is still building', async () => {
+        fetchStub = mockFetch([{ keywords: [], status: 'building' }]);
+        const { stdout } = await runCommand('asa keywords recommend --adam-id 1668337467 --type generic');
+
+        expect(stdout).to.contain('Status: building');
+        expect(stdout).to.contain('retry in about a minute');
+    });
+
+    it('keywords recommend --json prints the raw snake_case DTO unchanged', async () => {
+        const payload = { keywords: [], status: 'empty' };
+        fetchStub = mockFetch([payload]);
+
+        const { stdout } = await runCommand('asa keywords recommend --adam-id 1668337467 --type generic --json');
+
+        expect(JSON.parse(stdout)).to.deep.equal(payload);
+    });
+
+    it('keywords recommend refuses a non-numeric adam id and a bad country before the network', async () => {
+        fetchStub = mockFetch([{ keywords: [], status: 'empty' }]);
+        const badId = await runCommand('asa keywords recommend --adam-id abc --type generic');
+        const badCountry = await runCommand('asa keywords recommend --adam-id 1 --type generic --country USA');
+        const badType = await runCommand('asa keywords recommend --adam-id 1 --type organic');
+
+        expect(badId.error?.message).to.contain('--adam-id');
+        expect(badId.error?.oclif?.exit).to.equal(2);
+        expect(badCountry.error?.message).to.contain('--country');
+        expect(badType.error?.message).to.contain('--type');
+        expect(fetchStub.callCount).to.equal(0);
+    });
 });

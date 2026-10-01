@@ -1,9 +1,10 @@
 import { Args, Command } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { confirmFlags, confirmMutation } from '../../lib/confirm.js';
 import { ApiError } from '../../lib/errors.js';
-import { appFlag, isValidUuid } from '../../lib/flags.js';
+import { isValidUuid } from '../../lib/flags.js';
 import { flowFixLinks } from '../../lib/flow-help.js';
 import { printResponse } from '../../lib/output.js';
 
@@ -21,7 +22,7 @@ export default class FlowsPublish extends Command {
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> flows publish --app UUID 550e8400-e29b-41d4-a716-446655440000'];
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         ...confirmFlags,
     };
 

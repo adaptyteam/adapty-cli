@@ -32,7 +32,7 @@ src/
                      # Implementation in src/cli/commands/migrations
     segments/        # list, get
     access-levels/   # list, get, create, update
-    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords,
+    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
                      # competitors
   lib/
@@ -41,7 +41,7 @@ src/
     auth.ts          # token resolution (config or ADAPTY_TOKEN env)
     client-from-config.ts  # factory: reads config → ApiClient
     errors.ts        # ApiError, NetworkError, AuthRequiredError
-    flags.ts         # shared flags: --app (UUID), pagination
+    flags.ts         # shared flags: pagination, UUID check (--app is appIdFlag in cli/input/app.ts)
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
     app-url.ts       # dashboard base URL (ADAPTY_APP_URL): route building + rehosting API-issued links
     asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')
@@ -61,6 +61,7 @@ hand-written command in `src/commands`. New work goes to
 ```
 src/
   sdk/               # the API: core/ (transport, errors, session, clock) + adapty/ (resources, rules)
+                     # + attribution/ (Attribution analytics: catalog, report, values)
   cli/               # the oclif adapter: base commands, session, exit codes, flags, views
 ```
 
@@ -73,13 +74,14 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 
 - oclif topic separator is space (e.g. `adapty apps list`, not `adapty apps:list`)
 - All resource commands scoped under `--app APP_ID` (UUID, validated) — except `asa`, which is scoped by the
-  token's company (`--app` there is only a list filter)
+  token's company (`--app` there is only a list filter), and the `attribution metrics` and `attribution dimensions`
+  catalog reads, which are the same for every app and take no `--app`
 - `list` commands use shared pagination flags (--page, --page-size)
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
 - Relative imports use explicit `.js` extensions, including `/index.js` for module entry points
   (Node.js ESM + TypeScript `nodenext`)
-- Import the Adapty command adapter through `cli/base/adapty/index.js`; files inside that module
-  import each other directly
+- Import the Adapty command adapter through `cli/base/adapty/index.js` (the attribution one through
+  `cli/base/attribution/index.js`); files inside that module import each other directly
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
 - `ADAPTY_API_URL` env overrides default API base URL
@@ -97,6 +99,9 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
   `detail`, `Retry-After` on 429)
+- `attribution` topic talks to the UA attribution service: base `https://api-ua.adapty.io/api/v1/cli`, overridden by
+  `ADAPTY_ATTRIBUTION_API_URL`; same bearer token, no app header (`report` and `values` take `--app`, the catalogs
+  none), errors in the `errors[]` envelope with `error_code`; `report` and `values` are POSTs that are never retried
 
 ## Key Patterns
 

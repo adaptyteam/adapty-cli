@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.8.6",
+  "version": "0.8.9",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -101,6 +101,9 @@
       },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
+      },
+      "attribution": {
+        "description": "Attribution analytics: reports across ad networks, and the metric and dimension catalogs"
       },
       "asa": {
         "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"

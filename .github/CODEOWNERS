@@ -1,0 +1,22 @@
+# The last matching pattern wins. A pattern with no owners leaves its files unowned:
+# a PR that changes only unowned files needs no approval.
+
+# Maintainers own everything by default: shared code, build, CI, release, docs.
+*                                           @mlnchk @gshteynardt
+
+# Anything named asa or attribution, at any depth: no owner.
+asa/
+asa-*
+asa.*
+attribution/
+attribution-*
+attribution.*
+
+# Shared skills
+/skills/adapty-cli/references/cli-commands.md
+
+# Topic teams bump the version to release.
+/package.json
+
+# Ownership rules and workflows stay with maintainers. Keep this line last.
+/.github/                                   @mlnchk @gshteynardt

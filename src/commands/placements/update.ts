@@ -1,7 +1,8 @@
 import { Args, Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag, isValidUuid } from '../../lib/flags.js';
+import { isValidUuid } from '../../lib/flags.js';
 import { draftFlowError } from '../../lib/flow-help.js';
 import { printResponse } from '../../lib/output.js';
 import { audienceEntryProblem } from '../../lib/placement-audiences.js';
@@ -22,7 +23,7 @@ export default class PlacementsUpdate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         'audiences': Flags.string({
             description:
                 'JSON array of audience entries. Every entry needs an explicit content_type. '

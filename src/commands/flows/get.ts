@@ -1,7 +1,8 @@
 import { Args, Command } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag, isValidUuid } from '../../lib/flags.js';
+import { isValidUuid } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { FlowDTO } from '../../lib/api-schemas.js';
@@ -15,7 +16,7 @@ export default class FlowsGet extends Command {
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> flows get --app UUID 550e8400-e29b-41d4-a716-446655440000'];
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
     };
 
     async run(): Promise<FlowDTO> {

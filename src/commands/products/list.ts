@@ -1,7 +1,8 @@
 import { Command } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag, paginationFlags, paginationParams } from '../../lib/flags.js';
+import { paginationFlags, paginationParams } from '../../lib/flags.js';
 import { printList } from '../../lib/output.js';
 
 import type { ProductDTO } from '../../lib/api-schemas.js';
@@ -12,7 +13,7 @@ export default class ProductsList extends Command {
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> products list --app 550e8400-...'];
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         ...paginationFlags,
     };
 

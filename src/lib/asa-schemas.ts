@@ -420,3 +420,51 @@ export type AsaBulkConvertResultDTO = {
     request: null | Record<string, unknown>;
     warnings: AsaTemplateIssueDTO[];
 };
+
+export type AsaKeywordPoolStatus = 'building' | 'empty' | 'failed' | 'missing' | 'ready';
+
+export type AsaBrandKeywordDTO = {
+    adam_id: number;
+    country: string;
+    median_organic_rank: null | number;
+    popularity: null | number;
+    score: null | number;
+    source: 'llm' | 'name' | 'organic';
+    text: string;
+};
+
+export type AsaAppBrandDTO = {
+    adam_id: number;
+    brand_terms: string[];
+    source: 'llm' | 'manual';
+};
+
+export type AsaBrandKeywordPoolDTO = {
+    brand: AsaAppBrandDTO | null;
+    keywords: AsaBrandKeywordDTO[];
+    status: AsaKeywordPoolStatus;
+};
+
+export type AsaGenericKeywordDTO = {
+    country: string;
+    median_organic_rank: null | number;
+    popularity: null | number;
+    relevance_tier: 'other' | 'top_organic';
+    score: null | number;
+    text: string;
+};
+
+export type AsaGenericKeywordPoolDTO = {
+    keywords: AsaGenericKeywordDTO[];
+    status: AsaKeywordPoolStatus;
+};
+
+export type AsaCompetitorBrandKeywordPoolDTO = {
+    competitor_adam_id: number;
+    keywords: AsaBrandKeywordDTO[];
+    status: AsaKeywordPoolStatus;
+};
+
+export type AsaCompetitorBrandKeywordPoolsDTO = {
+    pools: AsaCompetitorBrandKeywordPoolDTO[];
+};

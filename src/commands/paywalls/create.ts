@@ -1,7 +1,7 @@
 import { Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { PaywallDTO, PaywallWriteRequestDTO } from '../../lib/api-schemas.js';
@@ -14,7 +14,7 @@ export default class PaywallsCreate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         'product-id': Flags.string({
             description: 'Product ID (UUID). Repeat for multiple.',
             multiple: true,

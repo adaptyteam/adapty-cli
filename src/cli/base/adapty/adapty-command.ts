@@ -4,10 +4,8 @@ import { BaseCommand } from '../base-command.js';
 import { build } from './build.js';
 import { openSession } from './openSession.js';
 
-import type { ResolvedSession } from './openSession.js';
 import type { Adapty } from '../../../sdk/adapty/index.js';
-
-export type AuthenticatedSession = ResolvedSession & { token: string };
+import type { AuthenticatedSession, ResolvedSession } from '../session.js';
 
 /**
  * Commands that require a token; auth commands other than `whoami` also work without one.

@@ -204,10 +204,25 @@ const noCli = {
     message: 'sdk must not import cli',
 };
 
+// One fence for two zones. Core knows no product, and products stand side by side on core without
+// reaching into each other: attribution shares the bearer token with the developer API, not its
+// code. A product's own files import each other relatively, so its directory name never appears in
+// their specifiers and the fence stays quiet.
 const noProducts = {
-    group: ['**/adapty', '**/adapty/**', '**/asa', '**/asa/**'],
-    message: 'core must not know about products',
+    group: ['**/adapty', '**/adapty/**', '**/asa', '**/asa/**', '**/attribution', '**/attribution/**'],
+    message: 'core must not know about products, and a product must not import another product',
 };
+
+// The adapters under src/cli/base stand side by side the same way: what they share — the token and
+// the session file — lives in cli/base itself. An adapter does import its own product's sdk, so its
+// fence names every product but its own. A new adapter is one more name in this list.
+const cliProducts = ['adapty', 'attribution'];
+
+/** @param {string} product */
+const noOtherAdapter = product => ({
+    group: cliProducts.filter(other => other !== product).flatMap(other => [`**/${other}`, `**/${other}/**`]),
+    message: `the ${product} adapter must not import another product: what adapters share lives in cli/base`,
+});
 
 // Both layers live in src while the migration runs, so the arrow is spelled out.
 const noLegacy = {
@@ -274,9 +289,13 @@ const architecture = tseslint.config(
     },
 
     {
-        // Products see the module, not its parts
-        files: ['src/sdk/adapty/**/*.ts', 'src/sdk/asa/**/*.ts'],
-        rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noLegacy, httpDoorOnly] }] },
+        // Products see the module, not its parts — and not each other
+        files: ['src/sdk/adapty/**/*.ts', 'src/sdk/asa/**/*.ts', 'src/sdk/attribution/**/*.ts'],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [noOclif, noCli, noLegacy, httpDoorOnly, noProducts],
+            }],
+        },
     },
 
     {
@@ -284,6 +303,16 @@ const architecture = tseslint.config(
         files: ['src/cli/**/*.ts'],
         rules: { 'no-restricted-imports': ['error', { patterns: [httpDoorOnly, legacyBridgesOnly] }] },
     },
+
+    // ... and a product's adapter, none of the others
+    ...cliProducts.map(product => ({
+        files: [`src/cli/base/${product}/**/*.ts`],
+        rules: {
+            'no-restricted-imports': ['error', {
+                patterns: [httpDoorOnly, legacyBridgesOnly, noOtherAdapter(product)],
+            }],
+        },
+    })),
 
     {
         // ... plus, for a command, the lib/ it owns
