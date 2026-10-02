@@ -1,8 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 
+import { ISO_DATE } from '../sdk/core/dates.js';
+
 import { usageError } from './errors.js';
 
 import type { PageParams } from '../sdk/adapty/index.js';
+import type { RevenueBasis } from '../sdk/attribution/index.js';
 
 const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
@@ -47,3 +50,62 @@ export const paginationFlags = {
 /** The one place where flag names meet sdk field names. */
 export const pageParams = (flags: { 'page': number; 'page-size': number }): PageParams =>
     ({ page: flags.page, pageSize: flags['page-size'] });
+
+/** The shape only: whether the day exists and the order of the two are sdk rules. */
+const dateParser = (input: string): Promise<string> => (ISO_DATE.test(input)
+    ? Promise.resolve(input)
+    : Promise.reject(usageError('Dates must be written as YYYY-MM-DD.')));
+
+/** An inclusive day range, both ends required. */
+export const periodFlags = {
+    'date-from': Flags.string({
+        description: 'First day of the period, inclusive (YYYY-MM-DD, in the app timezone)',
+        parse: dateParser,
+        required: true,
+    }),
+    'date-to': Flags.string({
+        description: 'Last day of the period, inclusive (YYYY-MM-DD, in the app timezone)',
+        parse: dateParser,
+        required: true,
+    }),
+};
+
+/** Where the period flags meet the sdk's field names. */
+export const periodParams = (flags: { 'date-from': string; 'date-to': string }): { dateFrom: string; dateTo: string } =>
+    ({ dateFrom: flags['date-from'], dateTo: flags['date-to'] });
+
+/**
+ * The list is spelled here because a value import from a product's sdk would load it for every
+ * other product's commands; the type check keeps it in step with the sdk.
+ */
+const revenueBases = ['gross', 'proceeds', 'net'] as const satisfies readonly RevenueBasis[];
+
+export const revenueBasisFlag = {
+    'revenue-basis': Flags.option({
+        description: 'Which revenue the revenue metrics use; the backend default applies when omitted',
+        options: revenueBases,
+    })(),
+};
+
+/** A comma not preceded by a backslash: `\,` keeps a comma inside a value, as oclif's own delimiter does. */
+const VALUE_SEPARATOR = /(?<!\\),/;
+
+export type DimensionFilter = {
+    dimension: string;
+    values: string[];
+};
+
+/** `dimension=value[,value]`: one value filters by equality, several by any of them. */
+export const parseDimensionFilter = (input: string): Promise<DimensionFilter> => {
+    const separator = input.indexOf('=');
+    const dimension = separator === -1 ? '' : input.slice(0, separator).trim();
+
+    const values = separator === -1
+        ? []
+        : input.slice(separator + 1).split(VALUE_SEPARATOR).map(value => value.replaceAll('\\,', ',').trim())
+                .filter(value => value !== '');
+
+    return dimension === '' || values.length === 0
+        ? Promise.reject(usageError(`Expected dimension=value[,value], got "${input}".`))
+        : Promise.resolve({ dimension, values });
+};

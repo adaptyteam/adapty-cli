@@ -2,8 +2,8 @@ import { Flags } from '@oclif/core';
 
 import { validateValues } from '../../../sdk/attribution/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
-import { AttributionCommand, periodFlags, periodParams, revenueBasisFlag } from '../../base/attribution/index.js';
-import { appIdFlag } from '../../flags.js';
+import { AttributionCommand } from '../../base/attribution/index.js';
+import { appIdFlag, periodFlags, periodParams, revenueBasisFlag } from '../../flags.js';
 
 import type { ValuesData, ValuesInput, ValuesResponse } from '../../../sdk/attribution/index.js';
 

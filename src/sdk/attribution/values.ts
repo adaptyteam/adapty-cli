@@ -1,4 +1,4 @@
-import { validateDateRange } from './report.js';
+import { validateDateRange } from '../core/dates.js';
 
 import type { RevenueBasis } from './report.js';
 import type { Issue } from '../core/errors.js';
