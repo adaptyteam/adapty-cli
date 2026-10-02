@@ -47,12 +47,14 @@ Everything here would be the same for any HTTP API.
 - `auth/device-flow.ts` — RFC 8628 orchestration with every effect outside it: network behind a
   port, time behind `Clock`, cancellation behind a signal.
 - `validation.ts` — `assertValid(issues)`, the only place a rule's problems become a throw.
+- `dates.ts` — the `YYYY-MM-DD` shape and the inclusive day-range rule, which every product that
+  reads a period applies the same way.
 - `testing.ts` — the fakes (`createFakeClock`, `createScriptedFetch`) any consumer's tests can use.
 
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`).
+resources off it (`apps`, `auth`, `accessLevels`, `analytics`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -124,16 +126,18 @@ text or JSON.
   User-Agent and retry warnings. Both authenticated commands and auth commands use it.
 - `base/adapty/adapty-command.ts` — resolves an Adapty session and lazily builds its SDK. "Needs
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
-- `base/attribution/` — the same four files for the attribution backend, plus its flags.
+- `base/attribution/` — the same four files for the attribution backend.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
-  mirrors `AdaptyCommand`. `flags.ts` holds the flags only attribution commands take: `periodFlags`
-  for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, and `periodParams`.
+  mirrors `AdaptyCommand`.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
 - `flags.ts` — flags and args that several products take: the app id UUID as a positional and as
-  `--app` (`appIdArg`, `appIdFlag`), pagination, and where those names meet sdk field names
-  (`pageParams`). Legacy commands take `--app` from here too.
+  `--app` (`appIdArg`, `appIdFlag`), pagination, the inclusive `--date-from`/`--date-to` day range
+  (`periodFlags`), `revenueBasisFlag`, the `dimension=value[,value]` filter parser
+  (`parseDimensionFilter`), and where those names meet sdk field names (`pageParams`,
+  `periodParams`). Attribution and analytics share the period, revenue and filter flags. Legacy
+  commands take `--app` from here too.
 - `views/` — plain functions, value in, string out.
 - `commands/` — one class per command.
 
@@ -152,7 +156,6 @@ base/
     ├── index.ts
     ├── attribution-command.ts
     ├── build.ts
-    ├── flags.ts
     └── openSession.ts
 ```
 
@@ -218,8 +221,8 @@ quietly changing what users parse.
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps` and `auth`. `attribution` was written on the new stack from
-the start.
+most topics. Migrated so far: `apps` and `auth`. `attribution` and `analytics` were written on the
+new stack from the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

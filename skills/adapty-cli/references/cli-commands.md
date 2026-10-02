@@ -287,6 +287,29 @@ Before running any of these:
 - **`asa` or `attribution`**: Apple-reported ad data comes from `asa`; cross-network attribution, predictions and
   dashboard parity come from `attribution`. Never sum numbers across the two topics.
 
+## Analytics (`analytics` topic)
+
+Subscription analytics, the charts of the Adapty dashboard: revenue, MRR, ARR, subscriptions, trials, refunds,
+installs. Read-only; every command takes `--app`. For ad-network attribution (campaigns, ROAS) use `attribution`.
+The full agent guide is `docs/agent/analytics.md` in the adapty-cli repository.
+
+| Command                          | Required flags / notes                                                |
+|----------------------------------|-----------------------------------------------------------------------|
+| `analytics charts`               | `--app`; the chart catalog: `chart_id`, `unit`, `revenue_basis`, and the `segmentations` and `filters` each chart accepts |
+| `analytics dimensions`           | `--app`; every dimension and whether it can be a filter and a segmentation |
+| `analytics values <dimension>`   | `--app`; the values a filter dimension takes in the app; each `value` is what a chart filter takes |
+| `analytics chart <chart-id>`     | `--app`, `--date-from`, `--date-to`; optional `--granularity` (default `month`), `--segment-by` (one dimension), `--filter dimension=value[,value]` (repeatable, once per dimension), `--revenue-basis` (revenue charts only, default `gross`), `--csv`; segments with the total first, `meta.query` with the timezone |
+
+```sh
+adapty analytics chart revenue --app APP_UUID --date-from 2026-09-01 --date-to 2026-09-28 --granularity week --segment-by country --json
+```
+
+- **Discover, don't guess.** Read `analytics charts` once, then `analytics values` when filtering. An unknown
+  chart, a segmentation or filter the chart does not accept, or a bad value is `400 validation_error` (exit 4),
+  and the message lists the allowed values.
+- **`null` means not computable, never zero.** The table view prints `—`.
+- **`chart` is sent once.** On `429`, wait the `retry_after_seconds` from the `--json` error, then run it once more.
+
 ## Validation Rules
 
 - `--app` must be a valid UUID

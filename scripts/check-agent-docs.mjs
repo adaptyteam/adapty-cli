@@ -7,12 +7,14 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MANIFEST = fileURLToPath(new URL('../oclif.manifest.json', import.meta.url));
 
+const ANALYTICS_DOC = fileURLToPath(new URL('../docs/agent/analytics.md', import.meta.url));
 const ATTRIBUTION_DOC = fileURLToPath(new URL('../docs/agent/attribution.md', import.meta.url));
 
 const INVENTORY_DOCS = [
     fileURLToPath(new URL('../docs/agent/asa-management.md', import.meta.url)),
     fileURLToPath(new URL('../docs/agent/asa-metrics.md', import.meta.url)),
     ATTRIBUTION_DOC,
+    ANALYTICS_DOC,
 ];
 
 const SETUP_DOC = fileURLToPath(new URL('../docs/agent/skills/adapty-cli-setup/SKILL.md', import.meta.url));
@@ -25,14 +27,14 @@ const EXAMPLE_DOCS = [
 ];
 
 /** The topics whose commands the agent docs must cover. */
-const TOPICS = ['asa', 'attribution'];
+const TOPICS = ['asa', 'attribution', 'analytics'];
 const TOPIC_PATTERN = TOPICS.join('|');
 
 /**
  * Topics whose inventory row must name every flag, not only the required ones. `asa` rows keep the
  * original rule (required flags only).
  */
-const FULL_FLAG_TOPICS = new Set(['attribution']);
+const FULL_FLAG_TOPICS = new Set(['attribution', 'analytics']);
 
 /** Flags every command inherits; an inventory row does not repeat them. */
 const GLOBAL_FLAGS = new Set(['json']);
@@ -222,11 +224,12 @@ for (const file of EXAMPLE_DOCS) {
 }
 
 // The skill reference keeps its own two-column table style, so it is not an inventory doc. Its
-// `attribution` section is checked on its own: every command listed, every written flag real.
+// `attribution` and `analytics` sections are checked on their own: every command listed, every written flag real.
+const SKILL_TOPICS = ['attribution', 'analytics'];
 const referenced = new Set();
 
 for (const [index, line] of readFileSync(SKILL_REFERENCE, 'utf8').split('\n').entries()) {
-    checkExamples(SKILL_REFERENCE, line, index + 1, ['attribution']);
+    checkExamples(SKILL_REFERENCE, line, index + 1, SKILL_TOPICS);
 
     if (!line.startsWith('|')) {
         continue;
@@ -235,7 +238,7 @@ for (const [index, line] of readFileSync(SKILL_REFERENCE, 'utf8').split('\n').en
     const row = cells(line);
     const reference = row.length < 2 ? null : commandReference(row[0]);
 
-    if (!reference || topicOf(reference.id) !== 'attribution') {
+    if (!reference || !SKILL_TOPICS.includes(topicOf(reference.id))) {
         continue;
     }
 
@@ -251,7 +254,7 @@ for (const [index, line] of readFileSync(SKILL_REFERENCE, 'utf8').split('\n').en
 }
 
 for (const id of commands.keys()) {
-    if (topicOf(id) === 'attribution' && !referenced.has(id)) {
+    if (SKILL_TOPICS.includes(topicOf(id)) && !referenced.has(id)) {
         fail(SKILL_REFERENCE, 1, `${spoken(id)} is missing from the skill reference`);
     }
 }
@@ -326,5 +329,6 @@ if (errors.length > 0) {
 const countTopic = topic => [...commands.keys()].filter(id => topicOf(id) === topic).length;
 
 console.log(
-    `Agent docs match ${countTopic('asa')} executable Apple Ads commands and ${countTopic('attribution')} attribution commands in oclif.manifest.json.`,
+    `Agent docs match ${countTopic('asa')} executable Apple Ads commands, ${countTopic('attribution')} attribution commands `
+    + `and ${countTopic('analytics')} analytics commands in oclif.manifest.json.`,
 );

@@ -4,8 +4,8 @@ import { ISO_DATE } from '../sdk/core/dates.js';
 
 import { usageError } from './errors.js';
 
-import type { PageParams } from '../sdk/adapty/index.js';
-import type { RevenueBasis } from '../sdk/attribution/index.js';
+import type { PageParams, RevenueBasis as AnalyticsRevenueBasis } from '../sdk/adapty/index.js';
+import type { RevenueBasis as AttributionRevenueBasis } from '../sdk/attribution/index.js';
 
 const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
@@ -75,10 +75,11 @@ export const periodParams = (flags: { 'date-from': string; 'date-to': string }):
     ({ dateFrom: flags['date-from'], dateTo: flags['date-to'] });
 
 /**
- * The list is spelled here because a value import from a product's sdk would load it for every
- * other product's commands; the type check keeps it in step with the sdk.
+ * Attribution and analytics price revenue the same three ways. The list is spelled here because a
+ * value import from either sdk would load it for the other product's commands; the type check
+ * keeps it in step with both.
  */
-const revenueBases = ['gross', 'proceeds', 'net'] as const satisfies readonly RevenueBasis[];
+const revenueBases = ['gross', 'proceeds', 'net'] as const satisfies readonly AnalyticsRevenueBasis[] satisfies readonly AttributionRevenueBasis[];
 
 export const revenueBasisFlag = {
     'revenue-basis': Flags.option({
