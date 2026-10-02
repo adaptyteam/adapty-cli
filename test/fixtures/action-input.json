@@ -1,0 +1,5 @@
+{
+    "decisions": [
+        { "rc_id": "prod_monthly", "target": "create", "access_level": "premium" }
+    ]
+}

@@ -1,6 +1,6 @@
 import { Command } from '@oclif/core';
 
-import { appIdFlag } from '../../cli/flags.js';
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { paginationFlags, paginationParams } from '../../lib/flags.js';
 import { printList } from '../../lib/output.js';

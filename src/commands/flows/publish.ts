@@ -1,6 +1,6 @@
 import { Args, Command } from '@oclif/core';
 
-import { appIdFlag } from '../../cli/flags.js';
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { confirmFlags, confirmMutation } from '../../lib/confirm.js';
 import { ApiError } from '../../lib/errors.js';

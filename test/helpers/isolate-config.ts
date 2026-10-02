@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { Config } from '@oclif/core';
 
 let sessionFile: string;
+let contextFile: string;
+const environmentKeys = ['XDG_CONFIG_HOME', 'ADAPTY_TOKEN', 'ADAPTY_API_URL', 'ADAPTY_MIGRATION'] as const;
+const originalEnvironment = new Map(environmentKeys.map(key => [key, process.env[key]]));
 
 export const mochaHooks = {
     async beforeAll() {
@@ -14,6 +17,7 @@ export const mochaHooks = {
         const config = await Config.load(join(import.meta.dirname, '..', '..'));
 
         sessionFile = join(config.configDir, 'config.json');
+        contextFile = join(config.configDir, 'context.json');
     },
 
     /**
@@ -23,6 +27,19 @@ export const mochaHooks = {
      */
     async beforeEach() {
         delete process.env.ADAPTY_TOKEN;
+        delete process.env.ADAPTY_API_URL;
+        delete process.env.ADAPTY_MIGRATION;
         await rm(sessionFile, { force: true });
+        await rm(contextFile, { force: true });
+    },
+
+    afterAll() {
+        for (const [key, value] of originalEnvironment) {
+            if (value === undefined) {
+                Reflect.deleteProperty(process.env, key);
+            } else {
+                process.env[key] = value;
+            }
+        }
     },
 };

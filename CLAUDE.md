@@ -27,6 +27,9 @@ src/
                      # capture is the caller's job, the CLI only builds the URL;
                      # validate — advisory publishability check, always 200, exits non-zero when invalid);
                      # media/ (upload — multipart image upload, returns CDN url to reference in a config)
+    migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
+                     # Wizard Service: the flow lives on the server, every answer is one envelope.
+                     # Implementation in src/cli/commands/migrations
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
@@ -38,7 +41,7 @@ src/
     auth.ts          # token resolution (config or ADAPTY_TOKEN env)
     client-from-config.ts  # factory: reads config → ApiClient
     errors.ts        # ApiError, NetworkError, AuthRequiredError
-    flags.ts         # shared flags: pagination, UUID check (--app is appIdFlag in cli/flags.ts)
+    flags.ts         # shared flags: pagination, UUID check (--app is appIdFlag in cli/input/app.ts)
     output.ts        # printResponse(), printList() helpers (auto-formats snake_case keys)
     app-url.ts       # dashboard base URL (ADAPTY_APP_URL): route building + rehosting API-issued links
     asa-client.ts    # factory: ApiClient against the ASA service (errorFormat 'asa')
@@ -107,6 +110,10 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
   error mapping; the Adapty SDK and session belong in `cli/base/adapty/`
 - `AdaptyCommand` checks the token on access to `this.session` or `this.adapty`; parse and validate
   input first. Auth commands use `openSession()` and `build()` explicitly as needed
+- Commands that work on the saved migration extend `MigrationCommand` (same door,
+  `cli/base/adapty/index.js`) and ask `this.currentMigration`
+  (`get` / `require` / `set` / `clear` / `clearFor` / `overridden`). `ADAPTY_MIGRATION`, the context file and the
+  token fingerprint live behind that object, in `cli/context/migration/`, and nowhere else
 
 The following client factories and output helpers belong to the frozen legacy stack:
 

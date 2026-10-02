@@ -1,6 +1,6 @@
 import { Command, Flags } from '@oclif/core';
 
-import { appIdFlag } from '../../cli/flags.js';
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { draftFlowError } from '../../lib/flow-help.js';
 import { printResponse } from '../../lib/output.js';

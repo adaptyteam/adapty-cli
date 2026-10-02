@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { Args, Command, Flags } from '@oclif/core';
 
-import { appIdFlag } from '../../../cli/flags.js';
+import { appIdFlag } from '../../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
 import { isValidUuid } from '../../../lib/flags.js';
 import { printResponse } from '../../../lib/output.js';

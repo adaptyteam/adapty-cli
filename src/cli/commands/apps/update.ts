@@ -3,7 +3,7 @@ import { Flags } from '@oclif/core';
 import { validateUpdateApp } from '../../../sdk/adapty/apps/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
-import { appIdArg } from '../../flags.js';
+import { appIdArg } from '../../input/app.js';
 import { renderRecord } from '../../views/record.js';
 
 import type { AppDetail, UpdateAppInput } from '../../../sdk/adapty/index.js';

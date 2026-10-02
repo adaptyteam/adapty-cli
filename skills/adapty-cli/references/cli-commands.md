@@ -1,7 +1,8 @@
 # CLI Command Reference
 
-All resource commands (except `apps`) require `--app <APP_ID>` (UUID).
-All `list` commands support `--page` (default 1) and `--page-size` (default 20, max 100).
+Product, paywall, placement, access-level and segment commands require `--app <APP_ID>` (UUID).
+Lists of these entities and apps support `--page` (default 1) and `--page-size` (default 20, max 100).
+Migrations use their own IDs and have no list pagination; ASA scope and pagination are described below.
 All commands support `--json` for machine-readable output.
 
 ## Auth
@@ -9,8 +10,8 @@ All commands support `--json` for machine-readable output.
 | Command               | Description                        |
 |-----------------------|-----------------------------------|
 | `auth login`          | OAuth device flow (opens browser) |
-| `auth logout`         | Remove stored token               |
-| `auth revoke`         | Revoke token server-side + logout |
+| `auth logout`         | Remove stored credentials and migration selection locally |
+| `auth revoke`         | Revoke effective token, then remove matching credentials and selection |
 | `auth whoami`         | Show authenticated user info      |
 | `auth status`         | Show local auth state             |
 
@@ -93,6 +94,141 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `access-levels get <access_level_id>`      | `--app`                  |
 | `access-levels create`                     | `--app`, `--sdk-id`, `--title` |
 | `access-levels update <access_level_id>`   | `--app`, `--title`       |
+
+## Migrations
+
+Manage migrations into Adapty: catalog, transactions and store events. The server provides the
+available flows, steps, actions and input schemas. Choose values from the current response.
+
+| Command | Flags |
+|---------|-------|
+| `migrations create` | `--name <app name>` (main flow), or `--flow <flow> --app <app_id>`; `--no-select` |
+| `migrations list` | — |
+| `migrations use <id>` | Verify access and save the selection for the current token |
+| `migrations current` | Show the effective local selection and source; no network |
+| `migrations unuse` | Clear saved selection without authentication; no network |
+| `migrations status` | `-m`, `--wait`, `--timeout <duration>` (needs `--wait`, default 120s, range 1–600s) |
+| `migrations steps` | `-m` |
+| `migrations show [<resource>]` | `-m`; no argument lists what can be read |
+| `migrations run <action_id>` | `-m`, `--input <json>` \| `--input-file <path\|->`, `--yes`, `--open` \| `--no-browser` |
+| `migrations close` | `--outcome finish\|cancel`, `--yes` (required), `-m` |
+
+**Scope and creation.** `create --name` starts a catalog migration into a new app. For an existing
+app, choose a flow and its app from `list.available`, then pass `--flow` and `--app` together.
+These modes are mutually exclusive. Creation starts the flow, returns its ID in `migration.id`
+and saves it as current unless `--no-select` is supplied. A local save failure warns on stderr
+but preserves the successful creation response; do not retry creation to repair local state.
+For `status`, `steps`, `show`, `run` and `close`, pass `-m <id>` explicitly. The CLI also accepts
+`ADAPTY_MIGRATION` or saved context, with priority `-m` > non-empty environment > saved selection.
+
+**Saved selection.** `use` verifies access before saving the returned ID. `current --json` returns
+`{ "currentMigrationId": "...", "source": "env" }` or source `"context"`; both fields are null
+when no selection applies. `unuse` clears saved state even if malformed, but cannot unset
+`ADAPTY_MIGRATION` in the parent shell. Selection is shared across terminals, but each operation
+captures its target once, including polling and GET/POST pairs. `run` and `close` identify a saved
+target on stderr before mutation. Use explicit IDs and `create --no-select` in scripts to avoid
+changing or depending on the shared default.
+
+`auth logout` removes saved context even without credentials. `auth revoke` removes it only after
+successful server revocation and only for the revoked token; other tokens' context is preserved.
+Failed revocation preserves local state. Incomplete local cleanup returns exit 1 with
+`auth_cleanup_failed`; if the error says the token was revoked, repair local state without repeating
+the revoke request. Shell environment overrides must be unset separately.
+
+**Inspect before acting.** Use `status --json` to read `next_actions` and `available_actions`.
+Select an action relevant to the task; optional actions are not a queue to execute. `steps` is a
+checklist, not a source of action IDs. `show` without a resource lists readable names; read the
+resources named in the chosen action's `reads` before preparing input.
+
+**Input actions.** The input must be a JSON object matching the current `input_schema`. Use one
+of `--input`, `--input-file PATH`, or `--input-file -` for stdin. Omitting input sends `{}`.
+Review the full `confirm` text before adding `--yes`. Without it, an input action requiring
+confirmation exits **6** with that text. There is no interactive prompt; the CLI reads status
+but does not send the action request. After an action, inspect the returned state and actions again.
+
+**External actions.** Complete the browser step, then read status again. The CLI reads status
+and prints the action details and link without sending an action request. The browser opens by
+default in an interactive terminal; pipes and `--json` require `--open`. `--no-browser` suppresses
+opening, `BROWSER=none` disables it, and only HTTPS links are supported. External actions reject
+`--input` and `--input-file` with exit 2 (`action_input_unsupported`); stdin is rejected before
+being read. Upload actions are marked unsupported in `status`; use the dashboard or an offered Cloud Export action.
+
+**Waiting.** `status --wait` returns when the revision changes, the state is no longer `running`,
+or the polling budget cannot accommodate another pause. `--timeout` accepts integer seconds or
+minutes (`300`, `300s`, `5m`); it does not interrupt in-flight requests or retries. Progress goes
+to stderr; Ctrl+C exits **130**. Exit **0** means a successful request, including when the returned
+state is `running` or `failed`. Branch on `migration.state`:
+
+- `running`: wait again within the task's overall time budget.
+- `action_required`: inspect and choose an offered action.
+- `completed` or `canceled`: stop.
+- `failed`: inspect issues and offered recovery actions.
+- Unknown state: the CLI prints an upgrade hint and returns successfully; `--wait` stops polling.
+  Inspect the response and update the CLI before continuing.
+
+**Unknown action kinds.** With no `href`, `run` prints the action details and an upgrade hint,
+returns exit **0**, and sends no action request, even with `--yes`. It does not read stdin.
+With an `href`, the CLI hands over the link using the external-action rules above.
+Under `--json`, it returns the original envelope without adding fields or text.
+Known `upload` actions remain unsupported and return exit **2**; use the dashboard or Cloud Export.
+
+**Recovery and closure.** After `revision_conflict`, read status and reconsider the action, input
+and confirmation before retrying. Exit **2** can indicate an unavailable action, unsupported upload
+or invalid input; inspect the error rather than inferring its cause from the exit code alone.
+HTTP **403** returns auth exit **3**, preserving the server's message and diagnostics.
+Transport retries reuse an idempotency key within one invocation; a new CLI invocation creates a
+new key. After an unclear write result, inspect the migration (or `list` after `create`) before
+repeating the write. `close --outcome finish` marks completed; `cancel` abandons the migration.
+Both permanently close it and require `--yes`, with no interactive prompt. `list --all` is unsupported.
+
+Wizard Service JSON errors retain `error.detail`, `error.fields` (each with `path` and `message`),
+`error.next_step`, `error.request_id`, `error.retryable` and `error.retry_after_seconds` when supplied.
+Use these to diagnose the request and plan recovery. Automatic retries still use HTTP status and
+the `Retry-After` header; the body fields do not change that policy.
+
+### Migration JSON and examples
+
+| Command with `--json` | Response / relevant fields |
+| --- | --- |
+| `list` | `{items, available}` |
+| `create`, `status`, input `run`, `close` | Full migration response (envelope), including `migration` and actions |
+| `steps` | Envelope; checklist in `steps` |
+| `show` without a resource | Envelope; readable names in `resources` |
+| `show RESOURCE` | Envelope; resource data in `result`, which may be `null` |
+| external `run` | Envelope from before the browser step |
+
+Without `--json`, `show RESOURCE` prints only the resource data as JSON, or a message if empty.
+Replace `mig_7x2` with an ID from `create` or `list`, `ACTION_ID` with an offered action ID,
+and `RESOURCE` with a name from `reads` or `resources`.
+
+```sh
+adapty migrations list --json
+adapty migrations create --name "Acme Fitness" --json
+adapty migrations status -m mig_7x2 --json
+adapty migrations show RESOURCE -m mig_7x2 --json
+```
+
+Prepare `decisions.json` from the action's current schema. These are alternative ways to submit
+the same input; add `--yes` only after reviewing `confirm`:
+
+```sh
+adapty migrations run ACTION_ID -m mig_7x2 --input-file ./decisions.json --json
+adapty migrations run ACTION_ID -m mig_7x2 --input-file - --json < ./decisions.json
+```
+
+For a selected external action, complete the linked step before waiting or checking status:
+
+```sh
+adapty migrations run ACTION_ID -m mig_7x2 --no-browser
+adapty migrations status -m mig_7x2 --wait --timeout 5m --json
+```
+
+Optional JSON filters require the separate `jq` utility:
+
+```sh
+adapty migrations steps -m mig_7x2 --json | jq '.steps'
+adapty migrations show RESOURCE -m mig_7x2 --json | jq '.result'
+```
 
 ## Preview
 
