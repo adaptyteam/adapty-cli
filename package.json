@@ -99,6 +99,9 @@
       "segments": {
         "description": "List segments"
       },
+      "analytics": {
+        "description": "Subscription analytics from the Adapty dashboard: revenue, MRR, subscriptions, trials, installs. For ad-network attribution (campaigns, ROAS), use `attribution`."
+      },
       "attribution": {
         "description": "Attribution analytics: reports across ad networks, and the metric and dimension catalogs"
       },

@@ -1,19 +1,41 @@
 import { createHttp } from '../core/http/index.js';
 
 import { accessLevels } from './access-levels.js';
+import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
 
 import type { AccessLevelsApi } from './access-levels.js';
+import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
+export { periodUnits, revenueBases, validateChart, validateValues } from './analytics/index.js';
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
+export type {
+    AnalyticsApi,
+    Catalog,
+    CatalogChart,
+    CatalogDimension,
+    CatalogResponse,
+    ChartData,
+    ChartFilter,
+    ChartInput,
+    ChartMeta,
+    ChartPoint,
+    ChartQuery,
+    ChartResponse,
+    ChartSegment,
+    DimensionValue,
+    PeriodUnit,
+    RevenueBasis,
+    ValuesResponse,
+} from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
@@ -40,6 +62,7 @@ export type AdaptyOptions = {
 
 export type Adapty = {
     accessLevels: AccessLevelsApi;
+    analytics: AnalyticsApi;
     apps: AppsApi;
     auth: AuthApi;
 };
@@ -59,6 +82,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
 
     return {
         accessLevels: accessLevels(http),
+        analytics: analytics(http),
         apps: apps(http),
         auth: auth(http),
     };
