@@ -1,5 +1,5 @@
 export type MigrationState = 'running' | 'action_required' | 'completed' | 'failed' | 'canceled';
-export type ActionKind = 'input' | 'upload' | 'external';
+export type ActionKind = 'input' | 'upload' | 'external' | 'agent';
 export type StepStatus = 'locked' | 'active' | 'done';
 
 export type JsonSchema = Record<string, unknown>;
@@ -74,6 +74,7 @@ export type Action = ActionBase & (
     | { kind: 'input'; input_schema: JsonSchema | null }
     | { kind: 'upload' }
     | { kind: 'external'; href: string }
+    | { kind: 'agent'; input_schema: JsonSchema | null }
     // Preserve links for action kinds introduced by newer servers.
     | { kind: string; href?: string }
 );

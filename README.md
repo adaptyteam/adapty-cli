@@ -185,6 +185,16 @@ requiring confirmation exit **6** without it; there is no interactive prompt. Th
 status before refusing, but does not send the action request. After an action, check status again.
 After `revision_conflict`, read status and review the current action, input and confirmation before retrying.
 
+For an `agent` action (`migrate_code`), run it from the app's git repository, ideally from your coding agent. It
+writes the migration's data to `.git/adapty/` and prints what the agent needs: a branch to work on (`adapty-migrate`), which skill to use, where the data
+is, and the server's guide. Outside an agent, paste the output into one. The agent reports back by running the
+action again with `--input`:
+
+```sh
+adapty migrations run migrate_code
+adapty migrations run migrate_code --input '{"summary": "Swapped the SDK; ADAPTY_SETUP.md leaves 3 steps"}'
+```
+
 For an `external` action, complete the step in the browser, then check status:
 
 ```sh
@@ -248,6 +258,22 @@ To extract specific fields from the full response, these examples require the se
 adapty migrations steps -m mig_7x2 --json | jq '.steps'
 adapty migrations show RESOURCE -m mig_7x2 --json | jq '.result'
 ```
+
+### Skills
+
+Install the Adapty skills into the coding agents on this machine. Claude Code, Codex and Gemini CLI found on
+`PATH` get them through their own plugin or skills command:
+
+```sh
+adapty skills install
+adapty skills install --agent claude-code
+adapty skills install --yes
+```
+
+When several agents are found, the command asks which to install into; with no one to ask (a pipe or
+`--json`), pass `--agent` or `--yes` for all of them, or it exits **2**. When none is found, it runs
+`npx skills add adaptyteam/adapty-skills --all --global`, which covers the other agents. Restart an agent to
+load the skills. Exit **1** means an install failed.
 
 ### Apple Search Ads
 
