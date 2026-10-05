@@ -113,6 +113,31 @@ adapty access-levels create --app UUID [flags]
 adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 ```
 
+### Fallbacks
+
+The fallback file lets the Adapty SDK show paywalls, onboardings and flows when the Adapty backend is unreachable.
+Fetch a fresh one in CI before every release build. One file per store covers every placement of the app:
+`--platform ios` gives the App Store file, `--platform android` the Play Store file. `--sdk-version` is the
+Adapty SDK version in your app (`X.Y.Z`); the server picks the file format from it.
+
+Without `--output`, stdout is the file itself, with or without `--json`; warnings and errors go to stderr.
+A plain `> file` truncates the file before the request runs, so a failed request leaves an empty file. Use the
+temp-and-move pattern or `--output`:
+
+```sh
+# macOS / Linux CI: write to a temp file, move only on success
+adapty fallbacks get --app "$ADAPTY_APP_ID" --platform ios --sdk-version 4.1.0 > ios_fallback.json.tmp \
+  && mv ios_fallback.json.tmp ios_fallback.json
+
+# Windows (PowerShell 5.1 `>` writes UTF-16), or any CI that must never ship a broken file
+adapty fallbacks get --app $env:ADAPTY_APP_ID --platform android --sdk-version 4.1.0 --output Assets/StreamingAssets/android_fallback.json
+```
+
+`--output` creates missing parent directories and replaces the file atomically, only after the download
+succeeds; on any failure the old file stays. It prints one summary line, and with `--json` returns
+`{path, platform, sdk_version, meta_version, placements, bytes}` instead of the file. In CI, set `ADAPTY_TOKEN`
+so the command runs without a login prompt.
+
 ### Migrations
 
 Manage migrations into Adapty: catalog, transactions and store events. The server provides the

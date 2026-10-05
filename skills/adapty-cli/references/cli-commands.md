@@ -95,6 +95,16 @@ Read-only. Response shape: `{id, title, description}`. Filters are not exposed v
 | `access-levels create`                     | `--app`, `--sdk-id`, `--title` |
 | `access-levels update <access_level_id>`   | `--app`, `--title`       |
 
+## Fallbacks
+
+| Command          | Required flags / notes |
+|------------------|------------------------|
+| `fallbacks get`  | `--app`, `--platform` (`ios`/`android`), `--sdk-version` (`X.Y.Z`, the app's Adapty SDK version); optional `--output <file>` |
+
+Without `--output`, stdout is the fallback file itself, also with `--json`; redirect it to a temp file and move
+it only on success, because `> file` truncates the file before the request. `--output` writes atomically after
+a successful download, and with `--json` returns `{path, platform, sdk_version, meta_version, placements, bytes}`.
+
 ## Migrations
 
 Manage migrations into Adapty: catalog, transactions and store events. The server provides the
