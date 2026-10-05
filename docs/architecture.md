@@ -55,7 +55,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table

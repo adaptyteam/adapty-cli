@@ -135,6 +135,9 @@
       "hypotheses": {
         "description": "The hypotheses backlog: changes proposed per placement, accepted, tested in an A/B test and resolved"
       },
+      "fallbacks": {
+        "description": "Download fallback files to bundle in your app"
+      },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
       },

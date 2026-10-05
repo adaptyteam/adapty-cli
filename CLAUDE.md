@@ -49,6 +49,8 @@ src/
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
+    fallbacks/       # get — the fallback file to bundle in an app; stdout is the file in every mode, --output
+                     # writes atomically. Implementation in src/cli/commands/fallbacks
     segments/        # list, get
     hypotheses/      # list, get, summary, by-ab-test, create (from a JSON file, always the batch route, client-minted
                      # hypothesis_id), accept, link, resolve, reresolve, unaccept, dismiss, restore, unlink — the backlog
