@@ -7,6 +7,7 @@ import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
+import { fallbacks } from './fallbacks.js';
 import { feedback } from './feedback/index.js';
 import { flows } from './flows.js';
 import { migrations } from './migrations/index.js';
@@ -18,6 +19,7 @@ import type { AccessLevelsApi } from './access-levels.js';
 import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
+import type { FallbacksApi } from './fallbacks.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { FlowsApi } from './flows.js';
 import type { MigrationApi } from './migrations/index.js';
@@ -86,6 +88,7 @@ export type {
 } from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
+export type { FallbackFile, FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowsApi } from './flows.js';
 export type {
@@ -156,6 +159,7 @@ export type Adapty = {
     analytics: AnalyticsApi;
     apps: AppsApi;
     auth: AuthApi;
+    fallbacks: FallbacksApi;
     feedback: FeedbackApi;
     flows: FlowsApi;
     migrations: MigrationApi;
@@ -209,6 +213,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         analytics: analytics(http),
         apps: apps(http),
         auth: auth(http),
+        fallbacks: fallbacks(http),
         feedback: feedback(http),
         flows: flows(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
