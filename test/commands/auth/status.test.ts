@@ -31,15 +31,19 @@ describe('auth status', () => {
     it('reads the stored session without touching the network', async () => {
         await createFileSessionStore(config.configDir).save({
             token: 'stored-token-1234',
-            user: { email: 'dev@example.com', name: 'Dev' },
+            user: { name: 'Dev' },
         });
 
         const { stdout } = await runCommand('auth status');
 
-        expect(stdout).to.contain('Email: dev@example.com');
+        expect(stdout).to.contain('User: Dev');
         expect(stdout).to.contain('Token: stored-t****');
         expect(stdout).to.contain(`Config: ${join(config.configDir, 'config.json')}`);
         expect(stdout).to.not.contain('stored-token-1234');
+
+        const json = await runCommand('auth status --json');
+
+        expect(JSON.parse(json.stdout)).to.deep.include({ authenticated: true, name: 'Dev', source: 'file' });
     });
 
     /** The published CLI reports "not authenticated" here, while every other command works. */

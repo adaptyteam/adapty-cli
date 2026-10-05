@@ -8,6 +8,7 @@ export type Result
             authenticated: true;
             config_path: string;
             email: string | undefined;
+            name: string | undefined;
             source: 'env' | 'file';
             token_prefix: string;
         };

@@ -56,13 +56,13 @@ describe('resolveAttributionSession', () => {
     it('carries the stored token, the user and the store of the Adapty session', async () => {
         await createFileSessionStore(config.configDir).save({
             token: 'stored-token',
-            user: { email: 'dev@example.com', name: 'Dev' },
+            user: { name: 'Dev' },
         });
 
         const session = await resolveAttributionSession(config);
 
         expect(session.token).to.equal('stored-token');
-        expect(session.user).to.deep.equal({ email: 'dev@example.com', name: 'Dev' });
+        expect(session.user).to.deep.equal({ name: 'Dev' });
         expect(session.store.path).to.equal(join(config.configDir, 'config.json'));
     });
 

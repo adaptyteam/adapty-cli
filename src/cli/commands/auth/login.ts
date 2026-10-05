@@ -19,7 +19,7 @@ export default class AuthLogin extends BaseCommand {
         const session = await openSession(this.config);
 
         if (session.user !== undefined) {
-            this.log(`Already authenticated as ${session.user.email}. Re-authenticating...`);
+            this.log(`Already authenticated as ${session.user.name}. Re-authenticating...`);
         }
 
         // No token yet: the same factory without one, which leaves only auth reachable
@@ -59,7 +59,7 @@ export default class AuthLogin extends BaseCommand {
 
         await session.store.save({ token: issued.accessToken, user: issued.user });
 
-        this.log(`\nAuthenticated as ${issued.user.email}`);
+        this.log(`\nAuthenticated as ${issued.user.name}`);
         this.log(`Session saved to ${session.store.path}`);
     }
 
