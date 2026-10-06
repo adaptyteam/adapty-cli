@@ -26,6 +26,21 @@ export type RequestOptions = {
 
 type BodylessOptions = Omit<RequestOptions, 'body'>;
 
+/** A 2xx answer whose body nobody has read: the caller decides where the bytes go. */
+export type StreamedResponse = {
+    /** Errors while reading arrive as sdk errors: NetworkError, or CancelledError on abort. */
+    body: ReadableStream<Uint8Array>;
+    headers: Headers;
+};
+
+export type StreamOptions<T> = BodylessOptions & {
+    /**
+     * Consumes the body inside the retry: a connection that breaks mid-body is retried like a 5xx.
+     * Without it the retry stops at the headers, because a body handed over is the caller's to read.
+     */
+    read: (response: StreamedResponse) => Promise<T>;
+};
+
 export type Http = {
     delete<T>(path: string, options?: BodylessOptions): Promise<T>;
     get<T>(path: string, options?: BodylessOptions): Promise<T>;
@@ -33,6 +48,9 @@ export type Http = {
     post<T>(path: string, body?: unknown, options?: BodylessOptions): Promise<T>;
     put<T>(path: string, body?: unknown, options?: BodylessOptions): Promise<T>;
     request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>;
+    /** A GET whose body is handed over unread, for answers too large to hold in memory. */
+    stream(path: string, options?: BodylessOptions): Promise<StreamedResponse>;
+    stream<T>(path: string, options: StreamOptions<T>): Promise<T>;
 };
 
 export type HttpOptions = {
@@ -53,7 +71,8 @@ export type HttpOptions = {
 
 /**
  * The transport: base URL, bearer token, JSON both ways, responses mapped to sdk errors,
- * retry for idempotent requests. It knows nothing about resources or about the CLI.
+ * retry for idempotent requests. It knows nothing about resources or about the CLI. `stream()` is
+ * the one exception to "JSON both ways": a 2xx body goes to the caller as bytes.
  */
 export const createHttp = (options: HttpOptions): Http => {
     const fetchImpl = options.fetch ?? globalThis.fetch;
@@ -63,7 +82,8 @@ export const createHttp = (options: HttpOptions): Http => {
     const parseError = options.parseError ?? defaultErrorParser;
     const trailingSlash = options.trailingSlash ?? true;
 
-    const send = async <T>(method: HttpMethod, path: string, req: RequestOptions): Promise<T> => {
+    /** Sends the request and maps a non-2xx answer to an sdk error; a 2xx body stays unread. */
+    const open = async (method: HttpMethod, path: string, req: RequestOptions): Promise<Response> => {
         const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
         const signal = combineSignals(options.signal, req.signal);
         const headers = new Headers({ accept: 'application/json', ...options.headers, ...req.headers });
@@ -90,32 +110,16 @@ export const createHttp = (options: HttpOptions): Http => {
         try {
             response = await fetchImpl(url, init);
         } catch (error) {
-            if (signal?.aborted === true || isAbortError(error)) {
-                throw new CancelledError();
-            }
-
-            throw new NetworkError(url, error);
+            throw transportError(url, signal, error);
         }
 
         req.onResponse?.(response.headers);
 
-        // fetch resolves at the headers; reading the body can still fail or be cancelled.
-        // Keep the caller's onResponse callback outside this network-error conversion.
-        let payload: unknown;
-
-        try {
-            payload = await readBody(response);
-        } catch (error) {
-            if (signal?.aborted === true || isAbortError(error)) {
-                throw new CancelledError();
-            }
-
-            throw new NetworkError(url, error);
-        }
-
         if (response.ok) {
-            return payload as T;
+            return response;
         }
+
+        const payload = await readPayload(response, url, signal);
 
         if (response.status === 401) {
             throw new AuthRequiredError('rejected');
@@ -132,6 +136,21 @@ export const createHttp = (options: HttpOptions): Http => {
         });
     };
 
+    const send = async <T>(method: HttpMethod, path: string, req: RequestOptions): Promise<T> => {
+        const response = await open(method, path, req);
+        const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
+
+        return await readPayload(response, url, combineSignals(options.signal, req.signal)) as T;
+    };
+
+    const retried = <T>(attempt: () => Promise<T>, req: RequestOptions): Promise<T> => retry(attempt, {
+        clock,
+        onRetry: options.onRetry,
+        policy,
+        shouldRetry,
+        signal: combineSignals(options.signal, req.signal),
+    });
+
     const request = <T>(method: HttpMethod, path: string, req: RequestOptions = {}): Promise<T> => {
         const idempotent = req.idempotent ?? method === 'GET';
 
@@ -139,17 +158,34 @@ export const createHttp = (options: HttpOptions): Http => {
             return send<T>(method, path, req);
         }
 
-        return retry(() => send<T>(method, path, req), {
-            clock,
-            onRetry: options.onRetry,
-            policy,
-            shouldRetry,
-            signal: combineSignals(options.signal, req.signal),
-        });
+        return retried(() => send<T>(method, path, req), req);
     };
+
+    async function stream(path: string, req?: BodylessOptions): Promise<StreamedResponse>;
+
+    async function stream<T>(path: string, req: StreamOptions<T>): Promise<T>;
+
+    async function stream<T>(
+        path: string,
+        req: BodylessOptions | StreamOptions<T> = {},
+    ): Promise<StreamedResponse | T> {
+        const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
+        const signal = combineSignals(options.signal, req.signal);
+        const read = 'read' in req ? req.read : undefined;
+
+        const attempt = async (): Promise<StreamedResponse | T> => {
+            const response = await open('GET', path, req);
+            const streamed = { body: guardBody(response.body, url, signal), headers: response.headers };
+
+            return read === undefined ? streamed : read(streamed);
+        };
+
+        return (req.idempotent ?? true) ? retried(attempt, req) : attempt();
+    }
 
     return {
         request,
+        stream,
         delete: <T>(path: string, req?: BodylessOptions) => request<T>('DELETE', path, req),
         get: <T>(path: string, req?: BodylessOptions) => request<T>('GET', path, req),
         patch: <T>(path: string, body?: unknown, req?: BodylessOptions) => request<T>('PATCH', path, { ...req, body }),
@@ -168,6 +204,27 @@ const combineSignals = (...signals: (AbortSignal | undefined)[]): AbortSignal | 
     return AbortSignal.any(present);
 };
 
+/** fetch rejects or a body read fails: cancelled when the caller aborted, else a network failure. */
+const transportError = (url: string, signal: AbortSignal | undefined, error: unknown): Error => {
+    if (signal?.aborted === true || isAbortError(error)) {
+        return new CancelledError();
+    }
+
+    return new NetworkError(url, error);
+};
+
+/**
+ * fetch resolves at the headers; reading the body can still fail or be cancelled. Kept apart from
+ * the caller's onResponse callback, which runs before it and outside this conversion.
+ */
+const readPayload = async (response: Response, url: string, signal: AbortSignal | undefined): Promise<unknown> => {
+    try {
+        return await readBody(response);
+    } catch (error) {
+        throw transportError(url, signal, error);
+    }
+};
+
 const readBody = async (response: Response): Promise<unknown> => {
     if (response.status === 204) {
         return undefined;
@@ -184,6 +241,40 @@ const readBody = async (response: Response): Promise<unknown> => {
     } catch {
         return text;
     }
+};
+
+/** The body as it arrives, chunk by chunk, with a broken read turned into the same sdk errors. */
+const guardBody = (
+    body: null | ReadableStream<Uint8Array>,
+    url: string,
+    signal: AbortSignal | undefined,
+): ReadableStream<Uint8Array> => {
+    if (body === null) {
+        return new ReadableStream({
+            start(controller) {
+                controller.close();
+            },
+        });
+    }
+
+    const reader = body.getReader();
+
+    return new ReadableStream<Uint8Array>({
+        cancel: reason => reader.cancel(reason),
+        async pull(controller) {
+            try {
+                const chunk = await reader.read();
+
+                if (chunk.done) {
+                    controller.close();
+                } else {
+                    controller.enqueue(chunk.value);
+                }
+            } catch (error) {
+                controller.error(transportError(url, signal, error));
+            }
+        },
+    });
 };
 
 const parseRetryAfter = (header: null | string, clock: Clock): number | undefined => {
