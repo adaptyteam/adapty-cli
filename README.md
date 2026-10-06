@@ -131,7 +131,8 @@ built for: it rejects any other file at startup. The latest mappings:
 | 3.8.x – 3.11.x | 8 |
 
 Without `--output`, stdout is the server's file byte for byte, with or without `--json`; warnings and errors go
-to stderr. The CLI streams the file without parsing it, so memory stays flat whatever the file size (a large
+to stderr, the `--json` error object included, so stdout holds nothing but the file. The exit code says whether
+the file is complete. The CLI streams the file without parsing it, so memory stays flat whatever the file size (a large
 app's file is about 200 MB). A plain `> file` truncates the file before the request runs, so a failed request
 leaves an empty file, and a download that breaks halfway leaves a partial one. Use the temp-and-move pattern or
 `--output`:

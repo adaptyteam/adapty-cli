@@ -33,7 +33,10 @@ export type StreamedResponse = {
     headers: Headers;
 };
 
-export type StreamOptions<T> = BodylessOptions & {
+/** Always retried, up to the headers or through `read`: a stream is a GET. */
+type StreamRequest = Omit<BodylessOptions, 'idempotent'>;
+
+export type StreamOptions<T> = StreamRequest & {
     /**
      * Consumes the body inside the retry: a connection that breaks mid-body is retried like a 5xx.
      * Without it the retry stops at the headers, because a body handed over is the caller's to read.
@@ -49,7 +52,7 @@ export type Http = {
     put<T>(path: string, body?: unknown, options?: BodylessOptions): Promise<T>;
     request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>;
     /** A GET whose body is handed over unread, for answers too large to hold in memory. */
-    stream(path: string, options?: BodylessOptions): Promise<StreamedResponse>;
+    stream(path: string, options?: StreamRequest): Promise<StreamedResponse>;
     stream<T>(path: string, options: StreamOptions<T>): Promise<T>;
 };
 
@@ -161,13 +164,13 @@ export const createHttp = (options: HttpOptions): Http => {
         return retried(() => send<T>(method, path, req), req);
     };
 
-    async function stream(path: string, req?: BodylessOptions): Promise<StreamedResponse>;
+    async function stream(path: string, req?: StreamRequest): Promise<StreamedResponse>;
 
     async function stream<T>(path: string, req: StreamOptions<T>): Promise<T>;
 
     async function stream<T>(
         path: string,
-        req: BodylessOptions | StreamOptions<T> = {},
+        req: StreamOptions<T> | StreamRequest = {},
     ): Promise<StreamedResponse | T> {
         const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
         const signal = combineSignals(options.signal, req.signal);
@@ -180,7 +183,7 @@ export const createHttp = (options: HttpOptions): Http => {
             return read === undefined ? streamed : read(streamed);
         };
 
-        return (req.idempotent ?? true) ? retried(attempt, req) : attempt();
+        return retried(attempt, req);
     }
 
     return {
