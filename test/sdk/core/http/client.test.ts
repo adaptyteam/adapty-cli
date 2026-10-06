@@ -131,7 +131,6 @@ describe('createHttp', () => {
                 calls += 1;
 
                 const body = calls === 1
-                    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Web streams exist in Node 22; only their stability label changed later.
                     ? new ReadableStream({
                             start(controller) {
                                 controller.error(new TypeError('terminated'));
@@ -159,7 +158,6 @@ describe('createHttp', () => {
             fetch: () => {
                 calls += 1;
 
-                // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Web streams exist in Node 22; only their stability label changed later.
                 return Promise.resolve(new Response(new ReadableStream({
                     start(controller) {
                         controller.error(cause);
@@ -204,7 +202,6 @@ describe('createHttp', () => {
                 fetch: () => {
                     calls += 1;
 
-                    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Web streams exist in Node 22; only their stability label changed later.
                     return Promise.resolve(new Response(new ReadableStream({
                         pull(stream) {
                             // AbortError alone must also work without an aborted client signal.
