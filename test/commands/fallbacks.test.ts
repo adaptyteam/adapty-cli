@@ -11,9 +11,11 @@ import { exitCode } from '../../src/cli/errors.js';
 import { assertFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
+// A file-system path, not a URL's pathname: on Windows that reads /D:/..., which a child resolves to D:\D:\...
+const FIXTURE_PATH = join(import.meta.dirname, '..', 'fixtures', 'fallback-file.json');
 
 /** The server's bytes: `17.0` and `", "` spacing, which a parse-and-rewrite would lose. */
-const FILE = await readFile(new URL('../fixtures/fallback-file.json', import.meta.url));
+const FILE = await readFile(FIXTURE_PATH);
 
 const GET = ['fallbacks', 'get', '--app', TEST_APP_ID, '--platform', 'ios', '--sdk-version', '4.1.0'];
 
@@ -120,7 +122,7 @@ const runPiped = (args: string[], body = 'file') => spawnSync(process.execPath, 
         ADAPTY_TOKEN: 'piped-token',
         FALLBACK_TEST_ARGS: JSON.stringify(args),
         FALLBACK_TEST_BODY: body,
-        FALLBACK_TEST_FIXTURE: new URL('../fixtures/fallback-file.json', import.meta.url).pathname,
+        FALLBACK_TEST_FIXTURE: FIXTURE_PATH,
     },
     maxBuffer: 16 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
