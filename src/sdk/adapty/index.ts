@@ -111,7 +111,8 @@ export type {
 } from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
-export type { FallbackFile, FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
+export type { FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
+export type { StreamedResponse } from '../core/http/index.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowFunnelAnswer, FlowFunnelScreen, FlowFunnelStep } from './flow-funnel.js';
 export type { Flow, FlowsApi } from './flows.js';
