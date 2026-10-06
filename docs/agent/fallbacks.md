@@ -8,7 +8,7 @@ release build. It is read-only and uses the same login as the rest of the CLI; i
 
 | Command | Flags | Notes |
 |---|---|---|
-| `fallbacks get` | `--app`, `--platform` (`ios`/`android`), `--sdk-version` (`X.Y.Z`) required; `--output <file>` optional | One file per store, covering every placement of the app: `ios` is the App Store file, `android` the Play Store file. The CLI streams the server's bytes unparsed, so memory stays flat (a large app's file is about 200 MB). Without `--output`, stdout is the file byte for byte in human mode and with `--json`, and nothing else is printed there. With `--output`, the file is written atomically after a complete download, and `--json` returns `{path, platform, sdk_version, bytes}` instead of the file. |
+| `fallbacks get` | `--app`, `--platform` (`ios`/`android`), `--sdk-version` (`X.Y.Z`) required; `--output <file>` optional | One file per store, covering every placement of the app: `ios` is the App Store file, `android` the Play Store file. The CLI streams the server's bytes unparsed, so memory stays flat (a large app's file is about 200 MB). Without `--output`, stdout is the file byte for byte in human mode and with `--json`, and nothing else is printed there: every error, the `--json` error object included, goes to stderr. With `--output`, the file is written atomically after a complete download, and `--json` returns `{path, platform, sdk_version, bytes}` instead of the file. |
 
 ## Which `--sdk-version`
 
@@ -36,8 +36,12 @@ adapty fallbacks get --app APP_UUID --platform android --sdk-version 4.1.0 --out
 `--output` creates missing parent directories and keeps the old file on any failure: a rejected request, a lost
 connection, an answer that is not the file, or a failed write. A download that breaks halfway is retried like a
 5xx. Use it on Windows, where PowerShell 5.1 `>` writes UTF-16. On stdout a download that breaks halfway leaves a
-partial file and exits 5; under `--json` its error object then goes to stderr, so stdout never mixes the file
-with the error.
+partial file and exits 5.
+
+Without `--output`, read errors from stderr and the exit code, never from stdout: under `--json` the error object
+goes to stderr too, whether it comes before the first byte of the file (a bad flag, a 403, a lost connection, an
+answer that is not the file) or after it. With `--output`, stdout is not the file, and the `--json` error object
+is on stdout as for every other command.
 
 ## Exit codes
 
