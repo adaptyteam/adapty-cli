@@ -21,7 +21,8 @@ export { developerErrorParser } from './errors.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
-export type { FallbackFile, FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
+export type { FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
+export type { StreamedResponse } from '../core/http/index.js';
 export type {
     Action,
     ActionKind,

@@ -11,20 +11,42 @@ import { exitCode } from '../../src/cli/errors.js';
 import { assertFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
-const FIXTURE = await readFile(new URL('../fixtures/fallback-file.json', import.meta.url), 'utf8');
-const FILE = JSON.parse(FIXTURE) as { meta: { developer_ids: string[] } };
 
-const GET = `fallbacks get --app ${TEST_APP_ID} --platform ios --sdk-version 4.1.0`;
+/** The server's bytes: `17.0` and `", "` spacing, which a parse-and-rewrite would lose. */
+const FILE = await readFile(new URL('../fixtures/fallback-file.json', import.meta.url));
+
+const GET = ['fallbacks', 'get', '--app', TEST_APP_ID, '--platform', 'ios', '--sdk-version', '4.1.0'];
 
 // eslint-disable-next-line no-control-regex -- the escape that starts an ANSI color sequence
 const ANSI = /\u001B\[/;
 
+const JSON_TYPE = { 'content-type': 'application/json' };
+
 type Step = {
-    body: unknown;
+    /** Chunks of the body; `broken` ends it with a dropped connection instead of its end. */
+    body: string | Uint8Array;
+    broken?: boolean;
+    headers?: Record<string, string>;
     status?: number;
 };
 
-/** Answers each call with its own status; mockFetch's canned responses are all 200. */
+/** Sends `head`, then breaks on the next read; error() drops queued chunks, so not both in start(). */
+const breaking = (head: Uint8Array): ReadableStream<Uint8Array> => {
+    let sent = false;
+
+    return new ReadableStream({
+        pull(controller) {
+            if (sent) {
+                controller.error(new TypeError('terminated'));
+            } else {
+                sent = true;
+                controller.enqueue(head);
+            }
+        },
+    });
+};
+
+/** Every call gets a fresh Response: a body is a stream, and a stream is read once. */
 const mockFetchSteps = (steps: Step[]): sinon.SinonStub => {
     let index = 0;
 
@@ -32,39 +54,77 @@ const mockFetchSteps = (steps: Step[]): sinon.SinonStub => {
         const step = steps[index] ?? steps.at(-1);
         index += 1;
 
-        return Promise.resolve(new Response(JSON.stringify(step?.body), {
-            headers: { 'content-type': 'application/json' },
-            status: step?.status ?? 200,
+        if (step === undefined) {
+            return Promise.reject(new Error('no step'));
+        }
+
+        const bytes = typeof step.body === 'string' ? new TextEncoder().encode(step.body) : step.body;
+
+        const body = step.broken === true ? breaking(bytes.slice(0, Math.floor(bytes.length / 2))) : bytes;
+
+        return Promise.resolve(new Response(body, {
+            headers: { ...JSON_TYPE, ...step.headers },
+            status: step.status ?? 200,
         }));
     });
 };
+
+const apiError = (code: string, status: number): Step => ({
+    body: JSON.stringify({ error_code: code, errors: [] }),
+    status,
+});
 
 /**
  * A real child process with stdout on a pipe, the way CI runs `> file`: what the runner captures is
  * every byte the process writes there, not only what oclif's log() sends. A non-default API URL is
  * set on purpose, so its warning is printed and has to land on stderr. Like the migration selection
  * process test, the child runs the built CLI: `pnpm build` comes first.
+ *
+ * FALLBACK_TEST_BODY: `file` sends the fixture, `broken` half of it and then a dropped connection,
+ * `<N>mb` a generated file of N megabytes in 64 KiB chunks. The child reports its peak RSS on stderr.
  */
 const SCRIPT = `
+    import { readFileSync } from 'node:fs';
     import { execute } from '@oclif/core';
-    globalThis.fetch = async () => new Response(process.env.FALLBACK_TEST_RESPONSE, {
-        headers: { 'content-type': 'application/json' },
-    });
+    const mode = process.env.FALLBACK_TEST_BODY;
+    const file = readFileSync(process.env.FALLBACK_TEST_FIXTURE);
+    const body = () => {
+        if (mode === 'file') return file;
+        // error() drops what is still queued, so the break comes on the read after the chunk
+        let sent = false;
+        if (mode === 'broken') return new ReadableStream({ pull(c) {
+            if (sent) c.error(new TypeError('terminated'));
+            else { sent = true; c.enqueue(file.subarray(0, 100)); }
+        } });
+        const chunk = new Uint8Array(64 * 1024).fill(0x61);
+        let left = Number.parseInt(mode, 10) * 16;
+        const enc = new TextEncoder();
+        return new ReadableStream({
+            start(c) { c.enqueue(enc.encode('{"data": "')); },
+            pull(c) {
+                if (left-- > 0) c.enqueue(chunk);
+                else { c.enqueue(enc.encode('"}')); c.close(); }
+            },
+        });
+    };
+    globalThis.fetch = async () => new Response(body(), { headers: { 'content-type': 'application/json' } });
+    process.on('exit', () => process.stderr.write('maxrss_kb=' + process.resourceUsage().maxRSS + '\\n'));
     await execute({ args: JSON.parse(process.env.FALLBACK_TEST_ARGS), dir: process.cwd() });
 `;
 
-const runPiped = (args: string[]) => spawnSync(process.execPath, ['--input-type=module', '-e', SCRIPT], {
+const runPiped = (args: string[], body = 'file') => spawnSync(process.execPath, ['--input-type=module', '-e', SCRIPT], {
     cwd: ROOT,
-    encoding: 'utf8',
     env: {
         ...process.env,
         ADAPTY_API_URL: 'https://stand.example.com/api/v1/developer',
         ADAPTY_TOKEN: 'piped-token',
         FALLBACK_TEST_ARGS: JSON.stringify(args),
-        FALLBACK_TEST_RESPONSE: FIXTURE,
+        FALLBACK_TEST_BODY: body,
+        FALLBACK_TEST_FIXTURE: new URL('../fixtures/fallback-file.json', import.meta.url).pathname,
     },
+    maxBuffer: 16 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 20_000,
+    timeout: 60_000,
 });
 
 describe('fallbacks get', () => {
@@ -104,65 +164,79 @@ describe('fallbacks get', () => {
             });
         });
 
-        it('prints the file as one line of compact JSON in human mode', async () => {
+        it('returns no result under --json, so oclif adds nothing after the file', async () => {
             fetchStub = mockFetchSteps([{ body: FILE }]);
 
-            const { stdout } = await runCommand(GET);
+            const { result, stdout } = await runCommand([...GET, '--json']);
 
-            expect(stdout).to.equal(`${JSON.stringify(FILE)}\n`);
-        });
-
-        it('prints the same file under --json', async () => {
-            fetchStub = mockFetchSteps([{ body: FILE }]);
-
-            const { stdout } = await runCommand(`${GET} --json`);
-
-            expect(JSON.parse(stdout)).to.deep.equal(FILE);
+            expect(result).to.equal(undefined);
+            expect(stdout).to.equal(FILE.toString('utf8'));
         });
 
         for (const mode of [[], ['--json']]) {
-            it(`writes only the file to a piped stdout${mode.length === 0 ? '' : ' under --json'}`, () => {
-                const result = runPiped([...GET.split(' '), ...mode]);
+            it(`writes the server's bytes and nothing else to a piped stdout${mode.length === 0 ? '' : ' under --json'}`, () => {
+                const result = runPiped([...GET, ...mode]);
 
-                expect(result.status, result.stderr).to.equal(0);
-                expect(result.stdout).to.not.match(ANSI);
-                expect(JSON.parse(result.stdout)).to.deep.equal(FILE);
+                expect(result.status, result.stderr.toString()).to.equal(0);
+                expect(result.stdout.equals(FILE)).to.equal(true);
+                expect(result.stdout.toString('utf8')).to.not.match(ANSI);
                 // The URL warning went somewhere, and it was not stdout
-                expect(result.stderr).to.contain('non-default API URL');
+                expect(result.stderr.toString()).to.contain('non-default API URL');
             });
         }
+
+        it('exits 5 when the body breaks halfway, and keeps the --json error off stdout once bytes went out', () => {
+            const result = runPiped([...GET, '--json'], 'broken');
+
+            expect(result.status).to.equal(exitCode.network);
+            expect(result.stdout.equals(FILE.subarray(0, 100))).to.equal(true);
+            expect(result.stderr.toString()).to.contain('"code": "network_error"');
+        });
+
+        it('exits 4 with fallback_invalid_response for a body that is not shaped {...}', async () => {
+            fetchStub = mockFetchSteps([{ body: '  <html>maintenance</html>' }]);
+
+            const { error, stdout } = await runCommand(GET);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('fallback_invalid_response');
+            expect(stdout).to.equal('');
+        });
+
+        it('exits 4 for an answer that is not JSON, before printing a byte', async () => {
+            fetchStub = mockFetchSteps([{ body: FILE, headers: { 'content-type': 'text/html' } }]);
+
+            const { error, stdout } = await runCommand(GET);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('fallback_invalid_response');
+            expect(stdout).to.equal('');
+        });
     });
 
     describe('with --output', () => {
-        it('writes the compact file plus a newline, creating parent directories, and prints one line', async () => {
+        it('writes the server\'s bytes, creating parent directories, and prints one line', async () => {
             fetchStub = mockFetchSteps([{ body: FILE }]);
             const path = join(dir, 'Assets', 'StreamingAssets', 'ios_fallback.json');
-            const content = `${JSON.stringify(FILE)}\n`;
 
-            const { stdout } = await runCommand([...GET.split(' '), '--output', path]);
+            const { stdout } = await runCommand([...GET, '--output', path]);
 
-            expect(await readFile(path, 'utf8')).to.equal(content);
-
-            expect(stdout).to.equal(
-                `Wrote ios fallback to ${path} (meta version 11, 2 placements, ${Buffer.byteLength(content)} bytes)\n`,
-            );
+            expect((await readFile(path)).equals(FILE)).to.equal(true);
+            expect(stdout).to.equal(`Wrote ios fallback to ${path} (${FILE.length} bytes)\n`);
         });
 
         it('returns a summary under --json, with an absolute path', async () => {
             fetchStub = mockFetchSteps([{ body: FILE }]);
-            const content = `${JSON.stringify(FILE)}\n`;
             const cwd = process.cwd();
 
             process.chdir(dir);
 
             try {
-                const { stdout } = await runCommand([...GET.split(' '), '--output', 'out/ios.json', '--json']);
+                const { stdout } = await runCommand([...GET, '--output', 'out/ios.json', '--json']);
 
                 expect(JSON.parse(stdout)).to.deep.equal({
-                    bytes: Buffer.byteLength(content),
-                    meta_version: 11,
+                    bytes: FILE.length,
                     path: join(process.cwd(), 'out', 'ios.json'),
-                    placements: FILE.meta.developer_ids.length,
                     platform: 'ios',
                     sdk_version: '4.1.0',
                 });
@@ -176,18 +250,44 @@ describe('fallbacks get', () => {
             const path = join(dir, 'ios_fallback.json');
             await writeFile(path, 'old');
 
-            await runCommand([...GET.split(' '), '--output', path]);
+            await runCommand([...GET, '--output', path]);
 
-            expect(JSON.parse(await readFile(path, 'utf8'))).to.deep.equal(FILE);
+            expect((await readFile(path)).equals(FILE)).to.equal(true);
+            expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
+        });
+
+        it('downloads again when the body breaks halfway, and writes only the complete file', async () => {
+            fetchStub = mockFetchSteps([{ body: FILE, broken: true }, { body: FILE }]);
+            const path = join(dir, 'ios_fallback.json');
+            await writeFile(path, 'old');
+
+            const { error } = await runCommand([...GET, '--output', path]);
+
+            expect(error).to.equal(undefined);
+            expect(fetchStub.callCount).to.equal(2);
+            expect((await readFile(path)).equals(FILE)).to.equal(true);
+            expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
+        });
+
+        it('keeps the old file when every attempt breaks halfway', async () => {
+            fetchStub = mockFetchSteps([{ body: FILE, broken: true }]);
+            const path = join(dir, 'ios_fallback.json');
+            await writeFile(path, 'old');
+
+            const { error } = await runCommand([...GET, '--output', path]);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.network);
+            expect(fetchStub.callCount).to.equal(3);
+            expect(await readFile(path, 'utf8')).to.equal('old');
             expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         });
 
         it('keeps the old file when the server fails', async () => {
-            fetchStub = mockFetchSteps([{ body: { error_code: 'server_error' }, status: 500 }]);
+            fetchStub = mockFetchSteps([apiError('server_error', 500)]);
             const path = join(dir, 'ios_fallback.json');
             await writeFile(path, 'old');
 
-            const { error } = await runCommand([...GET.split(' '), '--output', path]);
+            const { error } = await runCommand([...GET, '--output', path]);
 
             expect(error?.oclif?.exit).to.equal(exitCode.api);
             expect(await readFile(path, 'utf8')).to.equal('old');
@@ -199,11 +299,35 @@ describe('fallbacks get', () => {
             const path = join(dir, 'ios_fallback.json');
             await writeFile(path, 'old');
 
-            const { error } = await runCommand([...GET.split(' '), '--output', path]);
-            const missing = await runCommand([...GET.split(' '), '--output', join(dir, 'new', 'ios.json')]);
+            const { error } = await runCommand([...GET, '--output', path]);
+            const missing = await runCommand([...GET, '--output', join(dir, 'new', 'ios.json')]);
 
             expect(error?.oclif?.exit).to.equal(exitCode.network);
             expect(missing.error?.oclif?.exit).to.equal(exitCode.network);
+            expect(await readFile(path, 'utf8')).to.equal('old');
+            expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
+        });
+
+        it('keeps the old file for an answer that is not the file, without retrying it', async () => {
+            const path = join(dir, 'ios_fallback.json');
+            await writeFile(path, 'old');
+
+            for (const step of [
+                { body: FILE, headers: { 'content-type': 'text/html' } },
+                { body: '{"truncated": ' },
+                { body: '' },
+            ]) {
+                fetchStub = mockFetchSteps([step]);
+
+                const { error } = await runCommand([...GET, '--output', path]);
+
+                expect(error?.oclif?.exit).to.equal(exitCode.api);
+                expect(error?.code).to.equal('fallback_invalid_response');
+                expect(fetchStub.callCount).to.equal(1);
+                restoreFetch(fetchStub);
+                fetchStub = undefined;
+            }
+
             expect(await readFile(path, 'utf8')).to.equal('old');
             expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         });
@@ -213,17 +337,30 @@ describe('fallbacks get', () => {
             // A file where a parent directory should be
             await writeFile(join(dir, 'blocker'), 'x');
 
-            const { error } = await runCommand([...GET.split(' '), '--output', join(dir, 'blocker', 'ios.json')]);
+            const { error } = await runCommand([...GET, '--output', join(dir, 'blocker', 'ios.json')]);
 
             expect(error?.oclif?.exit).to.equal(1);
-            expect(error?.message).to.contain('Could not write the fallback file');
+            expect(error?.code).to.equal('fallback_write_failed');
             expect(error?.message).to.match(/\((ENOTDIR|EEXIST)\)/);
+            expect(fetchStub.callCount).to.equal(1);
+        });
+
+        it('keeps memory flat: a 200 MB body streams through with a peak RSS far below its size', () => {
+            const path = join(dir, 'big.json');
+            const result = runPiped([...GET, '--output', path], '200mb');
+            const rss = Number(/maxrss_kb=(\d+)/.exec(result.stderr.toString())?.[1]) * 1024;
+
+            expect(result.status, result.stderr.toString()).to.equal(0);
+            // maxRSS is in kilobytes. The CLI alone peaks near 90 MiB; holding the 200 MiB body would
+            // push the peak past 200 MiB
+            expect(rss).to.be.greaterThan(0);
+            expect(rss).to.be.lessThan(150 * 1024 * 1024);
         });
     });
 
     describe('input', () => {
         const bad = [
-            `fallbacks get --app not-a-uuid --platform ios --sdk-version 4.1.0`,
+            'fallbacks get --app not-a-uuid --platform ios --sdk-version 4.1.0',
             `fallbacks get --app ${TEST_APP_ID} --platform ios --sdk-version 4.1`,
             `fallbacks get --app ${TEST_APP_ID} --platform ios --sdk-version v4.1.0`,
             `fallbacks get --app ${TEST_APP_ID} --platform macos --sdk-version 4.1.0`,
@@ -269,7 +406,7 @@ describe('fallbacks get', () => {
 
         it('exits 3 when the API refuses the token or the app', async () => {
             for (const code of ['authentication_failed', 'permission_denied']) {
-                fetchStub = mockFetchSteps([{ body: { error_code: code, errors: [], status_code: 403 }, status: 403 }]);
+                fetchStub = mockFetchSteps([apiError(code, 403)]);
 
                 const { error } = await runCommand(GET);
 
@@ -279,12 +416,12 @@ describe('fallbacks get', () => {
             }
         });
 
-        it('exits 4 on another API error, with the code under --json and nothing else on stdout', async () => {
-            fetchStub = mockFetchSteps([{ body: { error_code: 'not_found', errors: [], status_code: 404 }, status: 404 }]);
+        it('exits 4 on another API error, with the code in the --json error on stdout', async () => {
+            fetchStub = mockFetchSteps([apiError('not_found', 404)]);
             // oclif keeps an exit code an earlier command left behind, so start from none
             process.exitCode = undefined;
 
-            const { stdout } = await runCommand(`${GET} --json`);
+            const { stdout } = await runCommand([...GET, '--json']);
             const exit = process.exitCode;
 
             process.exitCode = 0;

@@ -33,7 +33,13 @@ export const createFakeClock = (start = 0): FakeClock => {
 };
 
 export type ScriptedResponse = {
+    /** Serialized with JSON.stringify. */
     body?: unknown;
+    /**
+     * Sent as it is, instead of `body`: bytes or text, or a stream for a body that arrives in chunks
+     * or breaks halfway. A stream is read once, so a step that is retried needs one stream per try.
+     */
+    raw?: ReadableStream<Uint8Array> | string | Uint8Array;
     headers?: Record<string, string>;
     status?: number;
 };
@@ -77,7 +83,7 @@ export const createScriptedFetch = (script: readonly (Error | ScriptedResponse)[
         const status = next.status ?? 200;
         const responseInit: ResponseInit = next.headers ? { headers: next.headers, status } : { status };
 
-        const body = next.body === undefined ? null : JSON.stringify(next.body);
+        const body = next.raw ?? (next.body === undefined ? null : JSON.stringify(next.body));
 
         return Promise.resolve(new Response(body, responseInit));
     };

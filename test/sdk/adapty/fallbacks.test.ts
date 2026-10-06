@@ -5,33 +5,52 @@ import { expect } from 'chai';
 import { createAdapty } from '../../../src/sdk/adapty/index.js';
 import { createScriptedFetch } from '../../../src/sdk/core/testing.js';
 
-import type { FallbackFile } from '../../../src/sdk/adapty/index.js';
-
 const BASE = 'https://api.example.com/v1';
 const APP_ID = '550e8400-e29b-41d4-a716-446655440000';
 
-const FILE = JSON.parse(await readFile(
-    new URL('../../fixtures/fallback-file.json', import.meta.url), 'utf8',
-)) as FallbackFile;
+const FILE = await readFile(new URL('../../fixtures/fallback-file.json', import.meta.url));
+
+const readAll = async (body: ReadableStream<Uint8Array>): Promise<Buffer> => {
+    const chunks: Uint8Array[] = [];
+
+    for await (const chunk of body) {
+        chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
+};
 
 describe('adapty.fallbacks', () => {
     it('asks for one platform and one sdk version under the app, with the names the API uses', async () => {
-        const scripted = createScriptedFetch([{ body: FILE }]);
+        const scripted = createScriptedFetch([{ raw: new Uint8Array(FILE) }]);
         const adapty = createAdapty({ baseUrl: BASE, fetch: scripted.fetch, token: 't' });
 
-        await adapty.fallbacks.get(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' });
+        await adapty.fallbacks.download(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' });
 
         expect(scripted.calls[0]?.method).to.equal('GET');
         expect(scripted.calls[0]?.url).to.equal(`${BASE}/apps/${APP_ID}/fallbacks/?platform=iOS&sdk_version=4.1.0`);
     });
 
-    it('passes the file through as the server sent it', async () => {
-        const scripted = createScriptedFetch([{ body: FILE }]);
+    it('passes the server\'s bytes through unparsed', async () => {
+        const scripted = createScriptedFetch([{ raw: new Uint8Array(FILE) }]);
         const adapty = createAdapty({ baseUrl: BASE, fetch: scripted.fetch, token: 't' });
 
-        const file = await adapty.fallbacks.get(APP_ID, { platform: 'Android', sdkVersion: '3.10.2' });
+        const { body } = await adapty.fallbacks.download(APP_ID, { platform: 'Android', sdkVersion: '3.10.2' });
 
         expect(new URL(scripted.calls[0]?.url ?? '').searchParams.get('platform')).to.equal('Android');
-        expect(file).to.deep.equal(FILE);
+        expect((await readAll(body)).equals(FILE)).to.equal(true);
+    });
+
+    it('hands the body to a reader inside the request', async () => {
+        const scripted = createScriptedFetch([{ raw: new Uint8Array(FILE) }]);
+        const adapty = createAdapty({ baseUrl: BASE, fetch: scripted.fetch, token: 't' });
+
+        const bytes = await adapty.fallbacks.download(
+            APP_ID,
+            { platform: 'iOS', sdkVersion: '4.1.0' },
+            async ({ body }) => (await readAll(body)).length,
+        );
+
+        expect(bytes).to.equal(FILE.length);
     });
 });
