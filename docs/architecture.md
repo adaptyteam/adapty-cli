@@ -296,6 +296,13 @@ resolve `../../base/adapty` to its index automatically. See
 checked by the compiler: change a shape in the sdk and the command stops compiling instead of
 quietly changing what users parse.
 
+One exception: `fallbacks get` without `--output`. Its result is a file of up to hundreds of
+megabytes that the SDK wants byte for byte, so the command never parses it: it streams the server's
+bytes to stdout itself, in both modes, and `run()` returns `undefined` so oclif prints no JSON after
+them. Its stdout is the file and nothing else, so it also overrides `logJson()`: the `--json` error
+object goes to stderr, before and after the first byte. With `--output` it is an ordinary command
+again: `run()` returns a summary, and errors print where they always do.
+
 ## Where a change goes
 
 | Change | Place |
@@ -318,7 +325,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows metrics`, `migrations`,
+most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows metrics`, `migrations`,
 `placements metrics`, `product-offers` and `skills`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file

@@ -15,18 +15,27 @@ import type { FallbackPlatform } from '../../../../sdk/adapty/index.js';
 const SDK_VERSION = /^\d+\.\d+\.\d+$/;
 
 /** macOS, iPadOS and visionOS get the same App Store file as iOS, so they are not offered. */
-const apiPlatform: Record<'android' | 'ios', FallbackPlatform> = {
+const apiPlatform = {
     android: 'Android',
     ios: 'iOS',
-};
+} as const satisfies Record<string, FallbackPlatform>;
+
+type Platform = keyof typeof apiPlatform;
 
 /** What --json returns with --output: the file is on disk, so the result describes it. */
 type Written = {
     bytes: number;
     path: string;
-    platform: 'android' | 'ios';
+    platform: Platform;
     sdk_version: string;
 };
+
+/**
+ * Read from the raw argv, not the parsed flags: a run whose flags the parser rejects writes to stdout
+ * as well, and its error must stay off stdout too.
+ */
+const writesToStdout = (argv: readonly string[]): boolean =>
+    !argv.some(arg => arg === '--output' || arg.startsWith('--output='));
 
 const renderWritten = (written: Written): string =>
     `Wrote ${written.platform} fallback to ${written.path} (${written.bytes} bytes)`;
@@ -73,7 +82,7 @@ export default class FallbacksGet extends AdaptyCommand {
         }),
         'platform': Flags.option({
             description: 'Store the file is for: ios (App Store) or android (Play Store)',
-            options: ['ios', 'android'] as const,
+            options: ['ios', 'android'] as const satisfies readonly Platform[],
             required: true,
         })(),
         'sdk-version': Flags.string({
@@ -85,16 +94,14 @@ export default class FallbacksGet extends AdaptyCommand {
         }),
     };
 
-    /** Set once a byte of the file is on stdout: from then on, stdout holds the file and nothing else. */
-    #streamed = false;
-
     /**
-     * oclif prints the --json error object to stdout, after whatever is there already. Once file bytes
-     * went out, the error goes to stderr instead, so stdout stays a (partial) file and not a mix of two
-     * documents. The exit code still tells the caller the file is incomplete.
+     * Under --json oclif prints the error object to stdout. Without --output stdout is the file, before
+     * the first byte as after it, so the error object goes to stderr: `> file` never captures a document
+     * that is not the file, and the exit code tells the caller there is no complete one. A run without
+     * --output returns undefined, so an error is the only JSON that ever reaches this method there.
      */
     override logJson(json: unknown): void {
-        if (this.#streamed) {
+        if (writesToStdout(this.argv)) {
             process.stderr.write(`${JSON.stringify(json, null, 2)}\n`);
 
             return;
@@ -109,10 +116,10 @@ export default class FallbacksGet extends AdaptyCommand {
 
         if (flags.output === undefined) {
             // Retried until the headers only: bytes on stdout cannot be taken back for a second try.
-            const { body, headers } = await this.adapty.fallbacks.download(flags.app, input);
+            const response = await this.adapty.fallbacks.download(flags.app, input);
 
-            checkContentType(headers);
-            await this.#toStdout(checkShape(body));
+            await checkContentType(response);
+            await this.#toStdout(checkShape(response.body));
 
             // undefined, so oclif prints no result under --json: the file on stdout is the result
             return undefined;
@@ -122,10 +129,10 @@ export default class FallbacksGet extends AdaptyCommand {
 
         // The whole attempt runs inside the retry policy, so a body that breaks halfway is downloaded
         // again; the destination is touched only by the final rename of a complete file.
-        const bytes = await this.adapty.fallbacks.download(flags.app, input, ({ body, headers }) => {
-            checkContentType(headers);
+        const bytes = await this.adapty.fallbacks.download(flags.app, input, async (response) => {
+            await checkContentType(response);
 
-            return writeFileAtomic(path, checkShape(body));
+            return writeFileAtomic(path, checkShape(response.body));
         });
 
         const written: Written = { bytes, path, platform: flags.platform, sdk_version: flags['sdk-version'] };
@@ -137,8 +144,6 @@ export default class FallbacksGet extends AdaptyCommand {
 
     async #toStdout(chunks: AsyncIterable<Uint8Array>): Promise<void> {
         for await (const chunk of chunks) {
-            this.#streamed = true;
-
             if (!process.stdout.write(asBuffer(chunk))) {
                 await once(process.stdout, 'drain');
             }
