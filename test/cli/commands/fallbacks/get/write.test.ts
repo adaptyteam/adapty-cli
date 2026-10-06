@@ -39,11 +39,14 @@ describe('fallbacks get: writeFileAtomic', () => {
         expect(bytes).to.equal(11);
         expect(await readdir(join(dir, 'a', 'b'))).to.deep.equal(['ios_fallback.json']);
 
-        // 0o644 before the umask: the owner reads and writes, nobody else writes, nobody executes
-        const { mode } = await stat(path);
+        // 0o644 before the umask: the owner reads and writes, nobody else writes, nobody executes.
+        // Windows has no POSIX modes (stat reports 0o666 for a writable file), so only the bytes count there
+        if (process.platform !== 'win32') {
+            const { mode } = await stat(path);
 
-        expect(mode & 0o600).to.equal(0o600);
-        expect(mode & 0o133).to.equal(0);
+            expect(mode & 0o600).to.equal(0o600);
+            expect(mode & 0o133).to.equal(0);
+        }
     });
 
     it('overwrites an existing file', async () => {
