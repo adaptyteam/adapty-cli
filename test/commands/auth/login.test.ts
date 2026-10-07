@@ -25,7 +25,7 @@ const tokenBody = {
     access_token: 'new-token',
     expires_in: 86_400,
     token_type: 'Bearer',
-    user: { email: 'test@example.com', name: 'Test User' },
+    user: { name: 'Test User' },
 };
 
 describe('auth login', () => {
@@ -65,6 +65,12 @@ describe('auth login', () => {
         });
     });
 
+    it('names the user it authenticated', async () => {
+        const { stdout } = await runCommand('auth login');
+
+        expect(stdout).to.contain('Authenticated as Test User');
+    });
+
     it('saves the session in the shape the untouched commands read', async () => {
         await runCommand('auth login');
 
@@ -73,7 +79,7 @@ describe('auth login', () => {
 
         expect(JSON.parse(raw)).to.deep.equal({
             access_token: 'new-token',
-            user: { email: 'test@example.com', name: 'Test User' },
+            user: { name: 'Test User' },
         });
 
         expect(await resolveToken(config.configDir)).to.equal('new-token');

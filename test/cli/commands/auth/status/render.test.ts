@@ -19,26 +19,40 @@ describe('renderStatus', () => {
             authenticated: true,
             config_path: CONFIG_PATH,
             email: undefined,
+            name: undefined,
             source: 'env',
             token_prefix: 'env-toke',
         })).to.equal('Token: env-toke****\nSource: ADAPTY_TOKEN (environment)');
     });
 
-    it('prints the email, the masked token and the file it came from', () => {
-        expect(renderStatus({
-            authenticated: true,
-            config_path: CONFIG_PATH,
-            email: 'dev@example.com',
-            source: 'file',
-            token_prefix: 'stored-t',
-        })).to.equal(`Email: dev@example.com\nToken: stored-t****\nConfig: ${CONFIG_PATH}`);
-    });
-
-    it('drops the email line when the stored session carries no user', () => {
+    it('prints the user, the masked token and the file it came from', () => {
         expect(renderStatus({
             authenticated: true,
             config_path: CONFIG_PATH,
             email: undefined,
+            name: 'Dev',
+            source: 'file',
+            token_prefix: 'stored-t',
+        })).to.equal(`User: Dev\nToken: stored-t****\nConfig: ${CONFIG_PATH}`);
+    });
+
+    it('adds the email a session saved before the server stopped sending it', () => {
+        expect(renderStatus({
+            authenticated: true,
+            config_path: CONFIG_PATH,
+            email: 'dev@example.com',
+            name: 'Dev',
+            source: 'file',
+            token_prefix: 'stored-t',
+        })).to.equal(`User: Dev\nEmail: dev@example.com\nToken: stored-t****\nConfig: ${CONFIG_PATH}`);
+    });
+
+    it('drops the user line when the stored session carries no user', () => {
+        expect(renderStatus({
+            authenticated: true,
+            config_path: CONFIG_PATH,
+            email: undefined,
+            name: undefined,
             source: 'file',
             token_prefix: 'stored-t',
         })).to.equal(`Token: stored-t****\nConfig: ${CONFIG_PATH}`);

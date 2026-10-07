@@ -8,6 +8,10 @@ export const renderStatus = (status: Result): string => {
 
     const lines: string[] = [];
 
+    if (status.name !== undefined) {
+        lines.push(`User: ${status.name}`);
+    }
+
     if (status.email !== undefined) {
         lines.push(`Email: ${status.email}`);
     }

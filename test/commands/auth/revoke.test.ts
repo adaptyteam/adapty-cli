@@ -94,7 +94,7 @@ describe('auth revoke', () => {
     });
 
     it('preserves a different stored session when revoking the environment token', async () => {
-        const stored = { token: 'stored-token', user: { email: 'dev@example.com', name: 'Dev' } };
+        const stored = { token: 'stored-token', user: { name: 'Dev' } };
 
         await createFileSessionStore(config.configDir).save(stored);
         process.env.ADAPTY_TOKEN = 'env-token';

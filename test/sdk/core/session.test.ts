@@ -13,7 +13,7 @@ import type { SessionStore } from '../../../src/sdk/core/session.js';
 /** File modes mean nothing on Windows, and CI runs there too. */
 const posix = process.platform === 'win32' ? it.skip : it;
 
-const session = { token: 'tok_secret_value', user: { email: 'dev@example.com', name: 'Dev' } };
+const session = { token: 'tok_secret_value', user: { name: 'Dev' } };
 
 describe('createFileSessionStore', () => {
     let dir: string;
@@ -31,7 +31,7 @@ describe('createFileSessionStore', () => {
 
         expect(JSON.parse(await readFile(store.path, 'utf8'))).to.deep.equal({
             access_token: 'tok_secret_value',
-            user: { email: 'dev@example.com', name: 'Dev' },
+            user: { name: 'Dev' },
         });
     });
 
@@ -90,6 +90,12 @@ describe('createFileSessionStore', () => {
         await writeFile(store.path, JSON.stringify({ token: 'from a newer version' }), { mode: 0o600 });
 
         expect(await store.load()).to.equal(undefined);
+    });
+
+    it('keeps the email of a user saved back when the server still sent one', async () => {
+        await writeFile(store.path, JSON.stringify({ access_token: 'tok', user: { email: 'a@b.c', name: 'Dev' } }), { mode: 0o600 });
+
+        expect(await store.load()).to.deep.equal({ token: 'tok', user: { email: 'a@b.c', name: 'Dev' } });
     });
 
     it('drops a user that is not fully there, keeping the token', async () => {

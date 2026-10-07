@@ -32,15 +32,14 @@ describe('session file, shared by both stacks', () => {
     it('lets a legacy command use a token the new store saved', async () => {
         await createFileSessionStore(config.configDir).save({
             token: 'new-stack-token',
-            user: { email: 'dev@example.com', name: 'Dev' },
+            user: { name: 'Dev' },
         });
 
         expect(await resolveToken(config.configDir)).to.equal('new-stack-token');
 
-        // `auth status` calls itself authenticated only when both fields are there
         const stored = await readConfig(config.configDir);
         expect(stored.access_token).to.equal('new-stack-token');
-        expect(stored.user).to.deep.equal({ email: 'dev@example.com', name: 'Dev' });
+        expect(stored.user).to.deep.equal({ name: 'Dev' });
     });
 
     it('lets a new command use a token a legacy login saved', async () => {

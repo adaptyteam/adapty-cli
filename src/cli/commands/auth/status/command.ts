@@ -20,6 +20,7 @@ export default class AuthStatus extends BaseCommand {
                     authenticated: true,
                     config_path: session.store.path,
                     email: session.user?.email,
+                    name: session.user?.name,
                     source: session.source === 'env' ? 'env' : 'file',
                     token_prefix: session.token.slice(0, 8),
                 };
