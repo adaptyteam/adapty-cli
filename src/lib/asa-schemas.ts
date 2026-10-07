@@ -163,10 +163,15 @@ export type AsaSearchTermDTO = {
     campaign_group_id: string;
     campaign_id: string;
     country_or_region: string;
+    impression_midpoint_all: null | string;
+    impression_midpoint_first: null | string;
+    impression_share_all: null | string;
+    impression_share_first: null | string;
     keyword_id: null | string;
     match_type: AsaKeywordMatchType | null;
     metrics: AsaMetricsDTO;
-    rank: null | number;
+    rank_all: null | number;
+    rank_first: null | number;
     search_popularity: null | number;
     source: null | string;
     text: null | string;
