@@ -124,6 +124,28 @@ Invoicing Options. They map to `loc_invoice_details` in the request: advertiser 
 |---|---|---|
 | `asa creatives list` | see Scope filters | Yields the Apple `creative_id` that `ads create` needs. |
 
+## Segments from Apple Search Ads entities
+
+Adapty segments (audiences for placements) built from ASA entities, the way the Ads Manager
+"create segment" button does it: one attribution filter over the Apple ids of the chosen entities.
+These commands write through the Developer API, so they are the one place in this topic that takes
+`--app` — the Adapty app the segment belongs to, from `adapty apps list`, not an ASA scope filter.
+Any other filter shape (country, install date, custom attributes) goes through `adapty segments create`.
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa segments create` | `--app`, plus one kind of entity: `--campaign` (repeatable) / `--ad-group` (repeatable) / `--keyword` (repeatable, with exactly one `--ad-group` as the lookup scope); optional `--title`, `--description`, `--yes` | Reads the entities from the `asa` service, then creates the segment with `campaign IN [...]`, `ad_group IN [...]` or `creative IN [...]` (a keyword is a `creative` for the portal) over their Apple ids. The default title is the dashboard's own — `[ASA] Campaign: <name>`, `[ASA] Ad group: <name>`, `[ASA] Keyword: <text>`, or `[ASA] <N> campaigns: <three names> +<rest>...` — keep it unless the user asks for another: the dashboard recognises its segments by the `[ASA]` prefix. Two kinds of entity in one call exit 2 before the network. The answer is the full segment (`id`, `filters`, `profile_count`, `refresh_in_progress`); `profile_count` starts at 0 and is recomputed by the server later. |
+| `asa segments update <id>` | `--app`, plus the same entity flags as `create`; optional `--title`, `--description`, `--yes` | Replaces the segment's filter with the chosen entities. Title and description are read back and kept unless `--title` / `--description` are passed, because the server takes the whole segment. The id is the segment UUID from `asa segments list` or `adapty segments list`. |
+| `asa segments list` | `--app`; optional `--campaign` or `--ad-group` (one UUID) | The `[ASA]`-titled segments of the app. With `--campaign` or `--ad-group` only the segments whose filter carries that entity's Apple id are kept — run it before `create` to avoid a duplicate segment for the same campaign. Reads one page of 100 segments. |
+
+Recipe — a segment per campaign:
+
+```sh
+adapty asa campaigns list --page-size 1000                    # the campaign UUIDs
+adapty asa segments list --app APP_UUID --campaign CAMPAIGN_UUID   # empty → no segment yet
+adapty asa segments create --app APP_UUID --campaign CAMPAIGN_UUID --yes
+```
+
 ## Automations
 
 | Command | Flags | Notes |

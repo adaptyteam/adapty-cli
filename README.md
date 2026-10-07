@@ -90,6 +90,20 @@ adapty placements create --app UUID [flags]
 adapty placements update --app UUID PLACEMENT_ID [flags]
 ```
 
+### Segments
+
+```sh
+adapty segments list --app UUID [--page N] [--page-size N]
+adapty segments get --app UUID SEGMENT_ID                      # with filters, profile_count, refresh_in_progress
+adapty segments create --app UUID --title "US installs" --filter ip_country:IN:US --filter install_date:>=:2026-01-01
+adapty segments update --app UUID SEGMENT_ID --title "..." --filter campaign:IN:2144520245
+```
+
+A filter is `field:OPERATOR:value[,value...]`; the operator is mandatory and the server validates field names,
+operators and value types. `update` replaces the whole segment — pass every filter you want to keep. Segments
+built from Apple Search Ads entities are easier to create with `adapty asa segments create`, which resolves the
+Apple ids and names the segment the way the dashboard does (see [Apple Search Ads](#apple-search-ads)).
+
 ### Flows
 
 ```sh
@@ -272,6 +286,28 @@ adapty asa keywords list --ad-group AD_GROUP_UUID --status ACTIVE
 adapty asa keywords list --ad-group AD_GROUP_UUID --ad-group OTHER_UUID   # repeatable
 adapty asa creatives list --app APP_UUID
 ```
+
+#### Segments from Apple Search Ads entities
+
+The Ads Manager "create segment" button, as commands. Each one builds an Adapty segment with a single
+attribution filter over the Apple ids of the chosen entities and names it `[ASA] Campaign: <name>` (or the ad
+group / keyword wording), so the dashboard recognises it as its own. These commands write through the Developer
+API, which is why they are the one place in the `asa` topic that takes `--app`: the Adapty app the segment
+belongs to, from `adapty apps list`.
+
+```sh
+adapty asa segments create --app APP_UUID --campaign CAMPAIGN_UUID
+adapty asa segments create --app APP_UUID --campaign UUID_1 --campaign UUID_2 --title "[ASA] Brand campaigns"
+adapty asa segments create --app APP_UUID --ad-group AD_GROUP_UUID
+adapty asa segments create --app APP_UUID --ad-group AD_GROUP_UUID --keyword KEYWORD_UUID --keyword OTHER_UUID
+adapty asa segments update SEGMENT_UUID --app APP_UUID --campaign CAMPAIGN_UUID     # keeps title and description
+adapty asa segments list --app APP_UUID [--campaign CAMPAIGN_UUID | --ad-group AD_GROUP_UUID]
+```
+
+One kind of entity per call. `--keyword` needs exactly one `--ad-group` to look the keywords up in. `list` shows
+the `[ASA]`-titled segments; with `--campaign` or `--ad-group` it keeps only those whose filter carries that
+entity, so a script can check for an existing segment before creating one. Any other filter shape goes through
+`adapty segments create`.
 
 `--campaign-group`, `--app`, `--campaign`, `--ad-group` are repeatable and take the UUIDs printed by the
 matching list command; `--search` matches names case-insensitively. Each list accepts only the filters that
