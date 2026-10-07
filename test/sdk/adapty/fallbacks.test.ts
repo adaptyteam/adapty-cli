@@ -3,7 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { expect } from 'chai';
 
 import { createAdapty } from '../../../src/sdk/adapty/index.js';
-import { createScriptedFetch } from '../../../src/sdk/core/testing.js';
+import { ApiError } from '../../../src/sdk/core/errors.js';
+import { createFakeClock, createScriptedFetch } from '../../../src/sdk/core/testing.js';
+import { rejection } from '../../helpers/rejection.js';
 
 const BASE = 'https://api.example.com/v1';
 const APP_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -41,16 +43,13 @@ describe('adapty.fallbacks', () => {
         expect((await readAll(body)).equals(FILE)).to.equal(true);
     });
 
-    it('hands the body to a reader inside the request', async () => {
-        const scripted = createScriptedFetch([{ raw: new Uint8Array(FILE) }]);
-        const adapty = createAdapty({ baseUrl: BASE, fetch: scripted.fetch, token: 't' });
+    it('never retries: one request for a 502 the transport would otherwise repeat', async () => {
+        const scripted = createScriptedFetch([{ body: {}, status: 502 }, { raw: new Uint8Array(FILE) }]);
+        const adapty = createAdapty({ baseUrl: BASE, clock: createFakeClock(), fetch: scripted.fetch, token: 't' });
 
-        const bytes = await adapty.fallbacks.download(
-            APP_ID,
-            { platform: 'iOS', sdkVersion: '4.1.0' },
-            async ({ body }) => (await readAll(body)).length,
-        );
+        const error = await rejection(adapty.fallbacks.download(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' }));
 
-        expect(bytes).to.equal(FILE.length);
+        expect(error).to.be.instanceOf(ApiError);
+        expect(scripted.calls).to.have.lengthOf(1);
     });
 });

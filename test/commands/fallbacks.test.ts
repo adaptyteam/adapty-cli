@@ -278,44 +278,6 @@ describe('fallbacks get', () => {
             expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         });
 
-        it('downloads again when the body breaks halfway, and writes only the complete file', async () => {
-            fetchStub = mockFetchSteps([{ body: FILE, broken: true }, { body: FILE }]);
-            const path = join(dir, 'ios_fallback.json');
-            await writeFile(path, 'old');
-
-            const { error } = await runCommand([...GET, '--output', path]);
-
-            expect(error).to.equal(undefined);
-            expect(fetchStub.callCount).to.equal(2);
-            expect((await readFile(path)).equals(FILE)).to.equal(true);
-            expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
-        });
-
-        it('keeps the old file when every attempt breaks halfway', async () => {
-            fetchStub = mockFetchSteps([{ body: FILE, broken: true }]);
-            const path = join(dir, 'ios_fallback.json');
-            await writeFile(path, 'old');
-
-            const { error } = await runCommand([...GET, '--output', path]);
-
-            expect(error?.oclif?.exit).to.equal(exitCode.network);
-            expect(fetchStub.callCount).to.equal(3);
-            expect(await readFile(path, 'utf8')).to.equal('old');
-            expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
-        });
-
-        it('keeps the old file when the server fails', async () => {
-            fetchStub = mockFetchSteps([apiError('server_error', 500)]);
-            const path = join(dir, 'ios_fallback.json');
-            await writeFile(path, 'old');
-
-            const { error } = await runCommand([...GET, '--output', path]);
-
-            expect(error?.oclif?.exit).to.equal(exitCode.api);
-            expect(await readFile(path, 'utf8')).to.equal('old');
-            expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
-        });
-
         it('keeps the old file and creates no directory when the server cannot be reached', async () => {
             fetchStub = sinon.stub(globalThis, 'fetch').rejects(new TypeError('fetch failed'));
             const path = join(dir, 'ios_fallback.json');
@@ -377,6 +339,92 @@ describe('fallbacks get', () => {
             // push the peak past 200 MiB
             expect(rss).to.be.greaterThan(0);
             expect(rss).to.be.lessThan(150 * 1024 * 1024);
+        });
+    });
+
+    describe('exactly one request', () => {
+        // Each failure is followed by a good answer: a retry would succeed, so only the count tells
+        const failures: { exit: number; name: string; stub: () => sinon.SinonStub }[] = [
+            { exit: exitCode.api, name: 'a 500', stub: () => mockFetchSteps([apiError('server_error', 500), { body: FILE }]) },
+            { exit: exitCode.api, name: 'a 502', stub: () => mockFetchSteps([apiError('bad_gateway', 502), { body: FILE }]) },
+            {
+                exit: exitCode.api,
+                name: 'a 429',
+                stub: () => mockFetchSteps([{ ...apiError('throttled', 429), headers: { 'retry-after': '0' } }, { body: FILE }]),
+            },
+            {
+                exit: exitCode.network,
+                name: 'a network error',
+                stub: () => sinon.stub(globalThis, 'fetch')
+                    .onFirstCall().rejects(new TypeError('fetch failed'))
+                    .callsFake(() => Promise.resolve(new Response(FILE, { headers: JSON_TYPE }))),
+            },
+            {
+                exit: exitCode.network,
+                name: 'a body that breaks halfway',
+                stub: () => mockFetchSteps([{ body: FILE, broken: true }, { body: FILE }]),
+            },
+        ];
+
+        for (const { exit, name, stub } of failures) {
+            it(`sends one request for ${name} on stdout`, async () => {
+                fetchStub = stub();
+
+                const { error } = await runCommand(GET);
+
+                expect(error?.oclif?.exit).to.equal(exit);
+                expect(fetchStub.callCount).to.equal(1);
+            });
+
+            it(`sends one request for ${name} with --output, and keeps the old file`, async () => {
+                fetchStub = stub();
+                const path = join(dir, 'ios_fallback.json');
+                await writeFile(path, 'old');
+
+                const { error } = await runCommand([...GET, '--output', path]);
+
+                expect(error?.oclif?.exit).to.equal(exit);
+                expect(fetchStub.callCount).to.equal(1);
+                expect(await readFile(path, 'utf8')).to.equal('old');
+                expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
+            });
+        }
+
+        it('turns a 429 into exit 4 that says when to try again, with retry_after_seconds under --json', async () => {
+            const throttled = (): Step => ({ ...apiError('throttled', 429), headers: { 'retry-after': '120' } });
+            const path = join(dir, 'ios_fallback.json');
+            await writeFile(path, 'old');
+
+            fetchStub = mockFetchSteps([throttled()]);
+            const human = await runCommand([...GET, '--output', path]);
+
+            expect(human.error?.oclif?.exit).to.equal(exitCode.api);
+            expect(human.error?.message).to.contain('does not retry');
+            expect(human.error?.message).to.contain('Wait at least 120 seconds');
+            restoreFetch(fetchStub);
+
+            // Without --output the --json error is on stderr, with it on stdout: both carry the wait
+            for (const [args, channel] of [[GET, 'stderr'], [[...GET, '--output', path], 'stdout']] as const) {
+                fetchStub = mockFetchSteps([throttled()]);
+                process.exitCode = undefined;
+
+                const result = await runCommand([...args, '--json']);
+                const exit = process.exitCode;
+
+                process.exitCode = 0;
+
+                type Throttled = { error: { code: string; retry_after_seconds: number } };
+                const { error } = JSON.parse(result[channel]) as Throttled;
+
+                expect(exit, channel).to.equal(exitCode.api);
+                expect(error.code, channel).to.equal('throttled');
+                expect(error.retry_after_seconds, channel).to.equal(120);
+                expect(fetchStub.callCount, channel).to.equal(1);
+                restoreFetch(fetchStub);
+            }
+
+            fetchStub = undefined;
+            expect(await readFile(path, 'utf8')).to.equal('old');
         });
     });
 
