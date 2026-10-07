@@ -1,4 +1,4 @@
-import type { Http, StreamedResponse } from '../core/http/index.js';
+import type { Http } from '../core/http/index.js';
 
 /** The portal's `Platform` names a store: `Android` is Play Store, every other value App Store. */
 export type FallbackPlatform = 'Android' | 'iOS';
@@ -13,31 +13,15 @@ export type FallbackInput = {
  * One file per store, covering every placement of the app. It is never parsed: a large app's file is
  * hundreds of megabytes, and the SDK that bundles it wants the server's bytes as they are.
  *
- * Without `read` the body is handed over after the headers, retried until then. With `read` the
- * whole attempt, body included, runs inside the retry policy: for a consumer that can start over,
- * such as a temp file, and never for one that cannot, such as stdout.
+ * Exactly one request, never retried: the server builds the file in memory for every request, a
+ * build that ran out of memory answers 502, and a retry starts the same multi-GB build on the next
+ * pod. Whoever wants another try waits for the server's Retry-After and asks again.
  */
-export const fallbacks = (http: Http) => {
-    const path = (appId: string) => `/apps/${appId}/fallbacks`;
-    const query = (input: FallbackInput) => ({ platform: input.platform, sdk_version: input.sdkVersion });
-
-    type Read<T> = (response: StreamedResponse) => Promise<T>;
-
-    function download(appId: string, input: FallbackInput): Promise<StreamedResponse>;
-
-    function download<T>(appId: string, input: FallbackInput, read: Read<T>): Promise<T>;
-
-    function download<T>(
-        appId: string,
-        input: FallbackInput,
-        read?: Read<T>,
-    ): Promise<StreamedResponse | T> {
-        return read === undefined
-            ? http.stream(path(appId), { query: query(input) })
-            : http.stream(path(appId), { query: query(input), read });
-    }
-
-    return { download };
-};
+export const fallbacks = (http: Http) => ({
+    download: (appId: string, input: FallbackInput) => http.stream(`/apps/${appId}/fallbacks`, {
+        query: { platform: input.platform, sdk_version: input.sdkVersion },
+        retry: false,
+    }),
+});
 
 export type FallbacksApi = ReturnType<typeof fallbacks>;

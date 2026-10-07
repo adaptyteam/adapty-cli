@@ -108,6 +108,8 @@ error object included) goes to stderr; redirect
 it to a temp file and move it only on success, because `> file` truncates the file before the request.
 `--output` writes atomically after a complete download, and with `--json` returns
 `{path, platform, sdk_version, bytes}`. Never parse the file to check it: a large app's file is about 200 MB.
+The command sends exactly one request and never retries (each request makes the server rebuild the file). Do not
+retry it at once: wait at least the `Retry-After` the server sent (`retry_after_seconds` in the `--json` error).
 
 ## Migrations
 

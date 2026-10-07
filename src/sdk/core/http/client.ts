@@ -33,15 +33,13 @@ export type StreamedResponse = {
     headers: Headers;
 };
 
-/** Always retried, up to the headers or through `read`: a stream is a GET. */
-type StreamRequest = Omit<BodylessOptions, 'idempotent'>;
-
-export type StreamOptions<T> = StreamRequest & {
+type StreamRequest = Omit<BodylessOptions, 'idempotent'> & {
     /**
-     * Consumes the body inside the retry: a connection that breaks mid-body is retried like a 5xx.
-     * Without it the retry stops at the headers, because a body handed over is the caller's to read.
+     * A stream is a GET, so it is retried up to the headers by default; never after them, because a
+     * body handed over is the caller's to read. `false` sends exactly one request, for an answer so
+     * expensive to build that a retry costs the server more than the failure did.
      */
-    read: (response: StreamedResponse) => Promise<T>;
+    retry?: false | undefined;
 };
 
 export type Http = {
@@ -53,7 +51,6 @@ export type Http = {
     request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>;
     /** A GET whose body is handed over unread, for answers too large to hold in memory. */
     stream(path: string, options?: StreamRequest): Promise<StreamedResponse>;
-    stream<T>(path: string, options: StreamOptions<T>): Promise<T>;
 };
 
 export type HttpOptions = {
@@ -164,27 +161,18 @@ export const createHttp = (options: HttpOptions): Http => {
         return retried(() => send<T>(method, path, req), req);
     };
 
-    async function stream(path: string, req?: StreamRequest): Promise<StreamedResponse>;
-
-    async function stream<T>(path: string, req: StreamOptions<T>): Promise<T>;
-
-    async function stream<T>(
-        path: string,
-        req: StreamOptions<T> | StreamRequest = {},
-    ): Promise<StreamedResponse | T> {
+    const stream = (path: string, req: StreamRequest = {}): Promise<StreamedResponse> => {
         const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
         const signal = combineSignals(options.signal, req.signal);
-        const read = 'read' in req ? req.read : undefined;
 
-        const attempt = async (): Promise<StreamedResponse | T> => {
+        const attempt = async (): Promise<StreamedResponse> => {
             const response = await open('GET', path, req);
-            const streamed = { body: guardBody(response.body, url, signal), headers: response.headers };
 
-            return read === undefined ? streamed : read(streamed);
+            return { body: guardBody(response.body, url, signal), headers: response.headers };
         };
 
-        return retried(attempt, req);
-    }
+        return req.retry === false ? attempt() : retried(attempt, req);
+    };
 
     return {
         request,

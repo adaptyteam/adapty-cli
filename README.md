@@ -147,10 +147,15 @@ adapty fallbacks get --app $env:ADAPTY_APP_ID --platform android --sdk-version 4
 ```
 
 `--output` creates missing parent directories, streams into a temp file and renames it onto the destination
-only after a complete download. A download that breaks halfway is retried; on any failure the old file stays.
-It prints one summary line, and with `--json` returns `{path, platform, sdk_version, bytes}` instead of the
+only after a complete download; on any failure the old file stays. It prints one summary line, and with `--json` returns `{path, platform, sdk_version, bytes}` instead of the
 file. An answer that is not shaped like the file (not `application/json`, or not `{…}`) exits 4 with
 `fallback_invalid_response`. In CI, set `ADAPTY_TOKEN` so the command runs without a login prompt.
+
+The command sends exactly one request and never retries, in both modes: the server builds the file for every
+request, and a retry after a failure (often a 502 from a server that ran out of memory) starts that build again.
+A 5xx or a 429 exits 4, a lost connection exits 5. A CI job that wants a retry should wait at least the
+`Retry-After` the server sent before it runs the command again; the `--json` error carries that wait as
+`retry_after_seconds`, and the human message says it.
 
 ### Migrations
 

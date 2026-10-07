@@ -8,6 +8,7 @@ import { usageError } from '../../../errors.js';
 import { appIdFlag } from '../../../input/app.js';
 
 import { checkContentType, checkShape } from './lib/shape.js';
+import { explainThrottle } from './lib/throttle.js';
 import { writeFileAtomic } from './lib/write.js';
 
 import type { FallbackPlatform } from '../../../../sdk/adapty/index.js';
@@ -58,6 +59,9 @@ export default class FallbacksGet extends AdaptyCommand {
             '  3.12.x and later 3.x   9',
             '  3.8.x – 3.11.x         8',
         ].join('\n'),
+        'The command sends exactly one request and never retries: the server builds the file for every request, and '
+        + 'a retry after a failure starts that build again. A CI job that wants a retry should wait at least the '
+        + 'Retry-After the server sent (retry_after_seconds in the --json error) before it runs the command again.',
         'Without --output, stdout is the server\'s file byte for byte, in human mode and with --json alike; nothing else '
         + 'is printed there. A plain `> file` truncates the file before the request, so redirect to a temp file and move '
         + 'it on success, or use --output. With --output, the file is written atomically after a complete download, and '
@@ -114,10 +118,12 @@ export default class FallbacksGet extends AdaptyCommand {
         const { flags } = await this.parse(FallbacksGet);
         const input = { platform: apiPlatform[flags.platform], sdkVersion: flags['sdk-version'] };
 
-        if (flags.output === undefined) {
-            // Retried until the headers only: bytes on stdout cannot be taken back for a second try.
-            const response = await this.adapty.fallbacks.download(flags.app, input);
+        // One request, never retried (see the sdk resource); a 429 says when to ask again.
+        const response = await this.adapty.fallbacks.download(flags.app, input).catch((error: unknown) => {
+            throw explainThrottle(error);
+        });
 
+        if (flags.output === undefined) {
             await checkContentType(response);
             await this.#toStdout(checkShape(response.body));
 
@@ -127,13 +133,11 @@ export default class FallbacksGet extends AdaptyCommand {
 
         const path = resolve(flags.output);
 
-        // The whole attempt runs inside the retry policy, so a body that breaks halfway is downloaded
-        // again; the destination is touched only by the final rename of a complete file.
-        const bytes = await this.adapty.fallbacks.download(flags.app, input, async (response) => {
-            await checkContentType(response);
+        // The request has succeeded by now; the destination is touched only by the final rename of a
+        // complete file, so any failure from here on keeps the old one.
+        await checkContentType(response);
 
-            return writeFileAtomic(path, checkShape(response.body));
-        });
+        const bytes = await writeFileAtomic(path, checkShape(response.body));
 
         const written: Written = { bytes, path, platform: flags.platform, sdk_version: flags['sdk-version'] };
 
