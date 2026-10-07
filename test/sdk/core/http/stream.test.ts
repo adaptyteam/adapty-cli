@@ -5,8 +5,6 @@ import { createHttp } from '../../../../src/sdk/core/http/index.js';
 import { createFakeClock, createScriptedFetch } from '../../../../src/sdk/core/testing.js';
 import { rejection } from '../../../helpers/rejection.js';
 
-import type { StreamedResponse } from '../../../../src/sdk/core/http/index.js';
-
 type Script = Parameters<typeof createScriptedFetch>[0];
 
 const setup = (script: Script) => {
@@ -100,26 +98,21 @@ describe('createHttp: stream', () => {
         expect(calls).to.have.lengthOf(1);
     });
 
-    it('retries the whole attempt, body included, when the caller reads inside it', async () => {
-        const { calls, http } = setup([{ raw: breaking('{"a"') }, { raw: '{"a": 1}' }]);
+    it('sends exactly one request with retry: false, whatever the failure', async () => {
+        const failures: Script = [
+            { body: {}, status: 502 },
+            { body: {}, headers: { 'retry-after': '30' }, status: 429 },
+            new TypeError('fetch failed'),
+        ];
 
-        const text = await http.stream('/files', {
-            read: async ({ body }: StreamedResponse) => (await readAll(body)).toString('utf8'),
-        });
+        for (const failure of failures) {
+            const { calls, clock, http } = setup([failure, { raw: '{}' }]);
 
-        expect(text).to.equal('{"a": 1}');
-        expect(calls).to.have.lengthOf(2);
-    });
+            const error = await rejection(http.stream('/files', { retry: false }));
 
-    it('does not retry what the reader itself rejects', async () => {
-        const { calls, http } = setup([{ raw: 'nope' }, { raw: '{}' }]);
-        const refusal = new Error('not the file');
-
-        const error = await rejection(http.stream('/files', {
-            read: () => Promise.reject(refusal),
-        }));
-
-        expect(error).to.equal(refusal);
-        expect(calls).to.have.lengthOf(1);
+            expect(error).to.be.instanceOf(failure instanceof Error ? NetworkError : ApiError);
+            expect(calls).to.have.lengthOf(1);
+            expect(clock.sleeps).to.deep.equal([]);
+        }
     });
 });
