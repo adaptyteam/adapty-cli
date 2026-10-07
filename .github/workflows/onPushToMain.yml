@@ -10,6 +10,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,3 +58,12 @@ jobs:
           commit: ${{ github.ref_name }}
           token: ${{ secrets.GH_RELEASE_TOKEN }}
           skipIfReleaseExists: true
+      - name: Sync Apple Ads agent docs
+        if: steps.version-check.outputs.skipped == 'false'
+        env:
+          ADAPTY_CLI_REF: ${{ steps.version-check.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+        run: |
+          gh api --method POST repos/adaptyteam/apple-ads-cli/dispatches \
+            -f event_type=adapty-cli-released \
+            -f "client_payload[ref]=${ADAPTY_CLI_REF}"
