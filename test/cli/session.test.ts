@@ -41,19 +41,19 @@ describe('resolveSession', () => {
     it('reads the stored session, user included', async () => {
         await createFileSessionStore(config.configDir).save({
             token: 'stored-token',
-            user: { email: 'dev@example.com', name: 'Dev' },
+            user: { name: 'Dev' },
         });
 
         const session = await resolveSession(config);
 
         expect(session.token).to.equal('stored-token');
-        expect(session.user).to.deep.equal({ email: 'dev@example.com', name: 'Dev' });
+        expect(session.user).to.deep.equal({ name: 'Dev' });
     });
 
     it('lets ADAPTY_TOKEN win over the stored session, and carries no user with it', async () => {
         await createFileSessionStore(config.configDir).save({
             token: 'stored-token',
-            user: { email: 'dev@example.com', name: 'Dev' },
+            user: { name: 'Dev' },
         });
 
         process.env.ADAPTY_TOKEN = 'env-token';

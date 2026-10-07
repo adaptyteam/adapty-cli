@@ -42,6 +42,8 @@ export const validateCreateMigration = (input: CreateMigrationInput): Issue[] =>
         issues.push({ message: 'required unless --name is given', path: 'flow' });
     } else if (flow.trim() === '') {
         issues.push({ message: 'must not be empty', path: 'flow' });
+    } else if (flow === MAIN_FLOW) {
+        issues.push({ message: 'main always creates a new Adapty app: use --name instead of --flow main --app', path: 'flow' });
     }
 
     if (appId === undefined) {

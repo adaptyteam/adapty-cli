@@ -36,7 +36,7 @@ const tokenResponse = {
     access_token: 'tok_1',
     expires_in: 3600,
     token_type: 'Bearer',
-    user: { email: 'dev@example.com', name: 'Dev' },
+    user: { name: 'Dev' },
 };
 
 describe('adapty.auth', () => {
@@ -73,7 +73,7 @@ describe('adapty.auth', () => {
             token: {
                 accessToken: 'tok_1',
                 expiresInSec: 3600,
-                user: { email: 'dev@example.com', name: 'Dev' },
+                user: { name: 'Dev' },
             },
         });
 

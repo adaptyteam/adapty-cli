@@ -96,10 +96,24 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK]);
 
         const { error } = await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50usd --budget abc`,
+            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50usd`,
         );
 
         expect(error?.message).to.contain('plain numbers');
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    it('campaigns have no lifetime budget flag', async () => {
+        fetchStub = mockFetch([CAMPAIGN_OK, CAMPAIGN_OK]);
+
+        const created = await runCommand(
+            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --budget 980`,
+        );
+
+        expect(created.error?.message).to.contain('--budget');
+
+        const updated = await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} --budget 980`);
+        expect(updated.error?.message).to.contain('--budget');
         expect(fetchStub.callCount).to.equal(0);
     });
 
@@ -297,6 +311,9 @@ describe('asa writes', () => {
         expect(updated.stderr).to.not.contain('Not serving: MISSING_BO');
 
         const paused = await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} --status PAUSED`);
+        expect(unwrap(paused.stderr)).to.contain(`campaigns update ${TEST_RESOURCE_ID} --status ENABLED`);
+        expect(unwrap(paused.stderr)).to.contain('ad-groups update ... --status ENABLED');
+        expect(unwrap(paused.stderr)).to.contain('keywords update ... --status ACTIVE');
         expect(paused.stderr).to.not.contain('Not serving');
 
         const asJson = await runCommand(`asa campaigns update --yes --json ${TEST_RESOURCE_ID} --status ENABLED`);

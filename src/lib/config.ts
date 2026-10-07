@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 export type AdaptyConfig = {
     access_token?: string;
-    user?: { email: string; name: string };
+    user?: { email?: string; name: string };
 };
 
 const CONFIG_DIR = join(homedir(), '.config', 'adapty');

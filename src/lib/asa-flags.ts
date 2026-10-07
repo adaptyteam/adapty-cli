@@ -293,6 +293,8 @@ const SERVING_HINTS: Record<string, (campaignId: string) => string> = {
         `Max Conversions campaign needs an automated ad group: adapty asa ad-groups create --campaign ${campaignId} --name "Automated Max Conv" --automated`,
     MISSING_BO_OR_INVOICING_FIELDS: campaignId =>
         `This organization bills by line of credit — add Invoicing Options: adapty asa campaigns update ${campaignId} --invoice-advertiser ... --invoice-order-number ... --invoice-contact-name ... --invoice-contact-email ... --invoice-billing-email ...`,
+    PAUSED_BY_USER: campaignId =>
+        `Campaign is paused — to serve, enable it: adapty asa campaigns update ${campaignId} --status ENABLED; its ad groups and keywords must be enabled too: adapty asa ad-groups update ... --status ENABLED, adapty asa keywords update ... --status ACTIVE`,
 };
 
 export function reportServingState(
@@ -304,10 +306,6 @@ export function reportServingState(
     }
 
     const reasons = campaign.serving_state_reasons;
-
-    if (reasons.length === 1 && reasons[0] === 'PAUSED_BY_USER') {
-        return;
-    }
 
     for (const reason of reasons) {
         const hint = SERVING_HINTS[reason];

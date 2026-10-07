@@ -1,7 +1,7 @@
 import { Command, Flags } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { ProductCreateRequestDTO, ProductDTO, ProductPeriod } from '../../lib/api-schemas.js';
@@ -26,7 +26,7 @@ export default class ProductsCreate extends Command {
     ];
 
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
         'access-level-id': Flags.string({ description: 'Access level ID (UUID)', required: true }),
         'android-base-plan-id': Flags.string({ description: 'Android base plan ID', helpGroup: 'STORE BINDINGS' }),
         'android-product-id': Flags.string({ description: 'Android product ID', helpGroup: 'STORE BINDINGS' }),

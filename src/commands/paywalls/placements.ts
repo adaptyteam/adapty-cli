@@ -1,7 +1,8 @@
 import { Args, Command } from '@oclif/core';
 
+import { appIdFlag } from '../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
-import { appFlag, isValidUuid } from '../../lib/flags.js';
+import { isValidUuid } from '../../lib/flags.js';
 import { printList } from '../../lib/output.js';
 
 import type { PlacementSummaryDTO } from '../../lib/api-schemas.js';
@@ -19,7 +20,7 @@ export default class PaywallsPlacements extends Command {
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> paywalls placements --app UUID 770e8400-e29b-41d4-a716-446655440002'];
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
     };
 
     async run(): Promise<PlacementsByPaywallResponse> {

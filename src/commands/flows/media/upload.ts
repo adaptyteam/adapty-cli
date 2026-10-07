@@ -3,8 +3,8 @@ import { basename, extname } from 'node:path';
 
 import { Args, Command } from '@oclif/core';
 
+import { appIdFlag } from '../../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
-import { appFlag } from '../../../lib/flags.js';
 import { printResponse } from '../../../lib/output.js';
 
 import type { MediaDTO } from '../../../lib/api-schemas.js';
@@ -28,7 +28,7 @@ export default class FlowsMediaUpload extends Command {
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> flows media upload --app UUID ./onboarding-hero.png'];
     static override flags = {
-        ...appFlag,
+        ...appIdFlag,
     };
 
     async run(): Promise<MediaDTO> {

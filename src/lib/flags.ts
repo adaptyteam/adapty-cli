@@ -6,21 +6,6 @@ export function isValidUuid(value: string): boolean {
     return UUID_REGEX.test(value);
 }
 
-export const appFlag = {
-    app: Flags.string({
-        description: 'App ID (UUID)',
-        // eslint-disable-next-line @typescript-eslint/require-await -- FIXME if you see this
-        async parse(input) {
-            if (!isValidUuid(input)) {
-                throw new Error('Invalid app ID format. Run `adapty apps list` to find your app ID.');
-            }
-
-            return input;
-        },
-        required: true,
-    }),
-};
-
 export type PaginatedResponse<T> = {
     data: T[];
     meta: { pagination: { count: number; page: number; pages: number } };
