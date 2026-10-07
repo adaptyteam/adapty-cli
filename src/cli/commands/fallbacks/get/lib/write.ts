@@ -27,7 +27,7 @@ const writeError = (path: string, cause: unknown): CliError => {
  * goes and the destination stays as it was. 0o644: the file is an app asset, not a secret.
  *
  * A failure of the source (a broken connection, a body that is not the file) is rethrown as it is,
- * so the caller can retry it; only a failure of the file system becomes `fallback_write_failed`.
+ * with its own exit code; only a failure of the file system becomes `fallback_write_failed`.
  * Returns the number of bytes written.
  */
 export const writeFileAtomic = async (path: string, source: AsyncIterable<Uint8Array>): Promise<number> => {

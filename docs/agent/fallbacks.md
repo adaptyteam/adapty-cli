@@ -34,8 +34,7 @@ adapty fallbacks get --app APP_UUID --platform android --sdk-version 4.1.0 --out
 ```
 
 `--output` creates missing parent directories and keeps the old file on any failure: a rejected request, a lost
-connection, an answer that is not the file, or a failed write. A download that breaks halfway is retried like a
-5xx. Use it on Windows, where PowerShell 5.1 `>` writes UTF-16. On stdout a download that breaks halfway leaves a
+connection, an answer that is not the file, or a failed write. Use it on Windows, where PowerShell 5.1 `>` writes UTF-16. On stdout a download that breaks halfway leaves a
 partial file and exits 5.
 
 Without `--output`, read errors from stderr and the exit code, never from stdout: under `--json` the error object
@@ -43,11 +42,20 @@ goes to stderr too, whether it comes before the first byte of the file (a bad fl
 answer that is not the file) or after it. With `--output`, stdout is not the file, and the `--json` error object
 is on stdout as for every other command.
 
+## No retries
+
+The command sends exactly one request, in both modes, and never retries: not on a 5xx, a 429, a lost connection
+or a download that breaks halfway. The server builds the file in memory for every request; a build that runs out
+of memory answers 502, and a retry would start the same multi-GB build on another server. Do not wrap the command
+in an immediate retry loop. To try again, wait at least the server's `Retry-After`: on a 429 the `--json` error
+carries it as `retry_after_seconds`, and the human message says how long to wait. Without a `Retry-After`, wait
+minutes, not seconds.
+
 ## Exit codes
 
 `2` bad input (an app id that is not a UUID, a `--sdk-version` that is not `X.Y.Z`, another `--platform`),
 checked before any request. `3` no token, or the API refused the token or the app (`403 authentication_failed`,
-`403 permission_denied`). `4` another API error, or an answer that is not shaped like the file: not
+`403 permission_denied`). `4` another API error (a 5xx, or a 429 with `retry_after_seconds`), or an answer that is not shaped like the file: not
 `application/json`, or a body whose first and last non-whitespace bytes are not `{` and `}`
 (`fallback_invalid_response`). `5` the API was not reached, or the download broke halfway. `1` the file could not
 be written; the message names the errno.
