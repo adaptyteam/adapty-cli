@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { Args, Flags } from '@oclif/core';
 
 import { MigrationCommand } from '../../../base/adapty/index.js';
@@ -7,9 +10,11 @@ import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
 import { actionView } from './lib/action-view.js';
 import { findAction, unknownActionMessage, unsupportedActionMessage } from './lib/actions.js';
+import { buildHandoff, repository, RESOURCE_FILE_NAME } from './lib/agent.js';
 import { readActionInput } from './lib/input.js';
 import { openLink } from './lib/open-link.js';
 
+import type { Handoff } from './lib/agent.js';
 import type { Action, Envelope } from '../../../../sdk/adapty/index.js';
 import type { MigrationSelection } from '../../../context/migration/index.js';
 
@@ -28,7 +33,7 @@ type RunContext = {
 };
 
 export default class Run extends MigrationCommand {
-    static override summary = 'Run an input action or open an external action link';
+    static override summary = 'Run an input action, open an external action link, or hand an agent action to a coding agent';
     static override description = [
         'Choose an action ID from next_actions or available_actions in `adapty migrations status -m ID --json`.',
         'Replace ACTION_ID in the examples with an offered action ID.',
@@ -41,7 +46,12 @@ export default class Run extends MigrationCommand {
         'Pipes and --json require --open to launch a browser; BROWSER=none disables it.',
         'File uploads are not supported; use the dashboard or an offered Cloud Export action.',
         '',
-        'With --json, returns the full migration response (before the browser step for external actions).',
+        'An agent action writes the resources in reads to .git/adapty/ in the app\'s git repository and prints what a',
+        'coding agent needs to do it. Run it from the agent, or paste its output into one. The agent reports the',
+        'result by running the action again with --input.',
+        '',
+        'With --json, returns the full migration response (before the browser step for external actions). For an agent',
+        'action without --input, returns { action_id, files, instructions }: the files written and the text for the agent.',
         'After a revision_conflict error, read status and review the action before retrying.',
     ].join('\n');
 
@@ -108,11 +118,15 @@ export default class Run extends MigrationCommand {
         }),
     };
 
-    async run(): Promise<Envelope> {
+    async run(): Promise<Envelope | Handoff> {
         const context = await this.prepare();
 
         if (context.href !== undefined) {
             return this.runExternalAction(context, context.href);
+        }
+
+        if (context.action.kind === 'agent' && context.input === undefined) {
+            return this.handOff(context);
         }
 
         return this.runInputAction(context);
@@ -144,8 +158,49 @@ export default class Run extends MigrationCommand {
 
         return {
             action, envelope, flags, href, selection,
-            input: fromStdin && action.kind === 'input' ? await readActionInput(flags) : input,
+            input: fromStdin && (action.kind === 'input' || action.kind === 'agent') ? await readActionInput(flags) : input,
         };
+    }
+
+    /** The agent that ran this command, or the one the developer pastes the output into, does the work. */
+    private async handOff({ action, selection }: RunContext): Promise<Handoff> {
+        const repo = await repository(process.cwd());
+
+        if (repo === undefined) {
+            throw new CliError(
+                `\`${action.action_id}\` works on the app code: run it from the app's git repository.`,
+                exitCode.usage,
+                'not_a_repository',
+            );
+        }
+
+        const migrationId = selection.currentMigrationId;
+        const dir = join(repo.gitDir, 'adapty');
+        const files: string[] = [];
+        const guides: string[] = [];
+
+        await mkdir(dir, { recursive: true });
+
+        for (const name of action.reads) {
+            const { result } = await this.adapty.migrations.resource(migrationId, name);
+
+            if (typeof result === 'object' && result !== null && 'markdown' in result && typeof result.markdown === 'string') {
+                guides.push(result.markdown);
+            } else if (RESOURCE_FILE_NAME.test(name)) {
+                const file = join(dir, `${name}.json`);
+
+                await writeFile(file, `${JSON.stringify(result, null, 2)}\n`);
+                files.push(`\`${name}\`: ${file}`);
+            } else {
+                throw new CliError(`The server named a resource \`${name}\` that cannot be a file name.`, 1, 'resource_name_invalid');
+            }
+        }
+
+        const handoff = buildHandoff({ actionId: action.action_id, files, guides });
+
+        this.render(handoff, ({ instructions }) => instructions);
+
+        return handoff;
     }
 
     private async runExternalAction(context: RunContext, href: string): Promise<Envelope> {
@@ -156,13 +211,13 @@ export default class Run extends MigrationCommand {
     }
 
     private async runInputAction({ action, envelope, flags, input, selection }: RunContext): Promise<Envelope> {
-        if (action.kind !== 'input' && action.kind !== 'upload' && action.kind !== 'external') {
+        if (action.kind !== 'input' && action.kind !== 'upload' && action.kind !== 'external' && action.kind !== 'agent') {
             this.render({ action, migrationId: envelope.migration.id }, actionView);
 
             return envelope;
         }
 
-        if (action.kind !== 'input') {
+        if (action.kind !== 'input' && action.kind !== 'agent') {
             throw new CliError(unsupportedActionMessage(action), exitCode.usage, 'action_unsupported');
         }
 
