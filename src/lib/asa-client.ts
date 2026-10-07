@@ -6,6 +6,9 @@ import { buildUserAgent } from './client-from-config.js';
 import { AuthRequiredError, NetworkError } from './errors.js';
 
 import type { QueryParams } from './api-client.js';
+import type { AsaSegmentEntity, AsaSegmentSelection } from './asa-flags.js';
+import type { AsaAdGroupDTO, AsaCampaignDTO, AsaKeywordDTO } from './asa-schemas.js';
+import type { PaginatedResponse } from './flags.js';
 import type { Config } from '@oclif/core';
 
 export const ASA_API_URL = 'https://api-asa-admin.adapty.io/api/v1/cli';
@@ -85,4 +88,42 @@ export function noteReplay(replayed: boolean, log: (msg: string) => void): void 
     if (replayed) {
         log('Already applied earlier — showing the stored result.');
     }
+}
+
+/** The ASA entities behind a segment source, with the Apple ids the portal filters on. */
+export async function fetchAsaSegmentEntities(
+    client: ApiClient,
+    selection: AsaSegmentSelection,
+): Promise<AsaSegmentEntity[]> {
+    if (selection.source === 'campaign') {
+        const campaigns = await Promise.all(selection.ids.map(id => client.get<AsaCampaignDTO>(`/campaigns/${id}`)));
+
+        return campaigns.map(campaign => ({ id: String(campaign.campaign_id), name: campaign.name }));
+    }
+
+    if (selection.source === 'ad-group') {
+        const adGroups = await Promise.all(selection.ids.map(id => client.get<AsaAdGroupDTO>(`/ad-groups/${id}`)));
+
+        return adGroups.map(adGroup => ({ id: String(adGroup.ad_group_id), name: adGroup.name }));
+    }
+
+    // No single-keyword read exists; the ad group is small, so one scoped page covers the lookup
+    const page = await client.get<PaginatedResponse<AsaKeywordDTO>>('/keywords', {
+        'ad_group_id': selection.scopeAdGroup,
+        'page[size]': '1000',
+    });
+
+    const byId = new Map(page.data.map(keyword => [keyword.internal_id, keyword]));
+    const missing = selection.ids.filter(id => !byId.has(id));
+
+    if (missing.length > 0) {
+        throw new Error(`Keyword(s) not found in ad group ${selection.scopeAdGroup}: ${missing.join(', ')}`);
+    }
+
+    return selection.ids.map((id) => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- membership checked above
+        const keyword = byId.get(id)!;
+
+        return { id: String(keyword.keyword_id), name: keyword.text };
+    });
 }
