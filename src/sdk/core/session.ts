@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { StorageError } from './errors.js';
 
 export type SessionUser = {
-    email: string;
+    email?: string | undefined;
     name: string;
 };
 
@@ -26,7 +26,8 @@ export type SessionStore = {
 
 /**
  * The file and field names the published CLI already writes. A rename would log every existing
- * user out, so the on-disk contract stays `{ "access_token", "user": { "email", "name" } }`.
+ * user out, so the on-disk contract stays `{ "access_token", "user": { "email", "name" } }`, where
+ * only a file written before the server stopped sending the email still has one.
  */
 const FILE_NAME = 'config.json';
 
@@ -103,11 +104,11 @@ const toSession = (parsed: unknown): Session | undefined => {
 const toUser = (value: unknown): SessionUser | undefined => {
     const record = asRecord(value);
 
-    if (record === undefined || typeof record.email !== 'string' || typeof record.name !== 'string') {
+    if (record === undefined || typeof record.name !== 'string') {
         return undefined;
     }
 
-    return { email: record.email, name: record.name };
+    return typeof record.email === 'string' ? { email: record.email, name: record.name } : { name: record.name };
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
