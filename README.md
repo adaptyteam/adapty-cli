@@ -113,6 +113,50 @@ adapty access-levels create --app UUID [flags]
 adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 ```
 
+### Fallbacks
+
+The fallback file lets the Adapty SDK show paywalls, onboardings and flows when the Adapty backend is unreachable.
+Fetch a fresh one in CI before every release build. One file per store covers every placement of the app:
+`--platform ios` gives the App Store file, `--platform android` the Play Store file.
+
+`--sdk-version` is the Adapty SDK version the app is built with (`X.Y.Z`); for Flutter, React Native and Unity, the
+Adapty plugin version. The server picks the file format from it, and the SDK accepts only the one format it was
+built for: it rejects any other file at startup. The latest mappings:
+
+| `--sdk-version` | file format (`meta.version`) |
+|---|---|
+| 4.1.0 and later | 11 |
+| 4.0.x | 10 |
+| 3.12.x and later 3.x | 9 |
+| 3.8.x – 3.11.x | 8 |
+
+Without `--output`, stdout is the server's file byte for byte, with or without `--json`; warnings and errors go
+to stderr, the `--json` error object included, so stdout holds nothing but the file. The exit code says whether
+the file is complete. The CLI streams the file without parsing it, so memory stays flat whatever the file size (a large
+app's file is about 200 MB). A plain `> file` truncates the file before the request runs, so a failed request
+leaves an empty file, and a download that breaks halfway leaves a partial one. Use the temp-and-move pattern or
+`--output`:
+
+```sh
+# macOS / Linux CI: write to a temp file, move only on success
+adapty fallbacks get --app "$ADAPTY_APP_ID" --platform ios --sdk-version 4.1.0 > ios_fallback.json.tmp \
+  && mv ios_fallback.json.tmp ios_fallback.json
+
+# Windows (PowerShell 5.1 `>` writes UTF-16), or any CI that must never ship a broken file
+adapty fallbacks get --app $env:ADAPTY_APP_ID --platform android --sdk-version 4.1.0 --output Assets/StreamingAssets/android_fallback.json
+```
+
+`--output` creates missing parent directories, streams into a temp file and renames it onto the destination
+only after a complete download; on any failure the old file stays. It prints one summary line, and with `--json` returns `{path, platform, sdk_version, bytes}` instead of the
+file. An answer that is not shaped like the file (not `application/json`, or not `{…}`) exits 4 with
+`fallback_invalid_response`. In CI, set `ADAPTY_TOKEN` so the command runs without a login prompt.
+
+The command sends exactly one request and never retries, in both modes: the server builds the file for every
+request, and a retry after a failure (often a 502 from a server that ran out of memory) starts that build again.
+A 5xx or a 429 exits 4, a lost connection exits 5. A CI job that wants a retry should wait at least the
+`Retry-After` the server sent before it runs the command again; the `--json` error carries that wait as
+`retry_after_seconds`, and the human message says it.
+
 ### Migrations
 
 Manage migrations into Adapty: catalog, transactions and store events. The server provides the

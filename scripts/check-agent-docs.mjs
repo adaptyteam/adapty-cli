@@ -13,6 +13,7 @@ const INVENTORY_DOCS = [
     fileURLToPath(new URL('../docs/agent/asa-management.md', import.meta.url)),
     fileURLToPath(new URL('../docs/agent/asa-metrics.md', import.meta.url)),
     ATTRIBUTION_DOC,
+    fileURLToPath(new URL('../docs/agent/fallbacks.md', import.meta.url)),
 ];
 
 const SETUP_DOC = fileURLToPath(new URL('../docs/agent/skills/adapty-cli-setup/SKILL.md', import.meta.url));
@@ -25,7 +26,7 @@ const EXAMPLE_DOCS = [
 ];
 
 /** The topics whose commands the agent docs must cover. */
-const TOPICS = ['asa', 'attribution'];
+const TOPICS = ['asa', 'attribution', 'fallbacks'];
 const TOPIC_PATTERN = TOPICS.join('|');
 
 /**
@@ -326,5 +327,6 @@ if (errors.length > 0) {
 const countTopic = topic => [...commands.keys()].filter(id => topicOf(id) === topic).length;
 
 console.log(
-    `Agent docs match ${countTopic('asa')} executable Apple Ads commands and ${countTopic('attribution')} attribution commands in oclif.manifest.json.`,
+    `Agent docs match ${countTopic('asa')} executable Apple Ads commands, ${countTopic('attribution')} attribution commands `
+    + `and ${countTopic('fallbacks')} fallbacks command(s) in oclif.manifest.json.`,
 );

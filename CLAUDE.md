@@ -30,6 +30,8 @@ src/
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
+    fallbacks/       # get — the fallback file to bundle in an app; stdout is the file in every mode, --output
+                     # writes atomically. Implementation in src/cli/commands/fallbacks
     segments/        # list, get
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),

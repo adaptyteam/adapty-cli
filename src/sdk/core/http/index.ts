@@ -3,7 +3,7 @@
  * policies, retry, url), so they can be rearranged without touching products.
  */
 export { createHttp } from './client.js';
-export type { Http, HttpMethod, HttpOptions, RequestOptions } from './client.js';
+export type { Http, HttpMethod, HttpOptions, RequestOptions, StreamedResponse } from './client.js';
 export { defaultErrorParser, defaultShouldRetry } from './policies.js';
 export type { ErrorParser, ShouldRetry } from './policies.js';
 export { defaultRetryPolicy, retry } from './retry.js';
