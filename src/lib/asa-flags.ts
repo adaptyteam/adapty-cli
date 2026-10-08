@@ -5,6 +5,7 @@ import { describeListedError } from './errors.js';
 import { isValidUuid } from './flags.js';
 
 import type { QueryParams } from './api-client.js';
+import type { SegmentFilterInput } from './api-schemas.js';
 import type { AsaLocInvoiceDetails, AsaMoney, AsaMutationError } from './asa-schemas.js';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -342,4 +343,192 @@ export function reportBulkOutcome(
     for (const error of errors) {
         log(`  ${describeListedError(error).text}`);
     }
+}
+
+const FILTER_USAGE
+    = 'Filters are written as field:OPERATOR:value[,value...] (e.g. campaign:IN:2144520245), as field:IS NULL, '
+        + 'or as one JSON object {"field_name": ..., "operator": ..., "value_list": [...]}.';
+
+const EXISTENCE_OPERATORS = new Set(['IS NOT NULL', 'IS NULL']);
+
+function parseJsonSegmentFilter(raw: string): SegmentFilterInput {
+    let parsed: unknown;
+
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        throw new Error(`The filter is not valid JSON. ${FILTER_USAGE}`);
+    }
+
+    const { field_name: fieldName, operator, value_list: valueList } = (parsed ?? {}) as Record<string, unknown>;
+
+    if (typeof fieldName !== 'string' || typeof operator !== 'string' || !Array.isArray(valueList)) {
+        throw new Error(`A JSON filter needs field_name, operator and value_list. ${FILTER_USAGE}`);
+    }
+
+    return { field_name: fieldName, operator, value_list: valueList };
+}
+
+/**
+ * Values stay strings on the short form: the server turns them into numbers for numeric fields. The JSON form is
+ * for typed or nested values the short form cannot express.
+ */
+export function parseSegmentFilter(input: string): SegmentFilterInput {
+    const trimmed = input.trim();
+
+    if (trimmed.startsWith('{')) {
+        return parseJsonSegmentFilter(trimmed);
+    }
+
+    const [fieldName, rawOperator, ...rest] = trimmed.split(':');
+    const operator = rawOperator?.trim() ?? '';
+
+    if (!fieldName || !operator) {
+        throw new Error(FILTER_USAGE);
+    }
+
+    const valueList = rest.join(':').split(',').map(value => value.trim()).filter(value => value !== '');
+
+    if (EXISTENCE_OPERATORS.has(operator)) {
+        if (valueList.length > 0) {
+            throw new Error(`${operator} takes no values. ${FILTER_USAGE}`);
+        }
+
+        return { field_name: fieldName, operator, value_list: [] };
+    }
+
+    if (valueList.length === 0) {
+        throw new Error(`A filter needs at least one value. ${FILTER_USAGE}`);
+    }
+
+    return { field_name: fieldName, operator, value_list: valueList };
+}
+
+export const segmentWriteFlags = {
+    description: Flags.string({ description: 'Segment description' }),
+    filter: Flags.string({
+        description: 'Filter as field:OPERATOR:value[,value...] (e.g. campaign:IN:2144520245), field:IS NULL, or a JSON '
+            + 'object {"field_name","operator","value_list"}; repeatable',
+        multiple: true,
+        // oclif keeps a string flag a string: the parsed filter travels as JSON and segmentFilters unpacks it
+        // eslint-disable-next-line @typescript-eslint/require-await -- oclif parse hooks are async
+        parse: async (input: string) => JSON.stringify(parseSegmentFilter(input)),
+        required: true,
+    }),
+    title: Flags.string({ description: 'Segment title', required: true }),
+};
+
+export function segmentFilters(flags: { filter?: string[] | undefined }): SegmentFilterInput[] {
+    return (flags.filter ?? []).map(raw => JSON.parse(raw) as SegmentFilterInput);
+}
+
+export type AsaSegmentSource = 'ad-group' | 'campaign' | 'keyword';
+
+export const asaSegmentSourceFlags = {
+    'ad-group': idFilter('ad group'),
+    'campaign': idFilter('campaign'),
+    'keyword': idFilter('keyword'),
+};
+
+export type AsaSegmentSourceFlags = {
+    'ad-group'?: string[] | undefined;
+    'campaign'?: string[] | undefined;
+    'keyword'?: string[] | undefined;
+};
+
+/**
+ * One source kind per segment, as in the Ads Manager modal. Keywords are looked up inside one ad group, so
+ * `--keyword` borrows `--ad-group` as its scope instead of competing with it.
+ */
+export type AsaSegmentSelection = { ids: string[]; scopeAdGroup: string | undefined; source: AsaSegmentSource };
+
+export function resolveAsaSegmentSource(flags: AsaSegmentSourceFlags): AsaSegmentSelection {
+    const keywords = flags.keyword ?? [];
+    const adGroups = flags['ad-group'] ?? [];
+    const campaigns = flags.campaign ?? [];
+
+    if (keywords.length > 0) {
+        const [scopeAdGroup] = adGroups;
+
+        if (campaigns.length > 0 || adGroups.length !== 1 || scopeAdGroup === undefined) {
+            throw new Error('--keyword takes exactly one --ad-group as the lookup scope and no --campaign.');
+        }
+
+        return { ids: [...new Set(keywords)], scopeAdGroup, source: 'keyword' };
+    }
+
+    if (campaigns.length > 0 && adGroups.length > 0) {
+        throw new Error('Pass either --campaign or --ad-group, not both: a segment is built from one kind of entity.');
+    }
+
+    if (campaigns.length > 0) {
+        return { ids: [...new Set(campaigns)], scopeAdGroup: undefined, source: 'campaign' };
+    }
+
+    if (adGroups.length > 0) {
+        return { ids: [...new Set(adGroups)], scopeAdGroup: undefined, source: 'ad-group' };
+    }
+
+    throw new Error('Pass at least one --campaign, --ad-group or --keyword.');
+}
+
+export const ASA_SEGMENT_FIELD: Record<AsaSegmentSource, string> = {
+    'ad-group': 'ad_group',
+    'campaign': 'campaign',
+    // The portal calls a keyword attribution "creative"
+    'keyword': 'creative',
+};
+
+export type AsaSegmentEntity = { id: string; name: string };
+
+const ASA_TITLE_MAX = 120;
+const ASA_DESCRIPTION_MAX = 240;
+const ASA_PREVIEW_COUNT = 3;
+
+const ASA_SOURCE_WORDS: Record<AsaSegmentSource, { one: string; many: string; title: string }> = {
+    'ad-group': { many: 'ad groups', one: 'ad group', title: 'Ad group' },
+    'campaign': { many: 'campaigns', one: 'campaign', title: 'Campaign' },
+    'keyword': { many: 'keywords', one: 'keyword', title: 'Keyword' },
+};
+
+function truncate(text: string, max: number): string {
+    if (text.length <= max) {
+        return text;
+    }
+
+    return max <= 3 ? text.slice(0, max) : `${text.slice(0, max - 3)}...`;
+}
+
+function withRest(preview: string, rest: number): string {
+    return rest > 0 ? `${preview} +${rest}...` : preview;
+}
+
+/** The dashboard's own title and description for an Ads Manager segment, so it recognises the segment as its own. */
+export function buildAsaSegmentNaming(
+    source: AsaSegmentSource,
+    entities: AsaSegmentEntity[],
+): { description: string; title: string } {
+    const words = ASA_SOURCE_WORDS[source];
+
+    if (entities.length === 1) {
+        const [entity] = entities as [AsaSegmentEntity];
+
+        return {
+            description: truncate(`Created from Apple Search Ads ${words.one} "${entity.name}".\n\nID: ${entity.id}`, ASA_DESCRIPTION_MAX),
+            title: truncate(`[ASA] ${words.title}: ${entity.name}`, ASA_TITLE_MAX),
+        };
+    }
+
+    const shown = entities.slice(0, ASA_PREVIEW_COUNT);
+    const rest = entities.length - shown.length;
+    const names = withRest(shown.map(entity => entity.name).join(', '), rest);
+    const ids = withRest(shown.map(entity => entity.id).join(', '), rest);
+
+    return {
+        description: truncate(
+            `Created from Apple Search Ads ${words.many} (${entities.length}).\n\nPreview: ${names}\n\nIDs: ${ids}`,
+            ASA_DESCRIPTION_MAX,
+        ),
+        title: truncate(`[ASA] ${entities.length} ${words.many}: ${names}`, ASA_TITLE_MAX),
+    };
 }
