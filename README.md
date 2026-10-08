@@ -99,8 +99,12 @@ adapty segments create --app UUID --title "US installs" --filter ip_country:IN:U
 adapty segments update --app UUID SEGMENT_ID --title "..." --filter campaign:IN:2144520245
 ```
 
-A filter is `field:OPERATOR:value[,value...]`; the operator is mandatory and the server validates field names,
-operators and value types. `update` replaces the whole segment — pass every filter you want to keep. Segments
+A filter is `field:OPERATOR:value[,value...]`, or `field:IS NULL` / `field:IS NOT NULL` with no value. Operators:
+`IN`, `NOT IN`, `IS NULL`, `IS NOT NULL`, `>`, `>=`, `<`, `<=`, `BETWEEN`. Numeric fields (`age`,
+`total_revenue_usd`, `@float` custom attributes) take the plain number — `age:>:18` — the server converts it. For
+anything the short form cannot express pass one JSON object: `--filter '{"field_name":"age","operator":">","value_list":[18]}'`.
+The server validates field names, operators and value types and reports one error per field.
+`update` replaces the whole segment — pass every filter you want to keep. Segments
 built from Apple Search Ads entities are easier to create with `adapty asa segments create`, which resolves the
 Apple ids and names the segment the way the dashboard does (see [Apple Search Ads](#apple-search-ads)).
 

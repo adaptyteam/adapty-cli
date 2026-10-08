@@ -200,7 +200,7 @@ export type SegmentDetailDTO = SegmentDTO & {
 export type SegmentFilterInput = {
     field_name: string;
     operator: string;
-    value_list: string[];
+    value_list: unknown[];
 };
 
 export type SegmentWriteRequestDTO = {

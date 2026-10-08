@@ -197,7 +197,7 @@ Attribution dashboard shows them) live in the read-only `adapty attribution` top
 - **Paywall** — screen showing products. Can use Paywall Builder (visual editor) or remote config (custom JSON).
 - **Placement** — location in app where paywall appears. Identified by `developer_id`. Holds one or more audiences; each audience routes a segment to a paywall by priority. Default audience (`segment_ids: []`) is the fallback and must have max priority.
 - **Access Level** — permission gate (e.g. "premium"). Products grant access levels on purchase. Identified by `sdk_id`.
-- **Segment** — filter rule (e.g. "VIP users"). `adapty segments list|get|create|update --app <APP_ID>`; filters are `field:OPERATOR:value[,value...]`. Segments from Apple Search Ads campaigns, ad groups or keywords: `adapty asa segments create` (dashboard naming, Apple ids resolved for you). Compose into placement audiences to give different segments different paywalls at the same placement.
+- **Segment** — filter rule (e.g. "VIP users"). `adapty segments list|get|create|update --app <APP_ID>`; filters are `field:OPERATOR:value[,value...]` (`field:IS NULL` with no value; numbers as plain `age:>:18`; or one JSON object for typed values). Segments from Apple Search Ads campaigns, ad groups or keywords: `adapty asa segments create` (dashboard naming, Apple ids resolved for you). Compose into placement audiences to give different segments different paywalls at the same placement.
 - **Audience** — `(segments, paywall, priority)` tuple inside a placement. Auto-materialized from segment composition. CLI exposes audiences as the `--audiences` JSON shape on `placements create`/`update`.
 
 ---
