@@ -15,7 +15,7 @@ attribution.*
 # Shared skills
 /skills/adapty-cli/references/cli-commands.md
 
-# Topic teams bump the version to release.
+# Topic teams bump the version; a releaser listed in release.yml publishes it.
 /package.json
 
 # Ownership rules and workflows stay with maintainers. Keep this line last.

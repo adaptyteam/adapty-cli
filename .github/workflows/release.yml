@@ -1,0 +1,65 @@
+name: release
+
+# One click publishes the version in package.json on main: npm first, then the GitHub release and its tag.
+# Only the people listed in the release job can run it; changing the list takes a maintainer review.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  validation:
+    name: Run tests
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/test.yml
+
+  release:
+    runs-on: ubuntu-latest
+    needs: validation
+    # triggering_actor, not actor: a re-run is checked against the person who re-ran it.
+    if: contains(fromJSON('["mlnchk", "gshteynardt", "seifer", "adressop6789-max"]'), github.triggering_actor)
+    # npm trusts only this environment, and the environment admits only main.
+    environment: publish
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Check the version is new
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "::error file=package.json::$name@$version is already on npm. Bump the version in a PR first."
+            exit 1
+          fi
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "::error file=package.json::Release v$version already exists."
+            exit 1
+          fi
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec oclif manifest
+      # The README goes to npm only; the repo copy is not committed back.
+      - run: pnpm exec oclif readme
+      - run: npm publish --provenance --tag latest --ignore-scripts
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
