@@ -503,7 +503,7 @@ export type AsaChangeHistoryDetailDTO = {
     changes: AsaFieldChangeDTO[];
     detail_id: string;
     entity_id: string;
-    entity_metadata: Record<string, string>;
+    entity_metadata: Record<string, unknown>;
     entity_type: string;
     event_time: string;
     event_type: string;
