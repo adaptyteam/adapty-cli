@@ -473,7 +473,7 @@ describe('asa reads', () => {
         fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
 
         await runCommand(
-            'asa change-history list --date-from 2026-07-01 --date-to 2026-07-31 '
+            'asa change-history list --date-from 2026-07-01 --date-to 2026-07-14 '
             + `--campaign-group ${TEST_APP_ID} --entity-type Campaign --entity-type Keyword --event-type UPDATE `
             + '--user-type CUSTOMER_API --campaign 789012 --ad-group 345678 --ad-group 345679 --entity-id 111 '
             + '--user 222 --txn txn_1 --page 2 --page-size 50',
@@ -488,7 +488,7 @@ describe('asa reads', () => {
                 'campaign_group_id': TEST_APP_ID,
                 'campaign_id': '789012',
                 'date_from': '2026-07-01',
-                'date_to': '2026-07-31',
+                'date_to': '2026-07-14',
                 'entity_id': '111',
                 'event_type': 'UPDATE',
                 'page[number]': '2',
@@ -508,21 +508,21 @@ describe('asa reads', () => {
 
     it('change-history list --fields asks the server for flat rows with page size 10', async () => {
         fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
-        await runCommand('asa change-history list --fields');
+        await runCommand(`asa change-history list --campaign-group ${TEST_APP_ID} --fields`);
 
         assertFetch({
             base: ASA_API_BASE,
             callIndex: 0,
             method: 'GET',
             path: '/change-history/',
-            query: { 'fields': 'true', 'page[size]': '10' },
+            query: { 'campaign_group_id': TEST_APP_ID, 'fields': 'true', 'page[size]': '10' },
             stub: fetchStub,
         });
     });
 
     it('change-history list --fields refuses an explicit big page before the network', async () => {
         fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
-        const { error } = await runCommand('asa change-history list --fields --page-size 20');
+        const { error } = await runCommand(`asa change-history list --campaign-group ${TEST_APP_ID} --fields --page-size 20`);
 
         expect(error?.message).to.contain('--page-size');
         expect(error?.oclif?.exit).to.equal(2);
@@ -532,14 +532,49 @@ describe('asa reads', () => {
     it('change-history list refuses a bad campaign group, entity type and date before the network', async () => {
         fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
         const badGroup = await runCommand('asa change-history list --campaign-group not-a-uuid');
-        const badType = await runCommand('asa change-history list --entity-type Nope');
-        const badDate = await runCommand('asa change-history list --date-from 01-07-2026');
+        const badType = await runCommand(`asa change-history list --campaign-group ${TEST_APP_ID} --entity-type Nope`);
+        const badDate = await runCommand(`asa change-history list --campaign-group ${TEST_APP_ID} --date-from 01-07-2026`);
 
         expect(badGroup.error?.message).to.contain('Invalid campaign group ID');
         expect(badGroup.error?.oclif?.exit).to.equal(2);
         expect(badType.error?.message).to.contain('--entity-type');
         expect(badDate.error?.message).to.contain('YYYY-MM-DD');
         expect(fetchStub.callCount).to.equal(0);
+    });
+
+    it('change-history list requires a campaign group before the network', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+        const { error } = await runCommand('asa change-history list');
+
+        expect(error?.message).to.contain('campaign-group');
+        expect(error?.oclif?.exit).to.equal(2);
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    it('change-history list refuses a 15-day span before the network', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+
+        const { error } = await runCommand(
+            `asa change-history list --campaign-group ${TEST_APP_ID} --date-from 2026-07-01 --date-to 2026-07-15`,
+        );
+
+        expect(error?.message).to.contain('at most 14 days');
+        expect(error?.oclif?.exit).to.equal(2);
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    it('change-history list sends a 14-day span', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+        await runCommand(`asa change-history list --campaign-group ${TEST_APP_ID} --date-from 2026-07-01 --date-to 2026-07-14`);
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/change-history/',
+            query: { campaign_group_id: TEST_APP_ID, date_from: '2026-07-01', date_to: '2026-07-14' },
+            stub: fetchStub,
+        });
     });
 
     it('change-history list prints rows and the page footer', async () => {
@@ -550,7 +585,7 @@ describe('asa reads', () => {
             },
         ]);
 
-        const { stdout } = await runCommand('asa change-history list');
+        const { stdout } = await runCommand(`asa change-history list --campaign-group ${TEST_APP_ID}`);
 
         expect(stdout).to.contain('Event Type: UPDATE');
         expect(stdout).to.contain('Transaction ID: txn_a');
@@ -571,10 +606,19 @@ describe('asa reads', () => {
         });
     });
 
+    it('change-history get requires a campaign group before the network', async () => {
+        fetchStub = mockFetch([{}]);
+        const { error } = await runCommand('asa change-history get Campaign.444555666.txn_a');
+
+        expect(error?.message).to.contain('campaign-group');
+        expect(error?.oclif?.exit).to.equal(2);
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
     it('change-history get refuses a malformed detail id without a request', async () => {
         fetchStub = mockFetch([{}]);
-        const garbage = await runCommand('asa change-history get garbage-without-dots');
-        const traversal = await runCommand('asa change-history get ../campaigns');
+        const garbage = await runCommand(`asa change-history get garbage-without-dots --campaign-group ${TEST_APP_ID}`);
+        const traversal = await runCommand(`asa change-history get ../campaigns --campaign-group ${TEST_APP_ID}`);
 
         expect(garbage.error?.message).to.contain('Invalid detail ID');
         expect(garbage.error?.oclif?.exit).to.equal(2);

@@ -9,18 +9,20 @@ import type { AsaChangeHistoryEventDTO, AsaChangeHistoryFieldEventDTO } from '..
 import type { PaginatedResponse } from '../../../lib/flags.js';
 
 const FIELDS_MAX_PAGE_SIZE = 10;
+const MAX_SPAN_DAYS = 14;
+const MS_PER_DAY = 86_400_000;
 
 type ChangeHistoryPage = PaginatedResponse<AsaChangeHistoryEventDTO> | PaginatedResponse<AsaChangeHistoryFieldEventDTO>;
 
 export default class AsaChangeHistoryList extends Command {
     static override description
-        = 'Apple Ads change history, read live from Apple (proxied from the Apple Ads Platform API) across all organizations';
+        = 'Apple Ads change history of one organization, read live from Apple (proxied from the Apple Ads Platform API)';
 
     static override enableJsonFlag = true;
     static override examples = [
-        '<%= config.bin %> asa change-history list',
-        '<%= config.bin %> asa change-history list --date-from 2026-09-01 --entity-type Campaign --event-type UPDATE',
-        '<%= config.bin %> asa change-history list --fields',
+        '<%= config.bin %> asa change-history list --campaign-group <uuid>',
+        '<%= config.bin %> asa change-history list --campaign-group <uuid> --date-from 2026-09-01 --entity-type Campaign --event-type UPDATE',
+        '<%= config.bin %> asa change-history list --campaign-group <uuid> --fields',
     ];
 
     static override flags = {
@@ -34,10 +36,11 @@ export default class AsaChangeHistoryList extends Command {
             multiple: true,
         }),
         'campaign-group': Flags.string({
-            description: 'Read only this organization (UUID from asa orgs list); default is every organization',
+            description: 'Organization to read (UUID from asa orgs list); one organization per call',
+            required: true,
         }),
         'date-from': Flags.string({
-            description: 'Start of the period (YYYY-MM-DD), defaults to 7 days ago; Apple keeps 6 months',
+            description: 'Start of the period (YYYY-MM-DD), defaults to 7 days ago; at most 14 days per call, Apple keeps 6 months',
             parse: parseDate,
         }),
         'date-to': Flags.string({
@@ -83,8 +86,19 @@ export default class AsaChangeHistoryList extends Command {
             this.error(`--fields allows --page-size up to ${FIELDS_MAX_PAGE_SIZE}.`, { exit: 2 });
         }
 
-        if (flags['campaign-group'] !== undefined && !isValidUuid(flags['campaign-group'])) {
+        if (!isValidUuid(flags['campaign-group'])) {
             this.error('Invalid campaign group ID format. Run `adapty asa orgs list` to find it.', { exit: 2 });
+        }
+
+        const dateFrom = flags['date-from'];
+        const dateTo = flags['date-to'];
+
+        if (
+            dateFrom !== undefined
+            && dateTo !== undefined
+            && (Date.parse(dateTo) - Date.parse(dateFrom)) / MS_PER_DAY >= MAX_SPAN_DAYS
+        ) {
+            this.error(`--date-from/--date-to may span at most ${MAX_SPAN_DAYS} days.`, { exit: 2 });
         }
 
         const client = await createAsaClient(this);

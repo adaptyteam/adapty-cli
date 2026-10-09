@@ -18,12 +18,12 @@ export default class AsaChangeHistoryGet extends Command {
 
     static override description = 'Field-level before/after of one change (proxied from the Apple Ads Platform API)';
     static override enableJsonFlag = true;
-    static override examples = ['<%= config.bin %> asa change-history get Campaign.444555666.TXN_ID'];
+    static override examples = ['<%= config.bin %> asa change-history get Campaign.444555666.TXN_ID --campaign-group <uuid>'];
 
     static override flags = {
         'campaign-group': Flags.string({
-            description:
-                'Look only in this organization (UUID from asa orgs list); pass the campaign_group_id of the list row to avoid walking every organization',
+            description: 'Organization the change belongs to (UUID; take campaign_group_id from the list row)',
+            required: true,
         }),
     };
 
@@ -36,7 +36,7 @@ export default class AsaChangeHistoryGet extends Command {
             });
         }
 
-        if (flags['campaign-group'] !== undefined && !isValidUuid(flags['campaign-group'])) {
+        if (!isValidUuid(flags['campaign-group'])) {
             this.error('Invalid campaign group ID format. Run `adapty asa orgs list` to find it.', { exit: 2 });
         }
 
