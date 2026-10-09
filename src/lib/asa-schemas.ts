@@ -473,3 +473,55 @@ export type AsaCompetitorBrandKeywordPoolDTO = {
 export type AsaCompetitorBrandKeywordPoolsDTO = {
     pools: AsaCompetitorBrandKeywordPoolDTO[];
 };
+
+export type AsaChangeHistoryEntityRefDTO = {
+    detail_id: string;
+    entity_id: string;
+    entity_name: null | string;
+};
+
+export type AsaChangeHistoryEventDTO = {
+    campaign_group_id: string;
+    changes_count: number;
+    entities: AsaChangeHistoryEntityRefDTO[];
+    entity_type: string;
+    event_time: string;
+    event_type: string;
+    modified_by: null | string;
+    transaction_id: string;
+    user_type: string;
+};
+
+export type AsaFieldChangeDTO = {
+    field: string;
+    new_values: string[];
+    old_values: string[];
+};
+
+export type AsaChangeHistoryDetailDTO = {
+    campaign_group_id: string;
+    changes: AsaFieldChangeDTO[];
+    detail_id: string;
+    entity_id: string;
+    entity_metadata: Record<string, string>;
+    entity_type: string;
+    event_time: string;
+    event_type: string;
+    modified_by: null | string;
+    user_type: string;
+};
+
+export type AsaChangeHistoryFieldEventDTO = {
+    campaign_group_id: string;
+    entity_id: string;
+    entity_name: null | string;
+    entity_type: string;
+    event_time: string;
+    event_type: string;
+    field: string;
+    modified_by: null | string;
+    new_values: string[];
+    old_values: string[];
+    transaction_id: string;
+    user_type: string;
+};

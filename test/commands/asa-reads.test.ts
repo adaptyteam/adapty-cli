@@ -468,4 +468,117 @@ describe('asa reads', () => {
         expect(badType.error?.message).to.contain('--type');
         expect(fetchStub.callCount).to.equal(0);
     });
+
+    it('change-history list hits its path and maps every filter, repeatable ones included', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+
+        await runCommand(
+            'asa change-history list --date-from 2026-07-01 --date-to 2026-07-31 '
+            + `--campaign-group ${TEST_APP_ID} --entity-type Campaign --entity-type Keyword --event-type UPDATE `
+            + '--user-type CUSTOMER_API --campaign 789012 --ad-group 345678 --ad-group 345679 --entity-id 111 '
+            + '--user 222 --txn txn_1 --page 2 --page-size 50',
+        );
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/change-history/',
+            query: {
+                'campaign_group_id': TEST_APP_ID,
+                'campaign_id': '789012',
+                'date_from': '2026-07-01',
+                'date_to': '2026-07-31',
+                'entity_id': '111',
+                'event_type': 'UPDATE',
+                'page[number]': '2',
+                'page[size]': '50',
+                'txn_id': 'txn_1',
+                'user_id': '222',
+                'user_type': 'CUSTOMER_API',
+            },
+            stub: fetchStub,
+        });
+
+        const { searchParams } = new URL(fetchStub.getCall(0).args[0] as string);
+        expect(searchParams.getAll('entity_type')).to.deep.equal(['Campaign', 'Keyword']);
+        expect(searchParams.getAll('ad_group_id')).to.deep.equal(['345678', '345679']);
+        expect(searchParams.has('fields')).to.equal(false);
+    });
+
+    it('change-history list --fields asks the server for flat rows with page size 10', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+        await runCommand('asa change-history list --fields');
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/change-history/',
+            query: { 'fields': 'true', 'page[size]': '10' },
+            stub: fetchStub,
+        });
+    });
+
+    it('change-history list --fields refuses an explicit big page before the network', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+        const { error } = await runCommand('asa change-history list --fields --page-size 20');
+
+        expect(error?.message).to.contain('--page-size');
+        expect(error?.oclif?.exit).to.equal(2);
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    it('change-history list refuses a bad campaign group, entity type and date before the network', async () => {
+        fetchStub = mockFetch([EMPTY_LIST_RESPONSE]);
+        const badGroup = await runCommand('asa change-history list --campaign-group not-a-uuid');
+        const badType = await runCommand('asa change-history list --entity-type Nope');
+        const badDate = await runCommand('asa change-history list --date-from 01-07-2026');
+
+        expect(badGroup.error?.message).to.contain('Invalid campaign group ID');
+        expect(badGroup.error?.oclif?.exit).to.equal(2);
+        expect(badType.error?.message).to.contain('--entity-type');
+        expect(badDate.error?.message).to.contain('YYYY-MM-DD');
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    it('change-history list prints rows and the page footer', async () => {
+        fetchStub = mockFetch([
+            {
+                data: [{ entity_type: 'Campaign', event_type: 'UPDATE', transaction_id: 'txn_a' }],
+                meta: { pagination: { count: 1, page: 1, pages: 1 } },
+            },
+        ]);
+
+        const { stdout } = await runCommand('asa change-history list');
+
+        expect(stdout).to.contain('Event Type: UPDATE');
+        expect(stdout).to.contain('Transaction ID: txn_a');
+        expect(stdout).to.contain('Page 1 of 1 (1 total)');
+    });
+
+    it('change-history get asks for one detail id', async () => {
+        fetchStub = mockFetch([{ changes: [], detail_id: 'Campaign.444555666.txn_a' }]);
+        await runCommand(`asa change-history get Campaign.444555666.txn_a --campaign-group ${TEST_APP_ID}`);
+
+        assertFetch({
+            base: ASA_API_BASE,
+            callIndex: 0,
+            method: 'GET',
+            path: '/change-history/Campaign.444555666.txn_a/',
+            query: { campaign_group_id: TEST_APP_ID },
+            stub: fetchStub,
+        });
+    });
+
+    it('change-history get refuses a malformed detail id without a request', async () => {
+        fetchStub = mockFetch([{}]);
+        const garbage = await runCommand('asa change-history get garbage-without-dots');
+        const traversal = await runCommand('asa change-history get ../campaigns');
+
+        expect(garbage.error?.message).to.contain('Invalid detail ID');
+        expect(garbage.error?.oclif?.exit).to.equal(2);
+        expect(traversal.error?.message).to.contain('Invalid detail ID');
+        expect(fetchStub.callCount).to.equal(0);
+    });
 });

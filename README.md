@@ -339,7 +339,13 @@ adapty asa negative-keywords add --ad-group UUID --text free
 adapty asa negative-keywords add --campaign UUID [--all-ad-groups] --text free
 
 adapty asa search-terms list [--date-from ... --date-to ...]
+
+adapty asa change-history list [--date-from ... --date-to ...] [--entity-type Campaign --event-type UPDATE] [--campaign-group UUID]
+adapty asa change-history list --fields                    # flat rows: field, old values, new values (page size 10)
+adapty asa change-history get Campaign.444555666.TXN_ID   # detail_id comes from the list
 ```
+
+Change history is read live from Apple (proxied from the Apple Ads Platform API; Apple keeps 6 months). Its id filters (`--campaign`, `--ad-group`, `--entity-id`, `--user`, `--txn`) take Apple's own ids, not UUIDs; `modified_by` is an Apple user id, not an email.
 
 Product pages and rule-based automations:
 

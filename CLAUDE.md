@@ -34,7 +34,7 @@ src/
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
-                     # competitors
+                     # competitors, change-history
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)
     config.ts        # ~/.config/adapty/config.json read/write

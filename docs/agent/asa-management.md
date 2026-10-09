@@ -124,6 +124,13 @@ Invoicing Options. They map to `loc_invoice_details` in the request: advertiser 
 |---|---|---|
 | `asa creatives list` | see Scope filters | Yields the Apple `creative_id` that `ads create` needs. |
 
+## Change history
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa change-history list` | optional `--date-from` / `--date-to` (YYYY-MM-DD, default: the last 7 days; Apple keeps 6 months), `--campaign-group` (UUID from `asa orgs list`), `--entity-type` / `--event-type` / `--user-type` (repeatable enums), `--campaign` / `--ad-group` / `--entity-id` / `--user` / `--txn` (repeatable Apple ids), `--fields` | Apple's change history read live from the Apple Ads Platform API (nothing is stored), merged across every organization newest first. Default entity types are the campaign domain (Campaign, AdGroup, Keyword, NegativeKeyword, Ad, Creative, LocationGroup); `Org` and `AdAccount` cannot be mixed with them. The id filters take Apple's numeric ids as printed in the rows, not the UUIDs the other lists print. Each row is one transaction with `detail_id`s; `--fields` expands the page into flat rows (field, old values, new values); the page size is 10 unless `--page-size` says otherwise, and `--page-size` above 10 is refused. `page * page-size` must stay within 1000. `modified_by` is an Apple user id, not an email. |
+| `asa change-history get <detail-id>` | positional `detail_id` from `asa change-history list`; optional `--campaign-group` | Field-level before/after of one entity in one transaction (`changes`: `field`, `old_values`, `new_values`) plus `entity_metadata`. Pass `--campaign-group` from the list row's `campaign_group_id` to avoid walking every organization. |
+
 ## Automations
 
 | Command | Flags | Notes |
@@ -243,6 +250,7 @@ Every `asa` command is rate limited per company, not per token:
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
 | `keywords recommend` | 10/min, one in-flight `brand`/`generic` rebuild at a time, `Retry-After: 5` on `cli_analytics_busy` |
+| `change-history list` / `get` | 5/min, one request in flight per company (`Retry-After: 5` on `cli_analytics_busy`), 50s server timeout (`504 cli_read_timeout`); an Apple 429 comes back as `429 cli_upstream_rate_limited` with Apple's `Retry-After` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |

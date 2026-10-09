@@ -141,6 +141,9 @@
       "asa:automations": {
         "description": "Rule-based automations"
       },
+      "asa:change-history": {
+        "description": "Apple Ads change history, read live from Apple"
+      },
       "asa:metrics": {
         "description": "Metrics and overviews"
       }
