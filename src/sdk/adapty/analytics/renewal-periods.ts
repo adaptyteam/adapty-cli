@@ -29,7 +29,7 @@ export const validateRenewalPeriods = (input: RenewalPeriodsInput): Issue[] => {
     const issues = validateQuery(input);
 
     if (input.renewalDays !== undefined && input.periodType !== 'days') {
-        issues.push({ message: 'needs --period-type days', path: 'renewalDays' });
+        issues.push({ message: 'applies only when the period type is days', path: 'renewalDays' });
     }
 
     if (input.renewalDays?.some(day => !Number.isInteger(day) || day < 0)) {

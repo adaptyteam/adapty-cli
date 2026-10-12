@@ -2,14 +2,14 @@ import { validateFunnel } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
+    csvFlag,
     filterFlags,
+    groupByFlag,
     periodFlags,
     queryParams,
-    csvFlag,
-    groupByFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView } from '../../views/analytics/segments.js';
+import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { FunnelInput, FunnelResponse } from '../../../sdk/adapty/index.js';
 
@@ -41,6 +41,13 @@ export default class AnalyticsFunnel extends AdaptyCommand {
         const answer = await this.adapty.analytics.funnel(input);
 
         this.render(answer, analyticsView(flags.csv));
+
+        // A CSV without groups is its header alone: say so, with the numbers of the period, beside it
+        const notice = flags.csv ? csvNotice(answer) : undefined;
+
+        if (notice !== undefined) {
+            this.logToStderr(notice);
+        }
 
         return answer;
     }

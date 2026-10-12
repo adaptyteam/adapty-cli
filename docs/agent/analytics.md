@@ -77,23 +77,29 @@ The human view and the CSV read their fields from the answer itself, so they sho
 field the API adds later included. A nested field has a dotted name (`revenue.gross`, `following_changes.value`), a
 list item its index (`churn_reasons[0].value`); an empty list has no field.
 
-- Default: a view for a human. The numbers of the period and its time zone, then one block per segment, total
-  first, `---` between blocks, field names as in `--json`. Each point is one line: its `x` (or its step title for
-  the funnel and retention), its `value`, then its other fields in parentheses. `null` prints as `—`, an empty text
-  (a "No Data" key) as `""`. The summary of the asked period is every field of `data` besides the segments, the
-  time zone, and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
-  period.`, then that summary, null as `—`.
+- Default: a view for a human. The summary of the asked period, then one block per segment, total first, `---`
+  between blocks, field names as in `--json`. Each point is one line: its `x` (with the title of a funnel step or a
+  retention period: `-2 Install`, `1 Paid`), its `value`, then its other fields in parentheses. `null` prints as
+  `—`, an empty text (a "No Data" key) as `""`. The summary is every field of `data` besides the segments, the time
+  zone, and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
+  period.`, then that summary. A compared period follows under its own heading.
 - `--json`: the API answer unchanged. Read numbers from here.
-- `--csv`: a table the CLI makes from that answer, wide. A header line; then one row per segment (`row` is
-  `segment`), total first, the compared period's segments after the asked period's; then one row per period with
-  its summary (`row` is `summary`: the period's numbers and, for the asked period, the time zone and the other
-  `meta` fields). A summary row is no group: its `key`, `title` and `is_total` are empty, and it never comes before
-  the total. Columns: `period` (`main` or `compare`; `chart` and `conversion` only), `row`, every segment field,
-  every summary field that no segment has (`timezone`, `timezone_source`, `recommended_period...`), then for each
-  point its `value` in a column named by the point (its `x`, or the step title for the funnel and retention) and
-  each other field of the point in a column `<point>.<field>` (for example `Paid.relative_changes`,
-  `1.revenue.net`). A `null` value and a field a row does not have are empty cells; an empty text is `""`. No
-  segments: the header (`key,title,is_total,value` and the summary fields) and the summary rows, no group row.
+- `--csv`: a table the CLI makes from that answer, one row per group and the total first. A group is the total or
+  one key: a group that has a segment in the asked period, in the compared one, or in both is one row. Columns:
+  - `key`, `title`, `is_total`. The total has `is_total` `true` and an empty `key` cell; the "No Data" key `""` is
+    written `""`, so tell the two apart by `is_total`.
+  - The numbers of the group in the asked period (`value`, and the operation's own fields), then for each point its
+    `value` in a column named by the point (its `x`, with the title of a funnel step or a retention period: `-2
+    Install`) and its other fields in columns `<point>.<field>` (for example `0 Paid.relative_changes`,
+    `1.revenue.net`).
+  - The same for the compared period, under `compare.` (`compare.value`, `compare.2026-06-01`), on the same row. A
+    group that has no segment in one period has empty cells there.
+  - The numbers of the whole answer under their JSON paths, the same on every row: `data.value` (and a conversion's
+    `data.value_from`, `data.value_to`), `data.compare.value` (or an empty `data.compare` without a compared
+    period), `meta.query.timezone`, `meta.query.timezone_source`, `meta.recommended_period...`.
+
+  A `null` value is an empty cell. No groups: stdout has the header line only, and stderr has `No data for this
+  period.` with the summary, as the human view shows it.
 
 ## Errors and limits
 

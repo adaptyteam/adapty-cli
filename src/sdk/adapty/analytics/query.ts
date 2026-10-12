@@ -1,5 +1,6 @@
 import { validateDayRange } from '../../core/dates.js';
 
+import type { PeriodUnit } from './model.js';
 import type { Issue } from '../../core/errors.js';
 
 /** One filter: a dimension key from the catalog and the raw values it keeps (any of them). */
@@ -93,3 +94,21 @@ export const toQueryRequest = (input: ComparableQueryInput): QueryRequest => {
 
     return body;
 };
+
+/** The grouping and the period of one point, as the operations that take them name them. */
+export type GroupingInput = {
+    granularity?: PeriodUnit | undefined;
+    /** A grouping key of the operation (of the chart, for a chart), as the catalog lists it. */
+    groupBy?: string | undefined;
+};
+
+export type GroupingRequest = {
+    period_unit?: PeriodUnit;
+    segmentation?: string;
+};
+
+/** The input names meet the API names here, once for every operation; a field left out stays out. */
+export const toGroupingRequest = (input: GroupingInput): GroupingRequest => ({
+    ...(input.granularity === undefined ? {} : { period_unit: input.granularity }),
+    ...(input.groupBy === undefined ? {} : { segmentation: input.groupBy }),
+});

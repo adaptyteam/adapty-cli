@@ -6,7 +6,7 @@ export type Cell = boolean | null | number | string | undefined;
  * doubled. A missing value (null) is an empty cell, so it never reads as 0; an empty text (the key of a
  * "No Data" group) is `""`, so it never reads as a missing one.
  */
-export const csvCell = (value: Cell): string => {
+const csvCell = (value: Cell): string => {
     if (value === null || value === undefined) {
         return '';
     }

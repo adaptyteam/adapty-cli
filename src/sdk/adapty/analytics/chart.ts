@@ -1,7 +1,7 @@
-import { toQueryRequest, validateComparableQuery } from './query.js';
+import { toGroupingRequest, toQueryRequest, validateComparableQuery } from './query.js';
 
 import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment, PeriodUnit, RevenueBasis } from './model.js';
-import type { ComparableQueryInput, QueryRequest } from './query.js';
+import type { ComparableQueryInput, GroupingInput, GroupingRequest, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
 /** The charts of the dashboard charts page that the backend answers, in the catalog order. */
@@ -34,7 +34,7 @@ export const chartIds = [
 export type ChartId = (typeof chartIds)[number];
 
 /** The charts the backend answers on three revenue bases: the only ones that take `revenueBasis`. */
-export const moneyChartIds: readonly ChartId[] = [
+const moneyChartIds: readonly ChartId[] = [
     'revenue',
     'mrr',
     'arr',
@@ -45,20 +45,15 @@ export const moneyChartIds: readonly ChartId[] = [
     'grace_period_converted_revenue',
 ];
 
-export type ChartInput = ComparableQueryInput & {
+export type ChartInput = ComparableQueryInput & GroupingInput & {
     chartId: ChartId;
-    granularity?: PeriodUnit | undefined;
-    /** A grouping key of this chart, as the catalog lists it; the backend refuses any other. */
-    groupBy?: string | undefined;
     /** Money charts only; the backend refuses it for the others. */
     revenueBasis?: RevenueBasis | undefined;
 };
 
-type ChartRequest = QueryRequest & {
+type ChartRequest = GroupingRequest & QueryRequest & {
     chart_id: ChartId;
-    period_unit?: PeriodUnit;
     revenue_basis?: RevenueBasis;
-    segmentation?: string;
 };
 
 export type ChartPoint = {
@@ -102,19 +97,7 @@ export const validateChart = (input: ChartInput): Issue[] => {
 };
 
 export const toChartRequest = (input: ChartInput): ChartRequest => {
-    const body: ChartRequest = { chart_id: input.chartId, ...toQueryRequest(input) };
+    const body: ChartRequest = { chart_id: input.chartId, ...toQueryRequest(input), ...toGroupingRequest(input) };
 
-    if (input.granularity !== undefined) {
-        body.period_unit = input.granularity;
-    }
-
-    if (input.groupBy !== undefined) {
-        body.segmentation = input.groupBy;
-    }
-
-    if (input.revenueBasis !== undefined) {
-        body.revenue_basis = input.revenueBasis;
-    }
-
-    return body;
+    return input.revenueBasis === undefined ? body : { ...body, revenue_basis: input.revenueBasis };
 };

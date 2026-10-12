@@ -1,17 +1,15 @@
-import { toQueryRequest, validateQuery } from './query.js';
+import { toGroupingRequest, toQueryRequest, validateQuery } from './query.js';
 
 import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment } from './model.js';
-import type { AnalyticsQueryInput, QueryRequest } from './query.js';
+import type { AnalyticsQueryInput, GroupingInput, GroupingRequest, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
-export type RetentionInput = AnalyticsQueryInput & {
-    groupBy?: string | undefined;
+export type RetentionInput = AnalyticsQueryInput & Pick<GroupingInput, 'groupBy'> & {
     /** Count from the trial instead of from the first paid period. */
     useTrial?: boolean | undefined;
 };
 
-type RetentionRequest = QueryRequest & {
-    segmentation?: string;
+type RetentionRequest = Pick<GroupingRequest, 'segmentation'> & QueryRequest & {
     use_trial?: boolean;
 };
 
@@ -39,15 +37,7 @@ export type RetentionResponse = AnalyticsResponse<RetentionData, RetentionMeta>;
 export const validateRetention = (input: RetentionInput): Issue[] => validateQuery(input);
 
 export const toRetentionRequest = (input: RetentionInput): RetentionRequest => {
-    const body: RetentionRequest = toQueryRequest(input);
+    const body: RetentionRequest = { ...toQueryRequest(input), ...toGroupingRequest(input) };
 
-    if (input.groupBy !== undefined) {
-        body.segmentation = input.groupBy;
-    }
-
-    if (input.useTrial !== undefined) {
-        body.use_trial = input.useTrial;
-    }
-
-    return body;
+    return input.useTrial === undefined ? body : { ...body, use_trial: input.useTrial };
 };

@@ -1,17 +1,13 @@
-import { toQueryRequest, validateQuery } from './query.js';
+import { toGroupingRequest, toQueryRequest, validateQuery } from './query.js';
 
 import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment } from './model.js';
-import type { AnalyticsQueryInput, QueryRequest } from './query.js';
+import type { AnalyticsQueryInput, GroupingInput, GroupingRequest, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
 /** No compared period: the funnel query mixes two date ranges into one, so the backend refuses it. */
-export type FunnelInput = AnalyticsQueryInput & {
-    groupBy?: string | undefined;
-};
+export type FunnelInput = AnalyticsQueryInput & Pick<GroupingInput, 'groupBy'>;
 
-type FunnelRequest = QueryRequest & {
-    segmentation?: string;
-};
+type FunnelRequest = Pick<GroupingRequest, 'segmentation'> & QueryRequest;
 
 /** A count with its share in percent: a drop-off or pick-up, a churn reason, a part of a step. */
 export type Share = {
@@ -37,9 +33,9 @@ export type FunnelStep = {
     x: number;
 };
 
-/** `value` is the first step, the installs. */
+/** `value` is the first step, the installs; null for a segment without steps. */
 export type FunnelSegment = AnalyticsSegment & {
-    value: number;
+    value: null | number;
     values: FunnelStep[];
 };
 
@@ -51,12 +47,5 @@ export type FunnelResponse = AnalyticsResponse<FunnelData, FunnelMeta>;
 
 export const validateFunnel = (input: FunnelInput): Issue[] => validateQuery(input);
 
-export const toFunnelRequest = (input: FunnelInput): FunnelRequest => {
-    const body: FunnelRequest = toQueryRequest(input);
-
-    if (input.groupBy !== undefined) {
-        body.segmentation = input.groupBy;
-    }
-
-    return body;
-};
+export const toFunnelRequest = (input: FunnelInput): FunnelRequest =>
+    ({ ...toQueryRequest(input), ...toGroupingRequest(input) });

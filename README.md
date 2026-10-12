@@ -572,8 +572,8 @@ adapty analytics funnel --app APP_UUID --date-from 2026-07-01 --date-to 2026-09-
 
 Every data command (`chart`, `conversion`, `funnel`, `retention`, `ltv`, `cohort`) answers in one shape: the
 number of the period, then segments with the total first, each group keyed by the raw value its `--filter` takes.
-`--json` prints the API answer unchanged; `--csv` prints a table made from it (one row per segment, total first,
-then a `summary` row per period);
+`--json` prints the API answer unchanged; `--csv` prints a table made from it (one row per group, total first; a
+compared period in `compare.*` columns);
 the human view prints `—` for a missing value and `No data for this period.` for an empty window. Dates are
 inclusive days of `--timezone`, else the app time zone. Only `chart` and `conversion` take a compared period. Bad
 input exits 2 before anything is sent; a refusal exits 4 with the API's error code. All analytics calls of one app

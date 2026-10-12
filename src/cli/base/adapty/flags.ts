@@ -82,8 +82,10 @@ export const renewalPeriodFlags = {
 
 export const csvFlag = {
     csv: Flags.boolean({
-        description: 'Print a CSV table made from the API answer: one row per segment, the total first, '
-            + 'then a summary row per period',
+        description: 'Print a CSV table made from the API answer: one row per group, the total first (is_total true, '
+            + 'its key cell empty; a "No Data" key is written ""); a compared period in compare.* columns of the same row; '
+            + 'the numbers of the whole answer in data.* and meta.* columns. No groups: the header line, and "No data for '
+            + 'this period." with those numbers on stderr',
         exclusive: ['json'],
     }),
 };

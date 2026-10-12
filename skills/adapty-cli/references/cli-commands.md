@@ -403,8 +403,9 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
 - **Filter values are exact**: `--filter country=` keeps the "No Data" group (key `""`); an id grouping's "No Data"
   key is the zero UUID.
 - **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.
-- **Outputs**: human view (default), the API answer (`--json`), or a CSV made from it (`--csv`, one row per segment,
-  total first, then one `summary` row per period; the `row` column tells them apart).
+- **Outputs**: human view (default), the API answer (`--json`), or a CSV made from it (`--csv`, one row per group,
+  total first; a compared period in `compare.*` columns, the answer's numbers in `data.*` and `meta.*` columns; no
+  groups: the header only, and the summary on stderr).
 - **Errors**: bad input exits 2 before any request; a server refusal exits 4 with its error code; 2 calls per
   second per app, and a `429` carries `retry_after_seconds` in the `--json` error.
 

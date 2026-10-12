@@ -1,18 +1,16 @@
+import { toGroupingRequest } from './query.js';
 import { toRenewalPeriodsRequest, validateRenewalPeriods } from './renewal-periods.js';
 
 import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment, Money, PeriodUnit } from './model.js';
+import type { GroupingInput, GroupingRequest } from './query.js';
 import type { RenewalPeriodsInput, RenewalPeriodsQuery, RenewalPeriodsRequest } from './renewal-periods.js';
 import type { Issue } from '../../core/errors.js';
 
 /** No grouping: each segment is one cohort already. */
-export type CohortInput = RenewalPeriodsInput & {
-    /** The length of one cohort. */
-    granularity?: PeriodUnit | undefined;
-};
+/** `granularity` is the length of one cohort. */
+export type CohortInput = Pick<GroupingInput, 'granularity'> & RenewalPeriodsInput;
 
-type CohortRequest = RenewalPeriodsRequest & {
-    period_unit?: PeriodUnit;
-};
+type CohortRequest = Pick<GroupingRequest, 'period_unit'> & RenewalPeriodsRequest;
 
 /**
  * One period of a cohort. `value` and `value_relative` are the revenue on the asked basis; the money fields
@@ -90,12 +88,5 @@ export type CohortResponse = AnalyticsResponse<CohortData, CohortMeta>;
 
 export const validateCohort = (input: CohortInput): Issue[] => validateRenewalPeriods(input);
 
-export const toCohortRequest = (input: CohortInput): CohortRequest => {
-    const body: CohortRequest = toRenewalPeriodsRequest(input);
-
-    if (input.granularity !== undefined) {
-        body.period_unit = input.granularity;
-    }
-
-    return body;
-};
+export const toCohortRequest = (input: CohortInput): CohortRequest =>
+    ({ ...toRenewalPeriodsRequest(input), ...toGroupingRequest(input) });

@@ -1,7 +1,7 @@
-import { toQueryRequest, validateComparableQuery } from './query.js';
+import { toGroupingRequest, toQueryRequest, validateComparableQuery } from './query.js';
 
 import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment, PeriodUnit } from './model.js';
-import type { ComparableQueryInput, QueryRequest } from './query.js';
+import type { ComparableQueryInput, GroupingInput, GroupingRequest, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
 /** The conversions of the dashboard, by the ids it uses; the backend never maps one id to another pair. */
@@ -24,16 +24,12 @@ export const conversionIds = [
 
 export type ConversionId = (typeof conversionIds)[number];
 
-export type ConversionInput = ComparableQueryInput & {
+export type ConversionInput = ComparableQueryInput & GroupingInput & {
     conversionId: ConversionId;
-    granularity?: PeriodUnit | undefined;
-    groupBy?: string | undefined;
 };
 
-type ConversionRequest = QueryRequest & {
+type ConversionRequest = GroupingRequest & QueryRequest & {
     conversion_id: ConversionId;
-    period_unit?: PeriodUnit;
-    segmentation?: string;
 };
 
 export type ConversionPoint = {
@@ -46,19 +42,21 @@ export type ConversionPoint = {
 };
 
 /** `value` is the conversion in percent: `value_to` of `value_from`. */
+/** `value_from` and `value_to` are null only on a compared total that the backend does not give. */
 export type ConversionSegment = AnalyticsSegment & {
     value: number;
-    value_from: number;
-    value_to: number;
+    value_from: null | number;
+    value_to: null | number;
     values: ConversionPoint[];
 };
 
 export type ConversionData = AnalyticsData<ConversionSegment> & {
+    /** The counts of the compared period itself; null when the backend has no total row for it. */
     compare: null | {
         segments: ConversionSegment[];
         value: number;
-        value_from: number;
-        value_to: number;
+        value_from: null | number;
+        value_to: null | number;
     };
     value: number;
     value_from: number;
@@ -82,16 +80,8 @@ export type ConversionResponse = AnalyticsResponse<ConversionData, ConversionMet
 
 export const validateConversion = (input: ConversionInput): Issue[] => validateComparableQuery(input);
 
-export const toConversionRequest = (input: ConversionInput): ConversionRequest => {
-    const body: ConversionRequest = { conversion_id: input.conversionId, ...toQueryRequest(input) };
-
-    if (input.granularity !== undefined) {
-        body.period_unit = input.granularity;
-    }
-
-    if (input.groupBy !== undefined) {
-        body.segmentation = input.groupBy;
-    }
-
-    return body;
-};
+export const toConversionRequest = (input: ConversionInput): ConversionRequest => ({
+    conversion_id: input.conversionId,
+    ...toQueryRequest(input),
+    ...toGroupingRequest(input),
+});

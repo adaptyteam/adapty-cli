@@ -2,16 +2,16 @@ import { validateCohort } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
+    csvFlag,
     filterFlags,
+    granularityFlag,
     periodFlags,
     queryParams,
-    revenueBasisFlag,
-    csvFlag,
-    granularityFlag,
     renewalPeriodFlags,
+    revenueBasisFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView } from '../../views/analytics/segments.js';
+import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { CohortInput, CohortResponse } from '../../../sdk/adapty/index.js';
 
@@ -51,6 +51,13 @@ export default class AnalyticsCohort extends AdaptyCommand {
         const answer = await this.adapty.analytics.cohort(input);
 
         this.render(answer, analyticsView(flags.csv));
+
+        // A CSV without groups is its header alone: say so, with the numbers of the period, beside it
+        const notice = flags.csv ? csvNotice(answer) : undefined;
+
+        if (notice !== undefined) {
+            this.logToStderr(notice);
+        }
 
         return answer;
     }
