@@ -1,7 +1,7 @@
 import { Args, Command } from '@oclif/core';
 
 import { appIdFlag } from '../../cli/input/app.js';
-import { segmentFilters, segmentWriteFlags } from '../../lib/asa-flags.js';
+import { segmentFilters, segmentWriteFlags } from '../../cli/input/segment.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { isValidUuid } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
