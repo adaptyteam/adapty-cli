@@ -1,7 +1,6 @@
 import { toQueryRequest, validateQuery } from './query.js';
 
-import type { StepPoint } from './funnel.js';
-import type { AnalyticsData, AnalyticsResponse, AnalyticsSegment } from './model.js';
+import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment } from './model.js';
 import type { AnalyticsQueryInput, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
@@ -16,16 +15,26 @@ type RetentionRequest = QueryRequest & {
     use_trial?: boolean;
 };
 
+/** One retention period: `x` is the backend period number. */
+export type RetentionPoint = {
+    title: string;
+    value: number;
+    value_relative: number;
+    x: number;
+};
+
 /** `value` and `first_value` are the subscribers of the first period. */
 export type RetentionSegment = AnalyticsSegment & {
     first_value: number;
     value: number;
-    values: StepPoint[];
+    values: RetentionPoint[];
 };
 
 export type RetentionData = AnalyticsData<RetentionSegment>;
 
-export type RetentionResponse = AnalyticsResponse<RetentionData>;
+export type RetentionMeta = AnalyticsMeta<{ segmentation: null | string; use_trial: boolean }>;
+
+export type RetentionResponse = AnalyticsResponse<RetentionData, RetentionMeta>;
 
 export const validateRetention = (input: RetentionInput): Issue[] => validateQuery(input);
 

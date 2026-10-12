@@ -19,18 +19,37 @@ export type PeriodType = (typeof periodTypes)[number];
 
 export type AnalyticsSegment = {
     is_total: boolean;
-    /** The raw value that `--filter <grouping>=<key>` takes; null for the total. */
+    /**
+     * Null for the total only. A group has the raw value that `--filter <grouping>=<key>` takes, its "No Data"
+     * group included: `""` for a text grouping, the zero UUID for an id grouping.
+     */
     key: null | string;
     /** The backend title, "No Data" included. */
     title: string;
 };
 
-/** The query that ran: every field with its default, `timezone` and `timezone_source` (`request` or `app`). */
-export type AnalyticsMeta = {
-    query: Record<string, unknown>;
+/**
+ * The query that ran: every field of the operation with its default, the filters as sent, the time zone and
+ * where it comes from (`request` for `--timezone`, else `app`).
+ */
+export type ResolvedQuery<Fields> = Fields & {
+    filters: Record<string, string[]>;
+    timezone: string;
+    timezone_source: 'app' | 'request';
 };
 
-export type AnalyticsResponse<Data, Meta = AnalyticsMeta> = {
+export type AnalyticsMeta<Fields = Record<string, unknown>> = {
+    query: ResolvedQuery<Fields>;
+};
+
+/** One amount in USD on each revenue basis. */
+export type Money = {
+    gross: number;
+    net: number;
+    proceeds: number;
+};
+
+export type AnalyticsResponse<Data, Meta> = {
     data: Data;
     meta: Meta;
 };

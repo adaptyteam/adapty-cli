@@ -1,7 +1,7 @@
 import { Flags } from '@oclif/core';
 
 import { periodTypes, periodUnits, revenueBases } from '../../../sdk/adapty/index.js';
-import { parseFilter } from '../../input/filter.js';
+import { parseExactFilter } from '../../input/filter.js';
 import { dateParser } from '../../input/period.js';
 
 import type { AnalyticsFilter } from '../../../sdk/adapty/index.js';
@@ -37,9 +37,10 @@ export const compareFlags = {
 export const analyticsFilterFlags = {
     filter: Flags.custom<AnalyticsFilter>({
         description: 'Keep the data whose dimension has one of the values: dimension=value[,value] (repeatable; `\\,` '
-            + 'for a comma inside a value). Dimensions: `adapty analytics catalog`; values: `adapty analytics values`',
+            + 'for a comma inside a value; values exactly as written, an empty one is a "No Data" group, e.g. country=). '
+            + 'Dimensions: `adapty analytics catalog`; values: `adapty analytics values`',
         multiple: true,
-        parse: parseFilter,
+        parse: parseExactFilter,
     })(),
     timezone: Flags.string({
         description: 'IANA time zone of the days, e.g. Europe/Berlin; the app time zone when omitted',

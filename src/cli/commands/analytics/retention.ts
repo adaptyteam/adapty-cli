@@ -11,7 +11,6 @@ import {
     groupByFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { retentionTable } from '../../views/analytics/operations.js';
 import { analyticsView } from '../../views/analytics/segments.js';
 
 import type { RetentionInput, RetentionResponse } from '../../../sdk/adapty/index.js';
@@ -51,7 +50,7 @@ export default class AnalyticsRetention extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.retention(input);
 
-        this.render(answer, analyticsView(retentionTable, flags.csv));
+        this.render(answer, analyticsView(flags.csv));
 
         return answer;
     }

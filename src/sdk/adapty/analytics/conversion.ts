@@ -65,7 +65,11 @@ export type ConversionData = AnalyticsData<ConversionSegment> & {
     value_to: number;
 };
 
-export type ConversionMeta = AnalyticsMeta & {
+export type ConversionMeta = AnalyticsMeta<{
+    conversion_id: ConversionId;
+    period_unit: PeriodUnit;
+    segmentation: null | string;
+}> & {
     /** A window with data, given when the asked window has none. */
     recommended_period: null | {
         date_from: string;

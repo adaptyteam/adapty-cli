@@ -13,7 +13,6 @@ import {
     groupByFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { conversionTable } from '../../views/analytics/operations.js';
 import { analyticsView } from '../../views/analytics/segments.js';
 
 import type { ConversionInput, ConversionResponse } from '../../../sdk/adapty/index.js';
@@ -59,7 +58,7 @@ export default class AnalyticsConversion extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.conversion(input);
 
-        this.render(answer, analyticsView(conversionTable, flags.csv));
+        this.render(answer, analyticsView(flags.csv));
 
         return answer;
     }

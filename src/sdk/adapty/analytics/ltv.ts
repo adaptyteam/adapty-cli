@@ -1,7 +1,7 @@
 import { toRenewalPeriodsRequest, validateRenewalPeriods } from './renewal-periods.js';
 
-import type { AnalyticsData, AnalyticsResponse, AnalyticsSegment } from './model.js';
-import type { RenewalPeriodsInput, RenewalPeriodsRequest } from './renewal-periods.js';
+import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment } from './model.js';
+import type { RenewalPeriodsInput, RenewalPeriodsQuery, RenewalPeriodsRequest } from './renewal-periods.js';
 import type { Issue } from '../../core/errors.js';
 
 export type LtvInput = RenewalPeriodsInput & {
@@ -28,7 +28,9 @@ export type LtvData = AnalyticsData<LtvSegment> & {
     value: number;
 };
 
-export type LtvResponse = AnalyticsResponse<LtvData>;
+export type LtvMeta = AnalyticsMeta<RenewalPeriodsQuery & { segmentation: null | string }>;
+
+export type LtvResponse = AnalyticsResponse<LtvData, LtvMeta>;
 
 export const validateLtv = (input: LtvInput): Issue[] => validateRenewalPeriods(input);
 

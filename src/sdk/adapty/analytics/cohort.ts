@@ -1,7 +1,7 @@
 import { toRenewalPeriodsRequest, validateRenewalPeriods } from './renewal-periods.js';
 
-import type { AnalyticsData, AnalyticsResponse, AnalyticsSegment, PeriodUnit } from './model.js';
-import type { RenewalPeriodsInput, RenewalPeriodsRequest } from './renewal-periods.js';
+import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment, Money, PeriodUnit } from './model.js';
+import type { RenewalPeriodsInput, RenewalPeriodsQuery, RenewalPeriodsRequest } from './renewal-periods.js';
 import type { Issue } from '../../core/errors.js';
 
 /** No grouping: each segment is one cohort already. */
@@ -14,13 +14,18 @@ type CohortRequest = RenewalPeriodsRequest & {
     period_unit?: PeriodUnit;
 };
 
-/** The money fields are on the asked revenue basis. */
+/**
+ * One period of a cohort. `value` and `value_relative` are the revenue on the asked basis; the money fields
+ * give each basis.
+ */
 export type CohortPoint = {
-    arpas: number;
-    arppu: number;
-    arpu: number;
+    arpas: Money;
+    arppu: Money;
+    arpu: Money;
     currently_active_period: boolean;
     installs: number;
+    revenue: Money;
+    revenue_relative: Money;
     subscribers: number;
     subscribers_relative: number;
     subscriptions: number;
@@ -31,7 +36,7 @@ export type CohortPoint = {
 };
 
 /** Predicted revenue (`rev*`) and LTV (`ltv*`) after 3..24 months; null where the backend cannot predict. */
-export type CohortPredict = {
+export type PredictValues = {
     ltv3: null | number;
     ltv6: null | number;
     ltv9: null | number;
@@ -46,13 +51,31 @@ export type CohortPredict = {
     rev24: null | number;
 };
 
-/** One cohort, its start date as `key`; `value` is its revenue on the asked basis. */
+/** The backend predictions per basis (`gross_v2`: its second gross model); a section is null where it gives none. */
+export type CohortPredict = {
+    gross: null | PredictValues;
+    gross_v2: null | PredictValues;
+    net: null | PredictValues;
+    proceeds: null | PredictValues;
+    status: null | {
+        status_3: null | number;
+        status_6: null | number;
+        status_9: null | number;
+        status_12: null | number;
+        status_18: null | number;
+        status_24: null | number;
+    };
+};
+
+/** One cohort, its start date as `key` (null for the total); `value` is its revenue on the asked basis. */
 export type CohortSegment = AnalyticsSegment & {
-    arpas: number;
-    arppu: number;
-    arpu: number;
+    arpas: Money;
+    arppu: Money;
+    arpu: Money;
     installs: number;
     predict: CohortPredict | null;
+    revenue: Money;
+    start_date: null | string;
     subscribers: number;
     subscriptions: number;
     value: number;
@@ -61,7 +84,9 @@ export type CohortSegment = AnalyticsSegment & {
 
 export type CohortData = AnalyticsData<CohortSegment>;
 
-export type CohortResponse = AnalyticsResponse<CohortData>;
+export type CohortMeta = AnalyticsMeta<RenewalPeriodsQuery & { period_unit: PeriodUnit }>;
+
+export type CohortResponse = AnalyticsResponse<CohortData, CohortMeta>;
 
 export const validateCohort = (input: CohortInput): Issue[] => validateRenewalPeriods(input);
 

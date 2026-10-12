@@ -14,7 +14,6 @@ import {
     groupByFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { chartTable } from '../../views/analytics/operations.js';
 import { analyticsView } from '../../views/analytics/segments.js';
 
 import type { ChartInput, ChartResponse } from '../../../sdk/adapty/index.js';
@@ -63,7 +62,7 @@ export default class AnalyticsChart extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.chart(input);
 
-        this.render(answer, analyticsView(chartTable, flags.csv));
+        this.render(answer, analyticsView(flags.csv));
 
         return answer;
     }

@@ -11,7 +11,6 @@ import {
     renewalPeriodFlags,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { cohortTable } from '../../views/analytics/operations.js';
 import { analyticsView } from '../../views/analytics/segments.js';
 
 import type { CohortInput, CohortResponse } from '../../../sdk/adapty/index.js';
@@ -51,7 +50,7 @@ export default class AnalyticsCohort extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.cohort(input);
 
-        this.render(answer, analyticsView(cohortTable, flags.csv));
+        this.render(answer, analyticsView(flags.csv));
 
         return answer;
     }

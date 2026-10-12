@@ -1,160 +1,151 @@
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
-import * as sinon from 'sinon';
 
 import { exitCode } from '../../src/cli/errors.js';
-import { assertFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
+import { assertFetch, mockFetchSteps, requestOf, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
-type Step = {
-    body: unknown;
-    headers?: Record<string, string>;
-    status?: number;
-};
-
-/** Answers each call with its own status and headers; mockFetch's canned responses are all 200. */
-const mockFetchSteps = (steps: Step[]): sinon.SinonStub => {
-    let index = 0;
-
-    return sinon.stub(globalThis, 'fetch').callsFake(() => {
-        const step = steps[index] ?? steps.at(-1);
-        index += 1;
-
-        return Promise.resolve(new Response(JSON.stringify(step?.body), {
-            headers: { 'content-type': 'application/json', ...step?.headers },
-            status: step?.status ?? 200,
-        }));
-    });
-};
-
-const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
-    const [url, init] = stub.getCall(callIndex).args as [string, RequestInit];
-
-    return {
-        body: typeof init.body === 'string' ? JSON.parse(init.body) as unknown : undefined,
-        headers: new Headers(init.headers),
-        method: init.method,
-        url,
-    };
-};
+import type * as sinon from 'sinon';
 
 const ANALYTICS = `/apps/${TEST_APP_ID}/analytics`;
 const PERIOD = '--date-from 2026-07-01 --date-to 2026-09-30';
 const APP = `--app ${TEST_APP_ID}`;
 
-const meta = { query: { timezone: 'UTC', timezone_source: 'app' } };
+const meta = { query: { timezone: 'UTC', filters: { date: ['2026-07-01', '2026-09-30'] }, timezone_source: 'app' } };
 
-// Each answer lists a group before the total, so the views must put the total first themselves, and holds a
-// 0 and, where the API allows one, a null: the views keep 0 as 0 and never print null as 0.
+const sentBody = (stub: sinon.SinonStub, callIndex: number): unknown => JSON.parse(requestOf(stub, callIndex).body ?? 'null');
+
+// The answers keep the field order of the API. Each lists a group before the total, so the views must put the
+// total first themselves, and holds a 0 and, where the API has one, a null: 0 stays 0, null never reads as 0.
 const chartAnswer = {
     data: {
+        value: 30.5,
         compare: {
-            segments: [{ is_total: true, key: null, title: 'Total', value: 12, values: [{ value: 12, x: '2026-06-01' }] }],
             value: 12,
+            segments: [{ key: null, title: 'Total', is_total: true, value: 12, values: [{ x: '2026-06-01', value: 12 }] }],
         },
         segments: [
-            { is_total: false, key: 'US', title: 'United States', value: 30.5, values: [{ value: 30.5, x: '2026-07-01' }, { value: 0, x: '2026-08-01' }] },
-            { is_total: true, key: null, title: 'Total', value: 30.5, values: [{ value: 30.5, x: '2026-07-01' }, { value: 0, x: '2026-08-01' }] },
-            { is_total: false, key: '', title: 'No Data', value: 0, values: [{ value: 0, x: '2026-07-01' }] },
+            { key: 'US', title: 'United States', is_total: false, value: 30.5, values: [{ x: '2026-07-01', value: 30.5 }, { x: '2026-08-01', value: 0 }] },
+            { key: null, title: 'Total', is_total: true, value: 30.5, values: [{ x: '2026-07-01', value: 30.5 }, { x: '2026-08-01', value: 0 }] },
+            { key: '', title: 'No Data', is_total: false, value: 0, values: [{ x: '2026-07-01', value: 0 }] },
         ],
-        value: 30.5,
     },
     meta,
 };
 
 const conversionAnswer = {
     data: {
-        compare: null,
-        segments: [
-            { is_total: false, key: 'US', title: 'United States', value: 0, value_from: 4, value_to: 0, values: [] },
-            {
-                is_total: true,
-                key: null,
-                title: 'Conversion rate from trial to paid',
-                value: 25,
-                value_from: 4,
-                value_to: 1,
-                values: [{ has_unfinished: false, value: 25, value_from: 4, value_from_unfinished: 0, value_to: 1, x: '2026-07-01' }],
-            },
-        ],
         value: 25,
         value_from: 4,
         value_to: 1,
+        compare: null,
+        segments: [
+            { key: 'US', title: 'United States', is_total: false, value: 0, value_from: 4, value_to: 0, values: [] },
+            {
+                key: null,
+                title: 'Conversion rate from trial to paid',
+                is_total: true,
+                value: 25,
+                value_from: 4,
+                value_to: 1,
+                values: [{ x: '2026-07-01', value: 25, value_from: 4, value_to: 1, value_from_unfinished: 0, has_unfinished: false }],
+            },
+        ],
     },
     meta: { ...meta, recommended_period: null },
 };
 
 const funnelAnswer = {
     data: {
+        value: 3,
         segments: [
-            { is_total: false, key: 'US', title: 'United States', value: null, values: [] },
             {
-                is_total: true,
+                key: '00000000-0000-0000-0000-000000000000',
+                title: 'No Data',
+                is_total: false,
+                value: 0,
+                values: [{
+                    x: -2, title: 'Install', value: 0, value_relative: 0, relative_changes: 0,
+                    following_changes: { title: 'Drop off', value: 0, value_relative: 0 }, churn_reason_title: '', churn_reasons: [], parts: [],
+                }],
+            },
+            {
                 key: null,
                 title: 'Total',
+                is_total: true,
                 value: 3,
                 values: [
-                    { title: 'Install', value: 3, value_relative: 100, x: -2 },
-                    { title: 'Paywall displayed', value: 0, value_relative: 0, x: -1 },
+                    {
+                        x: -2, title: 'Install', value: 3, value_relative: 100, relative_changes: 66.7,
+                        following_changes: { title: 'Drop off', value: 1, value_relative: 33.3 }, churn_reason_title: '', churn_reasons: [], parts: [],
+                    },
+                    {
+                        x: 0, title: 'Paid', value: 2, value_relative: 66.7, relative_changes: 0,
+                        following_changes: { title: 'Drop off', value: 2, value_relative: 100 }, churn_reason_title: 'Churn reasons',
+                        churn_reasons: [{ title: 'Cancelled', value: 2, value_relative: 100 }],
+                        parts: [{ title: 'Install → Paid', value: 1, value_relative: 50 }],
+                    },
                 ],
             },
         ],
-        value: 3,
     },
-    meta,
+    meta: { query: { ...meta.query, segmentation: 'paywall_id' } },
 };
 
 const retentionAnswer = {
     data: {
-        segments: [
-            { first_value: 0, is_total: false, key: 'US', title: 'United States', value: 0, values: [{ title: 'Paid', value: 0, value_relative: 0, x: 1 }] },
-            { first_value: 5, is_total: true, key: null, title: 'Total', value: 5, values: [{ title: 'Paid', value: 5, value_relative: 100, x: 1 }] },
-        ],
         value: 5,
+        segments: [
+            { key: 'US', title: 'United States', is_total: false, value: 0, first_value: 0, values: [{ x: 1, title: 'Paid', value: 0, value_relative: 0 }] },
+            { key: null, title: 'Total', is_total: true, value: 5, first_value: 5, values: [{ x: 1, title: 'Paid', value: 5, value_relative: 100 }] },
+        ],
     },
     meta,
 };
 
 const ltvAnswer = {
     data: {
-        segments: [
-            { cohort_size: 1, is_total: false, key: 'US', title: 'United States', value: 0, values: [{ value: 0, x: 1 }, { value: null, x: 2 }] },
-            { cohort_size: 2, is_total: true, key: null, title: 'Total', value: 1.5, values: [{ value: 1.5, x: 1 }, { value: null, x: 2 }] },
-        ],
         value: 1.5,
+        segments: [
+            { key: 'US', title: 'United States', is_total: false, value: 0, cohort_size: 1, values: [{ x: 1, value: 0 }, { x: 2, value: null }] },
+            { key: null, title: 'Total', is_total: true, value: 1.5, cohort_size: 2, values: [{ x: 1, value: 1.5 }, { x: 2, value: null }] },
+        ],
     },
     meta,
 };
 
-const nullPredict = {
-    ltv3: null, ltv6: null, ltv9: null, ltv12: null, ltv18: null, ltv24: null,
-    rev3: null, rev6: null, rev9: null, rev12: null, rev18: null, rev24: null,
-};
+const money = (gross: number, proceeds: number, net: number) => ({ gross, proceeds, net });
 
 const cohortAnswer = {
     data: {
+        value: 10,
         segments: [
             {
-                arpas: 0, arppu: 0, arpu: 0, installs: 0, is_total: false, key: '2026-07-01',
-                predict: { ...nullPredict, rev6: 0 },
-                subscribers: 0, subscriptions: 0, title: '2026-07-01', value: 0, values: [],
+                key: '2026-07-01', title: '2026-07-01', is_total: false, value: 0, start_date: '2026-07-01',
+                installs: 0, subscriptions: 0, subscribers: 0,
+                revenue: money(0, 0, 0), arpu: money(0, 0, 0), arppu: money(0, 0, 0), arpas: money(0, 0, 0),
+                predict: {
+                    gross: { rev3: null, rev6: 0 }, gross_v2: null, proceeds: null, net: null, status: { status_3: 0 },
+                },
+                values: [],
             },
             {
-                arpas: 10, arppu: 10, arpu: 3.5, installs: 3, is_total: true, key: null, predict: null,
-                subscribers: 1, subscriptions: 1, title: 'Total', value: 10,
+                key: null, title: 'Total', is_total: true, value: 10, start_date: '2026-07-01',
+                installs: 3, subscriptions: 1, subscribers: 1,
+                revenue: money(10, 8.5, 7), arpu: money(3.5, 2.8, 2.3),
+                arppu: money(10, 8.5, 7), arpas: money(10, 8.5, 7),
+                predict: null,
                 values: [{
-                    arpas: 10, arppu: 10, arpu: 3.5, currently_active_period: true, installs: 3, subscribers: 1,
-                    subscribers_relative: 100, subscriptions: 1, subscriptions_relative: 100,
-                    value: 10, value_relative: 100, x: 1,
+                    x: 1, value: 10, value_relative: 100, installs: 3, subscriptions: 1, subscriptions_relative: 100,
+                    subscribers: 1, subscribers_relative: 100,
+                    revenue: money(10, 8.5, 7), revenue_relative: money(100, 100, 100),
+                    arpu: money(3.5, 2.8, 2.3), arppu: money(10, 8.5, 7), arpas: money(10, 8.5, 7),
+                    currently_active_period: true,
                 }],
             },
         ],
-        value: 10,
     },
     meta,
 };
-
-const PREDICT_HEADER = 'predict.rev3,predict.rev6,predict.rev9,predict.rev12,predict.rev18,predict.rev24,'
-    + 'predict.ltv3,predict.ltv6,predict.ltv9,predict.ltv12,predict.ltv18,predict.ltv24';
 
 const catalogAnswer = {
     data: {
@@ -248,7 +239,7 @@ describe('analytics', () => {
             expect(request.headers.get('authorization')).to.equal('Bearer test-token');
 
             // Two filters of one dimension are one list, as the dashboard sends it: a value of either is kept
-            expect(request.body).to.deep.equal({
+            expect(sentBody(fetchStub, 0)).to.deep.equal({
                 chart_id: 'revenue',
                 filters: {
                     compare_date: ['2026-04-01', '2026-06-30'],
@@ -313,10 +304,33 @@ describe('analytics', () => {
                 await runCommand(`${command} --json`);
 
                 assertFetch({ callIndex: index, method: 'POST', path: `${ANALYTICS}/${path}/`, stub: fetchStub });
-                expect(requestOf(fetchStub, index).body, command).to.deep.equal(body);
+                expect(sentBody(fetchStub, index), command).to.deep.equal(body);
             }
 
             expect(fetchStub.callCount).to.equal(cases.length);
+        });
+
+        it('sends --filter values exactly as written: an empty value keeps the "No Data" group', async () => {
+            fetchStub = mockFetchSteps([{ body: chartAnswer }]);
+
+            await runCommand([
+                'analytics', 'chart', '--app', TEST_APP_ID, '--chart', 'revenue',
+                '--date-from', '2026-07-01', '--date-to', '2026-09-30',
+                '--filter', 'country=',
+                '--filter', 'paywall_id=00000000-0000-0000-0000-000000000000',
+                '--filter', String.raw`attribution_campaign=Summer\,2026,`,
+                '--json',
+            ]);
+
+            expect(sentBody(fetchStub, 0)).to.deep.equal({
+                chart_id: 'revenue',
+                filters: {
+                    attribution_campaign: ['Summer,2026', ''],
+                    country: [''],
+                    date: ['2026-07-01', '2026-09-30'],
+                    paywall_id: ['00000000-0000-0000-0000-000000000000'],
+                },
+            });
         });
 
         it('reads the catalog and the values of a filter with GETs, and --json prints them unchanged', async () => {
@@ -392,9 +406,9 @@ describe('analytics', () => {
                 answer: conversionAnswer,
                 command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
                 csv: [
-                    'period,key,title,is_total,value,value_from,value_to,2026-07-01',
-                    'main,,Conversion rate from trial to paid,true,25,4,1,25',
-                    'main,US,United States,false,0,4,0,',
+                    'period,key,title,is_total,value,value_from,value_to,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished',
+                    'main,,Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false',
+                    'main,US,United States,false,0,4,0,,,,,',
                 ],
                 human: [
                     'value: 25',
@@ -410,7 +424,7 @@ describe('analytics', () => {
                     'value_from: 4',
                     'value_to: 1',
                     'values:',
-                    '  2026-07-01: 25 (has_unfinished false, value_from 4, value_from_unfinished 0, value_to 1)',
+                    '  2026-07-01: 25 (value_from 4, value_to 1, value_from_unfinished 0, has_unfinished false)',
                     '---',
                     'key: US',
                     'title: United States',
@@ -424,9 +438,9 @@ describe('analytics', () => {
                 answer: funnelAnswer,
                 command: `analytics funnel ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,Install,Paywall displayed',
-                    ',Total,true,3,3,0',
-                    'US,United States,false,,,',
+                    'key,title,is_total,value,Install,Install.value_relative,Install.relative_changes,Install.following_changes.title,Install.following_changes.value,Install.following_changes.value_relative,Install.churn_reason_title,Paid,Paid.value_relative,Paid.relative_changes,Paid.following_changes.title,Paid.following_changes.value,Paid.following_changes.value_relative,Paid.churn_reason_title,Paid.churn_reasons[0].title,Paid.churn_reasons[0].value,Paid.churn_reasons[0].value_relative,Paid.parts[0].title,Paid.parts[0].value,Paid.parts[0].value_relative',
+                    ',Total,true,3,3,100,66.7,Drop off,1,33.3,"",2,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50',
+                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,0,0,Drop off,0,0,"",,,,,,,,,,,,,',
                 ],
                 human: [
                     'value: 3',
@@ -438,22 +452,24 @@ describe('analytics', () => {
                     'is_total: true',
                     'value: 3',
                     'values:',
-                    '  Install: 3 (value_relative 100)',
-                    '  Paywall displayed: 0 (value_relative 0)',
+                    '  Install: 3 (value_relative 100, relative_changes 66.7, following_changes.title Drop off, following_changes.value 1, following_changes.value_relative 33.3, churn_reason_title "")',
+                    '  Paid: 2 (value_relative 66.7, relative_changes 0, following_changes.title Drop off, following_changes.value 2, following_changes.value_relative 100, churn_reason_title Churn reasons, churn_reasons[0].title Cancelled, churn_reasons[0].value 2, churn_reasons[0].value_relative 100, parts[0].title Install → Paid, parts[0].value 1, parts[0].value_relative 50)',
                     '---',
-                    'key: US',
-                    'title: United States',
+                    'key: 00000000-0000-0000-0000-000000000000',
+                    'title: No Data',
                     'is_total: false',
-                    'value: —',
+                    'value: 0',
+                    'values:',
+                    '  Install: 0 (value_relative 0, relative_changes 0, following_changes.title Drop off, following_changes.value 0, following_changes.value_relative 0, churn_reason_title "")',
                 ],
             },
             {
                 answer: retentionAnswer,
                 command: `analytics retention ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,first_value,Paid',
-                    ',Total,true,5,5,5',
-                    'US,United States,false,0,0,0',
+                    'key,title,is_total,value,first_value,Paid,Paid.value_relative',
+                    ',Total,true,5,5,5,100',
+                    'US,United States,false,0,0,0,0',
                 ],
                 human: [
                     'value: 5',
@@ -513,9 +529,9 @@ describe('analytics', () => {
                 answer: cohortAnswer,
                 command: `analytics cohort ${APP} ${PERIOD}`,
                 csv: [
-                    `key,title,is_total,value,installs,subscriptions,subscribers,arpu,arppu,arpas,${PREDICT_HEADER},1`,
-                    ',Total,true,10,3,1,1,3.5,10,10,,,,,,,,,,,,,10',
-                    '2026-07-01,2026-07-01,false,0,0,0,0,0,0,0,,0,,,,,,,,,,,',
+                    'key,title,is_total,value,start_date,installs,subscriptions,subscribers,revenue.gross,revenue.proceeds,revenue.net,arpu.gross,arpu.proceeds,arpu.net,arppu.gross,arppu.proceeds,arppu.net,arpas.gross,arpas.proceeds,arpas.net,predict.gross.rev3,predict.gross.rev6,predict.gross_v2,predict.proceeds,predict.net,predict.status.status_3,1,1.value_relative,1.installs,1.subscriptions,1.subscriptions_relative,1.subscribers,1.subscribers_relative,1.revenue.gross,1.revenue.proceeds,1.revenue.net,1.revenue_relative.gross,1.revenue_relative.proceeds,1.revenue_relative.net,1.arpu.gross,1.arpu.proceeds,1.arpu.net,1.arppu.gross,1.arppu.proceeds,1.arppu.net,1.arpas.gross,1.arpas.proceeds,1.arpas.net,1.currently_active_period',
+                    ',Total,true,10,2026-07-01,3,1,1,10,8.5,7,3.5,2.8,2.3,10,8.5,7,10,8.5,7,,,,,,,10,100,3,1,100,1,100,10,8.5,7,100,100,100,3.5,2.8,2.3,10,8.5,7,10,8.5,7,true',
+                    '2026-07-01,2026-07-01,false,0,2026-07-01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,,0,,,,0,,,,,,,,,,,,,,,,,,,,,,,',
                 ],
                 human: [
                     'value: 10',
@@ -526,50 +542,52 @@ describe('analytics', () => {
                     'title: Total',
                     'is_total: true',
                     'value: 10',
+                    'start_date: 2026-07-01',
                     'installs: 3',
                     'subscriptions: 1',
                     'subscribers: 1',
-                    'arpu: 3.5',
-                    'arppu: 10',
-                    'arpas: 10',
-                    'predict.rev3: —',
-                    'predict.rev6: —',
-                    'predict.rev9: —',
-                    'predict.rev12: —',
-                    'predict.rev18: —',
-                    'predict.rev24: —',
-                    'predict.ltv3: —',
-                    'predict.ltv6: —',
-                    'predict.ltv9: —',
-                    'predict.ltv12: —',
-                    'predict.ltv18: —',
-                    'predict.ltv24: —',
+                    'revenue.gross: 10',
+                    'revenue.proceeds: 8.5',
+                    'revenue.net: 7',
+                    'arpu.gross: 3.5',
+                    'arpu.proceeds: 2.8',
+                    'arpu.net: 2.3',
+                    'arppu.gross: 10',
+                    'arppu.proceeds: 8.5',
+                    'arppu.net: 7',
+                    'arpas.gross: 10',
+                    'arpas.proceeds: 8.5',
+                    'arpas.net: 7',
+                    'predict: —',
                     'values:',
-                    '  1: 10 (arpas 10, arppu 10, arpu 3.5, currently_active_period true, installs 3, subscribers 1, '
-                    + 'subscribers_relative 100, subscriptions 1, subscriptions_relative 100, value_relative 100)',
+                    '  1: 10 (value_relative 100, installs 3, subscriptions 1, subscriptions_relative 100, subscribers 1, subscribers_relative 100, revenue.gross 10, revenue.proceeds 8.5, revenue.net 7, revenue_relative.gross 100, revenue_relative.proceeds 100, revenue_relative.net 100, arpu.gross 3.5, arpu.proceeds 2.8, arpu.net 2.3, arppu.gross 10, arppu.proceeds 8.5, arppu.net 7, arpas.gross 10, arpas.proceeds 8.5, arpas.net 7, currently_active_period true)',
                     '---',
                     'key: 2026-07-01',
                     'title: 2026-07-01',
                     'is_total: false',
                     'value: 0',
+                    'start_date: 2026-07-01',
                     'installs: 0',
                     'subscriptions: 0',
                     'subscribers: 0',
-                    'arpu: 0',
-                    'arppu: 0',
-                    'arpas: 0',
-                    'predict.rev3: —',
-                    'predict.rev6: 0',
-                    'predict.rev9: —',
-                    'predict.rev12: —',
-                    'predict.rev18: —',
-                    'predict.rev24: —',
-                    'predict.ltv3: —',
-                    'predict.ltv6: —',
-                    'predict.ltv9: —',
-                    'predict.ltv12: —',
-                    'predict.ltv18: —',
-                    'predict.ltv24: —',
+                    'revenue.gross: 0',
+                    'revenue.proceeds: 0',
+                    'revenue.net: 0',
+                    'arpu.gross: 0',
+                    'arpu.proceeds: 0',
+                    'arpu.net: 0',
+                    'arppu.gross: 0',
+                    'arppu.proceeds: 0',
+                    'arppu.net: 0',
+                    'arpas.gross: 0',
+                    'arpas.proceeds: 0',
+                    'arpas.net: 0',
+                    'predict.gross.rev3: —',
+                    'predict.gross.rev6: 0',
+                    'predict.gross_v2: —',
+                    'predict.proceeds: —',
+                    'predict.net: —',
+                    'predict.status.status_3: 0',
                 ],
             },
         ];
@@ -590,20 +608,18 @@ describe('analytics', () => {
         });
 
         it('prints "No data for this period." for an answer without segments, and a CSV of the header alone', async () => {
+            // Without segments there are no fields to read the header from: the fields every segment has
             const empty = [
-                { command: `analytics chart ${APP} ${PERIOD} --chart revenue`, data: { compare: null, segments: [], value: 0 }, header: 'period,key,title,is_total,value' },
-                { command: `analytics funnel ${APP} ${PERIOD}`, data: { segments: [], value: null }, header: 'key,title,is_total,value' },
-                { command: `analytics retention ${APP} ${PERIOD}`, data: { segments: [], value: null }, header: 'key,title,is_total,value,first_value' },
-                { command: `analytics ltv ${APP} ${PERIOD}`, data: { segments: [], value: 0 }, header: 'key,title,is_total,value,cohort_size' },
-                {
-                    command: `analytics cohort ${APP} ${PERIOD}`,
-                    data: { segments: [], value: null },
-                    header: `key,title,is_total,value,installs,subscriptions,subscribers,arpu,arppu,arpas,${PREDICT_HEADER}`,
-                },
+                { command: `analytics chart ${APP} ${PERIOD} --chart revenue`, data: { value: 0, compare: null, segments: [] }, header: 'period,key,title,is_total,value' },
+                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`, data: { value: 0, value_from: 0, value_to: 0, compare: null, segments: [] }, header: 'period,key,title,is_total,value' },
+                { command: `analytics funnel ${APP} ${PERIOD}`, data: { value: null, segments: [] }, header: 'key,title,is_total,value' },
+                { command: `analytics retention ${APP} ${PERIOD}`, data: { value: null, segments: [] }, header: 'key,title,is_total,value' },
+                { command: `analytics ltv ${APP} ${PERIOD}`, data: { value: 0, segments: [] }, header: 'key,title,is_total,value' },
+                { command: `analytics cohort ${APP} ${PERIOD}`, data: { value: null, segments: [] }, header: 'key,title,is_total,value' },
             ];
 
             for (const { command, data, header } of empty) {
-                fetchStub = mockFetchSteps([{ body: { data, meta } }]);
+                fetchStub = mockFetchSteps([{ body: { data, meta: { ...meta, recommended_period: null } } }]);
 
                 const humanRun = await runCommand(command);
                 const csvRun = await runCommand(`${command} --csv`);
@@ -628,7 +644,9 @@ describe('analytics', () => {
 
             expect(stdout).to.equal([
                 'No data for this period.',
-                'recommended_period: date_from 2026-01-01, date_to 2026-03-31, period_unit day',
+                'recommended_period.date_from: 2026-01-01',
+                'recommended_period.date_to: 2026-03-31',
+                'recommended_period.period_unit: day',
                 '',
             ].join('\n'));
         });
@@ -637,8 +655,8 @@ describe('analytics', () => {
             fetchStub = mockFetchSteps([{
                 body: {
                     data: {
-                        segments: [{ is_total: false, key: 'p1', title: 'Pro, "annual"\nplan', value: 2, values: [] }],
                         value: 2,
+                        segments: [{ key: 'p1', title: 'Pro, "annual"\nplan', is_total: false, value: 2, values: [] }],
                     },
                     meta,
                 },
@@ -707,6 +725,7 @@ describe('analytics', () => {
                 { command: `analytics funnel ${APP} ${PERIOD} --filter country`, message: 'dimension=value' },
                 { command: `analytics funnel ${APP} ${PERIOD} --filter date=2026-07-01`, message: '--filter: date is not a filter' },
                 { command: `analytics ltv ${APP} ${PERIOD} --revenue-basis net_net`, message: 'net_net' },
+                { command: `analytics chart ${APP} ${PERIOD} --chart installs --revenue-basis net`, message: '--revenue-basis: applies only to a money chart: revenue, mrr, arr' },
                 { command: `analytics values ${APP}`, message: 'dimension' },
             ];
 
@@ -774,26 +793,63 @@ describe('analytics', () => {
                 status: 429,
             };
 
-            fetchStub = mockFetchSteps([limited, { body: cohortAnswer }]);
+            fetchStub = mockFetchSteps([limited, limited, { body: cohortAnswer }]);
+
+            const { error } = await runCommand(`analytics cohort ${APP} ${PERIOD}`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('throttled');
+            expect(fetchStub.callCount).to.equal(1);
 
             const { stdout } = await runCommand(`analytics cohort ${APP} ${PERIOD} --json`);
             const json = JSON.parse(stdout) as { error: { code: string; retry_after_seconds?: number } };
 
             expect(json.error.code).to.equal('throttled');
             expect(json.error.retry_after_seconds).to.equal(1);
-            expect(fetchStub.callCount).to.equal(1);
+            expect(fetchStub.callCount).to.equal(2);
         });
 
-        it('exits 3 when the API refuses the token or the app', async () => {
-            fetchStub = mockFetchSteps([{
-                body: { error_code: 'not_authenticated', errors: { non_field_errors: ['Authentication credentials were not provided.'] }, status_code: 403 },
-                status: 403,
-            }]);
+        it('exits 3 when the API refuses the token, and when it refuses the app', async () => {
+            fetchStub = mockFetchSteps([
+                {
+                    body: { error_code: 'not_authenticated', errors: { non_field_errors: ['Authentication credentials were not provided.'] }, status_code: 403 },
+                    status: 403,
+                },
+                {
+                    body: { error_code: 'permission_denied', errors: { non_field_errors: ['You do not have permission to perform this action.'] }, status_code: 403 },
+                    status: 403,
+                },
+            ]);
 
-            const { error } = await runCommand(`analytics catalog ${APP}`);
+            const token = await runCommand(`analytics catalog ${APP}`);
+            const app = await runCommand(`analytics funnel ${APP} ${PERIOD}`);
 
-            expect(error?.oclif?.exit).to.equal(exitCode.auth);
-            expect(error?.code).to.equal('not_authenticated');
+            expect(token.error?.oclif?.exit).to.equal(exitCode.auth);
+            expect(token.error?.code).to.equal('not_authenticated');
+            expect(app.error?.oclif?.exit).to.equal(exitCode.auth);
+            expect(app.error?.code).to.equal('permission_denied');
+            expect(app.error?.message).to.equal('You do not have permission to perform this action.');
+        });
+
+        it('exits 4 with malformed_response when a success is not the API envelope, instead of printing it', async () => {
+            const cases = [
+                { body: '<html>proxy</html>', command: `analytics funnel ${APP} ${PERIOD}` },
+                { body: { data: { value: 3 } }, command: `analytics chart ${APP} ${PERIOD} --chart revenue` },
+                { body: { error: 'none' }, command: `analytics catalog ${APP}` },
+            ];
+
+            for (const { body, command } of cases) {
+                fetchStub = mockFetchSteps([{ body }]);
+
+                const { error, stdout } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.api);
+                expect(error?.code, command).to.equal('malformed_response');
+                expect(stdout, command).to.equal('');
+
+                restoreFetch(fetchStub);
+                fetchStub = undefined;
+            }
         });
     });
 

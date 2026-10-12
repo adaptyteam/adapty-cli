@@ -7,7 +7,7 @@ import { appIdFlag } from '../../input/app.js';
 
 import type { FilterValue, FilterValuesInput, FilterValuesResponse } from '../../../sdk/adapty/index.js';
 
-/** The value first, as `--filter` takes it; an empty value (a "No Data" group) is shown as `""`. */
+/** The value first, as `--filter <dimension>=<value>` takes it; an empty value (a "No Data" group) is shown as `""`. */
 const describeValue = (item: FilterValue): string =>
     `${item.value === '' ? '""' : item.value}: ${item.label}${item.group === null ? '' : ` (${item.group})`}`;
 

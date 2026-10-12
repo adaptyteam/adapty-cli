@@ -11,7 +11,6 @@ import {
     renewalPeriodFlags,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { ltvTable } from '../../views/analytics/operations.js';
 import { analyticsView } from '../../views/analytics/segments.js';
 
 import type { LtvInput, LtvResponse } from '../../../sdk/adapty/index.js';
@@ -51,7 +50,7 @@ export default class AnalyticsLtv extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.ltv(input);
 
-        this.render(answer, analyticsView(ltvTable, flags.csv));
+        this.render(answer, analyticsView(flags.csv));
 
         return answer;
     }

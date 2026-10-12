@@ -9,7 +9,6 @@ import {
     groupByFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { funnelTable } from '../../views/analytics/operations.js';
 import { analyticsView } from '../../views/analytics/segments.js';
 
 import type { FunnelInput, FunnelResponse } from '../../../sdk/adapty/index.js';
@@ -41,7 +40,7 @@ export default class AnalyticsFunnel extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.funnel(input);
 
-        this.render(answer, analyticsView(funnelTable, flags.csv));
+        this.render(answer, analyticsView(flags.csv));
 
         return answer;
     }

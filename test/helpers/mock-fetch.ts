@@ -110,3 +110,36 @@ export function assertFetch({ base = API_BASE, body, callIndex, headers, method,
         }
     }
 }
+
+export type FetchStep = {
+    body: unknown;
+    headers?: Record<string, string>;
+    status?: number;
+};
+
+/** Answers each call with its own status and headers; mockFetch's canned responses are all 200. */
+export const mockFetchSteps = (steps: FetchStep[]): sinon.SinonStub => {
+    let index = 0;
+
+    return sinon.stub(globalThis, 'fetch').callsFake(() => {
+        const step = steps[index] ?? steps.at(-1);
+        index += 1;
+
+        return Promise.resolve(new Response(JSON.stringify(step?.body), {
+            headers: { 'content-type': 'application/json', ...step?.headers },
+            status: step?.status ?? 200,
+        }));
+    });
+};
+
+/** The request of one call as fetch received it: the body as the text that was sent. */
+export const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
+    const [url, init] = stub.getCall(callIndex).args as [string, RequestInit];
+
+    return {
+        body: typeof init.body === 'string' ? init.body : undefined,
+        headers: new Headers(init.headers),
+        method: init.method,
+        url,
+    };
+};

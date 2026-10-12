@@ -12,6 +12,13 @@ export type RenewalPeriodsInput = AnalyticsQueryInput & {
     revenueBasis?: RevenueBasis | undefined;
 };
 
+/** The fields of the resolved query that LTV and cohorts share. */
+export type RenewalPeriodsQuery = {
+    period_type: PeriodType;
+    renewal_days: null | number[];
+    revenue_basis: RevenueBasis;
+};
+
 export type RenewalPeriodsRequest = QueryRequest & {
     period_type?: PeriodType;
     renewal_days?: number[];
