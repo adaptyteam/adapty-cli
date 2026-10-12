@@ -62,7 +62,8 @@ hand-written command in `src/commands`. New work goes to
 
 ```
 src/
-  sdk/               # the API: core/ (transport, errors, session, clock) + adapty/ (resources, rules)
+  sdk/               # the API: core/ (transport, errors, session, clock, dates) + adapty/ (resources, rules;
+                     # analytics/: catalog, values and the six analytics operations of an app)
                      # + attribution/ (Attribution analytics: catalog, report, values)
   cli/               # the oclif adapter: base commands, session, exit codes, flags, views
 ```
@@ -79,6 +80,8 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
   token's company (`--app` there is only a list filter), and the `attribution metrics` and `attribution dimensions`
   catalog reads, which are the same for every app and take no `--app`
 - `list` commands use shared pagination flags (--page, --page-size)
+- `analytics` data commands print the human view, the API answer (`--json`) or a CSV made from it (`--csv`); the
+  views live in `cli/views/analytics/` and keep the total first, `—` for null, `No data for this period.` when empty
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
 - Relative imports use explicit `.js` extensions, including `/index.js` for module entry points
   (Node.js ESM + TypeScript `nodenext`)

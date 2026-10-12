@@ -47,12 +47,13 @@ Everything here would be the same for any HTTP API.
 - `auth/device-flow.ts` — RFC 8628 orchestration with every effect outside it: network behind a
   port, time behind `Clock`, cancellation behind a signal.
 - `validation.ts` — `assertValid(issues)`, the only place a rule's problems become a throw.
+- `dates.ts` — the `YYYY-MM-DD` day and the inclusive day-range rule that every product with a period shares.
 - `testing.ts` — the fakes (`createFakeClock`, `createScriptedFetch`) any consumer's tests can use.
 
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `migrations`).
+resources off it (`apps`, `auth`, `accessLevels`, `analytics`, `migrations`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -75,6 +76,10 @@ apps/
 A `types.ts` or a `lib/` would be the other cut, by kind, and it costs what this one buys: three
 files open to read one operation, request shapes exported only to be moved, and a directory named
 after nothing. Outside the resource nobody sees either way — imports go through `index.ts`.
+
+`analytics/` is the same cut: one file per operation (`chart`, `conversion`, `funnel`, `retention`, `ltv`,
+`cohort`, `values`) with its input, rule, request body and answer type; `query.ts` and `renewal-periods.ts` hold
+what several operations share; `model.ts` the one answer shape (segments, total first).
 
 `auth/` is the same shape with one difference worth knowing: a device flow step is its path and
 the reading of its answer together, so `device-code.ts` and `poll-token.ts` keep their own paths,
@@ -130,14 +135,16 @@ text or JSON.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
-  mirrors `AdaptyCommand`. `flags.ts` holds the flags only attribution commands take: `periodFlags`
-  for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, and `periodParams`.
+  mirrors `AdaptyCommand`. `flags.ts` holds the flag only attribution commands take: `revenueBasisFlag`.
+- `base/adapty/flags.ts` — the flags the analytics commands share (period, compare, filter, timezone,
+  grouping, granularity, revenue basis, renewal periods, `--csv`) and `analyticsQueryParams`.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
 - `input/` — flags and args that several commands or products take, one module per concern: the
   app id UUID as a positional and as `--app` (`appIdArg`, `appIdFlag` in `input/app.ts`),
   pagination (`input/pagination.ts`), the migration id; and the one place flag names meet sdk field
-  names. Legacy commands take `--app` from `input/app.ts` too.
+  names. Legacy commands take `--app` from `input/app.ts` too. The day range (`input/period.ts`) and
+  `--filter dimension=value[,value]` (`input/filter.ts`) serve both attribution and analytics.
 - `context/migration/` — CLI-owned migration selection in `context.json` beside credentials.
   `model.ts` defines and validates the record and token fingerprint; `store.ts` owns file I/O and
   storage errors; `resolve.ts` chooses an ID by source priority. `current.ts` binds those three
@@ -157,7 +164,9 @@ text or JSON.
   once after input validation, using flag > environment > saved context; polling and mutations
   retain that captured ID. `create` saves by default, with `--no-select` to opt out; local save
   failures warn without failing creation. The SDK remains unaware of this local selection.
-- `views/` — plain functions, value in, string out.
+- `views/` — plain functions, value in, string out. `views/analytics/` turns the one answer shape of the
+  analytics operations into the human view and the CSV (`segments.ts`), one table spec per operation
+  (`operations.ts`).
 - `commands/` — one class per command.
 
 ### The shape of a command
@@ -192,6 +201,7 @@ base/
 │   ├── adapty-command.ts
 │   ├── migration-command.ts
 │   ├── build.ts
+│   ├── flags.ts
 │   └── openSession.ts
 └── attribution/
     ├── index.ts

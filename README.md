@@ -557,6 +557,27 @@ too. A burst of 429s puts the token into an escalating cool-down (`cli_cooldown_
 not waiting out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID
 and the outcome shows up in `adapty asa automations runs`.
 
+### Analytics
+
+The analytics of an app, as the dashboard shows them, live under `adapty analytics`: the charts, conversions, the
+funnel, retention, LTV and cohorts, all on the Developer API with the same token.
+
+```sh
+adapty analytics catalog --app APP_UUID                          # operations, charts, conversions, filters
+adapty analytics values --app APP_UUID --dimension country       # what --filter country=... takes
+adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --date-to 2026-09-30 \
+  --group-by country --compare-from 2026-04-01 --compare-to 2026-06-30
+adapty analytics funnel --app APP_UUID --date-from 2026-07-01 --date-to 2026-09-30 --csv
+```
+
+Every data command (`chart`, `conversion`, `funnel`, `retention`, `ltv`, `cohort`) answers in one shape: the
+number of the period, then segments with the total first, each group keyed by the raw value its `--filter` takes.
+`--json` prints the API answer unchanged; `--csv` prints a table made from it (one row per segment, total first);
+the human view prints `—` for a missing value and `No data for this period.` for an empty window. Dates are
+inclusive days of `--timezone`, else the app time zone. Only `chart` and `conversion` take a compared period. Bad
+input exits 2 before anything is sent; a refusal exits 4 with the API's error code. All analytics calls of one app
+share a limit of 2 per second.
+
 ### Attribution
 
 Attribution analytics across ad networks live under `adapty attribution` and talk to the attribution service

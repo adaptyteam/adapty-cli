@@ -376,6 +376,36 @@ Before running any of these:
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 
+## Analytics (`analytics` topic)
+
+The analytics of one app as the Adapty dashboard shows them, from the Developer API with the same token. Read-only;
+every command takes `--app`. The full agent guide is `docs/agent/analytics.md` in the adapty-cli repository.
+
+| Command                | Required flags / notes                                                        |
+|------------------------|-------------------------------------------------------------------------------|
+| `analytics catalog`    | `--app`; the six operations with options, groupings and filter keys, every chart and conversion id, every filter dimension |
+| `analytics values`     | `--app`, `--dimension`; the raw values a data command's filter takes, "No Data" included |
+| `analytics chart`      | `--app`, `--chart`, `--date-from`, `--date-to`; optional `--compare-from`/`--compare-to`, `--group-by`, `--filter dimension=value[,value]`, `--granularity`, `--revenue-basis`, `--timezone`, `--csv` |
+| `analytics conversion` | `--app`, `--conversion`, `--date-from`, `--date-to`; optional `--compare-from`/`--compare-to`, `--group-by`, `--filter`, `--granularity`, `--timezone`, `--csv` |
+| `analytics funnel`     | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--timezone`, `--csv` |
+| `analytics retention`  | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--use-trial`, `--timezone`, `--csv` |
+| `analytics ltv`        | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--revenue-basis`, `--period-type`, `--renewal-days`, `--timezone`, `--csv` |
+| `analytics cohort`     | `--app`, `--date-from`, `--date-to`; optional `--filter`, `--granularity`, `--revenue-basis`, `--period-type`, `--renewal-days`, `--timezone`, `--csv` |
+
+```sh
+adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --date-to 2026-09-30 --group-by country --json
+```
+
+- **One shape for all six**: `data.value` is the number of the period, `data.segments` starts with the total
+  (`is_total` true, `key` null), and each group's `key` is the raw value `--filter <grouping>=<key>` takes.
+  No rows: `segments` is `[]` and the human view prints `No data for this period.`
+- **`0` is a real zero; `null` means no value** (an LTV period not reached, a cohort without a prediction).
+- **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.
+- **Outputs**: human view (default), the API answer (`--json`), or a CSV made from it (`--csv`, one row per segment,
+  total first).
+- **Errors**: bad input exits 2 before any request; a server refusal exits 4 with its error code; 2 calls per
+  second per app, and a `429` carries `retry_after_seconds` in the `--json` error.
+
 ## Attribution (`attribution` topic)
 
 Cross-network attribution analytics, the numbers of the Attribution dashboard, from a different service behind the same token.
