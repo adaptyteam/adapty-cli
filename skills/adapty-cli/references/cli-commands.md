@@ -400,9 +400,11 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
   (`is_total` true, `key` null), and each group's `key` is the raw value `--filter <grouping>=<key>` takes.
   No rows: `segments` is `[]` and the human view prints `No data for this period.`
 - **`0` is a real zero; `null` means no value** (an LTV period not reached, a cohort without a prediction).
-- **Drill down** with the grouping's `filter` from the catalog and the group's `key`: `--filter <filter>=<key>`.
-  Filter values are exact: `--filter country=` keeps the "No Data" group (key `""`); an id grouping's "No Data" key
-  is the zero UUID, a duration's `Uncategorized`.
+- **Drill down** with the grouping's `filter` from the catalog of that operation or chart and the group's `key`:
+  `--filter <filter>=<key>`; `null` means no drill-down (`period` goes to `renewal_period`). The "No Data" key is
+  the zero UUID (id groupings), `no_offer` (offer type and category), `Uncategorized` (duration) or `""`
+  (`--filter country=`); for `store_product_id`, `flow_screen_id` and `period` no filter selects it. Values are
+  exact; write a comma inside a value as `\,`.
 - **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.
 - **Outputs**: human view (default), the API answer (`--json`), or a CSV made from it (`--csv`, one row per group,
   total first; a compared period in `compare.*` columns, the answer's numbers in `data.*` and `meta.*` columns; no

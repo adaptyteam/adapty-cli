@@ -58,11 +58,11 @@ export const validateComparableQuery = (input: ComparableQueryInput): Issue[] =>
     }
 
     if (compareFrom === undefined) {
-        return [...issues, { message: 'required with the end of the compared period', path: 'compareFrom' }];
+        return [...issues, { fields: ['compareTo'], message: 'required with {compareTo}', path: 'compareFrom' }];
     }
 
     if (compareTo === undefined) {
-        return [...issues, { message: 'required with the start of the compared period', path: 'compareTo' }];
+        return [...issues, { fields: ['compareFrom'], message: 'required with {compareFrom}', path: 'compareTo' }];
     }
 
     return [...issues, ...validateDayRange(compareFrom, compareTo, { from: 'compareFrom', to: 'compareTo' })];

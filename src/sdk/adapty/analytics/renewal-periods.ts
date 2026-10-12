@@ -29,7 +29,7 @@ export const validateRenewalPeriods = (input: RenewalPeriodsInput): Issue[] => {
     const issues = validateQuery(input);
 
     if (input.renewalDays !== undefined && input.periodType !== 'days') {
-        issues.push({ message: 'needs {periodType} days', path: 'renewalDays' });
+        issues.push({ fields: ['periodType'], message: 'needs {periodType} days', path: 'renewalDays' });
     }
 
     // The backend reads the list as given: whole days, ascending, each once; anything else it refuses

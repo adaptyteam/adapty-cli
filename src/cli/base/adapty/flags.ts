@@ -5,7 +5,7 @@ import { usageError } from '../../errors.js';
 import { splitFilter } from '../../input/filter.js';
 import { dateParser, dayRangeFlags } from '../../input/period.js';
 
-import type { AnalyticsFilter } from '../../../sdk/adapty/index.js';
+import type { AnalyticsFilter, PeriodUnit } from '../../../sdk/adapty/index.js';
 
 /** The flags the analytics commands share. A flag left out leaves its field out: the backend default applies. */
 
@@ -39,7 +39,7 @@ const parseExactFilter = (input: string): Promise<AnalyticsFilter> => {
 export const filterFlags = {
     filter: Flags.custom<AnalyticsFilter>({
         description: 'Keep the data whose dimension has one of the values: dimension=value[,value] (repeatable; `\\,` '
-            + 'for a comma inside a value; values exactly as written, an empty one is a "No Data" group, e.g. country=). '
+            + 'for a comma inside a value; values exactly as written, an empty one too, e.g. country= for a "No Data" group). '
             + 'Dimensions: `adapty analytics catalog`; values: `adapty analytics values`',
         multiple: true,
         parse: parseExactFilter,
@@ -105,4 +105,16 @@ export const queryParams = (flags: QueryFlags) => ({
     dateTo: flags['date-to'],
     filters: flags.filter,
     timezone: flags.timezone,
+});
+
+/** The compare flags as the sdk names them; a chart and a conversion take them. */
+export const compareParams = (flags: { 'compare-from'?: string | undefined; 'compare-to'?: string | undefined }) => ({
+    compareFrom: flags['compare-from'],
+    compareTo: flags['compare-to'],
+});
+
+/** The grouping and the period of one point as the sdk names them; a command without one of the flags leaves it out. */
+export const groupingParams = (flags: { 'granularity'?: PeriodUnit | undefined; 'group-by'?: string | undefined }) => ({
+    granularity: flags.granularity,
+    groupBy: flags['group-by'],
 });

@@ -24,7 +24,7 @@ export type { CohortInput, CohortResponse } from './cohort.js';
 export type { ConversionInput, ConversionResponse } from './conversion.js';
 export type { FunnelInput, FunnelResponse } from './funnel.js';
 export type { LtvInput, LtvResponse } from './ltv.js';
-export type { AnalyticsSegment } from './model.js';
+export type { AnalyticsSegment, PeriodUnit } from './model.js';
 export type { AnalyticsFilter } from './query.js';
 export type { AnalyticsApi } from './resource.js';
 export type { RetentionInput, RetentionResponse } from './retention.js';

@@ -374,15 +374,17 @@ describe('analytics', () => {
                 answer: chartAnswer,
                 command: `analytics chart ${APP} ${PERIOD} --chart revenue`,
                 csv: [
-                    'key,title,is_total,value,2026-07-01,2026-08-01,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,30.5,30.5,0,12,12,30.5,12,UTC,app',
-                    'US,United States,false,30.5,30.5,0,10,10,30.5,12,UTC,app',
-                    '"",No Data,false,0,0,,,,30.5,12,UTC,app',
-                    'DE,Germany,false,,,,2,2,30.5,12,UTC,app',
+                    'key,title,is_total,value,2026-07-01,2026-08-01,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                    ',Total,true,30.5,30.5,0,12,12,30.5,12,UTC,2026-07-01,2026-09-30,app',
+                    'US,United States,false,30.5,30.5,0,10,10,30.5,12,UTC,2026-07-01,2026-09-30,app',
+                    '"",No Data,false,0,0,,,,30.5,12,UTC,2026-07-01,2026-09-30,app',
+                    'DE,Germany,false,,,,2,2,30.5,12,UTC,2026-07-01,2026-09-30,app',
                 ],
                 human: [
                     'value: 30.5',
                     'timezone: UTC',
+                    'filters.date[0]: 2026-07-01',
+                    'filters.date[1]: 2026-09-30',
                     'timezone_source: app',
                     '',
                     'key: —',
@@ -437,15 +439,17 @@ describe('analytics', () => {
                 answer: conversionAnswer,
                 command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
                 csv: [
-                    'key,title,is_total,value,value_from,value_to,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished,compare.value,compare.value_from,compare.value_to,compare.2026-06-01,compare.2026-06-01.value_from,compare.2026-06-01.value_to,compare.2026-06-01.value_from_unfinished,compare.2026-06-01.has_unfinished,data.value,data.value_from,data.value_to,data.compare.value,data.compare.value_from,data.compare.value_to,meta.query.timezone,meta.query.timezone_source,meta.recommended_period',
-                    ',Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false,20,5,1,20,5,1,0,false,25,4,1,20,5,1,UTC,app,',
-                    'US,United States,false,0,4,0,,,,,,,,,,,,,,25,4,1,20,5,1,UTC,app,',
+                    'key,title,is_total,value,value_from,value_to,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished,compare.value,compare.value_from,compare.value_to,compare.2026-06-01,compare.2026-06-01.value_from,compare.2026-06-01.value_to,compare.2026-06-01.value_from_unfinished,compare.2026-06-01.has_unfinished,data.value,data.value_from,data.value_to,data.compare.value,data.compare.value_from,data.compare.value_to,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source,meta.recommended_period',
+                    ',Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false,20,5,1,20,5,1,0,false,25,4,1,20,5,1,UTC,2026-07-01,2026-09-30,app,',
+                    'US,United States,false,0,4,0,,,,,,,,,,,,,,25,4,1,20,5,1,UTC,2026-07-01,2026-09-30,app,',
                 ],
                 human: [
                     'value: 25',
                     'value_from: 4',
                     'value_to: 1',
                     'timezone: UTC',
+                    'filters.date[0]: 2026-07-01',
+                    'filters.date[1]: 2026-09-30',
                     'timezone_source: app',
                     'recommended_period: —',
                     '',
@@ -484,14 +488,17 @@ describe('analytics', () => {
                 answer: funnelAnswer,
                 command: `analytics funnel ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,-2,-2.title,-2.value_relative,-2.relative_changes,-2.following_changes.title,-2.following_changes.value,-2.following_changes.value_relative,-2.churn_reason_title,0,0.title,0.value_relative,0.relative_changes,0.following_changes.title,0.following_changes.value,0.following_changes.value_relative,0.churn_reason_title,0.churn_reasons[0].title,0.churn_reasons[0].value,0.churn_reasons[0].value_relative,0.parts[0].title,0.parts[0].value,0.parts[0].value_relative,data.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,3,3,Install,100,66.7,Drop off,1,33.3,"",2,Paid,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50,3,UTC,app',
-                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,Install,0,0,Drop off,0,0,"",,,,,,,,,,,,,,,3,UTC,app',
+                    'key,title,is_total,value,-2,-2.title,-2.value_relative,-2.relative_changes,-2.following_changes.title,-2.following_changes.value,-2.following_changes.value_relative,-2.churn_reason_title,0,0.title,0.value_relative,0.relative_changes,0.following_changes.title,0.following_changes.value,0.following_changes.value_relative,0.churn_reason_title,0.churn_reasons[0].title,0.churn_reasons[0].value,0.churn_reasons[0].value_relative,0.parts[0].title,0.parts[0].value,0.parts[0].value_relative,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source,meta.query.segmentation',
+                    ',Total,true,3,3,Install,100,66.7,Drop off,1,33.3,"",2,Paid,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
+                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,Install,0,0,Drop off,0,0,"",,,,,,,,,,,,,,,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
                 ],
                 human: [
                     'value: 3',
                     'timezone: UTC',
+                    'filters.date[0]: 2026-07-01',
+                    'filters.date[1]: 2026-09-30',
                     'timezone_source: app',
+                    'segmentation: paywall_id',
                     '',
                     'key: —',
                     'title: Total',
@@ -513,13 +520,15 @@ describe('analytics', () => {
                 answer: retentionAnswer,
                 command: `analytics retention ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,first_value,1,1.title,1.value_relative,data.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,5,5,5,Paid,100,5,UTC,app',
-                    'US,United States,false,0,0,0,Paid,0,5,UTC,app',
+                    'key,title,is_total,value,first_value,1,1.title,1.value_relative,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                    ',Total,true,5,5,5,Paid,100,5,UTC,2026-07-01,2026-09-30,app',
+                    'US,United States,false,0,0,0,Paid,0,5,UTC,2026-07-01,2026-09-30,app',
                 ],
                 human: [
                     'value: 5',
                     'timezone: UTC',
+                    'filters.date[0]: 2026-07-01',
+                    'filters.date[1]: 2026-09-30',
                     'timezone_source: app',
                     '',
                     'key: —',
@@ -543,13 +552,15 @@ describe('analytics', () => {
                 answer: ltvAnswer,
                 command: `analytics ltv ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,cohort_size,1,2,data.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,1.5,2,1.5,,1.5,UTC,app',
-                    'US,United States,false,0,1,0,,1.5,UTC,app',
+                    'key,title,is_total,value,cohort_size,1,2,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                    ',Total,true,1.5,2,1.5,,1.5,UTC,2026-07-01,2026-09-30,app',
+                    'US,United States,false,0,1,0,,1.5,UTC,2026-07-01,2026-09-30,app',
                 ],
                 human: [
                     'value: 1.5',
                     'timezone: UTC',
+                    'filters.date[0]: 2026-07-01',
+                    'filters.date[1]: 2026-09-30',
                     'timezone_source: app',
                     '',
                     'key: —',
@@ -575,13 +586,15 @@ describe('analytics', () => {
                 answer: cohortAnswer,
                 command: `analytics cohort ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,start_date,installs,subscriptions,subscribers,revenue.gross,revenue.proceeds,revenue.net,arpu.gross,arpu.proceeds,arpu.net,arppu.gross,arppu.proceeds,arppu.net,arpas.gross,arpas.proceeds,arpas.net,predict.gross.rev3,predict.gross.rev6,predict.gross_v2,predict.proceeds,predict.net,predict.status.status_3,1,1.value_relative,1.installs,1.subscriptions,1.subscriptions_relative,1.subscribers,1.subscribers_relative,1.revenue.gross,1.revenue.proceeds,1.revenue.net,1.revenue_relative.gross,1.revenue_relative.proceeds,1.revenue_relative.net,1.arpu.gross,1.arpu.proceeds,1.arpu.net,1.arppu.gross,1.arppu.proceeds,1.arppu.net,1.arpas.gross,1.arpas.proceeds,1.arpas.net,1.currently_active_period,data.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,10,2026-07-01,3,1,1,10,8.5,7,3.5,2.8,2.3,10,8.5,7,10,8.5,7,,,,,,,10,100,3,1,100,1,100,10,8.5,7,100,100,100,3.5,2.8,2.3,10,8.5,7,10,8.5,7,true,10,UTC,app',
-                    '2026-07-01,2026-07-01,false,0,2026-07-01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,,0,,,,0,,,,,,,,,,,,,,,,,,,,,,,,10,UTC,app',
+                    'key,title,is_total,value,start_date,installs,subscriptions,subscribers,revenue.gross,revenue.proceeds,revenue.net,arpu.gross,arpu.proceeds,arpu.net,arppu.gross,arppu.proceeds,arppu.net,arpas.gross,arpas.proceeds,arpas.net,predict.gross.rev3,predict.gross.rev6,predict.gross_v2,predict.proceeds,predict.net,predict.status.status_3,1,1.value_relative,1.installs,1.subscriptions,1.subscriptions_relative,1.subscribers,1.subscribers_relative,1.revenue.gross,1.revenue.proceeds,1.revenue.net,1.revenue_relative.gross,1.revenue_relative.proceeds,1.revenue_relative.net,1.arpu.gross,1.arpu.proceeds,1.arpu.net,1.arppu.gross,1.arppu.proceeds,1.arppu.net,1.arpas.gross,1.arpas.proceeds,1.arpas.net,1.currently_active_period,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                    ',Total,true,10,2026-07-01,3,1,1,10,8.5,7,3.5,2.8,2.3,10,8.5,7,10,8.5,7,,,,,,,10,100,3,1,100,1,100,10,8.5,7,100,100,100,3.5,2.8,2.3,10,8.5,7,10,8.5,7,true,10,UTC,2026-07-01,2026-09-30,app',
+                    '2026-07-01,2026-07-01,false,0,2026-07-01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,,0,,,,0,,,,,,,,,,,,,,,,,,,,,,,,10,UTC,2026-07-01,2026-09-30,app',
                 ],
                 human: [
                     'value: 10',
                     'timezone: UTC',
+                    'filters.date[0]: 2026-07-01',
+                    'filters.date[1]: 2026-09-30',
                     'timezone_source: app',
                     '',
                     'key: —',
@@ -657,13 +670,13 @@ describe('analytics', () => {
         it('prints "No data for this period." and the summary the API gives for an answer without segments', async () => {
             // No segments: the human view and, with --csv, stderr show every number of the period (null as —), its
             // time zone and a conversion's recommended window; the CSV on stdout is its header alone, no row
-            const tz = ['timezone: UTC', 'timezone_source: app'];
+            const tz = ['timezone: UTC', 'filters.date[0]: 2026-07-01', 'filters.date[1]: 2026-09-30', 'timezone_source: app'];
             const recommended = { date_from: '2026-01-01', date_to: '2026-03-31', period_unit: 'day' };
 
             const empty = [
                 {
                     command: `analytics chart ${APP} ${PERIOD} --chart revenue`,
-                    csv: 'key,title,is_total,value,data.value,data.compare.value,meta.query.timezone,meta.query.timezone_source',
+                    csv: 'key,title,is_total,value,data.value,data.compare.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: 0, compare: { value: 12, segments: [] }, segments: [] },
                     human: ['No data for this period.', 'value: 0', ...tz, '', 'Compared period', 'No data for this period.', 'value: 12'],
                     meta,
@@ -671,7 +684,7 @@ describe('analytics', () => {
                 {
                     command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
                     csv: 'key,title,is_total,value,data.value,data.value_from,data.value_to,data.compare,meta.query.timezone,'
-                        + 'meta.query.timezone_source,meta.recommended_period.date_from,meta.recommended_period.date_to,'
+                        + 'meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source,meta.recommended_period.date_from,meta.recommended_period.date_to,'
                         + 'meta.recommended_period.period_unit',
                     data: { value: 0, value_from: 0, value_to: 0, compare: null, segments: [] },
                     human: [
@@ -683,28 +696,28 @@ describe('analytics', () => {
                 },
                 {
                     command: `analytics funnel ${APP} ${PERIOD}`,
-                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.timezone_source',
+                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: null, segments: [] },
                     human: ['No data for this period.', 'value: —', ...tz],
                     meta,
                 },
                 {
                     command: `analytics retention ${APP} ${PERIOD}`,
-                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.timezone_source',
+                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: null, segments: [] },
                     human: ['No data for this period.', 'value: —', ...tz],
                     meta,
                 },
                 {
                     command: `analytics ltv ${APP} ${PERIOD}`,
-                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.timezone_source',
+                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: 0, segments: [] },
                     human: ['No data for this period.', 'value: 0', ...tz],
                     meta,
                 },
                 {
                     command: `analytics cohort ${APP} ${PERIOD}`,
-                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.timezone_source',
+                    csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: null, segments: [] },
                     human: ['No data for this period.', 'value: —', ...tz],
                     meta,
@@ -752,6 +765,8 @@ describe('analytics', () => {
                 'No data for this period.',
                 'value: 0',
                 'timezone: UTC',
+                'filters.date[0]: 2026-07-01',
+                'filters.date[1]: 2026-09-30',
                 'timezone_source: app',
                 '',
                 'Compared period',
@@ -774,9 +789,9 @@ describe('analytics', () => {
             ].join('\n'));
 
             expect(csv.stdout).to.equal([
-                'key,title,is_total,value,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.timezone_source',
-                ',Total,true,,12,12,0,12,UTC,app',
-                'DE,Germany,false,,2,2,0,12,UTC,app',
+                'key,title,is_total,value,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                ',Total,true,,12,12,0,12,UTC,2026-07-01,2026-09-30,app',
+                'DE,Germany,false,,2,2,0,12,UTC,2026-07-01,2026-09-30,app',
                 '',
             ].join('\n'));
 
@@ -784,6 +799,8 @@ describe('analytics', () => {
                 'No data for this period.',
                 'value: 0',
                 'timezone: UTC',
+                'filters.date[0]: 2026-07-01',
+                'filters.date[1]: 2026-09-30',
                 'timezone_source: app',
                 '',
                 'Compared period',
@@ -806,8 +823,8 @@ describe('analytics', () => {
             const { stdout } = await runCommand(`analytics funnel ${APP} ${PERIOD} --csv`);
 
             expect(stdout).to.equal([
-                'key,title,is_total,value,data.value,meta.query.timezone,meta.query.timezone_source',
-                'p1,"Pro, ""annual""\nplan",false,2,2,UTC,app',
+                'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                'p1,"Pro, ""annual""\nplan",false,2,2,UTC,2026-07-01,2026-09-30,app',
                 '',
             ].join('\n'));
         });
@@ -857,8 +874,8 @@ describe('analytics', () => {
                 { command: `analytics funnel ${APP} --date-from 2026-02-30 --date-to 2026-03-31`, message: 'Invalid input:\n  --date-from: must be a date in YYYY-MM-DD form' },
                 { command: `analytics funnel ${APP} --date-from 2026-09-30 --date-to 2026-07-01`, message: 'Invalid input:\n  --date-to: must not be before the start date' },
                 { command: `analytics funnel --app not-a-uuid ${PERIOD}`, message: 'Parsing --app \n\tInvalid app ID format. Run `adapty apps list` to find your app ID.\nSee more help with --help' },
-                { command: `analytics chart ${APP} ${PERIOD} --chart revenue --compare-from 2026-04-01`, message: 'Invalid input:\n  --compare-to: required with the start of the compared period' },
-                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid --compare-to 2026-06-30`, message: 'Invalid input:\n  --compare-from: required with the end of the compared period' },
+                { command: `analytics chart ${APP} ${PERIOD} --chart revenue --compare-from 2026-04-01`, message: 'Invalid input:\n  --compare-to: required with --compare-from' },
+                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid --compare-to 2026-06-30`, message: 'Invalid input:\n  --compare-from: required with --compare-to' },
                 { command: `analytics chart ${APP} ${PERIOD} --chart revenue --compare-from 2026-06-30 --compare-to 2026-04-01`, message: 'Invalid input:\n  --compare-to: must not be before the start date' },
                 // The funnel, retention, LTV and cohort queries cannot keep two periods apart: no compare flag at all
                 { command: `analytics funnel ${APP} ${PERIOD} --compare-from 2026-04-01 --compare-to 2026-06-30`, message: 'Nonexistent flags: --compare-from, --compare-to\nSee more help with --help' },

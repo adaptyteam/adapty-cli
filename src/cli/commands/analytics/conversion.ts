@@ -3,20 +3,23 @@ import { Flags } from '@oclif/core';
 import { conversionIds, validateConversion } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
-    AnalyticsCommand,
+    AdaptyCommand,
     compareFlags,
+    compareParams,
     csvFlag,
     filterFlags,
     granularityFlag,
     groupByFlag,
+    groupingParams,
     periodFlags,
     queryParams,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
+import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { ConversionInput, ConversionResponse } from '../../../sdk/adapty/index.js';
 
-export default class AnalyticsConversion extends AnalyticsCommand {
+export default class AnalyticsConversion extends AdaptyCommand {
     static override description = 'Read one conversion of the analytics of an app (install → trial, trial → paid, ...): '
         + 'the rate in percent with its two counts, per point and per group, the total first';
 
@@ -45,11 +48,9 @@ export default class AnalyticsConversion extends AnalyticsCommand {
 
         const input: ConversionInput = {
             ...queryParams(flags),
-            compareFrom: flags['compare-from'],
-            compareTo: flags['compare-to'],
+            ...compareParams(flags),
             conversionId: flags.conversion,
-            granularity: flags.granularity,
-            groupBy: flags['group-by'],
+            ...groupingParams(flags),
         };
 
         // Before this.adapty: bad input is exit 2 even without a token
@@ -57,7 +58,9 @@ export default class AnalyticsConversion extends AnalyticsCommand {
 
         const answer = await this.adapty.analytics.conversion(input);
 
-        this.renderAnswer(answer, flags.csv);
+        this.render(answer, analyticsView(flags.csv));
+        // Beside a CSV of a period without data, its summary; an empty text otherwise
+        process.stderr.write(csvNotice(answer, flags.csv));
 
         return answer;
     }

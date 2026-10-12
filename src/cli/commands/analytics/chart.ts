@@ -3,21 +3,24 @@ import { Flags } from '@oclif/core';
 import { chartIds, validateChart } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
-    AnalyticsCommand,
+    AdaptyCommand,
     compareFlags,
+    compareParams,
     csvFlag,
     filterFlags,
     granularityFlag,
     groupByFlag,
+    groupingParams,
     periodFlags,
     queryParams,
     revenueBasisFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
+import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { ChartInput, ChartResponse } from '../../../sdk/adapty/index.js';
 
-export default class AnalyticsChart extends AnalyticsCommand {
+export default class AnalyticsChart extends AdaptyCommand {
     static override description = 'Read one chart of the analytics of an app (revenue, MRR, installs, ...): '
         + 'the number of the period, its points and its groups, the total first';
 
@@ -49,10 +52,8 @@ export default class AnalyticsChart extends AnalyticsCommand {
         const input: ChartInput = {
             ...queryParams(flags),
             chartId: flags.chart,
-            compareFrom: flags['compare-from'],
-            compareTo: flags['compare-to'],
-            granularity: flags.granularity,
-            groupBy: flags['group-by'],
+            ...compareParams(flags),
+            ...groupingParams(flags),
             revenueBasis: flags['revenue-basis'],
         };
 
@@ -61,7 +62,9 @@ export default class AnalyticsChart extends AnalyticsCommand {
 
         const answer = await this.adapty.analytics.chart(input);
 
-        this.renderAnswer(answer, flags.csv);
+        this.render(answer, analyticsView(flags.csv));
+        // Beside a CSV of a period without data, its summary; an empty text otherwise
+        process.stderr.write(csvNotice(answer, flags.csv));
 
         return answer;
     }

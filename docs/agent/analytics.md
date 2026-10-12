@@ -10,7 +10,7 @@ read-only and takes `--app` (the app UUID from `adapty apps list`).
 | Command | Flags | Notes |
 |---|---|---|
 | `analytics catalog` | `--app` | What the app's analytics can answer: the six operations with their options (accepted values and defaults), groupings and filter keys, whether each can compare two periods (`can_compare`), every chart with its unit and its own groupings and filters, every conversion id, and every filter dimension. |
-| `analytics values` | `--app`, `--dimension` | The values one filter dimension takes for the app: `[{value, label, group}]`. `value` is what `--filter <dimension>=<value>` takes and the `key` of that group in a grouped answer, the "No Data" value included as the API lists it (the human view shows an empty value as `""`; `--filter <dimension>=` sends it). |
+| `analytics values` | `--app`, `--dimension` | The values one filter dimension takes for the app: `[{value, label, group}]`. `value` is what `--filter <dimension>=<value>` takes and the `key` of that group in a grouped answer, the "No Data" value included as the API lists it (the human view shows an empty value as `""`; `--filter <dimension>=` sends it). See [Drill down into a group](#drill-down-into-a-group). |
 | `analytics chart` | `--app`, `--chart`, `--date-from`, `--date-to` required; `--compare-from`, `--compare-to`, `--group-by`, `--filter` (repeatable), `--granularity` (default `month`), `--revenue-basis` (money charts only), `--timezone`, `--csv` optional | One chart: `data.value` is the number of the whole period, each segment has `value` and its points `values: [{x, value}]`. |
 | `analytics conversion` | `--app`, `--conversion`, `--date-from`, `--date-to` required; `--compare-from`, `--compare-to`, `--group-by`, `--filter` (repeatable), `--granularity` (default `day`), `--timezone`, `--csv` optional | One conversion: `value` is the rate in percent, `value_to` of `value_from`. With no conversions in the window, `meta.recommended_period` can name a window that has some. |
 | `analytics funnel` | `--app`, `--date-from`, `--date-to` required; `--group-by`, `--filter` (repeatable), `--timezone`, `--csv` optional | The count at each step from install on; `value` is the installs. No compared period. |
@@ -22,7 +22,7 @@ read-only and takes `--app` (the app UUID from `adapty apps list`).
 
 1. `catalog`: pick the operation, the chart or conversion id, a grouping (`--group-by` takes one key of that
    operation, or of that chart for `chart`) and the filter keys. Each grouping names its `filter`: the filter key
-   that takes the keys of its groups, or `null` when no filter does (for example a grouping by period).
+   that takes the keys of its groups there. `null` means no drill-down.
 2. `values`: only when you filter. Get the exact raw values.
 3. The data command: one call answers the question.
 
@@ -33,16 +33,29 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
 adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --date-to 2026-09-30 --filter country=US --json
 ```
 
-To drill down into a group, take the grouping's `filter` from the catalog and the group's `key` from the answer,
-and send `--filter <filter>=<key>`: the answer is that group's number. A grouping whose `filter` is `null` has no
-drill-down.
+### Drill down into a group
 
-`--filter dimension=value[,value]` sends each value exactly as written, spaces included. An empty value is a value:
-the "No Data" group of a text grouping has the key `""`, so `--filter country=` keeps it. The "No Data" group of an
-id grouping (paywall, audience, placement, flow, segment) has the zero UUID as its key:
-`--filter paywall_id=00000000-0000-0000-0000-000000000000`; the duration grouping has `Uncategorized`. A pair
-filter (`store_product_id`, `flow_screen_id`) takes every form that `values` lists. Two `--filter` of one
-dimension become one list.
+Use the grouping's `filter` from the catalog of that operation (of that chart, for `chart`) and the group's `key`
+from the answer: `--filter <filter>=<key>` answers with that group's number. `null` means no drill-down. The filter
+is not always the grouping's own name: a `period` group goes to `renewal_period`, whose key `7` is "Renewals 6+"
+(the seventh period and later).
+
+The "No Data" group has as `key` the value that its filter takes, as `values` lists it:
+
+- the zero UUID for an id grouping (`paywall_id`, `audience_id`, `placement_id`, `flow_id`, `segment_id`):
+  `--filter paywall_id=00000000-0000-0000-0000-000000000000`;
+- `no_offer` for `offer_type` and `offer_category`;
+- `Uncategorized` for `duration`;
+- `""` for the other text groupings (`country`, `store`, the attribution groupings, `offer_id`): `--filter country=`.
+
+The "No Data" group of `store_product_id`, `flow_screen_id` and `period` cannot be selected by a filter: those
+filters take only typed values. A product key has the form `<store>:<product id>` and can be a list
+(`<store>:<product id>,<store>:<product id>`); a pair filter (`store_product_id`, `flow_screen_id`) takes every
+form that `values` lists.
+
+`--filter dimension=value[,value]` sends each value exactly as written, spaces included; an empty value is a value.
+A comma inside a value is written `\,` (a product key that is a list, for example). Two `--filter` of one dimension
+become one list.
 
 The CLI checks what needs no catalog before it sends anything, and exits 2 with the flag's name: the app UUID,
 the dates (shape, a real day, the end not before the start), the chart and conversion ids, a compared period with
@@ -62,9 +75,8 @@ Every data command answers in one shape, so one parser reads all six:
 ```
 
 - `data.segments` starts with the total (`is_total` true, `key` null: the only null key). Each other segment is
-  one group: `key` is the raw value that `--filter <grouping>=<key>` takes, `title` the dashboard title, "No Data"
-  included (`""`, the zero UUID, or `Uncategorized` for a duration). Use a group's `key` with the grouping's
-  `filter` to drill down.
+  one group: `key` is the raw value that the grouping's filter takes, `title` the dashboard title, "No Data"
+  included (its key: see [Drill down into a group](#drill-down-into-a-group)).
 - No rows for the window: `data.segments` is `[]`, and the human view prints `No data for this period.`
 - Numbers are the dashboard's numbers. A real zero is `0`. `null` means the backend has no value (an LTV period not
   reached yet, a cohort that cannot be predicted): never count it as 0.
@@ -90,8 +102,9 @@ list item its index (`churn_reasons[0].value`); an empty list has no field.
   between blocks, field names as in `--json`. Each point is one line: its `x` (with the title of a funnel step or a
   retention period, the number once: `-2 Install`, `1 Paid`, `2 Period`), its `value`, then its other fields in
   parentheses. `null` prints as
-  `—`, an empty text (a "No Data" key) as `""`. The summary is every field of `data` besides the segments, the time
-  zone, and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
+  `—`, an empty text (a "No Data" key) as `""`. The summary is every field of `data` besides the segments, every
+  field of `meta.query` (the resolved query: time zone, filters, defaults such as `period_unit`, `revenue_basis`,
+  `renewal_days`), and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
   period.`, then that summary. A compared period follows under its own heading.
 - `--json`: the API answer unchanged. Read numbers from here.
 - `--csv`: a table the CLI makes from that answer, one row per group and the total first. A group is the total or
@@ -104,9 +117,10 @@ list item its index (`churn_reasons[0].value`); an empty list has no field.
     groups), for example `-2`, `-2.title`, `-2.relative_changes`, `1.revenue.net`.
   - The same for the compared period, under `compare.` (`compare.value`, `compare.2026-06-01`), on the same row. A
     group that has no segment in one period has empty cells there.
-  - The numbers of the whole answer under their JSON paths, the same on every row: `data.value` (and a conversion's
+  - Every other field of the answer under its JSON path, the same on every row: `data.value` (and a conversion's
     `data.value_from`, `data.value_to`), `data.compare.value` (or an empty `data.compare` without a compared
-    period), `meta.query.timezone`, `meta.query.timezone_source`, `meta.recommended_period...`.
+    period), every field of `meta.query` (`meta.query.timezone`, `meta.query.timezone_source`,
+    `meta.query.filters.date[0]`, `meta.query.revenue_basis`, ...), `meta.recommended_period...`.
 
   A `null` value is an empty cell. No groups: stdout has the header line only. Whenever the asked period has no
   groups, stderr has `No data for this period.` and the summary of each period, as the human view shows it.

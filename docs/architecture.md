@@ -78,8 +78,9 @@ files open to read one operation, request shapes exported only to be moved, and 
 after nothing. Outside the resource nobody sees either way — imports go through `index.ts`.
 
 `analytics/` is the same cut: one file per operation (`chart`, `conversion`, `funnel`, `retention`, `ltv`,
-`cohort`, `values`) with its input, rule, request body and answer type; `query.ts` and `renewal-periods.ts` hold
-what several operations share; `model.ts` the one answer shape (segments, total first).
+`cohort`, `values`) with its input, rule, request body and answer type; `catalog.ts` the catalog as the server
+sends it; `query.ts` and `renewal-periods.ts` what several operations share; `model.ts` the one answer shape
+(segments, total first); `resource.ts` the endpoint map with the envelope check; `index.ts` the door.
 
 `auth/` is the same shape with one difference worth knowing: a device flow step is its path and
 the reading of its answer together, so `device-code.ts` and `poll-token.ts` keep their own paths,
@@ -132,9 +133,6 @@ text or JSON.
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
 - `base/adapty/migration-command.ts` — `AdaptyCommand` plus `this.currentMigration`. "Works on the
   saved migration" is the second thing a command says by what it extends.
-- `base/adapty/analytics-command.ts` — `AdaptyCommand` plus `renderAnswer(answer, csv)`, the one way the
-  six analytics data commands print: the human view, the CSV, and the summary on stderr beside a CSV of a
-  period without data.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
@@ -208,7 +206,6 @@ base/
 │   ├── index.ts
 │   ├── adapty-command.ts
 │   ├── migration-command.ts
-│   ├── analytics-command.ts
 │   ├── build.ts
 │   ├── flags.ts
 │   └── openSession.ts

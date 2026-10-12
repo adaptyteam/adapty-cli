@@ -20,8 +20,10 @@ export type PeriodType = (typeof periodTypes)[number];
 export type AnalyticsSegment = {
     is_total: boolean;
     /**
-     * Null for the total only. A group has the raw value that `--filter <grouping>=<key>` takes, its "No Data"
-     * group included: `""` for a text grouping, the zero UUID for an id grouping.
+     * Null for the total only. A group has the value that the filter of its grouping (the catalog's `filter`)
+     * takes, as `values` lists it. The "No Data" group: the zero UUID for an id grouping, `no_offer` for an offer
+     * type or category, `Uncategorized` for a duration, `""` for another text grouping; no filter selects it for
+     * `store_product_id`, `flow_screen_id` and `period`.
      */
     key: null | string;
     /** The backend title, "No Data" included. */

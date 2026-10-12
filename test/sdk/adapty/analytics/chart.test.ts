@@ -1,21 +1,13 @@
 import { expect } from 'chai';
 
 import { toChartRequest } from '../../../../src/sdk/adapty/analytics/chart.js';
-import { validateChart, validateFilterValues, validateLtv } from '../../../../src/sdk/adapty/analytics/index.js';
+import { validateChart } from '../../../../src/sdk/adapty/analytics/index.js';
 
-import type { ChartInput, LtvInput } from '../../../../src/sdk/adapty/analytics/index.js';
-import type { Issue } from '../../../../src/sdk/core/errors.js';
+import { paths, quarter } from './fixtures.js';
 
-const paths = (issues: readonly Issue[]): (string | undefined)[] => issues.map(issue => issue.path);
+import type { ChartInput } from '../../../../src/sdk/adapty/analytics/index.js';
 
-const chart: ChartInput = {
-    appId: '3f1c2a4e-8b7d-4c1e-9a2f-5d6e7f8a9b0c',
-    chartId: 'revenue',
-    dateFrom: '2026-07-01',
-    dateTo: '2026-09-30',
-};
-
-const ltv: LtvInput = { appId: chart.appId, dateFrom: chart.dateFrom, dateTo: chart.dateTo };
+const chart: ChartInput = { ...quarter, chartId: 'revenue' };
 
 describe('validateChart', () => {
     const cases: { expected: string[]; input: ChartInput; name: string }[] = [
@@ -29,6 +21,11 @@ describe('validateChart', () => {
         { expected: ['dateTo'], input: { ...chart, dateTo: '2026-02-30' }, name: 'an end that is not a calendar day' },
         { expected: ['filter'], input: { ...chart, filters: [{ dimension: 'date', values: ['2026-07-01'] }] }, name: 'the period as a filter' },
         { expected: [], input: { ...chart, filters: [{ dimension: 'country', values: [''] }] }, name: 'the "No Data" value as a filter' },
+        {
+            expected: ['dateTo', 'revenueBasis'],
+            input: { ...chart, chartId: 'trials_new', dateTo: '2026-06-30', revenueBasis: 'gross' },
+            name: 'every problem at once',
+        },
     ];
 
     for (const { expected, input, name } of cases) {
@@ -36,33 +33,10 @@ describe('validateChart', () => {
             expect(paths(validateChart(input))).to.deep.equal(expected);
         });
     }
-});
 
-describe('validateLtv (the renewal periods rule of LTV and cohorts)', () => {
-    const cases: { expected: string[]; input: LtvInput; name: string }[] = [
-        { expected: [], input: ltv, name: 'the backend defaults' },
-        { expected: [], input: { ...ltv, periodType: 'days', renewalDays: [0, 7, 30] }, name: 'ascending days with the days period type' },
-        { expected: ['renewalDays'], input: { ...ltv, renewalDays: [7] }, name: 'days without the days period type' },
-        { expected: ['renewalDays'], input: { ...ltv, periodType: 'days', renewalDays: [30, 7] }, name: 'days out of order' },
-        { expected: ['renewalDays'], input: { ...ltv, periodType: 'days', renewalDays: [7, 7] }, name: 'a day twice' },
-        { expected: ['renewalDays'], input: { ...ltv, periodType: 'days', renewalDays: [-1] }, name: 'a negative day' },
-    ];
-
-    for (const { expected, input, name } of cases) {
-        it(name, () => {
-            expect(paths(validateLtv(input))).to.deep.equal(expected);
-        });
-    }
-
-    it('names the other field as {periodType}, for the adapter to write its own way', () => {
-        expect(validateLtv({ ...ltv, renewalDays: [7] })).to.deep.equal([{ message: 'needs {periodType} days', path: 'renewalDays' }]);
-    });
-});
-
-describe('validateFilterValues', () => {
-    it('refuses an empty dimension and takes any other name: the backend knows the list', () => {
-        expect(paths(validateFilterValues({ appId: chart.appId, dimension: ' ' }))).to.deep.equal(['dimension']);
-        expect(paths(validateFilterValues({ appId: chart.appId, dimension: 'country' }))).to.deep.equal([]);
+    it('names the other end of a compared period as a field, for the adapter to write its own way', () => {
+        expect(validateChart({ ...chart, compareFrom: '2026-04-01' }))
+            .to.deep.equal([{ fields: ['compareFrom'], message: 'required with {compareFrom}', path: 'compareTo' }]);
     });
 });
 

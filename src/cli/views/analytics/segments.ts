@@ -14,7 +14,7 @@ type Segment = AnalyticsSegment & { values: readonly object[] };
 type Segments = { segments: readonly Segment[] };
 
 /** What every analytics answer has; `compare` only a chart and a conversion, null without a compared period. */
-export type AnalyticsAnswer = {
+type AnalyticsAnswer = {
     data: Segments & { compare?: null | Segments };
     meta: { query: object };
 };
@@ -25,7 +25,7 @@ type Field = readonly [name: string, value: Cell];
 type Section = {
     period: 'compare' | 'main';
     segments: readonly Segment[];
-    /** The numbers of the whole period: the fields of `data` (or `data.compare`) besides the segments. */
+    /** The numbers of the whole period and, for the asked one, the resolved query and the other `meta` fields. */
     summary: Field[];
 };
 
@@ -100,24 +100,47 @@ const pointCells = (point: object): Field[] => {
     return [...fields.filter(([name]) => name === 'value'), ...fields.filter(([name]) => name !== 'value')];
 };
 
+const without = (value: object, names: readonly string[]): object =>
+    Object.fromEntries(Object.entries(value).filter(([name]) => !names.includes(name)));
+
 /**
- * The summary of the asked period: the fields of `data` besides the segments, the time zone of the query and every
- * other field of `meta` (a conversion's `recommended_period`). Of a compared period: the fields of `data.compare`.
+ * Every field of the answer besides the segments, under its JSON path: `data.value`, `data.compare.value`,
+ * `meta.query.timezone`, `meta.query.filters.date[0]`, `meta.recommended_period.date_from`. The one source of the
+ * summary in both views.
  */
-const sectionsOf = ({ data, meta }: AnalyticsAnswer): Section[] => [
-    {
-        period: 'main',
-        segments: totalFirst(data.segments),
-        summary: [
-            ...fieldsOf(data, ['compare', 'segments']),
-            ...fieldsOf(meta.query, []).filter(([name]) => name === 'timezone' || name === 'timezone_source'),
-            ...fieldsOf(meta, ['query']),
-        ],
-    },
-    ...(data.compare === undefined || data.compare === null
-        ? []
-        : [{ period: 'compare' as const, segments: totalFirst(data.compare.segments), summary: fieldsOf(data.compare, ['segments']) }]),
-];
+const answerFields = ({ data, meta }: AnalyticsAnswer): Field[] => {
+    const { compare } = data;
+
+    return leaves({
+        data: {
+            ...without(data, ['compare', 'segments']),
+            // A chart or a conversion always says whether it has a compared period: null is a value too
+            ...(compare === undefined ? {} : { compare: compare === null ? null : without(compare, ['segments']) }),
+        },
+        meta,
+    }, '');
+};
+
+/**
+ * The summary of the asked period: every field of `data` besides the segments, every field of `meta.query` (the
+ * resolved query: the time zone, the filters, the defaults) and every other field of `meta` (a conversion's
+ * `recommended_period`), named as in their object. Of a compared period: the fields of `data.compare`.
+ */
+const sectionsOf = (answer: AnalyticsAnswer): Section[] => {
+    const fields = answerFields(answer);
+    const { compare, segments } = answer.data;
+
+    const main = fields.filter(([name]) => !name.startsWith('data.compare'))
+        .map(([name, value]): Field => [name.replace(/^(?:data|meta\.query|meta)\./, ''), value]);
+
+    const compared = fields.filter(([name]) => name.startsWith('data.compare.'))
+        .map(([name, value]): Field => [name.slice('data.compare.'.length), value]);
+
+    return [
+        { period: 'main', segments: totalFirst(segments), summary: main },
+        ...(compare === undefined || compare === null ? [] : [{ period: 'compare' as const, segments: totalFirst(compare.segments), summary: compared }]),
+    ];
+};
 
 const line = ([name, value]: Field): string => `${name}: ${formatValue(value)}`;
 
@@ -220,31 +243,13 @@ const periodColumns = (
     return [...own, ...pointColumns];
 };
 
-const without = (value: object, names: readonly string[]): object =>
-    Object.fromEntries(Object.entries(value).filter(([name]) => !names.includes(name)));
-
-/** The numbers of the whole answer under their JSON paths, such as `data.value` and `meta.query.timezone`. */
-const answerFields = ({ data, meta }: AnalyticsAnswer): Field[] => {
-    const { compare } = data;
-    const zone = Object.entries(meta.query).filter(([name]) => name === 'timezone' || name === 'timezone_source');
-
-    return leaves({
-        data: {
-            ...without(data, ['compare', 'segments']),
-            // A chart or a conversion always says whether it has a compared period: null is a value too
-            ...(compare === undefined ? {} : { compare: compare === null ? null : without(compare, ['segments']) }),
-        },
-        meta: { query: Object.fromEntries(zone), ...without(meta, ['query']) },
-    }, '');
-};
-
 /**
  * The CSV view, made from the API answer: a header line, then one row per group, the total first (`is_total`
  * true; its `key` cell is empty, while the "No Data" key `""` is written `""`). Columns: `key`, `title`,
  * `is_total`; the numbers of the group in the asked period, then each point's `value` (named by its `x`) and its
  * other fields as `<x>.<field>` (a funnel step's or retention period's title as `<x>.title`); the same for the
- * compared period under `compare.`; then the numbers of the whole answer under their JSON paths (`data.value`,
- * `data.compare.value`, `meta.query.timezone`, `meta.recommended_period...`), the same on every row. A group of
+ * compared period under `compare.`; then every other field of the answer under its JSON path (`data.value`,
+ * `data.compare.value`, `meta.query.timezone`, `meta.query.revenue_basis`, ...), the same on every row. A group of
  * one period only has empty cells in the other. A null value is an empty cell. No groups: the header line alone.
  */
 const renderCsv = (answer: AnalyticsAnswer): string => {
@@ -275,20 +280,22 @@ const renderCsv = (answer: AnalyticsAnswer): string => {
 };
 
 /**
- * What `--csv` writes to stderr: when the asked period has no segments, `No data for this period.` and the
- * summary of each period, as the human view shows them. The CSV is then only its header, or the groups of the
- * compared period alone.
+ * What a data command writes to stderr: with `--csv`, when the asked period has no segments, `No data for this
+ * period.` and the summary of each period, as the human view shows them (the CSV is then its header alone, or the
+ * groups of the compared period); else nothing, an empty text.
  */
-export const csvNotice = (answer: AnalyticsAnswer): string | undefined => {
-    if (answer.data.segments.length > 0) {
-        return undefined;
+export const csvNotice = (answer: AnalyticsAnswer, csv: boolean): string => {
+    if (!csv || answer.data.segments.length > 0) {
+        return '';
     }
 
-    return sectionsOf(answer).map(section => [
+    const sections = sectionsOf(answer).map(section => [
         ...(section.period === 'compare' ? ['Compared period'] : []),
         ...(section.segments.length === 0 ? [NO_DATA] : []),
         ...section.summary.map(field => line(field)),
-    ].join('\n')).join('\n\n');
+    ].join('\n'));
+
+    return `${sections.join('\n\n')}\n`;
 };
 
 /** The view of a data command: the CSV with `--csv`, else the human view (`--json` prints no view at all). */

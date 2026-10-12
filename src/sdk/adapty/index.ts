@@ -54,6 +54,7 @@ export type {
     FunnelResponse,
     LtvInput,
     LtvResponse,
+    PeriodUnit,
     RetentionInput,
     RetentionResponse,
 } from './analytics/index.js';

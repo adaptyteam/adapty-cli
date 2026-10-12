@@ -1,20 +1,22 @@
 import { validateCohort } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
-    AnalyticsCommand,
+    AdaptyCommand,
     csvFlag,
     filterFlags,
     granularityFlag,
+    groupingParams,
     periodFlags,
     queryParams,
     renewalPeriodFlags,
     revenueBasisFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
+import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { CohortInput, CohortResponse } from '../../../sdk/adapty/index.js';
 
-export default class AnalyticsCohort extends AnalyticsCommand {
+export default class AnalyticsCohort extends AdaptyCommand {
     static override description = 'Read the install cohorts of an app: revenue, subscribers and averages of each '
         + 'cohort per renewal (or day), with predictions, the total first (no grouping, no compared period)';
 
@@ -38,7 +40,7 @@ export default class AnalyticsCohort extends AnalyticsCommand {
 
         const input: CohortInput = {
             ...queryParams(flags),
-            granularity: flags.granularity,
+            ...groupingParams(flags),
             periodType: flags['period-type'],
             renewalDays: flags['renewal-days'],
             revenueBasis: flags['revenue-basis'],
@@ -49,7 +51,9 @@ export default class AnalyticsCohort extends AnalyticsCommand {
 
         const answer = await this.adapty.analytics.cohort(input);
 
-        this.renderAnswer(answer, flags.csv);
+        this.render(answer, analyticsView(flags.csv));
+        // Beside a CSV of a period without data, its summary; an empty text otherwise
+        process.stderr.write(csvNotice(answer, flags.csv));
 
         return answer;
     }

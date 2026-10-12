@@ -3,18 +3,20 @@ import { Flags } from '@oclif/core';
 import { validateRetention } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
-    AnalyticsCommand,
+    AdaptyCommand,
     csvFlag,
     filterFlags,
     groupByFlag,
+    groupingParams,
     periodFlags,
     queryParams,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
+import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { RetentionInput, RetentionResponse } from '../../../sdk/adapty/index.js';
 
-export default class AnalyticsRetention extends AnalyticsCommand {
+export default class AnalyticsRetention extends AdaptyCommand {
     static override description = 'Read the retention of an app: the subscribers left in each period, per group, '
         + 'the total first (no compared period)';
 
@@ -39,7 +41,7 @@ export default class AnalyticsRetention extends AnalyticsCommand {
 
         const input: RetentionInput = {
             ...queryParams(flags),
-            groupBy: flags['group-by'],
+            ...groupingParams(flags),
             // Sent only when given: the backend default (false) applies otherwise, and meta.query says so
             useTrial: flags['use-trial'] ? true : undefined,
         };
@@ -49,7 +51,9 @@ export default class AnalyticsRetention extends AnalyticsCommand {
 
         const answer = await this.adapty.analytics.retention(input);
 
-        this.renderAnswer(answer, flags.csv);
+        this.render(answer, analyticsView(flags.csv));
+        // Beside a CSV of a period without data, its summary; an empty text otherwise
+        process.stderr.write(csvNotice(answer, flags.csv));
 
         return answer;
     }
