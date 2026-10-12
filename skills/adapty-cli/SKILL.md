@@ -187,7 +187,8 @@ and cannot be undone.
 The analytics of one app as the Adapty dashboard shows them (charts such as revenue and MRR, conversions, the
 funnel, retention, LTV, cohorts) live in the read-only `adapty analytics` topic. See the `analytics` section of
 `references/cli-commands.md`. Discover before querying: `adapty analytics catalog --app <APP_ID>`, then `values`
-when filtering, then one data command. Totals come first; `null` means no value, never zero.
+when filtering, then one data command. Totals come first; `null` means no value, never zero. Never add these
+numbers to `attribution` numbers.
 
 ---
 

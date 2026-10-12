@@ -4,17 +4,18 @@ import type { Cell } from './csv.js';
 import type { AnalyticsSegment } from '../../../sdk/adapty/index.js';
 
 /**
- * The views of the six analytics operations, made from the answer itself: every field the API gives is printed,
- * under the name it has in --json, so a field the backend adds is never dropped. A nested field has a dotted
- * name (`revenue.gross`, `following_changes.value`), a list item its index (`parts[0].value`).
+ * The CSV of the six analytics operations and the summary of a period, made from the answer itself: every field
+ * the API gives is printed, under the name it has in --json, so a field the backend adds is never dropped. A nested
+ * field has a dotted name (`revenue.gross`, `following_changes.value`), a list item its index (`parts[0].value`).
+ * The human table, which shows the main fields only, is in `human.ts`.
  */
 
-type Segment = AnalyticsSegment & { values: readonly object[] };
+export type Segment = AnalyticsSegment & { values: readonly object[] };
 
 type Segments = { segments: readonly Segment[] };
 
 /** What every analytics answer has; `compare` only a chart and a conversion, null without a compared period. */
-type AnalyticsAnswer = {
+export type AnalyticsAnswer = {
     data: Segments & { compare?: null | Segments };
     meta: { query: object };
 };
@@ -30,9 +31,9 @@ type Section = {
 };
 
 /** A number the backend does not have is null, and printing it as 0 would be a lie. */
-const NO_VALUE = '—';
+export const NO_VALUE = '—';
 
-const NO_DATA = 'No data for this period.';
+export const NO_DATA = 'No data for this period.';
 
 /** The fields that name a group; every other field of a segment is a number of that group. */
 const IDENTITY = ['key', 'title', 'is_total'];
@@ -41,7 +42,7 @@ const IDENTITY = ['key', 'title', 'is_total'];
 const BASE_COLUMNS = [...IDENTITY, 'value'];
 
 /** An empty text (the key of a "No Data" group) is shown as `""`, so it never reads as a missing value. */
-const formatValue = (value: Cell): string => {
+export const formatValue = (value: Cell): string => {
     if (value === null || value === undefined) {
         return NO_VALUE;
     }
@@ -73,13 +74,13 @@ const totalFirst = (segments: readonly Segment[]): Segment[] =>
 type PointPosition = { title?: unknown; x?: unknown };
 
 /** A point is found by its `x`. */
-const pointId = (point: object): string => String((point as PointPosition).x);
+export const pointId = (point: object): string => String((point as PointPosition).x);
 
 /**
  * How the human view names a point: its `x`, and for a funnel step or a retention period also its title, the
  * number once (`-2 Install`, `1 Paid`, `2 Period`).
  */
-const pointLabel = (point: object): string => {
+export const pointLabel = (point: object): string => {
     const { title } = point as PointPosition;
     const id = pointId(point);
 
@@ -89,9 +90,6 @@ const pointLabel = (point: object): string => {
 
     return title.startsWith(`${id} `) ? title : `${id} ${title}`;
 };
-
-/** Everything of a point besides its position: `value` first, as the API sends it. */
-const pointFields = (point: object): Field[] => fieldsOf(point, ['title', 'x']);
 
 /** The same for the CSV, `value` first: the title stays a field, since a step's title can differ between segments. */
 const pointCells = (point: object): Field[] => {
@@ -126,7 +124,7 @@ const answerFields = ({ data, meta }: AnalyticsAnswer): Field[] => {
  * resolved query: the time zone, the filters, the defaults) and every other field of `meta` (a conversion's
  * `recommended_period`), named as in their object. Of a compared period: the fields of `data.compare`.
  */
-const sectionsOf = (answer: AnalyticsAnswer): Section[] => {
+export const sectionsOf = (answer: AnalyticsAnswer): Section[] => {
     const fields = answerFields(answer);
     const { compare, segments } = answer.data;
 
@@ -142,37 +140,7 @@ const sectionsOf = (answer: AnalyticsAnswer): Section[] => {
     ];
 };
 
-const line = ([name, value]: Field): string => `${name}: ${formatValue(value)}`;
-
-const pointLine = (point: object): string => {
-    const fields = pointFields(point);
-    const value = fields.find(([name]) => name === 'value')?.[1];
-    const extras = fields.filter(([name]) => name !== 'value').map(([name, item]) => `${name} ${formatValue(item)}`);
-
-    return `  ${pointLabel(point)}: ${formatValue(value)}${extras.length === 0 ? '' : ` (${extras.join(', ')})`}`;
-};
-
-const segmentBlock = (segment: Segment): string => {
-    const points = segment.values.map(point => pointLine(point));
-
-    return [...fieldsOf(segment, ['values']).map(field => line(field)), ...(points.length === 0 ? [] : ['values:', ...points])].join('\n');
-};
-
-/**
- * The human view: the summary of the period (its numbers, its time zone), then one labelled block per segment,
- * total first, `---` between blocks. No segments: `No data for this period.`, then the same summary, null as `—`.
- * A compared period follows under its own heading.
- */
-const renderHuman = (answer: AnalyticsAnswer): string => sectionsOf(answer).map((section) => {
-    const heading = section.period === 'compare' ? ['Compared period'] : [];
-    const summary = section.summary.map(field => line(field));
-
-    if (section.segments.length === 0) {
-        return [...heading, NO_DATA, ...summary].join('\n');
-    }
-
-    return [...heading, ...summary, '', section.segments.map(segment => segmentBlock(segment)).join('\n---\n')].join('\n');
-}).join('\n\n');
+export const line = ([name, value]: Field): string => `${name}: ${formatValue(value)}`;
 
 /** Names in first-seen order, without a name that only stands for its nested fields elsewhere (a null `predict`). */
 const columnsOf = (rows: readonly (readonly Field[])[]): string[] => {
@@ -252,7 +220,7 @@ const periodColumns = (
  * `data.compare.value`, `meta.query.timezone`, `meta.query.revenue_basis`, ...), the same on every row. A group of
  * one period only has empty cells in the other. A null value is an empty cell. No groups: the header line alone.
  */
-const renderCsv = (answer: AnalyticsAnswer): string => {
+export const renderCsv = (answer: AnalyticsAnswer): string => {
     const groups = groupsOf(answer);
     const main = totalFirst(answer.data.segments);
     const compare = totalFirst(answer.data.compare?.segments ?? []);
@@ -297,7 +265,3 @@ export const csvNotice = (answer: AnalyticsAnswer, csv: boolean): string => {
 
     return `${sections.join('\n\n')}\n`;
 };
-
-/** The view of a data command: the CSV with `--csv`, else the human view (`--json` prints no view at all). */
-export const analyticsView = (csv: boolean) =>
-    (answer: AnalyticsAnswer): string => (csv ? renderCsv(answer) : renderHuman(answer));

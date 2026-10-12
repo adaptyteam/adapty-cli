@@ -17,8 +17,6 @@ import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
 export {
-    chartIds,
-    conversionIds,
     periodTypes,
     periodUnits,
     revenueBases,

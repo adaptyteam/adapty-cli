@@ -12,7 +12,8 @@ import {
     revenueBasisFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
+import { analyticsView, ltvTable } from '../../views/analytics/human.js';
+import { csvNotice } from '../../views/analytics/segments.js';
 
 import type { LtvInput, LtvResponse } from '../../../sdk/adapty/index.js';
 
@@ -51,7 +52,7 @@ export default class AnalyticsLtv extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.ltv(input);
 
-        this.render(answer, analyticsView(flags.csv));
+        this.render(answer, analyticsView(flags.csv, ltvTable));
         // Beside a CSV of a period without data, its summary; an empty text otherwise
         process.stderr.write(csvNotice(answer, flags.csv));
 

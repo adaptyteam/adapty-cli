@@ -10,7 +10,8 @@ import {
     queryParams,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
+import { analyticsView, funnelTable } from '../../views/analytics/human.js';
+import { csvNotice } from '../../views/analytics/segments.js';
 
 import type { FunnelInput, FunnelResponse } from '../../../sdk/adapty/index.js';
 
@@ -41,7 +42,7 @@ export default class AnalyticsFunnel extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.funnel(input);
 
-        this.render(answer, analyticsView(flags.csv));
+        this.render(answer, analyticsView(flags.csv, funnelTable));
         // Beside a CSV of a period without data, its summary; an empty text otherwise
         process.stderr.write(csvNotice(answer, flags.csv));
 

@@ -171,8 +171,10 @@ text or JSON.
   retain that captured ID. `create` saves by default, with `--no-select` to opt out; local save
   failures warn without failing creation. The SDK remains unaware of this local selection.
 - `views/` — plain functions, value in, string out. `views/analytics/` turns the one answer shape of the
-  analytics operations into the human view and the CSV (`segments.ts`), reading the fields from the answer
-  itself, so a field the API adds is never dropped.
+  analytics operations into the CSV (`segments.ts`), reading the fields from the answer itself, so a field the
+  API adds is never dropped, and into the human table (`human.ts`): one row per group, total first, the main
+  numbers that each operation names and one column per point; it says under the table when `--json` and `--csv`
+  give more fields.
 - `commands/` — one class per command.
 
 ### The shape of a command

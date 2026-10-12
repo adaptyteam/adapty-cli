@@ -2,9 +2,9 @@
  * The door of the analytics resource: re-exports only, and only what a consumer uses. The request builders
  * and the shapes inside an answer stay private to their operation.
  */
-export { chartIds, validateChart } from './chart.js';
+export { validateChart } from './chart.js';
 export { validateCohort } from './cohort.js';
-export { conversionIds, validateConversion } from './conversion.js';
+export { validateConversion } from './conversion.js';
 export { validateFunnel } from './funnel.js';
 export { validateLtv } from './ltv.js';
 export { periodTypes, periodUnits, revenueBases } from './model.js';

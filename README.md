@@ -574,7 +574,9 @@ Every data command (`chart`, `conversion`, `funnel`, `retention`, `ltv`, `cohort
 number of the period, then segments with the total first, each group keyed by the raw value its `--filter` takes.
 `--json` prints the API answer unchanged; `--csv` prints a table made from it (one row per group, total first; a
 compared period in `compare.*` columns);
-the human view prints `—` for a missing value and `No data for this period.` for an empty window. Dates are
+the human view prints a short table (one row per group, total first, money with 2 decimals, `—` for a missing
+value) and `No data for this period.` for an empty window. The analytics numbers never add to the `attribution`
+numbers. Dates are
 inclusive days of `--timezone`, else the app time zone. Only `chart` and `conversion` take a compared period. Bad
 input exits 2 before anything is sent; a refusal exits 4 with the API's error code; a missing token or an app the
 token cannot access (403) exits 3. All analytics calls of one app

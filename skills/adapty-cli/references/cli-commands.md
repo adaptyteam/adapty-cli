@@ -405,8 +405,11 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
   the zero UUID (id groupings), `no_offer` (offer type and category), `Uncategorized` (duration) or `""`
   (`--filter country=`); for `store_product_id`, `flow_screen_id` and `period` no filter selects it. Values are
   exact; write a comma inside a value as `\,`.
+- **Never add `analytics` numbers to `attribution` numbers**: ad-network questions (campaigns, spend, ROAS) belong
+  to `attribution`.
 - **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.
-- **Outputs**: human view (default), the API answer (`--json`), or a CSV made from it (`--csv`, one row per group,
+- **Outputs**: a short table (default: one row per group, total first, the main numbers and one column per date,
+  step or period, money with 2 decimals, `—` for null; the group title, not its key), the API answer (`--json`), or a CSV made from it (`--csv`, one row per group,
   total first; a compared period in `compare.*` columns, the answer's numbers in `data.*` and `meta.*` columns; no
   groups: the header only, and the summary on stderr).
 - **Errors**: bad input exits 2 before any request; a server refusal exits 4 with its error code; 2 calls per

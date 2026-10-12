@@ -4,50 +4,12 @@ import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment,
 import type { ComparableQueryInput, GroupingInput, GroupingRequest, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
-/** The charts of the dashboard charts page that the backend answers, in the catalog order. */
-export const chartIds = [
-    'revenue',
-    'mrr',
-    'arr',
-    'arppu',
-    'subscriptions_active',
-    'subscriptions_new',
-    'subscriptions_renewal_cancelled',
-    'subscriptions_expired',
-    'trials_active',
-    'trials_new',
-    'trials_renewal_cancelled',
-    'trials_expired',
-    'refund_events',
-    'refund_money',
-    'grace_period',
-    'billing_issue',
-    'non_subscriptions',
-    'arpu',
-    'installs',
-    'billing_issue_converted',
-    'billing_issue_converted_revenue',
-    'grace_period_converted',
-    'grace_period_converted_revenue',
-] as const;
-
-export type ChartId = (typeof chartIds)[number];
-
-/** The charts the backend answers on three revenue bases: the only ones that take `revenueBasis`. */
-const moneyChartIds: readonly ChartId[] = [
-    'revenue',
-    'mrr',
-    'arr',
-    'arppu',
-    'arpu',
-    'refund_money',
-    'billing_issue_converted_revenue',
-    'grace_period_converted_revenue',
-];
+/** A chart id as the catalog lists it; the backend knows which ids exist. */
+export type ChartId = string;
 
 export type ChartInput = ComparableQueryInput & GroupingInput & {
     chartId: ChartId;
-    /** Money charts only; the backend refuses it for the others. */
+    /** Money charts only; the backend refuses it for the others (exit 4). */
     revenueBasis?: RevenueBasis | undefined;
 };
 
@@ -85,16 +47,7 @@ export type ChartMeta = AnalyticsMeta<{
 
 export type ChartResponse = AnalyticsResponse<ChartData, ChartMeta>;
 
-export const validateChart = (input: ChartInput): Issue[] => {
-    const issues = validateComparableQuery(input);
-
-    // The backend refuses it too; refused here, a wrong combination costs no request and names the flag
-    if (input.revenueBasis !== undefined && !moneyChartIds.includes(input.chartId)) {
-        issues.push({ message: `applies only to a money chart: ${moneyChartIds.join(', ')}`, path: 'revenueBasis' });
-    }
-
-    return issues;
-};
+export const validateChart = (input: ChartInput): Issue[] => validateComparableQuery(input);
 
 export const toChartRequest = (input: ChartInput): ChartRequest => {
     const body: ChartRequest = { chart_id: input.chartId, ...toQueryRequest(input), ...toGroupingRequest(input) };

@@ -12,6 +12,9 @@ const APP = `--app ${TEST_APP_ID}`;
 
 const meta = { query: { timezone: 'UTC', filters: { date: ['2026-07-01', '2026-09-30'] }, timezone_source: 'app' } };
 
+/** The second line of the human view for `meta`: the period and its time zone. */
+const PERIOD_LINE = '2026-07-01 – 2026-09-30, time zone UTC (from the app)';
+
 const sentBody = (stub: sinon.SinonStub, callIndex: number): unknown => JSON.parse(requestOf(stub, callIndex).body ?? 'null');
 
 // The answers keep the field order of the API. Each lists a group before the total, so the views must put the
@@ -368,7 +371,8 @@ describe('analytics', () => {
 
     describe('output', () => {
         // One row per operation: the total first, 0 kept, null as `—` (human) and an empty cell (CSV), the "No Data"
-        // key "" kept apart from a null key, and every point under its x (or its step title).
+        // key "" kept apart from a null key, and every point under its x (or its step title). The human run gets the
+        // resolved query fields of the operation too (`query`), which make its heading and its money format.
         const operations = [
             {
                 answer: chartAnswer,
@@ -380,59 +384,27 @@ describe('analytics', () => {
                     '"",No Data,false,0,0,,,,30.5,12,UTC,2026-07-01,2026-09-30,app',
                     'DE,Germany,false,,,,2,2,30.5,12,UTC,2026-07-01,2026-09-30,app',
                 ],
+                query: {
+                    chart_id: 'revenue',
+                    filters: { date: ['2026-07-01', '2026-09-30'], compare_date: ['2026-04-01', '2026-06-30'] },
+                    period_unit: 'month',
+                    revenue_basis: 'gross',
+                    segmentation: 'country',
+                },
                 human: [
-                    'value: 30.5',
-                    'timezone: UTC',
-                    'filters.date[0]: 2026-07-01',
-                    'filters.date[1]: 2026-09-30',
-                    'timezone_source: app',
+                    'Chart revenue, gross, by country',
+                    '2026-07-01 – 2026-09-30, month, time zone UTC (from the app)',
                     '',
-                    'key: —',
-                    'title: Total',
-                    'is_total: true',
-                    'value: 30.5',
-                    'values:',
-                    '  2026-07-01: 30.5',
-                    '  2026-08-01: 0',
-                    '---',
-                    'key: US',
-                    'title: United States',
-                    'is_total: false',
-                    'value: 30.5',
-                    'values:',
-                    '  2026-07-01: 30.5',
-                    '  2026-08-01: 0',
-                    '---',
-                    'key: ""',
-                    'title: No Data',
-                    'is_total: false',
-                    'value: 0',
-                    'values:',
-                    '  2026-07-01: 0',
+                    '               Total  2026-07-01  2026-08-01',
+                    'Total          30.50       30.50        0.00',
+                    'United States  30.50       30.50        0.00',
+                    'No Data         0.00        0.00           —',
                     '',
-                    'Compared period',
-                    'value: 12',
-                    '',
-                    'key: —',
-                    'title: Total',
-                    'is_total: true',
-                    'value: 12',
-                    'values:',
-                    '  2026-06-01: 12',
-                    '---',
-                    'key: DE',
-                    'title: Germany',
-                    'is_total: false',
-                    'value: 2',
-                    'values:',
-                    '  2026-06-01: 2',
-                    '---',
-                    'key: US',
-                    'title: United States',
-                    'is_total: false',
-                    'value: 10',
-                    'values:',
-                    '  2026-06-01: 10',
+                    'Compared period: 2026-04-01 – 2026-06-30',
+                    '               Total  2026-06-01',
+                    'Total          12.00       12.00',
+                    'Germany         2.00        2.00',
+                    'United States  10.00       10.00',
                 ],
             },
             {
@@ -443,45 +415,25 @@ describe('analytics', () => {
                     ',Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false,20,5,1,20,5,1,0,false,25,4,1,20,5,1,UTC,2026-07-01,2026-09-30,app,',
                     'US,United States,false,0,4,0,,,,,,,,,,,,,,25,4,1,20,5,1,UTC,2026-07-01,2026-09-30,app,',
                 ],
+                query: {
+                    conversion_id: 'trial-paid',
+                    filters: { date: ['2026-07-01', '2026-09-30'], compare_date: ['2026-04-01', '2026-06-30'] },
+                    period_unit: 'month',
+                    segmentation: 'country',
+                },
                 human: [
-                    'value: 25',
-                    'value_from: 4',
-                    'value_to: 1',
-                    'timezone: UTC',
-                    'filters.date[0]: 2026-07-01',
-                    'filters.date[1]: 2026-09-30',
-                    'timezone_source: app',
-                    'recommended_period: —',
+                    'Conversion trial-paid, by country',
+                    '2026-07-01 – 2026-09-30, month, time zone UTC (from the app)',
                     '',
-                    'key: —',
-                    'title: Conversion rate from trial to paid',
-                    'is_total: true',
-                    'value: 25',
-                    'value_from: 4',
-                    'value_to: 1',
-                    'values:',
-                    '  2026-07-01: 25 (value_from 4, value_to 1, value_from_unfinished 0, has_unfinished false)',
-                    '---',
-                    'key: US',
-                    'title: United States',
-                    'is_total: false',
-                    'value: 0',
-                    'value_from: 4',
-                    'value_to: 0',
+                    '                                    Conversion %  From  To  2026-07-01',
+                    'Conversion rate from trial to paid            25     4   1          25',
+                    'United States                                  0     4   0           —',
                     '',
-                    'Compared period',
-                    'value: 20',
-                    'value_from: 5',
-                    'value_to: 1',
+                    'Compared period: 2026-04-01 – 2026-06-30',
+                    '                                    Conversion %  From  To  2026-06-01',
+                    'Conversion rate from trial to paid            20     5   1          20',
                     '',
-                    'key: —',
-                    'title: Conversion rate from trial to paid',
-                    'is_total: true',
-                    'value: 20',
-                    'value_from: 5',
-                    'value_to: 1',
-                    'values:',
-                    '  2026-06-01: 20 (value_from 5, value_to 1, value_from_unfinished 0, has_unfinished false)',
+                    '--json and --csv give every field: the counts of each point (value_from, value_to, value_from_unfinished, has_unfinished).',
                 ],
             },
             {
@@ -492,28 +444,16 @@ describe('analytics', () => {
                     ',Total,true,3,3,Install,100,66.7,Drop off,1,33.3,"",2,Paid,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
                     '00000000-0000-0000-0000-000000000000,No Data,false,0,0,Install,0,0,Drop off,0,0,"",,,,,,,,,,,,,,,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
                 ],
+                query: { filters: { date: ['2026-07-01', '2026-09-30'], country: ['US', ''] } },
                 human: [
-                    'value: 3',
-                    'timezone: UTC',
-                    'filters.date[0]: 2026-07-01',
-                    'filters.date[1]: 2026-09-30',
-                    'timezone_source: app',
-                    'segmentation: paywall_id',
+                    'Funnel, by paywall_id',
+                    '2026-07-01 – 2026-09-30, time zone UTC (from the app), filters country=US,',
                     '',
-                    'key: —',
-                    'title: Total',
-                    'is_total: true',
-                    'value: 3',
-                    'values:',
-                    '  -2 Install: 3 (value_relative 100, relative_changes 66.7, following_changes.title Drop off, following_changes.value 1, following_changes.value_relative 33.3, churn_reason_title "")',
-                    '  0 Paid: 2 (value_relative 66.7, relative_changes 0, following_changes.title Drop off, following_changes.value 2, following_changes.value_relative 100, churn_reason_title Churn reasons, churn_reasons[0].title Cancelled, churn_reasons[0].value 2, churn_reasons[0].value_relative 100, parts[0].title Install → Paid, parts[0].value 1, parts[0].value_relative 50)',
-                    '---',
-                    'key: 00000000-0000-0000-0000-000000000000',
-                    'title: No Data',
-                    'is_total: false',
-                    'value: 0',
-                    'values:',
-                    '  -2 Install: 0 (value_relative 0, relative_changes 0, following_changes.title Drop off, following_changes.value 0, following_changes.value_relative 0, churn_reason_title "")',
+                    '         Installs  -2 Install  0 Paid',
+                    'Total           3           3       2',
+                    'No Data         0           0       —',
+                    '',
+                    '--json and --csv give every field: the share of each step, the change to the next step, churn reasons and parts.',
                 ],
             },
             {
@@ -524,28 +464,16 @@ describe('analytics', () => {
                     ',Total,true,5,5,5,Paid,100,5,UTC,2026-07-01,2026-09-30,app',
                     'US,United States,false,0,0,0,Paid,0,5,UTC,2026-07-01,2026-09-30,app',
                 ],
+                query: { segmentation: 'country', use_trial: true },
                 human: [
-                    'value: 5',
-                    'timezone: UTC',
-                    'filters.date[0]: 2026-07-01',
-                    'filters.date[1]: 2026-09-30',
-                    'timezone_source: app',
+                    'Retention, from the trial, by country',
+                    '2026-07-01 – 2026-09-30, time zone UTC (from the app)',
                     '',
-                    'key: —',
-                    'title: Total',
-                    'is_total: true',
-                    'value: 5',
-                    'first_value: 5',
-                    'values:',
-                    '  1 Paid: 5 (value_relative 100)',
-                    '---',
-                    'key: US',
-                    'title: United States',
-                    'is_total: false',
-                    'value: 0',
-                    'first_value: 0',
-                    'values:',
-                    '  1 Paid: 0 (value_relative 0)',
+                    '               Subscribers  1 Paid',
+                    'Total                    5       5',
+                    'United States            0       0',
+                    '',
+                    '--json and --csv give every field: the share of each period (value_relative).',
                 ],
             },
             {
@@ -556,30 +484,21 @@ describe('analytics', () => {
                     ',Total,true,1.5,2,1.5,,1.5,UTC,2026-07-01,2026-09-30,app',
                     'US,United States,false,0,1,0,,1.5,UTC,2026-07-01,2026-09-30,app',
                 ],
+                query: {
+                    period_type: 'renewals',
+                    renewal_days: null,
+                    revenue_basis: 'gross',
+                    segmentation: 'country',
+                    timezone: 'Europe/Berlin',
+                    timezone_source: 'request',
+                },
                 human: [
-                    'value: 1.5',
-                    'timezone: UTC',
-                    'filters.date[0]: 2026-07-01',
-                    'filters.date[1]: 2026-09-30',
-                    'timezone_source: app',
+                    'LTV, gross, per renewal, by country',
+                    '2026-07-01 – 2026-09-30, time zone Europe/Berlin (from --timezone)',
                     '',
-                    'key: —',
-                    'title: Total',
-                    'is_total: true',
-                    'value: 1.5',
-                    'cohort_size: 2',
-                    'values:',
-                    '  1: 1.5',
-                    '  2: —',
-                    '---',
-                    'key: US',
-                    'title: United States',
-                    'is_total: false',
-                    'value: 0',
-                    'cohort_size: 1',
-                    'values:',
-                    '  1: 0',
-                    '  2: —',
+                    '                LTV  Cohort size     1  2',
+                    'Total          1.50            2  1.50  —',
+                    'United States  0.00            1  0.00  —',
                 ],
             },
             {
@@ -590,71 +509,26 @@ describe('analytics', () => {
                     ',Total,true,10,2026-07-01,3,1,1,10,8.5,7,3.5,2.8,2.3,10,8.5,7,10,8.5,7,,,,,,,10,100,3,1,100,1,100,10,8.5,7,100,100,100,3.5,2.8,2.3,10,8.5,7,10,8.5,7,true,10,UTC,2026-07-01,2026-09-30,app',
                     '2026-07-01,2026-07-01,false,0,2026-07-01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,,0,,,,0,,,,,,,,,,,,,,,,,,,,,,,,10,UTC,2026-07-01,2026-09-30,app',
                 ],
+                query: { period_type: 'days', period_unit: 'month', renewal_days: null, revenue_basis: 'net' },
                 human: [
-                    'value: 10',
-                    'timezone: UTC',
-                    'filters.date[0]: 2026-07-01',
-                    'filters.date[1]: 2026-09-30',
-                    'timezone_source: app',
+                    'Cohorts, net, per day',
+                    '2026-07-01 – 2026-09-30, month, time zone UTC (from the app)',
                     '',
-                    'key: —',
-                    'title: Total',
-                    'is_total: true',
-                    'value: 10',
-                    'start_date: 2026-07-01',
-                    'installs: 3',
-                    'subscriptions: 1',
-                    'subscribers: 1',
-                    'revenue.gross: 10',
-                    'revenue.proceeds: 8.5',
-                    'revenue.net: 7',
-                    'arpu.gross: 3.5',
-                    'arpu.proceeds: 2.8',
-                    'arpu.net: 2.3',
-                    'arppu.gross: 10',
-                    'arppu.proceeds: 8.5',
-                    'arppu.net: 7',
-                    'arpas.gross: 10',
-                    'arpas.proceeds: 8.5',
-                    'arpas.net: 7',
-                    'predict: —',
-                    'values:',
-                    '  1: 10 (value_relative 100, installs 3, subscriptions 1, subscriptions_relative 100, subscribers 1, subscribers_relative 100, revenue.gross 10, revenue.proceeds 8.5, revenue.net 7, revenue_relative.gross 100, revenue_relative.proceeds 100, revenue_relative.net 100, arpu.gross 3.5, arpu.proceeds 2.8, arpu.net 2.3, arppu.gross 10, arppu.proceeds 8.5, arppu.net 7, arpas.gross 10, arpas.proceeds 8.5, arpas.net 7, currently_active_period true)',
-                    '---',
-                    'key: 2026-07-01',
-                    'title: 2026-07-01',
-                    'is_total: false',
-                    'value: 0',
-                    'start_date: 2026-07-01',
-                    'installs: 0',
-                    'subscriptions: 0',
-                    'subscribers: 0',
-                    'revenue.gross: 0',
-                    'revenue.proceeds: 0',
-                    'revenue.net: 0',
-                    'arpu.gross: 0',
-                    'arpu.proceeds: 0',
-                    'arpu.net: 0',
-                    'arppu.gross: 0',
-                    'arppu.proceeds: 0',
-                    'arppu.net: 0',
-                    'arpas.gross: 0',
-                    'arpas.proceeds: 0',
-                    'arpas.net: 0',
-                    'predict.gross.rev3: —',
-                    'predict.gross.rev6: 0',
-                    'predict.gross_v2: —',
-                    'predict.proceeds: —',
-                    'predict.net: —',
-                    'predict.status.status_3: 0',
+                    '            Revenue  Installs  Subscribers      1',
+                    'Total         10.00         3            1  10.00',
+                    '2026-07-01     0.00         0            0      —',
+                    '',
+                    '--json and --csv give every field: revenue, ARPU, ARPPU and ARPAS on each basis, subscriptions, the shares of each period, predictions.',
                 ],
             },
         ];
 
-        it('prints every operation with the total first, 0 as 0 and null never as 0, in the human view and in CSV '
-            + '(one row per group, a compared period in compare.* columns)', async () => {
-            for (const { answer, command, csv, human } of operations) {
-                fetchStub = mockFetchSteps([{ body: answer }]);
+        it('prints every operation with the total first, 0 as 0 and null never as 0, as a table in the human view (money '
+            + 'with 2 decimals) and in CSV (one row per group, a compared period in compare.* columns)', async () => {
+            for (const { answer, command, csv, human, query } of operations) {
+                const humanAnswer = { ...answer, meta: { ...answer.meta, query: { ...answer.meta.query, ...query } } };
+
+                fetchStub = mockFetchSteps([{ body: humanAnswer }, { body: answer }]);
 
                 const humanRun = await runCommand(command);
                 const csvRun = await runCommand(`${command} --csv`);
@@ -668,26 +542,28 @@ describe('analytics', () => {
         });
 
         it('prints "No data for this period." and the summary the API gives for an answer without segments', async () => {
-            // No segments: the human view and, with --csv, stderr show every number of the period (null as —), its
-            // time zone and a conversion's recommended window; the CSV on stdout is its header alone, no row
+            // No segments: the human view (under its heading) and, with --csv, stderr show every number of the period
+            // (null as —), its time zone and a conversion's recommended window; the CSV on stdout is its header alone
             const tz = ['timezone: UTC', 'filters.date[0]: 2026-07-01', 'filters.date[1]: 2026-09-30', 'timezone_source: app'];
             const recommended = { date_from: '2026-01-01', date_to: '2026-03-31', period_unit: 'day' };
 
             const empty = [
                 {
                     command: `analytics chart ${APP} ${PERIOD} --chart revenue`,
+                    heading: ['Chart', PERIOD_LINE],
                     csv: 'key,title,is_total,value,data.value,data.compare.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: 0, compare: { value: 12, segments: [] }, segments: [] },
-                    human: ['No data for this period.', 'value: 0', ...tz, '', 'Compared period', 'No data for this period.', 'value: 12'],
+                    summary: ['No data for this period.', 'value: 0', ...tz, '', 'Compared period', 'No data for this period.', 'value: 12'],
                     meta,
                 },
                 {
                     command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
+                    heading: ['Conversion', PERIOD_LINE],
                     csv: 'key,title,is_total,value,data.value,data.value_from,data.value_to,data.compare,meta.query.timezone,'
                         + 'meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source,meta.recommended_period.date_from,meta.recommended_period.date_to,'
                         + 'meta.recommended_period.period_unit',
                     data: { value: 0, value_from: 0, value_to: 0, compare: null, segments: [] },
-                    human: [
+                    summary: [
                         'No data for this period.', 'value: 0', 'value_from: 0', 'value_to: 0', ...tz,
                         'recommended_period.date_from: 2026-01-01', 'recommended_period.date_to: 2026-03-31',
                         'recommended_period.period_unit: day',
@@ -696,43 +572,47 @@ describe('analytics', () => {
                 },
                 {
                     command: `analytics funnel ${APP} ${PERIOD}`,
+                    heading: ['Funnel', PERIOD_LINE],
                     csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: null, segments: [] },
-                    human: ['No data for this period.', 'value: —', ...tz],
+                    summary: ['No data for this period.', 'value: —', ...tz],
                     meta,
                 },
                 {
                     command: `analytics retention ${APP} ${PERIOD}`,
+                    heading: ['Retention', PERIOD_LINE],
                     csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: null, segments: [] },
-                    human: ['No data for this period.', 'value: —', ...tz],
+                    summary: ['No data for this period.', 'value: —', ...tz],
                     meta,
                 },
                 {
                     command: `analytics ltv ${APP} ${PERIOD}`,
+                    heading: ['LTV', PERIOD_LINE],
                     csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: 0, segments: [] },
-                    human: ['No data for this period.', 'value: 0', ...tz],
+                    summary: ['No data for this period.', 'value: 0', ...tz],
                     meta,
                 },
                 {
                     command: `analytics cohort ${APP} ${PERIOD}`,
+                    heading: ['Cohorts', PERIOD_LINE],
                     csv: 'key,title,is_total,value,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
                     data: { value: null, segments: [] },
-                    human: ['No data for this period.', 'value: —', ...tz],
+                    summary: ['No data for this period.', 'value: —', ...tz],
                     meta,
                 },
             ];
 
-            for (const { command, csv, data, human, meta: answerMeta } of empty) {
+            for (const { command, csv, data, heading, meta: answerMeta, summary } of empty) {
                 fetchStub = mockFetchSteps([{ body: { data, meta: answerMeta } }]);
 
                 const humanRun = await runCommand(command);
                 const csvRun = await runCommand(`${command} --csv`);
 
-                expect(humanRun.stdout, command).to.equal(`${human.join('\n')}\n`);
+                expect(humanRun.stdout, command).to.equal(`${[...heading, '', ...summary].join('\n')}\n`);
                 expect(csvRun.stdout, `${command} --csv`).to.equal(`${csv}\n`);
-                expect(csvRun.stderr, `${command} --csv`).to.equal(`${human.join('\n')}\n`);
+                expect(csvRun.stderr, `${command} --csv`).to.equal(`${summary.join('\n')}\n`);
 
                 restoreFetch(fetchStub);
                 fetchStub = undefined;
@@ -762,6 +642,9 @@ describe('analytics', () => {
             const csv = await runCommand(`${command} --csv`);
 
             expect(human.stdout).to.equal([
+                'Chart',
+                PERIOD_LINE,
+                '',
                 'No data for this period.',
                 'value: 0',
                 'timezone: UTC',
@@ -770,21 +653,9 @@ describe('analytics', () => {
                 'timezone_source: app',
                 '',
                 'Compared period',
-                'value: 12',
-                '',
-                'key: —',
-                'title: Total',
-                'is_total: true',
-                'value: 12',
-                'values:',
-                '  2026-06-01: 12',
-                '---',
-                'key: DE',
-                'title: Germany',
-                'is_total: false',
-                'value: 2',
-                'values:',
-                '  2026-06-01: 2',
+                '         Total  2026-06-01',
+                'Total       12          12',
+                'Germany      2           2',
                 '',
             ].join('\n'));
 
@@ -901,24 +772,30 @@ describe('analytics', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
 
-        it('exits 2 for a value outside a fixed list, naming the flag and the values it takes, without a request', async () => {
-            fetchStub = mockFetchSteps([{ body: funnelAnswer }]);
-
+        it('leaves the names to the server: a chart, conversion or revenue basis it refuses exits 4 with its code', async () => {
             const cases = [
-                { command: `analytics chart ${APP} ${PERIOD} --chart revenu`, sample: 'revenue, mrr, arr', start: 'Expected --chart=revenu to be one of: ' },
-                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-to-paid`, sample: 'trial-paid', start: 'Expected --conversion=trial-to-paid to be one of: ' },
-                { command: `analytics chart ${APP} ${PERIOD} --chart installs --revenue-basis net`, sample: 'revenue, mrr', start: 'Invalid input:\n  --revenue-basis: applies only to a money chart: ' },
+                { code: 'unknown_chart', command: `analytics chart ${APP} ${PERIOD} --chart revenu`, field: 'chart_id' },
+                { code: 'unknown_conversion', command: `analytics conversion ${APP} ${PERIOD} --conversion trial-to-paid`, field: 'conversion_id' },
+                {
+                    code: 'revenue_basis_not_supported',
+                    command: `analytics chart ${APP} ${PERIOD} --chart installs --revenue-basis net`,
+                    field: 'revenue_basis',
+                },
             ];
 
-            for (const { command, sample, start } of cases) {
+            for (const { code, command, field } of cases) {
+                if (fetchStub !== undefined) {
+                    restoreFetch(fetchStub);
+                }
+
+                fetchStub = mockFetchSteps([{ body: errorBody(code, field, 'refused by the server', 400), status: 400 }]);
+
                 const { error } = await runCommand(command);
 
-                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
-                expect(error?.message.startsWith(start), command).to.equal(true);
-                expect(error?.message, command).to.contain(sample);
+                expect(error?.oclif?.exit, command).to.equal(exitCode.api);
+                expect(error?.code, command).to.equal(code);
+                expect(fetchStub.callCount, command).to.equal(1);
             }
-
-            expect(fetchStub.callCount).to.equal(0);
         });
 
         it('refuses --csv with --json with exit 2, the error in the --json shape, without a request', async () => {

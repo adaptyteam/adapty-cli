@@ -4,25 +4,8 @@ import type { AnalyticsData, AnalyticsMeta, AnalyticsResponse, AnalyticsSegment,
 import type { ComparableQueryInput, GroupingInput, GroupingRequest, QueryRequest } from './query.js';
 import type { Issue } from '../../core/errors.js';
 
-/** The conversions of the dashboard, by the ids it uses; the backend never maps one id to another pair. */
-export const conversionIds = [
-    'install-paid',
-    'install-trial',
-    'view-trial',
-    'view-paid',
-    'trial-paid',
-    'paid-2period',
-    '2period-3period',
-    '3period-4period',
-    '4period-5period',
-    'paid-6month',
-    'paid-1year',
-    'paid-2year',
-    'billing-issue-paid',
-    'grace-period-paid',
-] as const;
-
-export type ConversionId = (typeof conversionIds)[number];
+/** A conversion id as the catalog lists it; the backend knows which ids exist and never maps one id to another pair. */
+export type ConversionId = string;
 
 export type ConversionInput = ComparableQueryInput & GroupingInput & {
     conversionId: ConversionId;

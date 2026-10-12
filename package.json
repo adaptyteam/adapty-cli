@@ -106,7 +106,7 @@
         "description": "Manage migrations: catalog, transactions and store events"
       },
       "analytics": {
-        "description": "Analytics of an app (charts, cohorts, conversions, funnel, LTV, retention), as the dashboard shows them"
+        "description": "Analytics of an app (charts, cohorts, conversions, funnel, LTV, retention), as the dashboard shows them. For ad-network attribution (campaigns, ROAS), use `attribution`"
       },
       "attribution": {
         "description": "Attribution analytics: reports across ad networks, and the metric and dimension catalogs"

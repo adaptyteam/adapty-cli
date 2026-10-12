@@ -1,6 +1,6 @@
 import { Flags } from '@oclif/core';
 
-import { chartIds, validateChart } from '../../../sdk/adapty/index.js';
+import { validateChart } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
@@ -16,7 +16,8 @@ import {
     revenueBasisFlag,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
+import { analyticsView, chartTable } from '../../views/analytics/human.js';
+import { csvNotice } from '../../views/analytics/segments.js';
 
 import type { ChartInput, ChartResponse } from '../../../sdk/adapty/index.js';
 
@@ -32,11 +33,10 @@ export default class AnalyticsChart extends AdaptyCommand {
 
     static override flags = {
         ...appIdFlag,
-        chart: Flags.option({
+        chart: Flags.string({
             description: 'The chart, as `adapty analytics catalog` lists it',
-            options: chartIds,
             required: true,
-        })(),
+        }),
         ...periodFlags,
         ...compareFlags,
         ...groupByFlag,
@@ -62,7 +62,7 @@ export default class AnalyticsChart extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.chart(input);
 
-        this.render(answer, analyticsView(flags.csv));
+        this.render(answer, analyticsView(flags.csv, chartTable));
         // Beside a CSV of a period without data, its summary; an empty text otherwise
         process.stderr.write(csvNotice(answer, flags.csv));
 

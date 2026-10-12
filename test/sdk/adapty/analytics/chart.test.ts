@@ -14,7 +14,7 @@ describe('validateChart', () => {
         { expected: [], input: chart, name: 'a revenue chart over a quarter' },
         { expected: [], input: { ...chart, compareFrom: '2026-04-01', compareTo: '2026-06-30' }, name: 'a compared period with both ends' },
         { expected: [], input: { ...chart, revenueBasis: 'net' }, name: 'a revenue basis for a money chart' },
-        { expected: ['revenueBasis'], input: { ...chart, chartId: 'installs', revenueBasis: 'net' }, name: 'a revenue basis for a count chart' },
+        { expected: [], input: { ...chart, chartId: 'installs', revenueBasis: 'net' }, name: 'a revenue basis for a count chart: the backend decides' },
         { expected: ['compareTo'], input: { ...chart, compareFrom: '2026-04-01' }, name: 'a compared period without its end' },
         { expected: ['compareFrom'], input: { ...chart, compareTo: '2026-06-30' }, name: 'a compared period without its start' },
         { expected: ['compareTo'], input: { ...chart, compareFrom: '2026-06-30', compareTo: '2026-04-01' }, name: 'a compared end before its start' },
@@ -22,8 +22,8 @@ describe('validateChart', () => {
         { expected: ['filter'], input: { ...chart, filters: [{ dimension: 'date', values: ['2026-07-01'] }] }, name: 'the period as a filter' },
         { expected: [], input: { ...chart, filters: [{ dimension: 'country', values: [''] }] }, name: 'the "No Data" value as a filter' },
         {
-            expected: ['dateTo', 'revenueBasis'],
-            input: { ...chart, chartId: 'trials_new', dateTo: '2026-06-30', revenueBasis: 'gross' },
+            expected: ['dateTo', 'compareTo'],
+            input: { ...chart, compareFrom: '2026-04-01', dateTo: '2026-06-30' },
             name: 'every problem at once',
         },
     ];

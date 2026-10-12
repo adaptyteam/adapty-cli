@@ -5,6 +5,9 @@ installs, ...), conversions, the funnel, retention, LTV and install cohorts. It 
 same developer token as the rest of the CLI, so one login reads every app the token can access. Every command is
 read-only and takes `--app` (the app UUID from `adapty apps list`).
 
+Ad-network attribution (campaigns, ad sets, spend, ROAS) belongs to the `attribution` topic, not this one. Never
+add `analytics` numbers to `attribution` numbers: they come from different calculations.
+
 ## Commands
 
 | Command | Flags | Notes |
@@ -58,12 +61,11 @@ A comma inside a value is written `\,` (a product key that is a list, for exampl
 become one list.
 
 The CLI checks what needs no catalog before it sends anything, and exits 2 with the flag's name: the app UUID,
-the dates (shape, a real day, the end not before the start), the chart and conversion ids, a compared period with
-both ends, `--revenue-basis` only with a money chart (`revenue`, `mrr`, `arr`, `arppu`, `arpu`, `refund_money`,
-`billing_issue_converted_revenue`, `grace_period_converted_revenue`), `--renewal-days` only with
-`--period-type days` and only whole days in ascending order, each day once, a `--filter` without `=`, and `--csv`
-together with `--json`. The API refuses the rest (an
-unknown grouping, filter key or time zone) with exit 4 and an error that names the field.
+the dates (shape, a real day, the end not before the start), a compared period with both ends, `--renewal-days`
+only with `--period-type days` and only whole days in ascending order, each day once, a `--filter` without `=`, and
+`--csv` together with `--json`. Which names exist is the server's knowledge: the API refuses an unknown chart,
+conversion, grouping, filter key or time zone, and `--revenue-basis` on a chart that is not about money, with exit 4
+and an error that names the field. `adapty analytics catalog --app <app>` lists the valid names.
 
 ## The answer
 
@@ -94,20 +96,29 @@ time zone.
 
 ## Outputs
 
-The human view and the CSV read their fields from the answer itself, so they show every field the API gives, a
-field the API adds later included. A nested field has a dotted name (`revenue.gross`, `following_changes.value`), a
-list item its index (`churn_reasons[0].value`); an empty list has no field.
+- Default: a short table for a human. A heading: what the answer is (`Chart revenue, gross, by country`), then
+  the period, the length of one point, the time zone and where it comes from, and the filters. Then one row per
+  group, the total first, named by its title (the `key`, which `--filter` takes, is in `--json` and `--csv`); the
+  main numbers of the group; one column per point (a date, a funnel step or retention period with its title such
+  as `-2 Install`, an LTV or cohort renewal or day). Money (a money chart, LTV, cohort revenue) has 2 decimals;
+  other numbers print as the API gives them; `null` prints as `—`. A compared period has its own table under
+  `Compared period: <from> – <to>`. The main numbers per command:
+  - `chart`: `Total` (the group's `value`), then the value of each point.
+  - `conversion`: `Conversion %`, `From`, `To`, then the rate of each point.
+  - `funnel`: `Installs`, then the count of each step.
+  - `retention`: `Subscribers` (the first period), then the count of each period.
+  - `ltv`: `LTV`, `Cohort size`, then the LTV after each renewal or day.
+  - `cohort`: `Revenue` (on the asked basis), `Installs`, `Subscribers`, then the revenue of each period.
 
-- Default: a view for a human. The summary of the asked period, then one block per segment, total first, `---`
-  between blocks, field names as in `--json`. Each point is one line: its `x` (with the title of a funnel step or a
-  retention period, the number once: `-2 Install`, `1 Paid`, `2 Period`), its `value`, then its other fields in
-  parentheses. `null` prints as
-  `—`, an empty text (a "No Data" key) as `""`. The summary is every field of `data` besides the segments, every
-  field of `meta.query` (the resolved query: time zone, filters, defaults such as `period_unit`, `revenue_basis`,
-  `renewal_days`), and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
-  period.`, then that summary. A compared period follows under its own heading.
+  Where the table leaves fields out (conversion counts per point, funnel shares and churn reasons, retention
+  shares, cohort money on each basis and predictions), one line under it says that `--json` and `--csv` give
+  every field. No segments: `No data for this period.`, then the summary of the period, every field of `data`
+  besides the segments and of `meta` (the resolved query, a conversion's `recommended_period`), null as `—`.
 - `--json`: the API answer unchanged. Read numbers from here.
-- `--csv`: a table the CLI makes from that answer, one row per group and the total first. A group is the total or
+- `--csv`: a table the CLI makes from that answer, one row per group and the total first. It reads its fields from
+  the answer itself, so it has every field the API gives, a field the API adds later included. A nested field has a
+  dotted name (`revenue.gross`, `following_changes.value`), a list item its index (`churn_reasons[0].value`); an
+  empty list has no field. A group is the total or
   one key: a group that has a segment in the asked period, in the compared one, or in both is one row. Columns:
   - `key`, `title`, `is_total`. The total has `is_total` `true` and an empty `key` cell; the "No Data" key `""` is
     written `""`, so tell the two apart by `is_total`.
@@ -123,7 +134,8 @@ list item its index (`churn_reasons[0].value`); an empty list has no field.
     `meta.query.filters.date[0]`, `meta.query.revenue_basis`, ...), `meta.recommended_period...`.
 
   A `null` value is an empty cell. No groups: stdout has the header line only. Whenever the asked period has no
-  groups, stderr has `No data for this period.` and the summary of each period, as the human view shows it.
+  groups, stderr has `No data for this period.` and the summary of each period, as the human view shows it under
+  its heading.
 
 ## Errors and limits
 

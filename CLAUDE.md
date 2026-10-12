@@ -81,7 +81,8 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
   catalog reads, which are the same for every app and take no `--app`
 - `list` commands use shared pagination flags (--page, --page-size)
 - `analytics` data commands print the human view, the API answer (`--json`) or a CSV made from it (`--csv`); the
-  views live in `cli/views/analytics/` and keep the total first, `—` for null, `No data for this period.` when empty
+  views live in `cli/views/analytics/` and keep the total first, `—` for null, `No data for this period.` when empty;
+  the human view is a short table (`human.ts`), the CSV every field (`segments.ts`)
 - Commands support `--json` flag via oclif's `enableJsonFlag = true`
 - Relative imports use explicit `.js` extensions, including `/index.js` for module entry points
   (Node.js ESM + TypeScript `nodenext`)
