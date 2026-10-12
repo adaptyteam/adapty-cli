@@ -2,13 +2,24 @@ import { Flags } from '@oclif/core';
 
 import { granularities, reportGroupBy, sortDirections, validateReport } from '../../../../sdk/attribution/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
-import { AttributionCommand, parseFilter, periodFlags, periodParams, revenueBasisFlag } from '../../../base/attribution/index.js';
+import { AttributionCommand, periodFlags, periodParams, revenueBasisFlag } from '../../../base/attribution/index.js';
 import { usageError } from '../../../errors.js';
 import { appIdFlag } from '../../../input/app.js';
+import { splitFilter } from '../../../input/filter.js';
 
 import { renderReport } from './lib/render.js';
 
 import type { ReportFilter, ReportInput, ReportResponse, ReportSort, SortDirection } from '../../../../sdk/attribution/index.js';
+
+/** `dimension=value[,value]`: one value filters by equality, several by any; values trimmed, empties dropped. */
+const parseFilter = (input: string): Promise<ReportFilter> => {
+    const filter = splitFilter(input);
+    const values = filter?.values.map(value => value.trim()).filter(value => value !== '') ?? [];
+
+    return filter === undefined || values.length === 0
+        ? Promise.reject(usageError(`Expected dimension=value[,value], got "${input}".`))
+        : Promise.resolve({ dimension: filter.dimension, values });
+};
 
 const isDirection = (value: string): value is SortDirection => (sortDirections as readonly string[]).includes(value);
 

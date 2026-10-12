@@ -3,7 +3,9 @@
  * chart and conversion of the dashboard, and every filter key. Passed through as the server sends it.
  */
 
+/** A grouping: `filter` is the filter key that takes the keys of its groups, null when no filter does. */
 export type CatalogSegmentation = {
+    filter: null | string;
     key: string;
     label: string;
 };

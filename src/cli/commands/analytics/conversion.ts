@@ -3,7 +3,7 @@ import { Flags } from '@oclif/core';
 import { conversionIds, validateConversion } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
-    AdaptyCommand,
+    AnalyticsCommand,
     compareFlags,
     csvFlag,
     filterFlags,
@@ -13,11 +13,10 @@ import {
     queryParams,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { ConversionInput, ConversionResponse } from '../../../sdk/adapty/index.js';
 
-export default class AnalyticsConversion extends AdaptyCommand {
+export default class AnalyticsConversion extends AnalyticsCommand {
     static override description = 'Read one conversion of the analytics of an app (install → trial, trial → paid, ...): '
         + 'the rate in percent with its two counts, per point and per group, the total first';
 
@@ -58,14 +57,7 @@ export default class AnalyticsConversion extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.conversion(input);
 
-        this.render(answer, analyticsView(flags.csv));
-
-        // A CSV without groups is its header alone: say so, with the numbers of the period, beside it
-        const notice = flags.csv ? csvNotice(answer) : undefined;
-
-        if (notice !== undefined) {
-            this.logToStderr(notice);
-        }
+        this.renderAnswer(answer, flags.csv);
 
         return answer;
     }

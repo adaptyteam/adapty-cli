@@ -16,8 +16,9 @@ export type LtvPoint = {
     x: number;
 };
 
+/** `cohort_size` is null on a total that the backend does not give. */
 export type LtvSegment = AnalyticsSegment & {
-    cohort_size: number;
+    cohort_size: null | number;
     value: number;
     values: LtvPoint[];
 };

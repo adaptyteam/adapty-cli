@@ -132,12 +132,15 @@ text or JSON.
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
 - `base/adapty/migration-command.ts` — `AdaptyCommand` plus `this.currentMigration`. "Works on the
   saved migration" is the second thing a command says by what it extends.
+- `base/adapty/analytics-command.ts` — `AdaptyCommand` plus `renderAnswer(answer, csv)`, the one way the
+  six analytics data commands print: the human view, the CSV, and the summary on stderr beside a CSV of a
+  period without data.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
   mirrors `AdaptyCommand`. `flags.ts` holds the flags only attribution commands take: `periodFlags`
-  for an inclusive `--date-from`/`--date-to` day range, `parseFilter` for `--filter` (values trimmed, an
-  empty one dropped), `revenueBasisFlag`, and `periodParams`.
+  for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, and `periodParams`. The
+  `--filter` parser of `report` (values trimmed, an empty one dropped) stays in that command.
 - `base/adapty/flags.ts` — the flags the analytics commands share (`periodFlags`, `compareFlags`,
   `filterFlags` with `--filter` values exactly as written, `groupByFlag`, `granularityFlag`,
   `revenueBasisFlag`, `renewalPeriodFlags`, `csvFlag`) and `queryParams`.
@@ -205,6 +208,7 @@ base/
 │   ├── index.ts
 │   ├── adapty-command.ts
 │   ├── migration-command.ts
+│   ├── analytics-command.ts
 │   ├── build.ts
 │   ├── flags.ts
 │   └── openSession.ts

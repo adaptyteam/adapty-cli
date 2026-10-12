@@ -82,6 +82,7 @@ export class CancelledError extends SdkError {
 }
 
 export type Issue = {
+    /** Plain words; another input field is named as `{fieldName}`, and the adapter writes it its own way. */
     message: string;
     /** The input field the problem belongs to. No path: the input as a whole is wrong. */
     path?: string | undefined;

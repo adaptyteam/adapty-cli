@@ -14,7 +14,7 @@ type Segment = AnalyticsSegment & { values: readonly object[] };
 type Segments = { segments: readonly Segment[] };
 
 /** What every analytics answer has; `compare` only a chart and a conversion, null without a compared period. */
-type Answer = {
+export type AnalyticsAnswer = {
     data: Segments & { compare?: null | Segments };
     meta: { query: object };
 };
@@ -75,21 +75,36 @@ type PointPosition = { title?: unknown; x?: unknown };
 /** A point is found by its `x`. */
 const pointId = (point: object): string => String((point as PointPosition).x);
 
-/** Its `x`, and for a funnel step or a retention period also its title: `-2 Install`, `1 Paid`. */
+/**
+ * How the human view names a point: its `x`, and for a funnel step or a retention period also its title, the
+ * number once (`-2 Install`, `1 Paid`, `2 Period`).
+ */
 const pointLabel = (point: object): string => {
     const { title } = point as PointPosition;
+    const id = pointId(point);
 
-    return typeof title === 'string' ? `${pointId(point)} ${title}` : pointId(point);
+    if (typeof title !== 'string') {
+        return id;
+    }
+
+    return title.startsWith(`${id} `) ? title : `${id} ${title}`;
 };
 
 /** Everything of a point besides its position: `value` first, as the API sends it. */
 const pointFields = (point: object): Field[] => fieldsOf(point, ['title', 'x']);
 
+/** The same for the CSV, `value` first: the title stays a field, since a step's title can differ between segments. */
+const pointCells = (point: object): Field[] => {
+    const fields = fieldsOf(point, ['x']);
+
+    return [...fields.filter(([name]) => name === 'value'), ...fields.filter(([name]) => name !== 'value')];
+};
+
 /**
  * The summary of the asked period: the fields of `data` besides the segments, the time zone of the query and every
  * other field of `meta` (a conversion's `recommended_period`). Of a compared period: the fields of `data.compare`.
  */
-const sectionsOf = ({ data, meta }: Answer): Section[] => [
+const sectionsOf = ({ data, meta }: AnalyticsAnswer): Section[] => [
     {
         period: 'main',
         segments: totalFirst(data.segments),
@@ -125,7 +140,7 @@ const segmentBlock = (segment: Segment): string => {
  * total first, `---` between blocks. No segments: `No data for this period.`, then the same summary, null as `—`.
  * A compared period follows under its own heading.
  */
-const renderHuman = (answer: Answer): string => sectionsOf(answer).map((section) => {
+const renderHuman = (answer: AnalyticsAnswer): string => sectionsOf(answer).map((section) => {
     const heading = section.period === 'compare' ? ['Compared period'] : [];
     const summary = section.summary.map(field => line(field));
 
@@ -159,7 +174,7 @@ type Group = {
 const groupId = (segment: Segment): string => (segment.is_total ? 'total' : `key:${String(segment.key)}`);
 
 /** The groups of both periods, the total first, then the groups in the order the API gives them. */
-const groupsOf = ({ data }: Answer): Group[] => {
+const groupsOf = ({ data }: AnalyticsAnswer): Group[] => {
     const groups = new Map<string, Group>();
     const compare = data.compare?.segments ?? [];
 
@@ -186,21 +201,19 @@ const periodColumns = (
     const own = columnsOf(segments.map(segment => fieldsOf(segment, [...IDENTITY, 'values'])))
         .map(name => ({ header: `${prefix}${name}`, read: (group: Group) => new Map(fieldsOf(pick(group) ?? {}, [])).get(name) }));
 
-    const points = new Map<string, { fields: Field[][]; label: string }>();
+    const points = new Map<string, Field[][]>();
 
     for (const point of segments.flatMap(segment => segment.values)) {
-        const known = points.get(pointId(point)) ?? { fields: [], label: pointLabel(point) };
-
-        known.fields.push(pointFields(point));
-        points.set(pointId(point), known);
+        points.set(pointId(point), [...points.get(pointId(point)) ?? [], pointCells(point)]);
     }
 
-    const pointColumns = [...points.entries()].flatMap(([id, { fields, label }]) => columnsOf(fields).map(name => ({
-        header: `${prefix}${name === 'value' ? label : `${label}.${name}`}`,
+    // Named by `x` alone, the same for every segment; a step's title is a cell of its own, `<x>.title`
+    const pointColumns = [...points.entries()].flatMap(([id, fields]) => columnsOf(fields).map(name => ({
+        header: `${prefix}${name === 'value' ? id : `${id}.${name}`}`,
         read: (group: Group) => {
             const point = pick(group)?.values.find(item => pointId(item) === id);
 
-            return point === undefined ? undefined : new Map(pointFields(point)).get(name);
+            return point === undefined ? undefined : new Map(pointCells(point)).get(name);
         },
     })));
 
@@ -211,7 +224,7 @@ const without = (value: object, names: readonly string[]): object =>
     Object.fromEntries(Object.entries(value).filter(([name]) => !names.includes(name)));
 
 /** The numbers of the whole answer under their JSON paths, such as `data.value` and `meta.query.timezone`. */
-const answerFields = ({ data, meta }: Answer): Field[] => {
+const answerFields = ({ data, meta }: AnalyticsAnswer): Field[] => {
     const { compare } = data;
     const zone = Object.entries(meta.query).filter(([name]) => name === 'timezone' || name === 'timezone_source');
 
@@ -228,13 +241,13 @@ const answerFields = ({ data, meta }: Answer): Field[] => {
 /**
  * The CSV view, made from the API answer: a header line, then one row per group, the total first (`is_total`
  * true; its `key` cell is empty, while the "No Data" key `""` is written `""`). Columns: `key`, `title`,
- * `is_total`; the numbers of the group in the asked period, then each point's `value` (named by its `x`, with the
- * title of a funnel step or a retention period) and its other fields as `<point>.<field>`; the same for the
+ * `is_total`; the numbers of the group in the asked period, then each point's `value` (named by its `x`) and its
+ * other fields as `<x>.<field>` (a funnel step's or retention period's title as `<x>.title`); the same for the
  * compared period under `compare.`; then the numbers of the whole answer under their JSON paths (`data.value`,
  * `data.compare.value`, `meta.query.timezone`, `meta.recommended_period...`), the same on every row. A group of
  * one period only has empty cells in the other. A null value is an empty cell. No groups: the header line alone.
  */
-const renderCsv = (answer: Answer): string => {
+const renderCsv = (answer: AnalyticsAnswer): string => {
     const groups = groupsOf(answer);
     const main = totalFirst(answer.data.segments);
     const compare = totalFirst(answer.data.compare?.segments ?? []);
@@ -249,7 +262,7 @@ const renderCsv = (answer: Answer): string => {
 
     const columns: Column[] = [
         ...identity,
-        ...(groups.length === 0
+        ...(main.length === 0
             ? BASE_COLUMNS.slice(IDENTITY.length).map(name => ({ header: name, read: () => undefined }))
             : periodColumns(main, '', group => group.main)),
         ...periodColumns(compare, 'compare.', group => group.compare),
@@ -262,12 +275,22 @@ const renderCsv = (answer: Answer): string => {
 };
 
 /**
- * What `--csv` writes to stderr: for an answer without groups, `No data for this period.` and the numbers of the
- * period, as the human view shows them, since the CSV itself is then only its header.
+ * What `--csv` writes to stderr: when the asked period has no segments, `No data for this period.` and the
+ * summary of each period, as the human view shows them. The CSV is then only its header, or the groups of the
+ * compared period alone.
  */
-export const csvNotice = (answer: Answer): string | undefined =>
-    (groupsOf(answer).length === 0 ? renderHuman(answer) : undefined);
+export const csvNotice = (answer: AnalyticsAnswer): string | undefined => {
+    if (answer.data.segments.length > 0) {
+        return undefined;
+    }
+
+    return sectionsOf(answer).map(section => [
+        ...(section.period === 'compare' ? ['Compared period'] : []),
+        ...(section.segments.length === 0 ? [NO_DATA] : []),
+        ...section.summary.map(field => line(field)),
+    ].join('\n')).join('\n\n');
+};
 
 /** The view of a data command: the CSV with `--csv`, else the human view (`--json` prints no view at all). */
 export const analyticsView = (csv: boolean) =>
-    (answer: Answer): string => (csv ? renderCsv(answer) : renderHuman(answer));
+    (answer: AnalyticsAnswer): string => (csv ? renderCsv(answer) : renderHuman(answer));

@@ -21,7 +21,8 @@ read-only and takes `--app` (the app UUID from `adapty apps list`).
 ## Discovery order
 
 1. `catalog`: pick the operation, the chart or conversion id, a grouping (`--group-by` takes one key of that
-   operation, or of that chart for `chart`) and the filter keys.
+   operation, or of that chart for `chart`) and the filter keys. Each grouping names its `filter`: the filter key
+   that takes the keys of its groups, or `null` when no filter does (for example a grouping by period).
 2. `values`: only when you filter. Get the exact raw values.
 3. The data command: one call answers the question.
 
@@ -32,16 +33,23 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
 adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --date-to 2026-09-30 --filter country=US --json
 ```
 
+To drill down into a group, take the grouping's `filter` from the catalog and the group's `key` from the answer,
+and send `--filter <filter>=<key>`: the answer is that group's number. A grouping whose `filter` is `null` has no
+drill-down.
+
 `--filter dimension=value[,value]` sends each value exactly as written, spaces included. An empty value is a value:
 the "No Data" group of a text grouping has the key `""`, so `--filter country=` keeps it. The "No Data" group of an
 id grouping (paywall, audience, placement, flow, segment) has the zero UUID as its key:
-`--filter paywall_id=00000000-0000-0000-0000-000000000000`. Two `--filter` of one dimension become one list.
+`--filter paywall_id=00000000-0000-0000-0000-000000000000`; the duration grouping has `Uncategorized`. A pair
+filter (`store_product_id`, `flow_screen_id`) takes every form that `values` lists. Two `--filter` of one
+dimension become one list.
 
 The CLI checks what needs no catalog before it sends anything, and exits 2 with the flag's name: the app UUID,
 the dates (shape, a real day, the end not before the start), the chart and conversion ids, a compared period with
 both ends, `--revenue-basis` only with a money chart (`revenue`, `mrr`, `arr`, `arppu`, `arpu`, `refund_money`,
 `billing_issue_converted_revenue`, `grace_period_converted_revenue`), `--renewal-days` only with
-`--period-type days`, a `--filter` without `=`, and `--csv` together with `--json`. The API refuses the rest (an
+`--period-type days` and only whole days in ascending order, each day once, a `--filter` without `=`, and `--csv`
+together with `--json`. The API refuses the rest (an
 unknown grouping, filter key or time zone) with exit 4 and an error that names the field.
 
 ## The answer
@@ -55,7 +63,8 @@ Every data command answers in one shape, so one parser reads all six:
 
 - `data.segments` starts with the total (`is_total` true, `key` null: the only null key). Each other segment is
   one group: `key` is the raw value that `--filter <grouping>=<key>` takes, `title` the dashboard title, "No Data"
-  included (`""` or the zero UUID). Use a group's `key` as a filter to drill down.
+  included (`""`, the zero UUID, or `Uncategorized` for a duration). Use a group's `key` with the grouping's
+  `filter` to drill down.
 - No rows for the window: `data.segments` is `[]`, and the human view prints `No data for this period.`
 - Numbers are the dashboard's numbers. A real zero is `0`. `null` means the backend has no value (an LTV period not
   reached yet, a cohort that cannot be predicted): never count it as 0.
@@ -79,7 +88,8 @@ list item its index (`churn_reasons[0].value`); an empty list has no field.
 
 - Default: a view for a human. The summary of the asked period, then one block per segment, total first, `---`
   between blocks, field names as in `--json`. Each point is one line: its `x` (with the title of a funnel step or a
-  retention period: `-2 Install`, `1 Paid`), its `value`, then its other fields in parentheses. `null` prints as
+  retention period, the number once: `-2 Install`, `1 Paid`, `2 Period`), its `value`, then its other fields in
+  parentheses. `null` prints as
   `—`, an empty text (a "No Data" key) as `""`. The summary is every field of `data` besides the segments, the time
   zone, and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
   period.`, then that summary. A compared period follows under its own heading.
@@ -89,17 +99,17 @@ list item its index (`churn_reasons[0].value`); an empty list has no field.
   - `key`, `title`, `is_total`. The total has `is_total` `true` and an empty `key` cell; the "No Data" key `""` is
     written `""`, so tell the two apart by `is_total`.
   - The numbers of the group in the asked period (`value`, and the operation's own fields), then for each point its
-    `value` in a column named by the point (its `x`, with the title of a funnel step or a retention period: `-2
-    Install`) and its other fields in columns `<point>.<field>` (for example `0 Paid.relative_changes`,
-    `1.revenue.net`).
+    `value` in a column named by its `x`, and its other fields in columns `<x>.<field>`: the same names for every
+    segment. A funnel step or a retention period has its title in `<x>.title` (the title can differ between
+    groups), for example `-2`, `-2.title`, `-2.relative_changes`, `1.revenue.net`.
   - The same for the compared period, under `compare.` (`compare.value`, `compare.2026-06-01`), on the same row. A
     group that has no segment in one period has empty cells there.
   - The numbers of the whole answer under their JSON paths, the same on every row: `data.value` (and a conversion's
     `data.value_from`, `data.value_to`), `data.compare.value` (or an empty `data.compare` without a compared
     period), `meta.query.timezone`, `meta.query.timezone_source`, `meta.recommended_period...`.
 
-  A `null` value is an empty cell. No groups: stdout has the header line only, and stderr has `No data for this
-  period.` with the summary, as the human view shows it.
+  A `null` value is an empty cell. No groups: stdout has the header line only. Whenever the asked period has no
+  groups, stderr has `No data for this period.` and the summary of each period, as the human view shows it.
 
 ## Errors and limits
 

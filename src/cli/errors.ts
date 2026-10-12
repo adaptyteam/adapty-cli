@@ -145,8 +145,12 @@ export const describeCleanupFailures = (
 /** Issue.path is a camelCase sdk field; the user typed a kebab-case flag. */
 const flagName = (path: string): string => `--${path.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`)}`;
 
-const describeIssue = (issue: Issue): string =>
-    (issue.path === undefined ? issue.message : `${flagName(issue.path)}: ${issue.message}`);
+/** A message names another input field as `{fieldName}`: the user reads the flag they would type. */
+const describeIssue = (issue: Issue): string => {
+    const message = issue.message.replace(/\{([a-z][A-Za-z]*)\}/g, (_match, path: string) => flagName(path));
+
+    return issue.path === undefined ? message : `${flagName(issue.path)}: ${message}`;
+};
 
 /**
  * The one place where an sdk error gets a human text and an exit code. No default in the switch:

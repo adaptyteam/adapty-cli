@@ -6,8 +6,7 @@ import type { GroupingInput, GroupingRequest } from './query.js';
 import type { RenewalPeriodsInput, RenewalPeriodsQuery, RenewalPeriodsRequest } from './renewal-periods.js';
 import type { Issue } from '../../core/errors.js';
 
-/** No grouping: each segment is one cohort already. */
-/** `granularity` is the length of one cohort. */
+/** No grouping: each segment is one cohort already. `granularity` is the length of one cohort. */
 export type CohortInput = Pick<GroupingInput, 'granularity'> & RenewalPeriodsInput;
 
 type CohortRequest = Pick<GroupingRequest, 'period_unit'> & RenewalPeriodsRequest;

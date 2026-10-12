@@ -29,11 +29,15 @@ export const validateRenewalPeriods = (input: RenewalPeriodsInput): Issue[] => {
     const issues = validateQuery(input);
 
     if (input.renewalDays !== undefined && input.periodType !== 'days') {
-        issues.push({ message: 'applies only when the period type is days', path: 'renewalDays' });
+        issues.push({ message: 'needs {periodType} days', path: 'renewalDays' });
     }
 
-    if (input.renewalDays?.some(day => !Number.isInteger(day) || day < 0)) {
-        issues.push({ message: 'must be whole days, 0 or more', path: 'renewalDays' });
+    // The backend reads the list as given: whole days, ascending, each once; anything else it refuses
+    const days = input.renewalDays ?? [];
+    const ordered = days.every((day, index) => index === 0 || day > (days[index - 1] ?? day));
+
+    if (days.some(day => !Number.isInteger(day) || day < 0) || !ordered) {
+        issues.push({ message: 'must be whole days, 0 or more, in ascending order, each day once', path: 'renewalDays' });
     }
 
     return issues;

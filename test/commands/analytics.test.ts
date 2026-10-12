@@ -41,7 +41,20 @@ const conversionAnswer = {
         value: 25,
         value_from: 4,
         value_to: 1,
-        compare: null,
+        compare: {
+            value: 20,
+            value_from: 5,
+            value_to: 1,
+            segments: [{
+                key: null,
+                title: 'Conversion rate from trial to paid',
+                is_total: true,
+                value: 20,
+                value_from: 5,
+                value_to: 1,
+                values: [{ x: '2026-06-01', value: 20, value_from: 5, value_to: 1, value_from_unfinished: 0, has_unfinished: false }],
+            }],
+        },
         segments: [
             { key: 'US', title: 'United States', is_total: false, value: 0, value_from: 4, value_to: 0, values: [] },
             {
@@ -157,7 +170,7 @@ const catalogAnswer = {
             default_segmentation: null,
             filters: ['country', 'store'],
             id: 'revenue',
-            segmentations: [{ key: 'country', label: 'Country' }],
+            segmentations: [{ key: 'country', label: 'Country', filter: 'country' }, { key: 'period', label: 'Period', filter: null }],
             takes_revenue_basis: true,
             title: 'Revenue',
             unit: 'USD',
@@ -181,7 +194,7 @@ const catalogAnswer = {
                 method: 'POST',
                 options: [{ default: false, name: 'use_trial', values: null }, { default: null, name: 'timezone', values: null }],
                 path: 'retention/',
-                segmentations: [{ key: 'country', label: 'Country' }],
+                segmentations: [{ key: 'country', label: 'Country', filter: 'country' }],
             },
         ],
     },
@@ -424,9 +437,9 @@ describe('analytics', () => {
                 answer: conversionAnswer,
                 command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
                 csv: [
-                    'key,title,is_total,value,value_from,value_to,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished,data.value,data.value_from,data.value_to,data.compare,meta.query.timezone,meta.query.timezone_source,meta.recommended_period',
-                    ',Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false,25,4,1,,UTC,app,',
-                    'US,United States,false,0,4,0,,,,,,25,4,1,,UTC,app,',
+                    'key,title,is_total,value,value_from,value_to,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished,compare.value,compare.value_from,compare.value_to,compare.2026-06-01,compare.2026-06-01.value_from,compare.2026-06-01.value_to,compare.2026-06-01.value_from_unfinished,compare.2026-06-01.has_unfinished,data.value,data.value_from,data.value_to,data.compare.value,data.compare.value_from,data.compare.value_to,meta.query.timezone,meta.query.timezone_source,meta.recommended_period',
+                    ',Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false,20,5,1,20,5,1,0,false,25,4,1,20,5,1,UTC,app,',
+                    'US,United States,false,0,4,0,,,,,,,,,,,,,,25,4,1,20,5,1,UTC,app,',
                 ],
                 human: [
                     'value: 25',
@@ -451,15 +464,29 @@ describe('analytics', () => {
                     'value: 0',
                     'value_from: 4',
                     'value_to: 0',
+                    '',
+                    'Compared period',
+                    'value: 20',
+                    'value_from: 5',
+                    'value_to: 1',
+                    '',
+                    'key: —',
+                    'title: Conversion rate from trial to paid',
+                    'is_total: true',
+                    'value: 20',
+                    'value_from: 5',
+                    'value_to: 1',
+                    'values:',
+                    '  2026-06-01: 20 (value_from 5, value_to 1, value_from_unfinished 0, has_unfinished false)',
                 ],
             },
             {
                 answer: funnelAnswer,
                 command: `analytics funnel ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,-2 Install,-2 Install.value_relative,-2 Install.relative_changes,-2 Install.following_changes.title,-2 Install.following_changes.value,-2 Install.following_changes.value_relative,-2 Install.churn_reason_title,0 Paid,0 Paid.value_relative,0 Paid.relative_changes,0 Paid.following_changes.title,0 Paid.following_changes.value,0 Paid.following_changes.value_relative,0 Paid.churn_reason_title,0 Paid.churn_reasons[0].title,0 Paid.churn_reasons[0].value,0 Paid.churn_reasons[0].value_relative,0 Paid.parts[0].title,0 Paid.parts[0].value,0 Paid.parts[0].value_relative,data.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,3,3,100,66.7,Drop off,1,33.3,"",2,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50,3,UTC,app',
-                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,0,0,Drop off,0,0,"",,,,,,,,,,,,,,3,UTC,app',
+                    'key,title,is_total,value,-2,-2.title,-2.value_relative,-2.relative_changes,-2.following_changes.title,-2.following_changes.value,-2.following_changes.value_relative,-2.churn_reason_title,0,0.title,0.value_relative,0.relative_changes,0.following_changes.title,0.following_changes.value,0.following_changes.value_relative,0.churn_reason_title,0.churn_reasons[0].title,0.churn_reasons[0].value,0.churn_reasons[0].value_relative,0.parts[0].title,0.parts[0].value,0.parts[0].value_relative,data.value,meta.query.timezone,meta.query.timezone_source',
+                    ',Total,true,3,3,Install,100,66.7,Drop off,1,33.3,"",2,Paid,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50,3,UTC,app',
+                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,Install,0,0,Drop off,0,0,"",,,,,,,,,,,,,,,3,UTC,app',
                 ],
                 human: [
                     'value: 3',
@@ -486,9 +513,9 @@ describe('analytics', () => {
                 answer: retentionAnswer,
                 command: `analytics retention ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,first_value,1 Paid,1 Paid.value_relative,data.value,meta.query.timezone,meta.query.timezone_source',
-                    ',Total,true,5,5,5,100,5,UTC,app',
-                    'US,United States,false,0,0,0,0,5,UTC,app',
+                    'key,title,is_total,value,first_value,1,1.title,1.value_relative,data.value,meta.query.timezone,meta.query.timezone_source',
+                    ',Total,true,5,5,5,Paid,100,5,UTC,app',
+                    'US,United States,false,0,0,0,Paid,0,5,UTC,app',
                 ],
                 human: [
                     'value: 5',
@@ -699,6 +726,72 @@ describe('analytics', () => {
             }
         });
 
+        it('shows the compared groups when the asked period has none: total first, the summary of both on stderr', async () => {
+            fetchStub = mockFetchSteps([{
+                body: {
+                    data: {
+                        value: 0,
+                        compare: {
+                            value: 12,
+                            segments: [
+                                { key: 'DE', title: 'Germany', is_total: false, value: 2, values: [{ x: '2026-06-01', value: 2 }] },
+                                { key: null, title: 'Total', is_total: true, value: 12, values: [{ x: '2026-06-01', value: 12 }] },
+                            ],
+                        },
+                        segments: [],
+                    },
+                    meta,
+                },
+            }]);
+
+            const command = `analytics chart ${APP} ${PERIOD} --chart revenue --group-by country --compare-from 2026-04-01 --compare-to 2026-06-30`;
+            const human = await runCommand(command);
+            const csv = await runCommand(`${command} --csv`);
+
+            expect(human.stdout).to.equal([
+                'No data for this period.',
+                'value: 0',
+                'timezone: UTC',
+                'timezone_source: app',
+                '',
+                'Compared period',
+                'value: 12',
+                '',
+                'key: —',
+                'title: Total',
+                'is_total: true',
+                'value: 12',
+                'values:',
+                '  2026-06-01: 12',
+                '---',
+                'key: DE',
+                'title: Germany',
+                'is_total: false',
+                'value: 2',
+                'values:',
+                '  2026-06-01: 2',
+                '',
+            ].join('\n'));
+
+            expect(csv.stdout).to.equal([
+                'key,title,is_total,value,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.timezone_source',
+                ',Total,true,,12,12,0,12,UTC,app',
+                'DE,Germany,false,,2,2,0,12,UTC,app',
+                '',
+            ].join('\n'));
+
+            expect(csv.stderr).to.equal([
+                'No data for this period.',
+                'value: 0',
+                'timezone: UTC',
+                'timezone_source: app',
+                '',
+                'Compared period',
+                'value: 12',
+                '',
+            ].join('\n'));
+        });
+
         it('quotes a CSV cell with a comma, a quote or a line break, and doubles the quote', async () => {
             fetchStub = mockFetchSteps([{
                 body: {
@@ -733,12 +826,12 @@ describe('analytics', () => {
                 '  filters: per chart, see Charts',
                 'retention (POST retention/; one period only)',
                 '  options: use_trial (default false); timezone',
-                '  groupings: country',
+                '  groupings: country (filter country)',
                 '  filters: country',
                 '',
                 'Charts',
                 'revenue: Revenue (USD, takes revenue_basis)',
-                '  groupings: country',
+                '  groupings: country (filter country), period (filter —)',
                 '  filters: country, store',
                 '',
                 'Conversions',
@@ -764,21 +857,20 @@ describe('analytics', () => {
                 { command: `analytics funnel ${APP} --date-from 2026-02-30 --date-to 2026-03-31`, message: 'Invalid input:\n  --date-from: must be a date in YYYY-MM-DD form' },
                 { command: `analytics funnel ${APP} --date-from 2026-09-30 --date-to 2026-07-01`, message: 'Invalid input:\n  --date-to: must not be before the start date' },
                 { command: `analytics funnel --app not-a-uuid ${PERIOD}`, message: 'Parsing --app \n\tInvalid app ID format. Run `adapty apps list` to find your app ID.\nSee more help with --help' },
-                { command: `analytics chart ${APP} ${PERIOD} --chart revenu`, message: 'Expected --chart=revenu to be one of: revenue, mrr, arr, arppu, subscriptions_active, subscriptions_new, subscriptions_renewal_cancelled, subscriptions_expired, trials_active, trials_new, trials_renewal_cancelled, trials_expired, refund_events, refund_money, grace_period, billing_issue, non_subscriptions, arpu, installs, billing_issue_converted, billing_issue_converted_revenue, grace_period_converted, grace_period_converted_revenue\nSee more help with --help' },
-                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-to-paid`, message: 'Expected --conversion=trial-to-paid to be one of: install-paid, install-trial, view-trial, view-paid, trial-paid, paid-2period, 2period-3period, 3period-4period, 4period-5period, paid-6month, paid-1year, paid-2year, billing-issue-paid, grace-period-paid\nSee more help with --help' },
                 { command: `analytics chart ${APP} ${PERIOD} --chart revenue --compare-from 2026-04-01`, message: 'Invalid input:\n  --compare-to: required with the start of the compared period' },
                 { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid --compare-to 2026-06-30`, message: 'Invalid input:\n  --compare-from: required with the end of the compared period' },
                 { command: `analytics chart ${APP} ${PERIOD} --chart revenue --compare-from 2026-06-30 --compare-to 2026-04-01`, message: 'Invalid input:\n  --compare-to: must not be before the start date' },
                 // The funnel, retention, LTV and cohort queries cannot keep two periods apart: no compare flag at all
                 { command: `analytics funnel ${APP} ${PERIOD} --compare-from 2026-04-01 --compare-to 2026-06-30`, message: 'Nonexistent flags: --compare-from, --compare-to\nSee more help with --help' },
                 { command: `analytics cohort ${APP} ${PERIOD} --group-by country`, message: 'Nonexistent flag: --group-by\nSee more help with --help' },
-                { command: `analytics ltv ${APP} ${PERIOD} --renewal-days 7,30`, message: 'Invalid input:\n  --renewal-days: applies only when the period type is days' },
-                { command: `analytics cohort ${APP} ${PERIOD} --period-type renewals --renewal-days 7`, message: 'Invalid input:\n  --renewal-days: applies only when the period type is days' },
+                { command: `analytics ltv ${APP} ${PERIOD} --renewal-days 7,30`, message: 'Invalid input:\n  --renewal-days: needs --period-type days' },
+                { command: `analytics cohort ${APP} ${PERIOD} --period-type renewals --renewal-days 7`, message: 'Invalid input:\n  --renewal-days: needs --period-type days' },
+                { command: `analytics ltv ${APP} ${PERIOD} --period-type days --renewal-days 30,7`, message: 'Invalid input:\n  --renewal-days: must be whole days, 0 or more, in ascending order, each day once' },
+                { command: `analytics cohort ${APP} ${PERIOD} --period-type days --renewal-days 7 --renewal-days 7`, message: 'Invalid input:\n  --renewal-days: must be whole days, 0 or more, in ascending order, each day once' },
                 { command: `analytics ltv ${APP} ${PERIOD} --period-type days --renewal-days -1`, message: 'Parsing --renewal-days \n\tExpected an integer greater than or equal to 0 but received: -1\nSee more help with --help' },
                 { command: `analytics funnel ${APP} ${PERIOD} --filter country`, message: 'Parsing --filter \n\tExpected dimension=value[,value] (an empty value is a "No Data" group), got "country".\nSee more help with --help' },
                 { command: `analytics funnel ${APP} ${PERIOD} --filter date=2026-07-01`, message: 'Invalid input:\n  --filter: date is not a filter: the period has flags of its own' },
                 { command: `analytics ltv ${APP} ${PERIOD} --revenue-basis net_net`, message: 'Expected --revenue-basis=net_net to be one of: gross, proceeds, net\nSee more help with --help' },
-                { command: `analytics chart ${APP} ${PERIOD} --chart installs --revenue-basis net`, message: 'Invalid input:\n  --revenue-basis: applies only to a money chart: revenue, mrr, arr, arppu, arpu, refund_money, billing_issue_converted_revenue, grace_period_converted_revenue' },
                 { command: `analytics values ${APP}`, message: 'The following error occurred:\n  Missing required flag dimension\nSee more help with --help' },
             ];
 
@@ -787,6 +879,26 @@ describe('analytics', () => {
 
                 expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
                 expect(error?.message, command).to.equal(message);
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('exits 2 for a value outside a fixed list, naming the flag and the values it takes, without a request', async () => {
+            fetchStub = mockFetchSteps([{ body: funnelAnswer }]);
+
+            const cases = [
+                { command: `analytics chart ${APP} ${PERIOD} --chart revenu`, sample: 'revenue, mrr, arr', start: 'Expected --chart=revenu to be one of: ' },
+                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-to-paid`, sample: 'trial-paid', start: 'Expected --conversion=trial-to-paid to be one of: ' },
+                { command: `analytics chart ${APP} ${PERIOD} --chart installs --revenue-basis net`, sample: 'revenue, mrr', start: 'Invalid input:\n  --revenue-basis: applies only to a money chart: ' },
+            ];
+
+            for (const { command, sample, start } of cases) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
+                expect(error?.message.startsWith(start), command).to.equal(true);
+                expect(error?.message, command).to.contain(sample);
             }
 
             expect(fetchStub.callCount).to.equal(0);

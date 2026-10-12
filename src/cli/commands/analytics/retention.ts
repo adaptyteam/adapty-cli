@@ -3,7 +3,7 @@ import { Flags } from '@oclif/core';
 import { validateRetention } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
-    AdaptyCommand,
+    AnalyticsCommand,
     csvFlag,
     filterFlags,
     groupByFlag,
@@ -11,11 +11,10 @@ import {
     queryParams,
 } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
-import { analyticsView, csvNotice } from '../../views/analytics/segments.js';
 
 import type { RetentionInput, RetentionResponse } from '../../../sdk/adapty/index.js';
 
-export default class AnalyticsRetention extends AdaptyCommand {
+export default class AnalyticsRetention extends AnalyticsCommand {
     static override description = 'Read the retention of an app: the subscribers left in each period, per group, '
         + 'the total first (no compared period)';
 
@@ -50,14 +49,7 @@ export default class AnalyticsRetention extends AdaptyCommand {
 
         const answer = await this.adapty.analytics.retention(input);
 
-        this.render(answer, analyticsView(flags.csv));
-
-        // A CSV without groups is its header alone: say so, with the numbers of the period, beside it
-        const notice = flags.csv ? csvNotice(answer) : undefined;
-
-        if (notice !== undefined) {
-            this.logToStderr(notice);
-        }
+        this.renderAnswer(answer, flags.csv);
 
         return answer;
     }
