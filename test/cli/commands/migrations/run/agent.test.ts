@@ -5,39 +5,42 @@ import { join } from 'node:path';
 
 import { expect } from 'chai';
 
-import { buildHandoff, repository, RESOURCE_FILE_NAME } from '../../../../../src/cli/commands/migrations/run/lib/agent.js';
+import { buildHandoff, PATH_SEGMENT, repository } from '../../../../../src/cli/commands/migrations/run/lib/agent.js';
 
 describe('migrations run: agent handoff', () => {
+    const migrationId = '0b5d3f6e-8c2a-4e1f-9a7b-3d6c8e2f1a4b';
+    const dir = `/repo/.git/adapty/${migrationId}`;
+
     const handoff = buildHandoff({
-        actionId: 'migrate_code',
-        files: ['`report`: /repo/.git/adapty/report.json', '`code-plan`: /repo/.git/adapty/code-plan.json'],
-        guides: ['Migrate this app with the adapty-integration skill.\n'],
+        actionId: 'design_paywall',
+        files: [`\`paywall-designs\`: ${dir}/paywall-designs.json`, `\`paywall-design-source\`: ${dir}/paywall-design-source.json`],
+        guides: ['Rebuild the paywall design with the flow-generator skill.\n'],
     });
 
     it('lists where the data went, then hands over the server\'s text as it is', () => {
         expect(handoff.instructions).to.equal([
             'adapty-cli wrote this migration\'s data to:',
-            '- `report`: /repo/.git/adapty/report.json',
-            '- `code-plan`: /repo/.git/adapty/code-plan.json',
+            `- \`paywall-designs\`: ${dir}/paywall-designs.json`,
+            `- \`paywall-design-source\`: ${dir}/paywall-design-source.json`,
             '',
-            'Migrate this app with the adapty-integration skill.',
+            'Rebuild the paywall design with the flow-generator skill.',
         ].join('\n'));
     });
 
     it('returns the action and the files next to the text, for --json', () => {
-        expect(handoff.action_id).to.equal('migrate_code');
+        expect(handoff.action_id).to.equal('design_paywall');
         expect(handoff.files).to.have.length(2);
     });
 
-    for (const name of ['report', 'code-plan']) {
-        it(`writes the resource ${name} to a file of its own name`, () => {
-            expect(RESOURCE_FILE_NAME.test(name)).to.equal(true);
+    for (const name of ['report', 'paywall-design-source', migrationId]) {
+        it(`takes "${name}" as a path segment`, () => {
+            expect(PATH_SEGMENT.test(name)).to.equal(true);
         });
     }
 
     for (const name of ['../package', 'a/b', '.hidden', 'Report', '']) {
-        it(`refuses "${name}" as a file name`, () => {
-            expect(RESOURCE_FILE_NAME.test(name)).to.equal(false);
+        it(`refuses "${name}" as a path segment`, () => {
+            expect(PATH_SEGMENT.test(name)).to.equal(false);
         });
     }
 

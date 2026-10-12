@@ -10,7 +10,7 @@ import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
 import { actionView } from './lib/action-view.js';
 import { findAction, unknownActionMessage, unsupportedActionMessage } from './lib/actions.js';
-import { buildHandoff, repository, RESOURCE_FILE_NAME } from './lib/agent.js';
+import { buildHandoff, PATH_SEGMENT, repository } from './lib/agent.js';
 import { readActionInput } from './lib/input.js';
 import { openLink } from './lib/open-link.js';
 
@@ -46,9 +46,9 @@ export default class Run extends MigrationCommand {
         'Pipes and --json require --open to launch a browser; BROWSER=none disables it.',
         'File uploads are not supported; use the dashboard or an offered Cloud Export action.',
         '',
-        'An agent action writes the resources in reads to .git/adapty/ in the app\'s git repository and prints what a',
-        'coding agent needs to do it. Run it from the agent, or paste its output into one. The agent reports the',
-        'result by running the action again with --input.',
+        'An agent action writes the resources in reads to .git/adapty/<migration ID>/ in the app\'s git repository and',
+        'prints what a coding agent needs to do it. Run it from the agent, or paste its output into one. The agent',
+        'reports the result by running the action again with --input.',
         '',
         'With --json, returns the full migration response (before the browser step for external actions). For an agent',
         'action without --input, returns { action_id, files, instructions }: the files written and the text for the agent.',
@@ -163,7 +163,7 @@ export default class Run extends MigrationCommand {
     }
 
     /** The agent that ran this command, or the one the developer pastes the output into, does the work. */
-    private async handOff({ action, selection }: RunContext): Promise<Handoff> {
+    private async handOff({ action, envelope }: RunContext): Promise<Handoff> {
         const repo = await repository(process.cwd());
 
         if (repo === undefined) {
@@ -174,8 +174,14 @@ export default class Run extends MigrationCommand {
             );
         }
 
-        const migrationId = selection.currentMigrationId;
-        const dir = join(repo.gitDir, 'adapty');
+        const migrationId = envelope.migration.id;
+
+        if (!PATH_SEGMENT.test(migrationId)) {
+            throw new CliError(`The server named a migration \`${migrationId}\` that cannot be a folder name.`, 1, 'migration_id_invalid');
+        }
+
+        // A folder per migration: two migrations handed off in one repository never read each other's data.
+        const dir = join(repo.gitDir, 'adapty', migrationId);
         const files: string[] = [];
         const guides: string[] = [];
 
@@ -186,7 +192,7 @@ export default class Run extends MigrationCommand {
 
             if (typeof result === 'object' && result !== null && 'markdown' in result && typeof result.markdown === 'string') {
                 guides.push(result.markdown);
-            } else if (RESOURCE_FILE_NAME.test(name)) {
+            } else if (PATH_SEGMENT.test(name)) {
                 const file = join(dir, `${name}.json`);
 
                 await writeFile(file, `${JSON.stringify(result, null, 2)}\n`);

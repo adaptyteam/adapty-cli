@@ -28,8 +28,8 @@ export type HandoffInput = {
 /** What `--json` returns for an agent action, and what the human view prints. */
 export type Handoff = { action_id: string; files: string[]; instructions: string };
 
-/** A resource name becomes a file name, so it may only be one: no separators, no dots to climb out with. */
-export const RESOURCE_FILE_NAME = /^[a-z0-9][a-z0-9-]*$/;
+/** A resource name or a migration ID becomes a path segment: no separators, no dots to climb out with. */
+export const PATH_SEGMENT = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
  * The server says what to do; the CLI adds the one thing only it knows, where it put the data. Paths
