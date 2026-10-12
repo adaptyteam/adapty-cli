@@ -118,7 +118,7 @@ export type FetchStep = {
 };
 
 /** Answers each call with its own status and headers; mockFetch's canned responses are all 200. */
-export const mockFetchSteps = (steps: FetchStep[]): sinon.SinonStub => {
+export function mockFetchSteps(steps: FetchStep[]): sinon.SinonStub {
     let index = 0;
 
     return sinon.stub(globalThis, 'fetch').callsFake(() => {
@@ -130,10 +130,15 @@ export const mockFetchSteps = (steps: FetchStep[]): sinon.SinonStub => {
             status: step?.status ?? 200,
         }));
     });
-};
+}
 
 /** The request of one call as fetch received it: the body as the text that was sent. */
-export const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
+export function requestOf(stub: sinon.SinonStub, callIndex: number): {
+    body: string | undefined;
+    headers: Headers;
+    method: string | undefined;
+    url: string;
+} {
     const [url, init] = stub.getCall(callIndex).args as [string, RequestInit];
 
     return {
@@ -142,4 +147,4 @@ export const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
         method: init.method,
         url,
     };
-};
+}

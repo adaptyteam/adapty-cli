@@ -81,8 +81,20 @@ const pointLabel = (point: object): string => {
 /** Everything of a point besides its position: `value` first, as the API sends it. */
 const pointFields = (point: object): Field[] => fieldsOf(point, ['title', 'x']);
 
-const sectionsOf = ({ data }: Answer): Section[] => [
-    { period: 'main', segments: totalFirst(data.segments), summary: fieldsOf(data, ['compare', 'segments']) },
+/**
+ * The summary of the asked period: the fields of `data` besides the segments, the time zone of the query and every
+ * other field of `meta` (a conversion's `recommended_period`). Of a compared period: the fields of `data.compare`.
+ */
+const sectionsOf = ({ data, meta }: Answer): Section[] => [
+    {
+        period: 'main',
+        segments: totalFirst(data.segments),
+        summary: [
+            ...fieldsOf(data, ['compare', 'segments']),
+            ...fieldsOf(meta.query, []).filter(([name]) => name === 'timezone' || name === 'timezone_source'),
+            ...fieldsOf(meta, ['query']),
+        ],
+    },
     ...(data.compare === undefined || data.compare === null
         ? []
         : [{ period: 'compare' as const, segments: totalFirst(data.compare.segments), summary: fieldsOf(data.compare, ['segments']) }]),
@@ -105,22 +117,17 @@ const segmentBlock = (segment: Segment): string => {
 };
 
 /**
- * The human view: the numbers of the period and its time zone, then one labelled block per segment, total first,
- * `---` between blocks. No segments: `No data for this period.`, then what else the answer says (a window with
- * data). A compared period follows under its own heading.
+ * The human view: the summary of the period (its numbers, its time zone), then one labelled block per segment,
+ * total first, `---` between blocks. No segments: `No data for this period.`, then the same summary, null as `—`.
+ * A compared period follows under its own heading.
  */
 export const renderHuman = (answer: Answer): string => sectionsOf(answer).map((section) => {
     const heading = section.period === 'compare' ? ['Compared period'] : [];
-    const isMain = section.period === 'main';
+    const summary = section.summary.map(field => line(field));
 
     if (section.segments.length === 0) {
-        const notes = isMain ? fieldsOf(answer.meta, ['query']).filter(([, value]) => value !== null) : [];
-
-        return [...heading, NO_DATA, ...notes.map(field => line(field))].join('\n');
+        return [...heading, NO_DATA, ...summary].join('\n');
     }
-
-    const timezone = isMain ? fieldsOf(answer.meta.query, []).filter(([name]) => name.startsWith('timezone')) : [];
-    const summary = [...section.summary, ...timezone].map(field => line(field));
 
     return [...heading, ...summary, '', section.segments.map(segment => segmentBlock(segment)).join('\n---\n')].join('\n');
 }).join('\n\n');
@@ -133,17 +140,22 @@ const columnsOf = (rows: readonly (readonly Field[])[]): string[] => {
 };
 
 /**
- * The CSV view, made from the API answer: a header line, then one row per segment, total first; a compared
- * period's rows follow the asked period's. Columns: `period` (for a chart and a conversion), every segment field,
- * then for each point (by its `x`, named by its `x` or its step title) its `value` under that name and each other
- * field under `<point>.<field>`. A null value and a field a segment does not have are empty cells. No segments:
- * the header of the fields every segment has.
+ * The CSV view, made from the API answer: a header line, then one row per segment (`row` = `segment`), total
+ * first, a compared period's segments after the asked period's; then one summary row per period (`row` =
+ * `summary`) with the numbers of the period and, for the asked one, its time zone. A summary row is no group: its
+ * key, title and is_total are empty. Columns: `period` (for a chart and a conversion), `row`, every segment field,
+ * every summary field that no segment has, then for each point (by its `x`, named by its `x` or its step title)
+ * its `value` under that name and each other field under `<point>.<field>`. A null value and a field a row does
+ * not have are empty cells. No segments: the header and the summary rows.
  */
 export const renderCsv = (answer: Answer): string => {
     const comparable = 'compare' in answer.data;
     const sections = sectionsOf(answer);
     const segments = sections.flatMap(section => section.segments);
     const segmentColumns = segments.length === 0 ? BASE_COLUMNS : columnsOf(segments.map(segment => fieldsOf(segment, ['values'])));
+
+    const summaryColumns = columnsOf(sections.map(section => section.summary))
+        .filter(name => !segmentColumns.includes(name));
 
     const points = new Map<string, { fields: Field[][]; label: string }>();
 
@@ -157,20 +169,39 @@ export const renderCsv = (answer: Answer): string => {
     const pointColumns = [...points.entries()].flatMap(([id, { fields, label }]) => columnsOf(fields)
         .map(name => ({ header: name === 'value' ? label : `${label}.${name}`, id, name })));
 
-    const header = [...(comparable ? ['period'] : []), ...segmentColumns, ...pointColumns.map(column => column.header)];
+    const header = [
+        ...(comparable ? ['period'] : []),
+        'row',
+        ...segmentColumns,
+        ...summaryColumns,
+        ...pointColumns.map(column => column.header),
+    ];
 
-    const rows = sections.flatMap(section => section.segments.map((segment) => {
+    const segmentRows = sections.flatMap(section => section.segments.map((segment) => {
         const own = new Map(fieldsOf(segment, ['values']));
         const byPoint = new Map(segment.values.map(point => [pointId(point), new Map(pointFields(point))]));
 
         return [
             ...(comparable ? [section.period] : []),
+            'segment',
             ...segmentColumns.map(name => own.get(name)),
+            ...summaryColumns.map(() => undefined),
             ...pointColumns.map(({ id, name }) => byPoint.get(id)?.get(name)),
         ];
     }));
 
-    return [header, ...rows].map(cells => csvLine(cells)).join('\n');
+    const summaryRows = sections.map((section) => {
+        const own = new Map(section.summary);
+
+        return [
+            ...(comparable ? [section.period] : []),
+            'summary',
+            ...[...segmentColumns, ...summaryColumns].map(name => own.get(name)),
+            ...pointColumns.map(() => undefined),
+        ];
+    });
+
+    return [header, ...segmentRows, ...summaryRows].map(cells => csvLine(cells)).join('\n');
 };
 
 /** The view of a data command: the CSV with `--csv`, else the human view (`--json` prints no view at all). */

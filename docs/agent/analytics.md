@@ -80,16 +80,20 @@ list item its index (`churn_reasons[0].value`); an empty list has no field.
 - Default: a view for a human. The numbers of the period and its time zone, then one block per segment, total
   first, `---` between blocks, field names as in `--json`. Each point is one line: its `x` (or its step title for
   the funnel and retention), its `value`, then its other fields in parentheses. `null` prints as `—`, an empty text
-  (a "No Data" key) as `""`. No segments: `No data for this period.`, then what else `meta` says (a conversion's
-  `recommended_period`).
+  (a "No Data" key) as `""`. The summary of the asked period is every field of `data` besides the segments, the
+  time zone, and every other field of `meta` (a conversion's `recommended_period`). No segments: `No data for this
+  period.`, then that summary, null as `—`.
 - `--json`: the API answer unchanged. Read numbers from here.
-- `--csv`: a table the CLI makes from that answer, wide: a header line, then one row per segment, total first.
-  Columns: `period` (`main` or `compare`; `chart` and `conversion` only, compared rows after the main rows), every
-  segment field, then for each point its `value` in a column named by the point (its `x`, or the step title for the
-  funnel and retention) and each other field of the point in a column `<point>.<field>` (for example
-  `Paid.relative_changes`, `1.revenue.net`). A `null` value and a field a segment does not have are empty cells; an
-  empty text is `""`. No segments: the header `key,title,is_total,value` (with `period` first for `chart` and
-  `conversion`) alone.
+- `--csv`: a table the CLI makes from that answer, wide. A header line; then one row per segment (`row` is
+  `segment`), total first, the compared period's segments after the asked period's; then one row per period with
+  its summary (`row` is `summary`: the period's numbers and, for the asked period, the time zone and the other
+  `meta` fields). A summary row is no group: its `key`, `title` and `is_total` are empty, and it never comes before
+  the total. Columns: `period` (`main` or `compare`; `chart` and `conversion` only), `row`, every segment field,
+  every summary field that no segment has (`timezone`, `timezone_source`, `recommended_period...`), then for each
+  point its `value` in a column named by the point (its `x`, or the step title for the funnel and retention) and
+  each other field of the point in a column `<point>.<field>` (for example `Paid.relative_changes`,
+  `1.revenue.net`). A `null` value and a field a row does not have are empty cells; an empty text is `""`. No
+  segments: the header (`key,title,is_total,value` and the summary fields) and the summary rows, no group row.
 
 ## Errors and limits
 

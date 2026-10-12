@@ -8,20 +8,19 @@ export const dateParser = (input: string): Promise<string> => (ISO_DATE.test(inp
     ? Promise.resolve(input)
     : Promise.reject(usageError('Dates must be written as YYYY-MM-DD.')));
 
-/** An inclusive day range, both ends required. */
-export const periodFlags = {
+/**
+ * An inclusive day range, both ends required. `zone` completes the help text: which time zone the days are in,
+ * the one thing the products say differently.
+ */
+export const dayRangeFlags = (zone: string) => ({
     'date-from': Flags.string({
-        description: 'First day of the period, inclusive (YYYY-MM-DD, in the app timezone)',
+        description: `First day of the period, inclusive (YYYY-MM-DD, ${zone})`,
         parse: dateParser,
         required: true,
     }),
     'date-to': Flags.string({
-        description: 'Last day of the period, inclusive (YYYY-MM-DD, in the app timezone)',
+        description: `Last day of the period, inclusive (YYYY-MM-DD, ${zone})`,
         parse: dateParser,
         required: true,
     }),
-};
-
-/** Where the period flags meet the sdk's field names. */
-export const periodParams = (flags: { 'date-from': string; 'date-to': string }): { dateFrom: string; dateTo: string } =>
-    ({ dateFrom: flags['date-from'], dateTo: flags['date-to'] });
+});

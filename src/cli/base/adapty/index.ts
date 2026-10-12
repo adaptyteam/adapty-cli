@@ -5,13 +5,13 @@ export { openSession, resolveSession } from './openSession.js';
 
 export type { AuthenticatedSession, ResolvedSession } from '../session.js';
 export {
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
-    analyticsRevenueBasisFlag,
     compareFlags,
     csvFlag,
+    filterFlags,
     granularityFlag,
     groupByFlag,
+    periodFlags,
+    queryParams,
     renewalPeriodFlags,
+    revenueBasisFlag,
 } from './flags.js';

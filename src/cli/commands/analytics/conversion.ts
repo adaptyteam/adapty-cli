@@ -4,9 +4,9 @@ import { conversionIds, validateConversion } from '../../../sdk/adapty/index.js'
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
+    filterFlags,
+    periodFlags,
+    queryParams,
     compareFlags,
     csvFlag,
     granularityFlag,
@@ -33,10 +33,10 @@ export default class AnalyticsConversion extends AdaptyCommand {
             options: conversionIds,
             required: true,
         })(),
-        ...analyticsPeriodFlags,
+        ...periodFlags,
         ...compareFlags,
         ...groupByFlag,
-        ...analyticsFilterFlags,
+        ...filterFlags,
         ...granularityFlag('The period of one point (default day)'),
         ...csvFlag,
     };
@@ -45,7 +45,7 @@ export default class AnalyticsConversion extends AdaptyCommand {
         const { flags } = await this.parse(AnalyticsConversion);
 
         const input: ConversionInput = {
-            ...analyticsQueryParams(flags),
+            ...queryParams(flags),
             compareFrom: flags['compare-from'],
             compareTo: flags['compare-to'],
             conversionId: flags.conversion,

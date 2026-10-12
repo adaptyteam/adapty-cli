@@ -135,16 +135,21 @@ text or JSON.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
-  mirrors `AdaptyCommand`. `flags.ts` holds the flag only attribution commands take: `revenueBasisFlag`.
-- `base/adapty/flags.ts` — the flags the analytics commands share (period, compare, filter, timezone,
-  grouping, granularity, revenue basis, renewal periods, `--csv`) and `analyticsQueryParams`.
+  mirrors `AdaptyCommand`. `flags.ts` holds the flags only attribution commands take: `periodFlags`
+  for an inclusive `--date-from`/`--date-to` day range, `parseFilter` for `--filter` (values trimmed, an
+  empty one dropped), `revenueBasisFlag`, and `periodParams`.
+- `base/adapty/flags.ts` — the flags the analytics commands share (`periodFlags`, `compareFlags`,
+  `filterFlags` with `--filter` values exactly as written, `groupByFlag`, `granularityFlag`,
+  `revenueBasisFlag`, `renewalPeriodFlags`, `csvFlag`) and `queryParams`.
 - `errors.ts` — the single `SdkError` → CLI error mapping. The switch has no default, so a new
   error kind fails to compile until it is given a message and an exit code.
 - `input/` — flags and args that several commands or products take, one module per concern: the
   app id UUID as a positional and as `--app` (`appIdArg`, `appIdFlag` in `input/app.ts`),
   pagination (`input/pagination.ts`), the migration id; and the one place flag names meet sdk field
-  names. Legacy commands take `--app` from `input/app.ts` too. The day range (`input/period.ts`) and
-  `--filter dimension=value[,value]` (`input/filter.ts`) serve both attribution and analytics.
+  names. Legacy commands take `--app` from `input/app.ts` too. What attribution and analytics share:
+  the date parser and the day-range flag factory that takes the time-zone text (`input/period.ts`), and
+  the split of `dimension=value[,value]` (`input/filter.ts`); each product's adapter decides what an
+  empty or padded value means.
 - `context/migration/` — CLI-owned migration selection in `context.json` beside credentials.
   `model.ts` defines and validates the record and token fingerprint; `store.ts` owns file I/O and
   storage errors; `resolve.ts` chooses an ID by source priority. `current.ts` binds those three

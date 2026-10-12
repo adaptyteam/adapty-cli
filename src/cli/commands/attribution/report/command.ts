@@ -2,11 +2,9 @@ import { Flags } from '@oclif/core';
 
 import { granularities, reportGroupBy, sortDirections, validateReport } from '../../../../sdk/attribution/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
-import { AttributionCommand, revenueBasisFlag } from '../../../base/attribution/index.js';
+import { AttributionCommand, parseFilter, periodFlags, periodParams, revenueBasisFlag } from '../../../base/attribution/index.js';
 import { usageError } from '../../../errors.js';
 import { appIdFlag } from '../../../input/app.js';
-import { parseFilter } from '../../../input/filter.js';
-import { periodFlags, periodParams } from '../../../input/period.js';
 
 import { renderReport } from './lib/render.js';
 

@@ -2,9 +2,9 @@ import { validateFunnel } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
+    filterFlags,
+    periodFlags,
+    queryParams,
     csvFlag,
     groupByFlag,
 } from '../../base/adapty/index.js';
@@ -24,16 +24,16 @@ export default class AnalyticsFunnel extends AdaptyCommand {
 
     static override flags = {
         ...appIdFlag,
-        ...analyticsPeriodFlags,
+        ...periodFlags,
         ...groupByFlag,
-        ...analyticsFilterFlags,
+        ...filterFlags,
         ...csvFlag,
     };
 
     async run(): Promise<FunnelResponse> {
         const { flags } = await this.parse(AnalyticsFunnel);
 
-        const input: FunnelInput = { ...analyticsQueryParams(flags), groupBy: flags['group-by'] };
+        const input: FunnelInput = { ...queryParams(flags), groupBy: flags['group-by'] };
 
         // Before this.adapty: bad input is exit 2 even without a token
         assertValid(validateFunnel(input));

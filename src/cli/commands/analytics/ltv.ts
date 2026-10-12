@@ -2,10 +2,10 @@ import { validateLtv } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
-    analyticsRevenueBasisFlag,
+    filterFlags,
+    periodFlags,
+    queryParams,
+    revenueBasisFlag,
     csvFlag,
     groupByFlag,
     renewalPeriodFlags,
@@ -26,10 +26,10 @@ export default class AnalyticsLtv extends AdaptyCommand {
 
     static override flags = {
         ...appIdFlag,
-        ...analyticsPeriodFlags,
+        ...periodFlags,
         ...groupByFlag,
-        ...analyticsFilterFlags,
-        ...analyticsRevenueBasisFlag,
+        ...filterFlags,
+        ...revenueBasisFlag,
         ...renewalPeriodFlags,
         ...csvFlag,
     };
@@ -38,7 +38,7 @@ export default class AnalyticsLtv extends AdaptyCommand {
         const { flags } = await this.parse(AnalyticsLtv);
 
         const input: LtvInput = {
-            ...analyticsQueryParams(flags),
+            ...queryParams(flags),
             groupBy: flags['group-by'],
             periodType: flags['period-type'],
             renewalDays: flags['renewal-days'],

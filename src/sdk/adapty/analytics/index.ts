@@ -13,7 +13,6 @@ export { validateRetention } from './retention.js';
 export { validateFilterValues } from './values.js';
 
 export type {
-    AnalyticsCatalog,
     CatalogChart,
     CatalogOperation,
     CatalogOption,

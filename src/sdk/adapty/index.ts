@@ -34,7 +34,6 @@ export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type {
-    AnalyticsCatalog,
     AnalyticsFilter,
     AnalyticsSegment,
     CatalogChart,

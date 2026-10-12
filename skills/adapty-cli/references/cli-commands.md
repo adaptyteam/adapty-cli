@@ -404,7 +404,7 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
   key is the zero UUID.
 - **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.
 - **Outputs**: human view (default), the API answer (`--json`), or a CSV made from it (`--csv`, one row per segment,
-  total first).
+  total first, then one `summary` row per period; the `row` column tells them apart).
 - **Errors**: bad input exits 2 before any request; a server refusal exits 4 with its error code; 2 calls per
   second per app, and a `429` carries `retry_after_seconds` in the `--json` error.
 

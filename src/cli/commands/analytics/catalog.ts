@@ -2,7 +2,6 @@ import { AdaptyCommand } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
 
 import type {
-    AnalyticsCatalog,
     CatalogChart,
     CatalogOperation,
     CatalogOption,
@@ -40,7 +39,7 @@ const describeChart = (chart: CatalogChart): string => [
     `  filters: ${list(chart.filters)}`,
 ].join('\n');
 
-const renderCatalog = ({ data }: { data: AnalyticsCatalog }): string => [
+const renderCatalog = ({ data }: CatalogResponse): string => [
     'Operations',
     ...data.operations.map(operation => describeOperation(operation)),
     '',
@@ -54,7 +53,7 @@ const renderCatalog = ({ data }: { data: AnalyticsCatalog }): string => [
     ...data.dimensions.map(dimension => `${dimension.key}: ${dimension.label}`),
 ].join('\n');
 
-export default class AnalyticsCatalogCommand extends AdaptyCommand {
+export default class AnalyticsCatalog extends AdaptyCommand {
     static override description = 'List what the analytics of an app can answer: the six operations with their options, '
         + 'groupings and filters, every chart and conversion, and every filter dimension';
 
@@ -66,7 +65,7 @@ export default class AnalyticsCatalogCommand extends AdaptyCommand {
     static override flags = { ...appIdFlag };
 
     async run(): Promise<CatalogResponse> {
-        const { flags } = await this.parse(AnalyticsCatalogCommand);
+        const { flags } = await this.parse(AnalyticsCatalog);
 
         const catalog = await this.adapty.analytics.catalog(flags.app);
 

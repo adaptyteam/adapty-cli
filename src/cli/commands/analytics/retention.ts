@@ -4,9 +4,9 @@ import { validateRetention } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
+    filterFlags,
+    periodFlags,
+    queryParams,
     csvFlag,
     groupByFlag,
 } from '../../base/adapty/index.js';
@@ -26,9 +26,9 @@ export default class AnalyticsRetention extends AdaptyCommand {
 
     static override flags = {
         ...appIdFlag,
-        ...analyticsPeriodFlags,
+        ...periodFlags,
         ...groupByFlag,
-        ...analyticsFilterFlags,
+        ...filterFlags,
         'use-trial': Flags.boolean({
             description: 'Count from the trial, not from the first paid period',
         }),
@@ -39,7 +39,7 @@ export default class AnalyticsRetention extends AdaptyCommand {
         const { flags } = await this.parse(AnalyticsRetention);
 
         const input: RetentionInput = {
-            ...analyticsQueryParams(flags),
+            ...queryParams(flags),
             groupBy: flags['group-by'],
             // Sent only when given: the backend default (false) applies otherwise, and meta.query says so
             useTrial: flags['use-trial'] ? true : undefined,

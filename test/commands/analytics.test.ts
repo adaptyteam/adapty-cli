@@ -357,11 +357,13 @@ describe('analytics', () => {
                 answer: chartAnswer,
                 command: `analytics chart ${APP} ${PERIOD} --chart revenue`,
                 csv: [
-                    'period,key,title,is_total,value,2026-07-01,2026-08-01,2026-06-01',
-                    'main,,Total,true,30.5,30.5,0,',
-                    'main,US,United States,false,30.5,30.5,0,',
-                    'main,"",No Data,false,0,0,,',
-                    'compare,,Total,true,12,,,12',
+                    'period,row,key,title,is_total,value,timezone,timezone_source,2026-07-01,2026-08-01,2026-06-01',
+                    'main,segment,,Total,true,30.5,,,30.5,0,',
+                    'main,segment,US,United States,false,30.5,,,30.5,0,',
+                    'main,segment,"",No Data,false,0,,,0,,',
+                    'compare,segment,,Total,true,12,,,,,12',
+                    'main,summary,,,,30.5,UTC,app,,,',
+                    'compare,summary,,,,12,,,,,',
                 ],
                 human: [
                     'value: 30.5',
@@ -406,9 +408,10 @@ describe('analytics', () => {
                 answer: conversionAnswer,
                 command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
                 csv: [
-                    'period,key,title,is_total,value,value_from,value_to,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished',
-                    'main,,Conversion rate from trial to paid,true,25,4,1,25,4,1,0,false',
-                    'main,US,United States,false,0,4,0,,,,,',
+                    'period,row,key,title,is_total,value,value_from,value_to,timezone,timezone_source,recommended_period,2026-07-01,2026-07-01.value_from,2026-07-01.value_to,2026-07-01.value_from_unfinished,2026-07-01.has_unfinished',
+                    'main,segment,,Conversion rate from trial to paid,true,25,4,1,,,,25,4,1,0,false',
+                    'main,segment,US,United States,false,0,4,0,,,,,,,,',
+                    'main,summary,,,,25,4,1,UTC,app,,,,,,',
                 ],
                 human: [
                     'value: 25',
@@ -416,6 +419,7 @@ describe('analytics', () => {
                     'value_to: 1',
                     'timezone: UTC',
                     'timezone_source: app',
+                    'recommended_period: —',
                     '',
                     'key: —',
                     'title: Conversion rate from trial to paid',
@@ -438,9 +442,10 @@ describe('analytics', () => {
                 answer: funnelAnswer,
                 command: `analytics funnel ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,Install,Install.value_relative,Install.relative_changes,Install.following_changes.title,Install.following_changes.value,Install.following_changes.value_relative,Install.churn_reason_title,Paid,Paid.value_relative,Paid.relative_changes,Paid.following_changes.title,Paid.following_changes.value,Paid.following_changes.value_relative,Paid.churn_reason_title,Paid.churn_reasons[0].title,Paid.churn_reasons[0].value,Paid.churn_reasons[0].value_relative,Paid.parts[0].title,Paid.parts[0].value,Paid.parts[0].value_relative',
-                    ',Total,true,3,3,100,66.7,Drop off,1,33.3,"",2,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50',
-                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,0,0,Drop off,0,0,"",,,,,,,,,,,,,',
+                    'row,key,title,is_total,value,timezone,timezone_source,Install,Install.value_relative,Install.relative_changes,Install.following_changes.title,Install.following_changes.value,Install.following_changes.value_relative,Install.churn_reason_title,Paid,Paid.value_relative,Paid.relative_changes,Paid.following_changes.title,Paid.following_changes.value,Paid.following_changes.value_relative,Paid.churn_reason_title,Paid.churn_reasons[0].title,Paid.churn_reasons[0].value,Paid.churn_reasons[0].value_relative,Paid.parts[0].title,Paid.parts[0].value,Paid.parts[0].value_relative',
+                    'segment,,Total,true,3,,,3,100,66.7,Drop off,1,33.3,"",2,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50',
+                    'segment,00000000-0000-0000-0000-000000000000,No Data,false,0,,,0,0,0,Drop off,0,0,"",,,,,,,,,,,,,',
+                    'summary,,,,3,UTC,app,,,,,,,,,,,,,,,,,,,,',
                 ],
                 human: [
                     'value: 3',
@@ -467,9 +472,10 @@ describe('analytics', () => {
                 answer: retentionAnswer,
                 command: `analytics retention ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,first_value,Paid,Paid.value_relative',
-                    ',Total,true,5,5,5,100',
-                    'US,United States,false,0,0,0,0',
+                    'row,key,title,is_total,value,first_value,timezone,timezone_source,Paid,Paid.value_relative',
+                    'segment,,Total,true,5,5,,,5,100',
+                    'segment,US,United States,false,0,0,,,0,0',
+                    'summary,,,,5,,UTC,app,,',
                 ],
                 human: [
                     'value: 5',
@@ -497,9 +503,10 @@ describe('analytics', () => {
                 answer: ltvAnswer,
                 command: `analytics ltv ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,cohort_size,1,2',
-                    ',Total,true,1.5,2,1.5,',
-                    'US,United States,false,0,1,0,',
+                    'row,key,title,is_total,value,cohort_size,timezone,timezone_source,1,2',
+                    'segment,,Total,true,1.5,2,,,1.5,',
+                    'segment,US,United States,false,0,1,,,0,',
+                    'summary,,,,1.5,,UTC,app,,',
                 ],
                 human: [
                     'value: 1.5',
@@ -529,9 +536,10 @@ describe('analytics', () => {
                 answer: cohortAnswer,
                 command: `analytics cohort ${APP} ${PERIOD}`,
                 csv: [
-                    'key,title,is_total,value,start_date,installs,subscriptions,subscribers,revenue.gross,revenue.proceeds,revenue.net,arpu.gross,arpu.proceeds,arpu.net,arppu.gross,arppu.proceeds,arppu.net,arpas.gross,arpas.proceeds,arpas.net,predict.gross.rev3,predict.gross.rev6,predict.gross_v2,predict.proceeds,predict.net,predict.status.status_3,1,1.value_relative,1.installs,1.subscriptions,1.subscriptions_relative,1.subscribers,1.subscribers_relative,1.revenue.gross,1.revenue.proceeds,1.revenue.net,1.revenue_relative.gross,1.revenue_relative.proceeds,1.revenue_relative.net,1.arpu.gross,1.arpu.proceeds,1.arpu.net,1.arppu.gross,1.arppu.proceeds,1.arppu.net,1.arpas.gross,1.arpas.proceeds,1.arpas.net,1.currently_active_period',
-                    ',Total,true,10,2026-07-01,3,1,1,10,8.5,7,3.5,2.8,2.3,10,8.5,7,10,8.5,7,,,,,,,10,100,3,1,100,1,100,10,8.5,7,100,100,100,3.5,2.8,2.3,10,8.5,7,10,8.5,7,true',
-                    '2026-07-01,2026-07-01,false,0,2026-07-01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,,0,,,,0,,,,,,,,,,,,,,,,,,,,,,,',
+                    'row,key,title,is_total,value,start_date,installs,subscriptions,subscribers,revenue.gross,revenue.proceeds,revenue.net,arpu.gross,arpu.proceeds,arpu.net,arppu.gross,arppu.proceeds,arppu.net,arpas.gross,arpas.proceeds,arpas.net,predict.gross.rev3,predict.gross.rev6,predict.gross_v2,predict.proceeds,predict.net,predict.status.status_3,timezone,timezone_source,1,1.value_relative,1.installs,1.subscriptions,1.subscriptions_relative,1.subscribers,1.subscribers_relative,1.revenue.gross,1.revenue.proceeds,1.revenue.net,1.revenue_relative.gross,1.revenue_relative.proceeds,1.revenue_relative.net,1.arpu.gross,1.arpu.proceeds,1.arpu.net,1.arppu.gross,1.arppu.proceeds,1.arppu.net,1.arpas.gross,1.arpas.proceeds,1.arpas.net,1.currently_active_period',
+                    'segment,,Total,true,10,2026-07-01,3,1,1,10,8.5,7,3.5,2.8,2.3,10,8.5,7,10,8.5,7,,,,,,,,,10,100,3,1,100,1,100,10,8.5,7,100,100,100,3.5,2.8,2.3,10,8.5,7,10,8.5,7,true',
+                    'segment,2026-07-01,2026-07-01,false,0,2026-07-01,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,,0,,,,0,,,,,,,,,,,,,,,,,,,,,,,,,',
+                    'summary,,,,10,,,,,,,,,,,,,,,,,,,,,,,UTC,app,,,,,,,,,,,,,,,,,,,,,,,',
                 ],
                 human: [
                     'value: 10',
@@ -607,48 +615,81 @@ describe('analytics', () => {
             }
         });
 
-        it('prints "No data for this period." for an answer without segments, and a CSV of the header alone', async () => {
-            // Without segments there are no fields to read the header from: the fields every segment has
+        it('prints "No data for this period." and the summary the API gives for an answer without segments', async () => {
+            // No segments: no group row is invented, but every number of the period, null as — (human) and an empty
+            // cell (CSV), its time zone and a conversion's recommended window still show
+            const tz = ['timezone: UTC', 'timezone_source: app'];
+            const recommended = { date_from: '2026-01-01', date_to: '2026-03-31', period_unit: 'day' };
+
             const empty = [
-                { command: `analytics chart ${APP} ${PERIOD} --chart revenue`, data: { value: 0, compare: null, segments: [] }, header: 'period,key,title,is_total,value' },
-                { command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`, data: { value: 0, value_from: 0, value_to: 0, compare: null, segments: [] }, header: 'period,key,title,is_total,value' },
-                { command: `analytics funnel ${APP} ${PERIOD}`, data: { value: null, segments: [] }, header: 'key,title,is_total,value' },
-                { command: `analytics retention ${APP} ${PERIOD}`, data: { value: null, segments: [] }, header: 'key,title,is_total,value' },
-                { command: `analytics ltv ${APP} ${PERIOD}`, data: { value: 0, segments: [] }, header: 'key,title,is_total,value' },
-                { command: `analytics cohort ${APP} ${PERIOD}`, data: { value: null, segments: [] }, header: 'key,title,is_total,value' },
+                {
+                    command: `analytics chart ${APP} ${PERIOD} --chart revenue`,
+                    csv: [
+                        'period,row,key,title,is_total,value,timezone,timezone_source',
+                        'main,summary,,,,0,UTC,app',
+                        'compare,summary,,,,12,,',
+                    ],
+                    data: { value: 0, compare: { value: 12, segments: [] }, segments: [] },
+                    human: ['No data for this period.', 'value: 0', ...tz, '', 'Compared period', 'No data for this period.', 'value: 12'],
+                    meta,
+                },
+                {
+                    command: `analytics conversion ${APP} ${PERIOD} --conversion trial-paid`,
+                    csv: [
+                        'period,row,key,title,is_total,value,value_from,value_to,timezone,timezone_source,'
+                        + 'recommended_period.date_from,recommended_period.date_to,recommended_period.period_unit',
+                        'main,summary,,,,0,0,0,UTC,app,2026-01-01,2026-03-31,day',
+                    ],
+                    data: { value: 0, value_from: 0, value_to: 0, compare: null, segments: [] },
+                    human: [
+                        'No data for this period.', 'value: 0', 'value_from: 0', 'value_to: 0', ...tz,
+                        'recommended_period.date_from: 2026-01-01', 'recommended_period.date_to: 2026-03-31',
+                        'recommended_period.period_unit: day',
+                    ],
+                    meta: { ...meta, recommended_period: recommended },
+                },
+                {
+                    command: `analytics funnel ${APP} ${PERIOD}`,
+                    csv: ['row,key,title,is_total,value,timezone,timezone_source', 'summary,,,,,UTC,app'],
+                    data: { value: null, segments: [] },
+                    human: ['No data for this period.', 'value: —', ...tz],
+                    meta,
+                },
+                {
+                    command: `analytics retention ${APP} ${PERIOD}`,
+                    csv: ['row,key,title,is_total,value,timezone,timezone_source', 'summary,,,,,UTC,app'],
+                    data: { value: null, segments: [] },
+                    human: ['No data for this period.', 'value: —', ...tz],
+                    meta,
+                },
+                {
+                    command: `analytics ltv ${APP} ${PERIOD}`,
+                    csv: ['row,key,title,is_total,value,timezone,timezone_source', 'summary,,,,0,UTC,app'],
+                    data: { value: 0, segments: [] },
+                    human: ['No data for this period.', 'value: 0', ...tz],
+                    meta,
+                },
+                {
+                    command: `analytics cohort ${APP} ${PERIOD}`,
+                    csv: ['row,key,title,is_total,value,timezone,timezone_source', 'summary,,,,,UTC,app'],
+                    data: { value: null, segments: [] },
+                    human: ['No data for this period.', 'value: —', ...tz],
+                    meta,
+                },
             ];
 
-            for (const { command, data, header } of empty) {
-                fetchStub = mockFetchSteps([{ body: { data, meta: { ...meta, recommended_period: null } } }]);
+            for (const { command, csv, data, human, meta: answerMeta } of empty) {
+                fetchStub = mockFetchSteps([{ body: { data, meta: answerMeta } }]);
 
                 const humanRun = await runCommand(command);
                 const csvRun = await runCommand(`${command} --csv`);
 
-                expect(humanRun.stdout, command).to.equal('No data for this period.\n');
-                expect(csvRun.stdout, `${command} --csv`).to.equal(`${header}\n`);
+                expect(humanRun.stdout, command).to.equal(`${human.join('\n')}\n`);
+                expect(csvRun.stdout, `${command} --csv`).to.equal(`${csv.join('\n')}\n`);
 
                 restoreFetch(fetchStub);
                 fetchStub = undefined;
             }
-        });
-
-        it('names the window with data that the API recommends when a conversion has none', async () => {
-            fetchStub = mockFetchSteps([{
-                body: {
-                    data: { compare: null, segments: [], value: 0, value_from: 0, value_to: 0 },
-                    meta: { ...meta, recommended_period: { date_from: '2026-01-01', date_to: '2026-03-31', period_unit: 'day' } },
-                },
-            }]);
-
-            const { stdout } = await runCommand(`analytics conversion ${APP} ${PERIOD} --conversion trial-paid`);
-
-            expect(stdout).to.equal([
-                'No data for this period.',
-                'recommended_period.date_from: 2026-01-01',
-                'recommended_period.date_to: 2026-03-31',
-                'recommended_period.period_unit: day',
-                '',
-            ].join('\n'));
         });
 
         it('quotes a CSV cell with a comma, a quote or a line break, and doubles the quote', async () => {
@@ -664,7 +705,12 @@ describe('analytics', () => {
 
             const { stdout } = await runCommand(`analytics funnel ${APP} ${PERIOD} --csv`);
 
-            expect(stdout).to.equal('key,title,is_total,value\np1,"Pro, ""annual""\nplan",false,2\n');
+            expect(stdout).to.equal([
+                'row,key,title,is_total,value,timezone,timezone_source',
+                'segment,p1,"Pro, ""annual""\nplan",false,2,,',
+                'summary,,,,2,UTC,app',
+                '',
+            ].join('\n'));
         });
 
         it('prints the catalog and the filter values for a human reader', async () => {
@@ -888,7 +934,7 @@ describe('analytics', () => {
             const { error } = await runCommand(`analytics funnel ${APP} --date-from 2026-09-30 --date-to 2026-07-01`);
 
             expect(error?.oclif?.exit).to.equal(exitCode.usage);
-            expect(error?.message).to.not.contain('Not authenticated');
+            expect(error?.message).to.equal('Invalid input:\n  --date-to: must not be before the start date');
             expect(fetchStub.callCount).to.equal(0);
         });
     });

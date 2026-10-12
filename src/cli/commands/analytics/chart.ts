@@ -4,10 +4,10 @@ import { chartIds, validateChart } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
-    analyticsRevenueBasisFlag,
+    filterFlags,
+    periodFlags,
+    queryParams,
+    revenueBasisFlag,
     compareFlags,
     csvFlag,
     granularityFlag,
@@ -35,12 +35,12 @@ export default class AnalyticsChart extends AdaptyCommand {
             options: chartIds,
             required: true,
         })(),
-        ...analyticsPeriodFlags,
+        ...periodFlags,
         ...compareFlags,
         ...groupByFlag,
-        ...analyticsFilterFlags,
+        ...filterFlags,
         ...granularityFlag('The period of one point (default month)'),
-        ...analyticsRevenueBasisFlag,
+        ...revenueBasisFlag,
         ...csvFlag,
     };
 
@@ -48,7 +48,7 @@ export default class AnalyticsChart extends AdaptyCommand {
         const { flags } = await this.parse(AnalyticsChart);
 
         const input: ChartInput = {
-            ...analyticsQueryParams(flags),
+            ...queryParams(flags),
             chartId: flags.chart,
             compareFrom: flags['compare-from'],
             compareTo: flags['compare-to'],

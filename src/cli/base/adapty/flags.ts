@@ -1,26 +1,16 @@
 import { Flags } from '@oclif/core';
 
 import { periodTypes, periodUnits, revenueBases } from '../../../sdk/adapty/index.js';
-import { parseExactFilter } from '../../input/filter.js';
-import { dateParser } from '../../input/period.js';
+import { usageError } from '../../errors.js';
+import { splitFilter } from '../../input/filter.js';
+import { dateParser, dayRangeFlags } from '../../input/period.js';
 
 import type { AnalyticsFilter } from '../../../sdk/adapty/index.js';
 
 /** The flags the analytics commands share. A flag left out leaves its field out: the backend default applies. */
 
 /** Days of the query time zone: `--timezone`, else the app zone. */
-export const analyticsPeriodFlags = {
-    'date-from': Flags.string({
-        description: 'First day of the period, inclusive (YYYY-MM-DD, in the --timezone zone, else the app time zone)',
-        parse: dateParser,
-        required: true,
-    }),
-    'date-to': Flags.string({
-        description: 'Last day of the period, inclusive (YYYY-MM-DD, in the --timezone zone, else the app time zone)',
-        parse: dateParser,
-        required: true,
-    }),
-};
+export const periodFlags = dayRangeFlags('in the --timezone zone, else the app time zone');
 
 /** Only the chart and the conversion take them: the other queries mix two periods into one. */
 export const compareFlags = {
@@ -34,7 +24,19 @@ export const compareFlags = {
     }),
 };
 
-export const analyticsFilterFlags = {
+/**
+ * `dimension=value[,value]` with every value exactly as written. An empty value is a value, the one a text
+ * grouping gives its "No Data" group, so `country=` keeps that group, as the dashboard does.
+ */
+const parseExactFilter = (input: string): Promise<AnalyticsFilter> => {
+    const filter = splitFilter(input);
+
+    return filter === undefined
+        ? Promise.reject(usageError(`Expected dimension=value[,value] (an empty value is a "No Data" group), got "${input}".`))
+        : Promise.resolve(filter);
+};
+
+export const filterFlags = {
     filter: Flags.custom<AnalyticsFilter>({
         description: 'Keep the data whose dimension has one of the values: dimension=value[,value] (repeatable; `\\,` '
             + 'for a comma inside a value; values exactly as written, an empty one is a "No Data" group, e.g. country=). '
@@ -58,7 +60,7 @@ export const granularityFlag = (description: string) => ({
     granularity: Flags.option({ description, options: periodUnits })(),
 });
 
-export const analyticsRevenueBasisFlag = {
+export const revenueBasisFlag = {
     'revenue-basis': Flags.option({
         description: 'Which revenue the money values use: gross (default), proceeds (after store commission) or net (also after taxes)',
         options: revenueBases,
@@ -80,7 +82,8 @@ export const renewalPeriodFlags = {
 
 export const csvFlag = {
     csv: Flags.boolean({
-        description: 'Print a CSV table made from the API answer: one row per segment, the total first',
+        description: 'Print a CSV table made from the API answer: one row per segment, the total first, '
+            + 'then a summary row per period',
         exclusive: ['json'],
     }),
 };
@@ -94,7 +97,7 @@ type QueryFlags = {
 };
 
 /** Where the shared flags meet the sdk's field names. */
-export const analyticsQueryParams = (flags: QueryFlags) => ({
+export const queryParams = (flags: QueryFlags) => ({
     appId: flags.app,
     dateFrom: flags['date-from'],
     dateTo: flags['date-to'],

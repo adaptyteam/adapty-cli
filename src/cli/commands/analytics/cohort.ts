@@ -2,10 +2,10 @@ import { validateCohort } from '../../../sdk/adapty/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import {
     AdaptyCommand,
-    analyticsFilterFlags,
-    analyticsPeriodFlags,
-    analyticsQueryParams,
-    analyticsRevenueBasisFlag,
+    filterFlags,
+    periodFlags,
+    queryParams,
+    revenueBasisFlag,
     csvFlag,
     granularityFlag,
     renewalPeriodFlags,
@@ -26,10 +26,10 @@ export default class AnalyticsCohort extends AdaptyCommand {
 
     static override flags = {
         ...appIdFlag,
-        ...analyticsPeriodFlags,
-        ...analyticsFilterFlags,
+        ...periodFlags,
+        ...filterFlags,
         ...granularityFlag('The length of one cohort (default month)'),
-        ...analyticsRevenueBasisFlag,
+        ...revenueBasisFlag,
         ...renewalPeriodFlags,
         ...csvFlag,
     };
@@ -38,7 +38,7 @@ export default class AnalyticsCohort extends AdaptyCommand {
         const { flags } = await this.parse(AnalyticsCohort);
 
         const input: CohortInput = {
-            ...analyticsQueryParams(flags),
+            ...queryParams(flags),
             granularity: flags.granularity,
             periodType: flags['period-type'],
             renewalDays: flags['renewal-days'],
