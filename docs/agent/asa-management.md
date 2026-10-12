@@ -250,7 +250,7 @@ Every `asa` command is rate limited per company, not per token:
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
 | `keywords recommend` | 10/min, one in-flight `brand`/`generic` rebuild at a time, `Retry-After: 5` on `cli_analytics_busy` |
-| `change-history list` / `get` | 5/min, one request in flight per company (`Retry-After: 5` on `cli_analytics_busy`), 50s server timeout (`504 cli_read_timeout`); an Apple 429 comes back as `429 cli_upstream_rate_limited` with Apple's `Retry-After`; an ad account the CLI cannot read (revoked token, org no longer linked, Apple 403/404) is `403 cli_ad_account_unreadable` |
+| `change-history list` / `get` | 30/min, burst 5 per 10 s, one request in flight per company (`Retry-After: 5` on `cli_analytics_busy`), 50s server timeout (`504 cli_read_timeout`); an Apple 429 comes back as `429 cli_upstream_rate_limited` with Apple's `Retry-After`; an ad account the CLI cannot read (revoked token, org no longer linked, Apple 403/404) is `403 cli_ad_account_unreadable` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
