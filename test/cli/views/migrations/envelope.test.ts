@@ -79,6 +79,25 @@ describe('renderEnvelope', () => {
         expect(result).to.not.contain('needs a newer adapty-cli');
     });
 
+    it('offers an agent action as one this CLI runs', () => {
+        const result = renderEnvelope({
+            ...ENVELOPE,
+            available_actions: [{
+                action_id: 'migrate_code',
+                confirm: null,
+                detail: 'Replace the RevenueCat SDK in your app with Adapty.',
+                input_schema: null,
+                kind: 'agent',
+                reads: ['report'],
+                step_id: 'code',
+                title: 'Migrate the app code',
+            }],
+        });
+
+        expect(result).to.contain('  migrate_code  (agent)  Migrate the app code');
+        expect(result).to.not.contain('needs a newer adapty-cli');
+    });
+
     it('keeps optional actions apart from the ones that block the migration, and prints their link', () => {
         const result = renderEnvelope(ENVELOPE);
 

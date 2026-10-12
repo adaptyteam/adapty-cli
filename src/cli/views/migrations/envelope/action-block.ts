@@ -1,6 +1,6 @@
 import type { Action } from '../../../../sdk/adapty/index.js';
 
-const knownKinds = new Set<string>(['external', 'input', 'upload']);
+const knownKinds = new Set<string>(['agent', 'external', 'input', 'upload']);
 
 const indent = (text: string, pad: string): string => {
     return text.split('\n').map(line => `${pad}${line}`).join('\n');
