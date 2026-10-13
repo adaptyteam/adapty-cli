@@ -740,6 +740,95 @@ describe('analytics', () => {
             ].join('\n'));
         });
 
+        it('keeps every group when a key repeats in one period (a funnel key is the title): the n-th with the n-th', async () => {
+            const point = (value: number, x: string) => [{ x, value }];
+
+            const run = async (compare: boolean) => {
+                fetchStub = mockFetchSteps([{
+                    body: {
+                        data: {
+                            value: 10,
+                            ...(compare
+                                ? {
+                                        compare: {
+                                            value: 5,
+                                            segments: [
+                                                { key: 'Pro', title: 'Pro', is_total: false, value: 1, values: point(1, '2026-06-01') },
+                                                { key: 'Pro', title: 'Pro', is_total: false, value: 2, values: point(2, '2026-06-01') },
+                                                { key: null, title: 'Total', is_total: true, value: 5, values: point(5, '2026-06-01') },
+                                            ],
+                                        },
+                                    }
+                                : {}),
+                            segments: [
+                                { key: 'Pro', title: 'Pro', is_total: false, value: 4, values: point(4, '2026-07-01') },
+                                { key: null, title: 'Total', is_total: true, value: 10, values: point(10, '2026-07-01') },
+                                { key: 'Pro', title: 'Pro', is_total: false, value: 6, values: point(6, '2026-07-01') },
+                            ],
+                        },
+                        meta,
+                    },
+                }]);
+
+                const range = compare ? ' --compare-from 2026-04-01 --compare-to 2026-06-30' : '';
+                const command = `analytics chart ${APP} ${PERIOD} --chart revenue --group-by country${range}`;
+                const result = { csv: (await runCommand(`${command} --csv`)).stdout, human: (await runCommand(command)).stdout };
+
+                restoreFetch(fetchStub);
+                fetchStub = undefined;
+
+                return result;
+            };
+
+            const alone = await run(false);
+
+            expect(alone.human).to.equal([
+                'Chart',
+                PERIOD_LINE,
+                '',
+                '       Total  2026-07-01',
+                'Total     10          10',
+                'Pro        4           4',
+                'Pro        6           6',
+                '',
+            ].join('\n'));
+
+            expect(alone.csv).to.equal([
+                'key,title,is_total,value,2026-07-01,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                ',Total,true,10,10,10,UTC,2026-07-01,2026-09-30,app',
+                'Pro,Pro,false,4,4,10,UTC,2026-07-01,2026-09-30,app',
+                'Pro,Pro,false,6,6,10,UTC,2026-07-01,2026-09-30,app',
+                '',
+            ].join('\n'));
+
+            const compared = await run(true);
+
+            expect(compared.human).to.equal([
+                'Chart',
+                PERIOD_LINE,
+                '',
+                '       Total  2026-07-01',
+                'Total     10          10',
+                'Pro        4           4',
+                'Pro        6           6',
+                '',
+                'Compared period',
+                '       Total  2026-06-01',
+                'Total      5           5',
+                'Pro        1           1',
+                'Pro        2           2',
+                '',
+            ].join('\n'));
+
+            expect(compared.csv).to.equal([
+                'key,title,is_total,value,2026-07-01,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                ',Total,true,10,10,5,5,10,5,UTC,2026-07-01,2026-09-30,app',
+                'Pro,Pro,false,4,4,1,1,10,5,UTC,2026-07-01,2026-09-30,app',
+                'Pro,Pro,false,6,6,2,2,10,5,UTC,2026-07-01,2026-09-30,app',
+                '',
+            ].join('\n'));
+        });
+
         it('quotes a CSV cell with a comma, a quote or a line break, and doubles the quote', async () => {
             fetchStub = mockFetchSteps([{
                 body: {

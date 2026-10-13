@@ -61,7 +61,9 @@ Every data command answers in one shape, so one parser reads all six:
 - `data.segments` starts with the total (`is_total` true, `key` null). Each other segment is one group: `key` is
   the raw value that the backend gives for that group, `title` the dashboard title, "No Data" included. Any key is
   possible: a "No Data" group can have `null`, `""` or `"None"` as `key`. Tell the total from a group by
-  `is_total` only, never by a null `key`. A `key` is not promised to be a `--filter` value.
+  `is_total` only, never by a null `key`. A `key` is not promised to be a `--filter` value. A funnel group `key` is
+  its title and can repeat, so two groups can have the same `key`; every group stays a row of its own. Examples of raw
+  keys: `null`, `""`, `"None"`, `"00000000-0000-0000-0000-000000000000"` (the zero UUID) and a title such as `"Pro annual"`.
 - No rows for the window: `data.segments` is `[]`, and the human view prints `No data for this period.`
 - Numbers are the dashboard's numbers. A real zero is `0`. `null` means the backend has no value (an LTV period not
   reached yet, a cohort that cannot be predicted): never count it as 0.

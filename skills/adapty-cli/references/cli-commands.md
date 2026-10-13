@@ -398,7 +398,9 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
 
 - **One shape for all six**: `data.value` is the number of the period, `data.segments` starts with the total
   (`is_total` true), and each group's `key` is the raw value the backend gives for that group (a "No Data" group
-  can have `null`, `""` or `"None"`). Tell the total by `is_total`, never by a null `key`. No rows: `segments` is
+  can have `null`, `""`, `"None"` or the zero UUID `00000000-0000-0000-0000-000000000000`; a funnel group's `key` is
+  its title, such as `Pro annual`, and can repeat: every group stays a row). Tell the total by `is_total`, never by a
+  null `key`. No rows: `segments` is
   `[]` and the human view prints `No data for this period.`
 - **`0` is a real zero; `null` means no value** (an LTV period not reached, a cohort without a prediction).
 - **Filter** with values from `analytics values`, not with group keys: a key is not promised to be a filter

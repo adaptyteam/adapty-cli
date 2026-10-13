@@ -163,20 +163,38 @@ type Group = {
 
 /**
  * The total is the segment with `is_total`; every other group is found by its raw key, so `null`, `""` and `"None"`
- * are three groups, and none of them is the total.
+ * are three groups, and none of them is the total. A key can repeat inside one period (a funnel key is the group
+ * title): such a key is the same group in both periods only by position, the first with the first, and so on. A key
+ * that is unique in both periods is matched by itself.
  */
-const groupId = (segment: Segment): string => (segment.is_total ? 'total' : `key:${JSON.stringify(segment.key)}`);
-
-/** The groups of both periods, the total first, then the groups in the order the API gives them. */
 const groupsOf = ({ data }: AnalyticsAnswer): Group[] => {
-    const groups = new Map<string, Group>();
-    const compare = data.compare?.segments ?? [];
+    const periods = [
+        ['main', totalFirst(data.segments)],
+        ['compare', totalFirst(data.compare?.segments ?? [])],
+    ] as const;
 
-    for (const [period, segment] of [
-        ...totalFirst(data.segments).map(item => ['main', item] as const),
-        ...totalFirst(compare).map(item => ['compare', item] as const),
-    ]) {
-        groups.set(groupId(segment), { ...groups.get(groupId(segment)), [period]: segment });
+    const keyOf = (segment: Segment): string => JSON.stringify(segment.key);
+
+    const count = (segments: readonly Segment[], key: string): number => segments
+        .filter(segment => !segment.is_total && keyOf(segment) === key).length;
+
+    const groups = new Map<string, Group>();
+
+    for (const [period, segments] of periods) {
+        const seen = new Map<string, number>();
+
+        for (const segment of segments) {
+            const key = keyOf(segment);
+            const position = seen.get(key) ?? 0;
+
+            seen.set(key, position + 1);
+
+            const unique = periods.every(([, other]) => count(other, key) <= 1);
+            const own = unique ? `key:${key}` : `key:${key}#${position}`;
+            const id = segment.is_total ? 'total' : own;
+
+            groups.set(id, { ...groups.get(id), [period]: segment });
+        }
     }
 
     const total = groups.get('total');
