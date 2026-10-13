@@ -1,6 +1,6 @@
 ---
 name: adapty-cli
-description: Use when setting up or managing Adapty in-app subscriptions, paywalls, placements, or migrations via CLI, or when reading Attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`.
+description: Use when setting up or managing Adapty in-app subscriptions, paywalls, placements, or migrations via CLI, when reading an app's analytics (revenue, MRR, conversions, funnel, retention, LTV, cohorts) with `adapty analytics`, or when reading Attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`.
 ---
 
 # Adapty CLI Skill
@@ -179,6 +179,16 @@ campaigns (write rules, playbooks, and vertical guides) lives in the `apple-ads`
 [adaptyteam/apple-ads-cli](https://github.com/adaptyteam/apple-ads-cli). Reads (`asa whoami`, any `list`,
 `asa metrics`) are safe to run directly; open `apple-ads` before any `asa` write, because writes spend real money
 and cannot be undone.
+
+---
+
+## App Analytics
+
+The analytics of one app as the Adapty dashboard shows them (charts such as revenue and MRR, conversions, the
+funnel, retention, LTV, cohorts) live in the read-only `adapty analytics` topic. See the `analytics` section of
+`references/cli-commands.md`. Discover before querying: `adapty analytics catalog --app <APP_ID>`, then `values`
+when filtering, then one data command. Totals come first; `null` means no value, never zero. Never add these
+numbers to `attribution` numbers.
 
 ---
 

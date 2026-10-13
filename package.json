@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -104,6 +104,9 @@
       },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
+      },
+      "analytics": {
+        "description": "Analytics of an app (charts, cohorts, conversions, funnel, LTV, retention), as the dashboard shows them. For ad-network attribution (campaigns, ROAS), use `attribution`"
       },
       "attribution": {
         "description": "Attribution analytics: reports across ad networks, and the metric and dimension catalogs"

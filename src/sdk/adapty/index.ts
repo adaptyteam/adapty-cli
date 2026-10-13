@@ -2,21 +2,60 @@ import { systemClock } from '../core/clock.js';
 import { createHttp } from '../core/http/index.js';
 
 import { accessLevels } from './access-levels.js';
+import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
 import { migrations } from './migrations/index.js';
 
 import type { AccessLevelsApi } from './access-levels.js';
+import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
 import type { MigrationApi } from './migrations/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
+export {
+    periodTypes,
+    periodUnits,
+    revenueBases,
+    validateChart,
+    validateCohort,
+    validateConversion,
+    validateFilterValues,
+    validateFunnel,
+    validateLtv,
+    validateRetention,
+} from './analytics/index.js';
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
+export type {
+    AnalyticsFilter,
+    AnalyticsSegment,
+    CatalogChart,
+    CatalogOperation,
+    CatalogOption,
+    CatalogResponse,
+    CatalogSegmentation,
+    ChartInput,
+    ChartResponse,
+    CohortInput,
+    CohortResponse,
+    ConversionInput,
+    ConversionResponse,
+    FilterValue,
+    FilterValuesInput,
+    FilterValuesResponse,
+    FunnelInput,
+    FunnelResponse,
+    LtvInput,
+    LtvResponse,
+    PeriodUnit,
+    RetentionInput,
+    RetentionResponse,
+} from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type {
@@ -64,6 +103,7 @@ export type AdaptyOptions = {
 
 export type Adapty = {
     accessLevels: AccessLevelsApi;
+    analytics: AnalyticsApi;
     apps: AppsApi;
     auth: AuthApi;
     migrations: MigrationApi;
@@ -111,6 +151,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
 
     return {
         accessLevels: accessLevels(http),
+        analytics: analytics(http),
         apps: apps(http),
         auth: auth(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
