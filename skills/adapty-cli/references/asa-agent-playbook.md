@@ -104,7 +104,9 @@ metric**: lifetime value = cohort metrics read at renewal windows via `--by-days
 **Cohort (revenue) metrics**, per gross/proceeds/net: `gross_revenue`, `proceeds_revenue`,
 `net_revenue`, and the same triple for `arpu`, `arppu`, `arpas`, `roas`, `roi`.
 
-**Keyword-only:** `rank`, `search_popularity`, `impression_midpoint`.
+**Keyword-only:** `search_popularity`, `impression_midpoint_all`, `impression_midpoint_first`,
+`rank_all`, `rank_first` — all ad slots vs the first slot. `rank_*` is the current value and ignores
+the period; no report data reads `0`.
 
 `asa metrics overview` accepts the **root names only** (`revenue`, `roas`, `spend`, `taps`, …) — no
 `gross_`/`proceeds_`/`net_` variants and no keyword-only names there.

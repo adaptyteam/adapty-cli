@@ -31,10 +31,12 @@ src/
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
     segments/        # list, get
+    skills/          # install — the Adapty skills into the coding agents on PATH, through each agent's own
+                     # plugin or skills command. Implementation in src/cli/commands/skills
     access-levels/   # list, get, create, update
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
-                     # competitors
+                     # competitors, change-history
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)
     config.ts        # ~/.config/adapty/config.json read/write

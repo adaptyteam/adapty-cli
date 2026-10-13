@@ -163,10 +163,15 @@ export type AsaSearchTermDTO = {
     campaign_group_id: string;
     campaign_id: string;
     country_or_region: string;
+    impression_midpoint_all: null | string;
+    impression_midpoint_first: null | string;
+    impression_share_all: null | string;
+    impression_share_first: null | string;
     keyword_id: null | string;
     match_type: AsaKeywordMatchType | null;
     metrics: AsaMetricsDTO;
-    rank: null | number;
+    rank_all: null | number;
+    rank_first: null | number;
     search_popularity: null | number;
     source: null | string;
     text: null | string;
@@ -467,4 +472,56 @@ export type AsaCompetitorBrandKeywordPoolDTO = {
 
 export type AsaCompetitorBrandKeywordPoolsDTO = {
     pools: AsaCompetitorBrandKeywordPoolDTO[];
+};
+
+export type AsaChangeHistoryEntityRefDTO = {
+    detail_id: string;
+    entity_id: string;
+    entity_name: null | string;
+};
+
+export type AsaChangeHistoryEventDTO = {
+    campaign_group_id: string;
+    changes_count: number;
+    entities: AsaChangeHistoryEntityRefDTO[];
+    entity_type: string;
+    event_time: string;
+    event_type: string;
+    modified_by: null | string;
+    transaction_id: string;
+    user_type: string;
+};
+
+export type AsaFieldChangeDTO = {
+    field: string;
+    new_values: string[];
+    old_values: string[];
+};
+
+export type AsaChangeHistoryDetailDTO = {
+    campaign_group_id: string;
+    changes: AsaFieldChangeDTO[];
+    detail_id: string;
+    entity_id: string;
+    entity_metadata: Record<string, unknown>;
+    entity_type: string;
+    event_time: string;
+    event_type: string;
+    modified_by: null | string;
+    user_type: string;
+};
+
+export type AsaChangeHistoryFieldEventDTO = {
+    campaign_group_id: string;
+    entity_id: string;
+    entity_name: null | string;
+    entity_type: string;
+    event_time: string;
+    event_type: string;
+    field: string;
+    modified_by: null | string;
+    new_values: string[];
+    old_values: string[];
+    transaction_id: string;
+    user_type: string;
 };

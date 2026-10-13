@@ -15,6 +15,11 @@ attribution.*
 # Shared skills
 /skills/adapty-cli/references/cli-commands.md
 
+# Shared docs and the legacy allowlist: every topic command adds its lines here.
+/README.md
+/CLAUDE.md
+/test/architecture/frozen-legacy.test.ts
+
 # Topic teams bump the version to release.
 /package.json
 

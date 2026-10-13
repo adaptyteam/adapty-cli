@@ -61,6 +61,8 @@ const FROZEN_COMMANDS = [
     'asa/campaigns/get.ts',
     'asa/campaigns/list.ts',
     'asa/campaigns/update.ts',
+    'asa/change-history/get.ts',
+    'asa/change-history/list.ts',
     'asa/competitors/summary.ts',
     'asa/connect.ts',
     'asa/creatives/list.ts',
