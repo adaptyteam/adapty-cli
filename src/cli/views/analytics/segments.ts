@@ -41,7 +41,7 @@ const IDENTITY = ['key', 'title', 'is_total'];
 /** The segment fields every operation has: the CSV header of an answer without segments. */
 const BASE_COLUMNS = [...IDENTITY, 'value'];
 
-/** An empty text (the key of a "No Data" group) is shown as `""`, so it never reads as a missing value. */
+/** An empty text (the key of a "No Data" group, for example) is shown as `""`, so it never reads as a missing value. */
 export const formatValue = (value: Cell): string => {
     if (value === null || value === undefined) {
         return NO_VALUE;
@@ -161,8 +161,11 @@ type Group = {
     main?: Segment | undefined;
 };
 
-/** The total is the one segment without a key; every other group is found by its key, `""` included. */
-const groupId = (segment: Segment): string => (segment.is_total ? 'total' : `key:${String(segment.key)}`);
+/**
+ * The total is the segment with `is_total`; every other group is found by its raw key, so `null`, `""` and `"None"`
+ * are three groups, and none of them is the total.
+ */
+const groupId = (segment: Segment): string => (segment.is_total ? 'total' : `key:${JSON.stringify(segment.key)}`);
 
 /** The groups of both periods, the total first, then the groups in the order the API gives them. */
 const groupsOf = ({ data }: AnalyticsAnswer): Group[] => {
@@ -213,12 +216,13 @@ const periodColumns = (
 
 /**
  * The CSV view, made from the API answer: a header line, then one row per group, the total first (`is_total`
- * true; its `key` cell is empty, while the "No Data" key `""` is written `""`). Columns: `key`, `title`,
- * `is_total`; the numbers of the group in the asked period, then each point's `value` (named by its `x`) and its
- * other fields as `<x>.<field>` (a funnel step's or retention period's title as `<x>.title`); the same for the
- * compared period under `compare.`; then every other field of the answer under its JSON path (`data.value`,
- * `data.compare.value`, `meta.query.timezone`, `meta.query.revenue_basis`, ...), the same on every row. A group of
- * one period only has empty cells in the other. A null value is an empty cell. No groups: the header line alone.
+ * true; its `key` cell is empty, as is the cell of a group whose raw key is null; a key `""` is written `""`).
+ * Columns: `key`, `title`, `is_total`; the numbers of the group in the asked period, then each point's `value`
+ * (named by its `x`) and its other fields as `<x>.<field>` (a funnel step's or retention period's title as
+ * `<x>.title`); the same for the compared period under `compare.`; then every other field of the answer under its
+ * JSON path (`data.value`, `data.compare.value`, `meta.query.timezone`, `meta.query.revenue_basis`, ...), the same
+ * on every row. A group of one period only has empty cells in the other. A null value is an empty cell. No groups:
+ * the header line alone.
  */
 export const renderCsv = (answer: AnalyticsAnswer): string => {
     const groups = groupsOf(answer);

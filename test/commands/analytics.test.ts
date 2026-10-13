@@ -79,7 +79,7 @@ const funnelAnswer = {
         value: 3,
         segments: [
             {
-                key: '00000000-0000-0000-0000-000000000000',
+                key: null,
                 title: 'No Data',
                 is_total: false,
                 value: 0,
@@ -173,7 +173,7 @@ const catalogAnswer = {
             default_segmentation: null,
             filters: ['country', 'store'],
             id: 'revenue',
-            segmentations: [{ key: 'country', label: 'Country', filter: 'country' }, { key: 'period', label: 'Period', filter: null }],
+            segmentations: [{ key: 'country', label: 'Country' }, { key: 'period', label: 'Period' }],
             takes_revenue_basis: true,
             title: 'Revenue',
             unit: 'USD',
@@ -197,7 +197,7 @@ const catalogAnswer = {
                 method: 'POST',
                 options: [{ default: false, name: 'use_trial', values: null }, { default: null, name: 'timezone', values: null }],
                 path: 'retention/',
-                segmentations: [{ key: 'country', label: 'Country', filter: 'country' }],
+                segmentations: [{ key: 'country', label: 'Country' }],
             },
         ],
     },
@@ -330,7 +330,7 @@ describe('analytics', () => {
             expect(fetchStub.callCount).to.equal(cases.length);
         });
 
-        it('sends --filter values exactly as written: an empty value keeps the "No Data" group', async () => {
+        it('sends --filter values exactly as written, an empty value too', async () => {
             fetchStub = mockFetchSteps([{ body: chartAnswer }]);
 
             await runCommand([
@@ -370,8 +370,8 @@ describe('analytics', () => {
     });
 
     describe('output', () => {
-        // One row per operation: the total first, 0 kept, null as `—` (human) and an empty cell (CSV), the "No Data"
-        // key "" kept apart from a null key, and every point under its x (or its step title). The human run gets the
+        // One row per operation: the total first, 0 kept, null as `—` (human) and an empty cell (CSV), a raw "No Data"
+        // key ("" or null) kept as a group, and every point under its x (or its step title). The human run gets the
         // resolved query fields of the operation too (`query`), which make its heading and its money format.
         const operations = [
             {
@@ -442,7 +442,7 @@ describe('analytics', () => {
                 csv: [
                     'key,title,is_total,value,-2,-2.title,-2.value_relative,-2.relative_changes,-2.following_changes.title,-2.following_changes.value,-2.following_changes.value_relative,-2.churn_reason_title,0,0.title,0.value_relative,0.relative_changes,0.following_changes.title,0.following_changes.value,0.following_changes.value_relative,0.churn_reason_title,0.churn_reasons[0].title,0.churn_reasons[0].value,0.churn_reasons[0].value_relative,0.parts[0].title,0.parts[0].value,0.parts[0].value_relative,data.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source,meta.query.segmentation',
                     ',Total,true,3,3,Install,100,66.7,Drop off,1,33.3,"",2,Paid,66.7,0,Drop off,2,100,Churn reasons,Cancelled,2,100,Install → Paid,1,50,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
-                    '00000000-0000-0000-0000-000000000000,No Data,false,0,0,Install,0,0,Drop off,0,0,"",,,,,,,,,,,,,,,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
+                    ',No Data,false,0,0,Install,0,0,Drop off,0,0,"",,,,,,,,,,,,,,,3,UTC,2026-07-01,2026-09-30,app,paywall_id',
                 ],
                 query: { filters: { date: ['2026-07-01', '2026-09-30'], country: ['US', ''] } },
                 human: [
@@ -680,6 +680,66 @@ describe('analytics', () => {
             ].join('\n'));
         });
 
+        it('finds the total by is_total alone: a group with a null, empty or "None" key is a group of its own', async () => {
+            // Raw backend keys: a "No Data" group can have null, "" or "None" as key, and is listed before the total
+            const point = (value: number, x: string) => [{ x, value }];
+
+            fetchStub = mockFetchSteps([{
+                body: {
+                    data: {
+                        value: 10,
+                        compare: {
+                            value: 5,
+                            segments: [
+                                { key: null, title: 'No Data', is_total: false, value: 1, values: point(1, '2026-06-01') },
+                                { key: null, title: 'Total', is_total: true, value: 5, values: point(5, '2026-06-01') },
+                            ],
+                        },
+                        segments: [
+                            { key: null, title: 'No Data', is_total: false, value: 4, values: point(4, '2026-07-01') },
+                            { key: 'None', title: 'None', is_total: false, value: 3, values: point(3, '2026-07-01') },
+                            { key: '', title: 'Empty', is_total: false, value: 2, values: point(2, '2026-07-01') },
+                            { key: null, title: 'Total', is_total: true, value: 10, values: point(10, '2026-07-01') },
+                            { key: 'US', title: 'United States', is_total: false, value: 1, values: point(1, '2026-07-01') },
+                        ],
+                    },
+                    meta,
+                },
+            }]);
+
+            const command = `analytics chart ${APP} ${PERIOD} --chart revenue --group-by country --compare-from 2026-04-01 --compare-to 2026-06-30`;
+            const human = await runCommand(command);
+            const csv = await runCommand(`${command} --csv`);
+
+            expect(human.stdout).to.equal([
+                'Chart',
+                PERIOD_LINE,
+                '',
+                '               Total  2026-07-01',
+                'Total             10          10',
+                'No Data            4           4',
+                'None               3           3',
+                'Empty              2           2',
+                'United States      1           1',
+                '',
+                'Compared period',
+                '         Total  2026-06-01',
+                'Total        5           5',
+                'No Data      1           1',
+                '',
+            ].join('\n'));
+
+            expect(csv.stdout).to.equal([
+                'key,title,is_total,value,2026-07-01,compare.value,compare.2026-06-01,data.value,data.compare.value,meta.query.timezone,meta.query.filters.date[0],meta.query.filters.date[1],meta.query.timezone_source',
+                ',Total,true,10,10,5,5,10,5,UTC,2026-07-01,2026-09-30,app',
+                ',No Data,false,4,4,1,1,10,5,UTC,2026-07-01,2026-09-30,app',
+                'None,None,false,3,3,,,10,5,UTC,2026-07-01,2026-09-30,app',
+                '"",Empty,false,2,2,,,10,5,UTC,2026-07-01,2026-09-30,app',
+                'US,United States,false,1,1,,,10,5,UTC,2026-07-01,2026-09-30,app',
+                '',
+            ].join('\n'));
+        });
+
         it('quotes a CSV cell with a comma, a quote or a line break, and doubles the quote', async () => {
             fetchStub = mockFetchSteps([{
                 body: {
@@ -714,12 +774,12 @@ describe('analytics', () => {
                 '  filters: per chart, see Charts',
                 'retention (POST retention/; one period only)',
                 '  options: use_trial (default false); timezone',
-                '  groupings: country (filter country)',
+                '  groupings: country',
                 '  filters: country',
                 '',
                 'Charts',
                 'revenue: Revenue (USD, takes revenue_basis)',
-                '  groupings: country (filter country), period (filter —)',
+                '  groupings: country, period',
                 '  filters: country, store',
                 '',
                 'Conversions',
@@ -756,7 +816,7 @@ describe('analytics', () => {
                 { command: `analytics ltv ${APP} ${PERIOD} --period-type days --renewal-days 30,7`, message: 'Invalid input:\n  --renewal-days: must be whole days, 0 or more, in ascending order, each day once' },
                 { command: `analytics cohort ${APP} ${PERIOD} --period-type days --renewal-days 7 --renewal-days 7`, message: 'Invalid input:\n  --renewal-days: must be whole days, 0 or more, in ascending order, each day once' },
                 { command: `analytics ltv ${APP} ${PERIOD} --period-type days --renewal-days -1`, message: 'Parsing --renewal-days \n\tExpected an integer greater than or equal to 0 but received: -1\nSee more help with --help' },
-                { command: `analytics funnel ${APP} ${PERIOD} --filter country`, message: 'Parsing --filter \n\tExpected dimension=value[,value] (an empty value is a "No Data" group), got "country".\nSee more help with --help' },
+                { command: `analytics funnel ${APP} ${PERIOD} --filter country`, message: 'Parsing --filter \n\tExpected dimension=value[,value] (an empty value is a value), got "country".\nSee more help with --help' },
                 { command: `analytics funnel ${APP} ${PERIOD} --filter date=2026-07-01`, message: 'Invalid input:\n  --filter: date is not a filter: the period has flags of its own' },
                 { command: `analytics ltv ${APP} ${PERIOD} --revenue-basis net_net`, message: 'Expected --revenue-basis=net_net to be one of: gross, proceeds, net\nSee more help with --help' },
                 { command: `analytics values ${APP}`, message: 'The following error occurred:\n  Missing required flag dimension\nSee more help with --help' },

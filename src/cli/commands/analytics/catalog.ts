@@ -11,9 +11,8 @@ import type {
 
 const list = (items: readonly string[]): string => (items.length === 0 ? 'none' : items.join(', '));
 
-/** Each grouping with the filter that takes its group keys, the way to drill down into a group; `—` when none does. */
 const groupings = (segmentations: readonly CatalogSegmentation[]): string =>
-    list(segmentations.map(segmentation => `${segmentation.key} (filter ${segmentation.filter ?? '—'})`));
+    list(segmentations.map(segmentation => segmentation.key));
 
 /** Under the catalog's own names, so a reader knows what to look for in --json and what a flag takes. */
 const describeOption = (option: CatalogOption): string => {

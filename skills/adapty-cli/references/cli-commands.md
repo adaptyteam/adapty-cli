@@ -384,7 +384,7 @@ every command takes `--app`. The full agent guide is `docs/agent/analytics.md` i
 | Command                | Required flags / notes                                                        |
 |------------------------|-------------------------------------------------------------------------------|
 | `analytics catalog`    | `--app`; the six operations with options, groupings and filter keys, every chart and conversion id, every filter dimension |
-| `analytics values`     | `--app`, `--dimension`; the raw values a data command's filter takes, "No Data" included |
+| `analytics values`     | `--app`, `--dimension`; the exact values a data command's filter takes |
 | `analytics chart`      | `--app`, `--chart`, `--date-from`, `--date-to`; optional `--compare-from`/`--compare-to`, `--group-by`, `--filter dimension=value[,value]`, `--granularity`, `--revenue-basis`, `--timezone`, `--csv` |
 | `analytics conversion` | `--app`, `--conversion`, `--date-from`, `--date-to`; optional `--compare-from`/`--compare-to`, `--group-by`, `--filter`, `--granularity`, `--timezone`, `--csv` |
 | `analytics funnel`     | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--timezone`, `--csv` |
@@ -397,14 +397,12 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
 ```
 
 - **One shape for all six**: `data.value` is the number of the period, `data.segments` starts with the total
-  (`is_total` true, `key` null), and each group's `key` is the raw value `--filter <grouping>=<key>` takes.
-  No rows: `segments` is `[]` and the human view prints `No data for this period.`
+  (`is_total` true), and each group's `key` is the raw value the backend gives for that group (a "No Data" group
+  can have `null`, `""` or `"None"`). Tell the total by `is_total`, never by a null `key`. No rows: `segments` is
+  `[]` and the human view prints `No data for this period.`
 - **`0` is a real zero; `null` means no value** (an LTV period not reached, a cohort without a prediction).
-- **Drill down** with the grouping's `filter` from the catalog of that operation or chart and the group's `key`:
-  `--filter <filter>=<key>`; `null` means no drill-down (`period` goes to `renewal_period`). The "No Data" key is
-  the zero UUID (id groupings), `no_offer` (offer type and category), `Uncategorized` (duration) or `""`
-  (`--filter country=`); for `store_product_id`, `flow_screen_id` and `period` no filter selects it. Values are
-  exact; write a comma inside a value as `\,`.
+- **Filter** with values from `analytics values`, not with group keys: a key is not promised to be a filter
+  value. Values are exact (an empty one too); write a comma inside a value as `\,`.
 - **Never add `analytics` numbers to `attribution` numbers**: ad-network questions (campaigns, spend, ROAS) belong
   to `attribution`.
 - **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.

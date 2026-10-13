@@ -7,7 +7,7 @@ import { appIdFlag } from '../../input/app.js';
 
 import type { FilterValue, FilterValuesInput, FilterValuesResponse } from '../../../sdk/adapty/index.js';
 
-/** The value first, as `--filter <dimension>=<value>` takes it; an empty value (a "No Data" group) is shown as `""`. */
+/** The value first, as `--filter <dimension>=<value>` takes it; an empty value is shown as `""`. */
 const describeValue = (item: FilterValue): string =>
     `${item.value === '' ? '""' : item.value}: ${item.label}${item.group === null ? '' : ` (${item.group})`}`;
 
@@ -16,8 +16,7 @@ const renderValues = ({ data, meta }: FilterValuesResponse): string => (data.len
     : data.map(item => describeValue(item)).join('\n'));
 
 export default class AnalyticsValues extends AdaptyCommand {
-    static override description = 'List the values one analytics filter takes for an app: what --filter accepts, '
-        + 'and the key of each group when grouping by that dimension';
+    static override description = 'List the values one analytics filter takes for an app: what --filter accepts';
 
     static override examples = [
         '<%= config.bin %> analytics values --app APP_UUID --dimension country',

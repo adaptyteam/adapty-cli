@@ -25,21 +25,21 @@ export const compareFlags = {
 };
 
 /**
- * `dimension=value[,value]` with every value exactly as written. An empty value is a value, the one a text
- * grouping gives its "No Data" group, so `country=` keeps that group, as the dashboard does.
+ * `dimension=value[,value]` with every value exactly as written. An empty value is a value: `country=` keeps the
+ * data without a country, as the dashboard filter does.
  */
 const parseExactFilter = (input: string): Promise<AnalyticsFilter> => {
     const filter = splitFilter(input);
 
     return filter === undefined
-        ? Promise.reject(usageError(`Expected dimension=value[,value] (an empty value is a "No Data" group), got "${input}".`))
+        ? Promise.reject(usageError(`Expected dimension=value[,value] (an empty value is a value), got "${input}".`))
         : Promise.resolve(filter);
 };
 
 export const filterFlags = {
     filter: Flags.custom<AnalyticsFilter>({
         description: 'Keep the data whose dimension has one of the values: dimension=value[,value] (repeatable; `\\,` '
-            + 'for a comma inside a value; values exactly as written, an empty one too, e.g. country= for a "No Data" group). '
+            + 'for a comma inside a value; values exactly as written, an empty one too, e.g. country= for no country). '
             + 'Dimensions: `adapty analytics catalog`; values: `adapty analytics values`',
         multiple: true,
         parse: parseExactFilter,
@@ -82,8 +82,8 @@ export const renewalPeriodFlags = {
 
 export const csvFlag = {
     csv: Flags.boolean({
-        description: 'Print a CSV table made from the API answer: one row per group, the total first (is_total true, '
-            + 'its key cell empty; a "No Data" key is written ""); a compared period in compare.* columns of the same row; '
+        description: 'Print a CSV table made from the API answer: one row per group, the total first (is_total true; '
+            + 'a null key is an empty cell, an empty key is written ""); a compared period in compare.* columns of the same row; '
             + 'the numbers of the whole answer in data.* and meta.* columns. No groups: the header line, and "No data for '
             + 'this period." with those numbers on stderr',
         exclusive: ['json'],

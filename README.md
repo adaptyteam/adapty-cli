@@ -571,7 +571,7 @@ adapty analytics funnel --app APP_UUID --date-from 2026-07-01 --date-to 2026-09-
 ```
 
 Every data command (`chart`, `conversion`, `funnel`, `retention`, `ltv`, `cohort`) answers in one shape: the
-number of the period, then segments with the total first, each group keyed by the raw value its `--filter` takes.
+number of the period, then segments with the total first (`is_total`), each group keyed by the raw backend value.
 `--json` prints the API answer unchanged; `--csv` prints a table made from it (one row per group, total first; a
 compared period in `compare.*` columns);
 the human view prints a short table (one row per group, total first, money with 2 decimals, `—` for a missing
