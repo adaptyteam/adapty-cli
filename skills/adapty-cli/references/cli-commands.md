@@ -79,12 +79,22 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 
 ## Segments
 
-| Command                           | Required flags |
-|----------------------------------|----------------|
-| `segments list`                   | `--app`        |
-| `segments get <segment_id>`       | `--app`        |
+| Command                           | Required flags                           |
+|----------------------------------|------------------------------------------|
+| `segments list`                   | `--app`                                  |
+| `segments get <segment_id>`       | `--app`                                  |
+| `segments create`                 | `--app`, `--title`, `--filter` (repeatable) |
+| `segments update <segment_id>`    | `--app`, `--title`, `--filter` (repeatable) |
 
-Read-only. Response shape: `{id, title, description}`. Filters are not exposed via this API.
+`--filter` is `field:OPERATOR:value[,value...]` (e.g. `ip_country:IN:US`, `install_date:>=:2026-01-01`, `age:>:18`),
+`field:IS NULL` / `field:IS NOT NULL` with no value, or one JSON object `'{"field_name":"age","operator":">","value_list":[18]}'`
+for typed or nested values. Operators: `IN`, `NOT IN`, `IS NULL`, `IS NOT NULL`, `>`, `>=`, `<`, `<=`, `BETWEEN`. Numeric
+fields (`age`, `total_revenue_usd`, `@float` custom attributes) take the plain number; the server converts it and
+validates field names, operators and value types. `update` replaces the whole segment: pass every filter to keep.
+`get`/`create`/`update` return `{id, title, description, filters[], profile_count, refresh_in_progress, created_at,
+updated_at}`; `list` stays `{id, title, description}`. Segments from Apple Search Ads campaigns, ad groups or
+keywords: `adapty asa segments create` (see `docs/agent/asa-management.md`), which resolves the Apple ids and uses
+the dashboard's `[ASA] ...` naming.
 
 ## Access Levels
 

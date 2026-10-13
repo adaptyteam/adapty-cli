@@ -343,3 +343,114 @@ export function reportBulkOutcome(
         log(`  ${describeListedError(error).text}`);
     }
 }
+
+export type AsaSegmentSource = 'ad-group' | 'campaign' | 'keyword';
+
+export const asaSegmentSourceFlags = {
+    'ad-group': idFilter('ad group'),
+    'campaign': idFilter('campaign'),
+    'keyword': idFilter('keyword'),
+};
+
+export type AsaSegmentSourceFlags = {
+    'ad-group'?: string[] | undefined;
+    'campaign'?: string[] | undefined;
+    'keyword'?: string[] | undefined;
+};
+
+/**
+ * One source kind per segment, as in the Ads Manager modal. Keywords are looked up inside one ad group, so
+ * `--keyword` borrows `--ad-group` as its scope instead of competing with it.
+ */
+export type AsaSegmentSelection = { ids: string[]; scopeAdGroup: string | undefined; source: AsaSegmentSource };
+
+export function resolveAsaSegmentSource(flags: AsaSegmentSourceFlags): AsaSegmentSelection {
+    const keywords = flags.keyword ?? [];
+    const adGroups = flags['ad-group'] ?? [];
+    const campaigns = flags.campaign ?? [];
+
+    if (keywords.length > 0) {
+        const [scopeAdGroup] = adGroups;
+
+        if (campaigns.length > 0 || adGroups.length !== 1 || scopeAdGroup === undefined) {
+            throw new Error('--keyword takes exactly one --ad-group as the lookup scope and no --campaign.');
+        }
+
+        return { ids: [...new Set(keywords)], scopeAdGroup, source: 'keyword' };
+    }
+
+    if (campaigns.length > 0 && adGroups.length > 0) {
+        throw new Error('Pass either --campaign or --ad-group, not both: a segment is built from one kind of entity.');
+    }
+
+    if (campaigns.length > 0) {
+        return { ids: [...new Set(campaigns)], scopeAdGroup: undefined, source: 'campaign' };
+    }
+
+    if (adGroups.length > 0) {
+        return { ids: [...new Set(adGroups)], scopeAdGroup: undefined, source: 'ad-group' };
+    }
+
+    throw new Error('Pass at least one --campaign, --ad-group or --keyword.');
+}
+
+export const ASA_SEGMENT_FIELD: Record<AsaSegmentSource, string> = {
+    'ad-group': 'ad_group',
+    'campaign': 'campaign',
+    // The portal calls a keyword attribution "creative"
+    'keyword': 'creative',
+};
+
+export type AsaSegmentEntity = { id: string; name: string };
+
+const ASA_TITLE_MAX = 120;
+const ASA_DESCRIPTION_MAX = 240;
+const ASA_PREVIEW_COUNT = 3;
+
+const ASA_SOURCE_WORDS: Record<AsaSegmentSource, { one: string; many: string; title: string }> = {
+    'ad-group': { many: 'ad groups', one: 'ad group', title: 'Ad group' },
+    'campaign': { many: 'campaigns', one: 'campaign', title: 'Campaign' },
+    'keyword': { many: 'keywords', one: 'keyword', title: 'Keyword' },
+};
+
+function truncate(text: string, max: number): string {
+    if (text.length <= max) {
+        return text;
+    }
+
+    return max <= 3 ? text.slice(0, max) : `${text.slice(0, max - 3)}...`;
+}
+
+function withRest(preview: string, rest: number): string {
+    return rest > 0 ? `${preview} +${rest}...` : preview;
+}
+
+/** The dashboard's own title and description for an Ads Manager segment, so it recognises the segment as its own. */
+export function buildAsaSegmentNaming(
+    source: AsaSegmentSource,
+    entities: AsaSegmentEntity[],
+): { description: string; title: string } {
+    const words = ASA_SOURCE_WORDS[source];
+
+    if (entities.length === 1) {
+        const [entity] = entities as [AsaSegmentEntity];
+
+        return {
+            description: truncate(`Created from Apple Search Ads ${words.one} "${entity.name}".\n\nID: ${entity.id}`, ASA_DESCRIPTION_MAX),
+            title: truncate(`[ASA] ${words.title}: ${entity.name}`, ASA_TITLE_MAX),
+        };
+    }
+
+    const shown = entities.slice(0, ASA_PREVIEW_COUNT);
+    const rest = entities.length - shown.length;
+    const names = withRest(shown.map(entity => entity.name).join(', '), rest);
+    const ids = withRest(shown.map(entity => entity.id).join(', '), rest);
+
+    return {
+        description: truncate(
+            `Created from Apple Search Ads ${words.many} (${entities.length}).\n\nPreview: ${names}\n\nIDs: ${ids}`,
+            ASA_DESCRIPTION_MAX,
+        ),
+        title: truncate(`[ASA] ${entities.length} ${words.many}: ${names}`, ASA_TITLE_MAX),
+    };
+}
