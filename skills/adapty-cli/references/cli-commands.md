@@ -105,6 +105,12 @@ the dashboard's `[ASA] ...` naming.
 | `access-levels create`                     | `--app`, `--sdk-id`, `--title` |
 | `access-levels update <access_level_id>`   | `--app`, `--title`       |
 
+## Fallbacks
+
+| Command          | Required flags                                                                 |
+|------------------|--------------------------------------------------------------------------------|
+| `fallbacks get`  | `--app`, `--platform` (ios/android), `--sdk-version` (X.Y.Z); writes the fallback file to stdout or `--output <file>`, see `--help` |
+
 ## Migrations
 
 Manage migrations into Adapty: catalog, transactions and store events. The server provides the

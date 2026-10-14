@@ -38,7 +38,8 @@ Everything here would be the same for any HTTP API.
 
 - `http/` — the transport: base URL, bearer token, JSON both ways, responses mapped to sdk errors,
   retry for idempotent requests. Error parsing (`policies.ts`) and the retry rule are parameters,
-  because services word rejections differently.
+  because services word rejections differently. `Http.stream()` hands a 2xx body over unread, for
+  answers too large to parse; `retry: false` turns its retry off for one call.
 - `errors.ts` — the error taxonomy. Every error has a stable `kind` and carries no user-facing text
   and no exit code; assigning both is the adapter's job.
 - `session.ts` — `SessionStore` is a port; `createFileSessionStore(dir)` is the file implementation.
@@ -52,7 +53,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `migrations`).
+resources off it (`apps`, `auth`, `accessLevels`, `fallbacks`, `migrations`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -158,6 +159,8 @@ text or JSON.
   retain that captured ID. `create` saves by default, with `--no-select` to opt out; local save
   failures warn without failing creation. The SDK remains unaware of this local selection.
 - `views/` — plain functions, value in, string out.
+- `output/` — plain functions for a command whose stdout is a file: stream bytes to stdout, send the
+  `--json` error object to stderr, check the raw argv for a flag (`output/file-to-stdout.ts`).
 - `commands/` — one class per command.
 
 ### The shape of a command
@@ -256,6 +259,13 @@ resolve `../../base/adapty` to its index automatically. See
 checked by the compiler: change a shape in the sdk and the command stops compiling instead of
 quietly changing what users parse.
 
+One exception: `fallbacks get` without `--output` writes the server's document to stdout itself and
+`run()` returns `undefined`, so oclif prints nothing after it. The document is up to hundreds of
+megabytes and the SDK needs it byte for byte, so it is streamed, never parsed into a value `run()`
+could return. For the same reason the command overrides `logJson()`, which sends its `--json` error
+object to stderr. Both halves, the streaming and the error, are plain functions in
+`cli/output/file-to-stdout.ts`, for any command whose stdout is a file.
+
 ## Where a change goes
 
 | Change | Place |
@@ -278,8 +288,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` was written on the new
-stack from the start.
+most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` and `fallbacks` were
+written on the new stack from the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

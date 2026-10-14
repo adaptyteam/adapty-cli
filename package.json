@@ -99,6 +99,9 @@
       "segments": {
         "description": "List segments"
       },
+      "fallbacks": {
+        "description": "Download fallback files to bundle in your app"
+      },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
       },

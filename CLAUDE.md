@@ -30,6 +30,7 @@ src/
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
+    fallbacks/       # get. Implementation in src/cli/commands/fallbacks
     segments/        # list, get
     skills/          # install — the Adapty skills into the coding agents on PATH, through each agent's own
                      # plugin or skills command. Implementation in src/cli/commands/skills

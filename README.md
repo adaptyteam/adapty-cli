@@ -131,6 +131,17 @@ adapty access-levels create --app UUID [flags]
 adapty access-levels update --app UUID ACCESS_LEVEL_ID [flags]
 ```
 
+### Fallbacks
+
+```sh
+# CI: write to a temp file and move it only on success
+adapty fallbacks get --app "$ADAPTY_APP_ID" --platform ios --sdk-version 4.1.0 > ios_fallback.json.tmp \
+  && mv ios_fallback.json.tmp ios_fallback.json
+adapty fallbacks get --app "$ADAPTY_APP_ID" --platform android --sdk-version 4.1.0 --output android_fallback.json
+```
+
+Run `adapty fallbacks get --help` for which `--sdk-version` to pass, what goes to stdout, and how failures are handled.
+
 ### Migrations
 
 Manage migrations into Adapty: catalog, transactions and store events. The server provides the
