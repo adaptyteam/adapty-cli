@@ -27,7 +27,7 @@ describe('adapty.fallbacks', () => {
         const scripted = createScriptedFetch([{ raw: new Uint8Array(FILE) }]);
         const adapty = createAdapty({ baseUrl: BASE, fetch: scripted.fetch, token: 't' });
 
-        await adapty.fallbacks.download(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' });
+        await adapty.fallbacks.get(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' });
 
         expect(scripted.calls[0]?.method).to.equal('GET');
         expect(scripted.calls[0]?.url).to.equal(`${BASE}/apps/${APP_ID}/fallbacks/?platform=iOS&sdk_version=4.1.0`);
@@ -37,7 +37,7 @@ describe('adapty.fallbacks', () => {
         const scripted = createScriptedFetch([{ raw: new Uint8Array(FILE) }]);
         const adapty = createAdapty({ baseUrl: BASE, fetch: scripted.fetch, token: 't' });
 
-        const { body } = await adapty.fallbacks.download(APP_ID, { platform: 'Android', sdkVersion: '3.10.2' });
+        const { body } = await adapty.fallbacks.get(APP_ID, { platform: 'Android', sdkVersion: '3.10.2' });
 
         expect(new URL(scripted.calls[0]?.url ?? '').searchParams.get('platform')).to.equal('Android');
         expect((await readAll(body)).equals(FILE)).to.equal(true);
@@ -47,7 +47,7 @@ describe('adapty.fallbacks', () => {
         const scripted = createScriptedFetch([{ body: {}, status: 502 }, { raw: new Uint8Array(FILE) }]);
         const adapty = createAdapty({ baseUrl: BASE, clock: createFakeClock(), fetch: scripted.fetch, token: 't' });
 
-        const error = await rejection(adapty.fallbacks.download(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' }));
+        const error = await rejection(adapty.fallbacks.get(APP_ID, { platform: 'iOS', sdkVersion: '4.1.0' }));
 
         expect(error).to.be.instanceOf(ApiError);
         expect(scripted.calls).to.have.lengthOf(1);
