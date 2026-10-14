@@ -61,9 +61,15 @@ export default class FallbacksGet extends AdaptyCommand {
         + 'a retry after a failure starts that build again. A CI job that wants a retry should wait at least the '
         + 'Retry-After the server sent (retry_after_seconds in the --json error) before it runs the command again.',
         'Without --output, stdout is the server\'s file byte for byte, in human mode and with --json alike; nothing else '
-        + 'is printed there. A plain `> file` truncates the file before the request, so redirect to a temp file and move '
-        + 'it on success, or use --output. With --output, the file is written atomically after a complete download, and '
-        + '--json returns a summary {path, platform, sdk_version, bytes} instead of the file.',
+        + 'is printed there, and every error, the --json error object included, goes to stderr. A plain `> file` '
+        + 'truncates the file before the request, and a download that breaks halfway leaves a partial one, so redirect '
+        + 'to a temp file and move it on success, or use --output. With --output, the file is written atomically after '
+        + 'a complete download and the old file stays on any failure; --json returns a summary {path, platform, '
+        + 'sdk_version, bytes} instead of the file.',
+        'An answer that is not shaped like the file (not application/json, or not {...}) is refused with '
+        + 'fallback_invalid_response. Exit codes: 2 bad input, 3 no token or access refused, 4 any other API error '
+        + '(5xx, 429) or a refused answer, 5 the server was not reached or the download broke, 1 the file could not be '
+        + 'written.',
     ].join('\n\n');
 
     static override examples = [
