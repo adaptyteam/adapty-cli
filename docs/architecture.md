@@ -159,6 +159,8 @@ text or JSON.
   retain that captured ID. `create` saves by default, with `--no-select` to opt out; local save
   failures warn without failing creation. The SDK remains unaware of this local selection.
 - `views/` — plain functions, value in, string out.
+- `output/` — plain functions for a command whose stdout is a file: stream bytes to stdout, send the
+  `--json` error object to stderr, check the raw argv for a flag (`output/file-to-stdout.ts`).
 - `commands/` — one class per command.
 
 ### The shape of a command
