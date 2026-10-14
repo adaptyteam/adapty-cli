@@ -58,11 +58,12 @@ export const placementTestChanges = (current: readonly AudienceEntry[], next: re
     const runningByTest = new Map(running.map(entry => [entry.ab_test_id, entry]));
     const keptTests = new Set(running.map(entry => testKey(entry)));
     const proposedTests = new Set(proposed.map(entry => entry.ab_test_id));
-    const messages = new Set<string>();
+    // One line per test: keyed by test id, so two tests with one title still give two lines
+    const messages = new Map<string, string>();
 
     for (const entry of running) {
         if (!proposedTests.has(entry.ab_test_id)) {
-            messages.add(`test ${label(entry)} stops with no winner`);
+            messages.set(entry.ab_test_id ?? '', `test ${label(entry)} stops with no winner`);
         }
     }
 
@@ -73,10 +74,10 @@ export const placementTestChanges = (current: readonly AudienceEntry[], next: re
 
         const before = runningByTest.get(entry.ab_test_id);
 
-        messages.add(before === undefined
+        messages.set(entry.ab_test_id ?? '', before === undefined
             ? `test ${label(entry)} starts on audience ${audienceName(entry)}`
             : `test ${label(before)} starts again with a new start time`);
     }
 
-    return [...messages].map(message => ({ message }));
+    return [...messages.values()].map(message => ({ message }));
 };

@@ -112,7 +112,18 @@ export default class PlacementsUpdate extends Command {
 
         if (!flags['allow-test-change']) {
             // Read just before the write: a test may have changed since the caller read the placement
-            const current = await client.get<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`);
+            let current: PlacementDetailDTO;
+
+            try {
+                current = await client.get<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`);
+            } catch (error) {
+                this.error(
+                    'Could not read the placement before the write. The CLI reads it first to protect running A/B tests '
+                    + `(--allow-test-change skips that read). Nothing was sent.\n${error instanceof Error ? error.message : String(error)}`,
+                    { exit: 1 },
+                );
+            }
+
             const changes = placementTestChanges(current.audiences ?? [], proposed);
 
             if (changes.length > 0) {

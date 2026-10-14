@@ -2,7 +2,7 @@ import { expect } from 'chai';
 
 import { placementTestChanges } from '../../../src/sdk/adapty/index.js';
 
-import type { AudienceEntry } from '../../../src/sdk/adapty/index.js';
+import type { AudienceEntry } from '../../../src/sdk/adapty/placement-test-changes.js';
 
 const abTest = (id: string, segments: string[], title?: string): AudienceEntry => ({
     ab_test_id: id,
@@ -51,6 +51,13 @@ describe('placementTestChanges', () => {
         expect(messages([abTest('t1', ['a'], 'One')], [abTest('t2', ['a'], 'Two')])).to.deep.equal([
             'test One stops with no winner',
             'test Two starts on audience segment a',
+        ]);
+    });
+
+    it('gives one line per test, also for two tests with the same title', () => {
+        expect(messages([abTest('t1', ['a'], 'Same'), abTest('t2', ['b'], 'Same')], [])).to.deep.equal([
+            'test Same stops with no winner',
+            'test Same stops with no winner',
         ]);
     });
 

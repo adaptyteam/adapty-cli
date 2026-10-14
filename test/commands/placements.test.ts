@@ -394,6 +394,15 @@ describe('placements', () => {
             expect(JSON.parse(stdout)).to.deep.equal(PLACEMENT_WITH_TEST);
         });
 
+        it('get shows the test title and the test id in the human output', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const { stdout } = await runCommand(`placements get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+
+            expect(stdout).to.contain('Live paywall test');
+            expect(stdout).to.contain(TEST_ID);
+        });
+
         it('update sends the entries of get back unchanged, test and crossplacement entries included', async () => {
             fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
 
@@ -441,7 +450,7 @@ describe('placements', () => {
             expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
         });
 
-        it('update does not compare crossplacement entries: dropping or changing one goes through', async () => {
+        it('update does not compare crossplacement entries: changing one goes through', async () => {
             fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
 
             const audiences = [
@@ -454,6 +463,26 @@ describe('placements', () => {
 
             expect(error).to.equal(undefined);
             expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+        });
+
+        it('update does not compare crossplacement entries: dropping one goes through', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
+
+            const { error } = await runCommand(updateArgs([RUNNING_TEST, DEFAULT_PAYWALL]));
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+        });
+
+        it('update that cannot read the placement first says why, and sends nothing', async () => {
+            fetchStub = mockFetchFailure({ error_code: 'not_found', status_code: 404 }, { status: 404 });
+
+            const { error } = await runCommand(updateArgs([DEFAULT_PAYWALL]));
+
+            expect(error?.message).to.contain('Could not read the placement before the write');
+            expect(error?.message).to.contain('protect running A/B tests');
+            expect(error?.message).to.contain('--allow-test-change');
+            expect(methodsSent()).to.deep.equal(['GET']);
         });
 
         it('update that puts a paywall in place of the test refuses, names the test and sends nothing', async () => {
@@ -469,16 +498,6 @@ describe('placements', () => {
             expect(exit).to.equal(exitCode.usage);
             expect(message).to.contain('test Live paywall test stops with no winner');
             expect(message).to.contain('--allow-test-change');
-            expect(methodsSent()).to.deep.equal(['GET']);
-        });
-
-        it('update that leaves the test out refuses', async () => {
-            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
-
-            const { exit, message } = await refusal(updateArgs([DEFAULT_PAYWALL]));
-
-            expect(exit).to.equal(exitCode.usage);
-            expect(message).to.contain('test Live paywall test stops with no winner');
             expect(methodsSent()).to.deep.equal(['GET']);
         });
 

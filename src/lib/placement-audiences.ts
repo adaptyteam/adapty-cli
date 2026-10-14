@@ -3,7 +3,7 @@
 // back `unknown`, so the type alone cannot enforce it — this does, the same way
 // for humans and agents (no prompting).
 
-/** The audience kinds a placement read can return and a write accepts back. */
+/** The A/B test audience kinds: regular and crossplacement, paywall and flow. Each needs `ab_test_id`. */
 const A_B_TEST_KINDS = new Set(['ab_test', 'cross_ab_test', 'flow_ab_test', 'flow_cross_ab_test']);
 
 /**
