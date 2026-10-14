@@ -38,10 +38,8 @@ Everything here would be the same for any HTTP API.
 
 - `http/` — the transport: base URL, bearer token, JSON both ways, responses mapped to sdk errors,
   retry for idempotent requests. Error parsing (`policies.ts`) and the retry rule are parameters,
-  because services word rejections differently. `Http.stream()` is the one GET whose 2xx body is
-  handed over unread, for answers too large to parse (the fallback file). It is retried up to the
-  headers, never after them; `retry: false` sends exactly one request, which the fallback download
-  uses because a retry would rebuild a multi-GB file on the server.
+  because services word rejections differently. `Http.stream()` hands a 2xx body over unread, for
+  answers too large to parse; `retry: false` turns its retry off for one call.
 - `errors.ts` — the error taxonomy. Every error has a stable `kind` and carries no user-facing text
   and no exit code; assigning both is the adapter's job.
 - `session.ts` — `SessionStore` is a port; `createFileSessionStore(dir)` is the file implementation.
@@ -259,12 +257,11 @@ resolve `../../base/adapty` to its index automatically. See
 checked by the compiler: change a shape in the sdk and the command stops compiling instead of
 quietly changing what users parse.
 
-One exception: `fallbacks get` without `--output`. Its result is a file of up to hundreds of
-megabytes that the SDK wants byte for byte, so the command never parses it: it streams the server's
-bytes to stdout itself, in both modes, and `run()` returns `undefined` so oclif prints no JSON after
-them. Its stdout is the file and nothing else, so it also overrides `logJson()`: the `--json` error
-object goes to stderr, before and after the first byte. With `--output` it is an ordinary command
-again: `run()` returns a summary, and errors print where they always do.
+One exception: `fallbacks get` without `--output` writes the server's document to stdout itself and
+`run()` returns `undefined`, so oclif prints nothing after it. The document is up to hundreds of
+megabytes and the SDK needs it byte for byte, so it is streamed, never parsed into a value `run()`
+could return. For the same reason the command overrides `logJson()`, which sends its `--json` error
+object to stderr.
 
 ## Where a change goes
 
