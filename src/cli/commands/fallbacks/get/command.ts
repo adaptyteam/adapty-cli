@@ -7,6 +7,7 @@ import { AdaptyCommand } from '../../../base/adapty/index.js';
 import { usageError } from '../../../errors.js';
 import { appIdFlag } from '../../../input/app.js';
 
+import { renderWritten } from './lib/render.js';
 import { checkContentType, checkShape } from './lib/shape.js';
 import { explainThrottle } from './lib/throttle.js';
 import { writeFileAtomic } from './lib/write.js';
@@ -37,9 +38,6 @@ type Written = {
  */
 const writesToStdout = (argv: readonly string[]): boolean =>
     !argv.some(arg => arg === '--output' || arg.startsWith('--output='));
-
-const renderWritten = (written: Written): string =>
-    `Wrote ${written.platform} fallback to ${written.path} (${written.bytes} bytes)`;
 
 /** A Buffer, not the bare Uint8Array: a stream writer that stringifies its chunk would print "123,34". */
 const asBuffer = (chunk: Uint8Array): Buffer => Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
@@ -119,12 +117,14 @@ export default class FallbacksGet extends AdaptyCommand {
         const input = { platform: apiPlatform[flags.platform], sdkVersion: flags['sdk-version'] };
 
         // One request, never retried (see the sdk resource); a 429 says when to ask again.
-        const response = await this.adapty.fallbacks.download(flags.app, input).catch((error: unknown) => {
+        const response = await this.adapty.fallbacks.get(flags.app, input).catch((error: unknown) => {
             throw explainThrottle(error);
         });
 
+        // Before a byte goes anywhere: a refused answer touches neither stdout nor the destination
+        await checkContentType(response);
+
         if (flags.output === undefined) {
-            await checkContentType(response);
             await this.#toStdout(checkShape(response.body));
 
             // undefined, so oclif prints no result under --json: the file on stdout is the result
@@ -135,8 +135,6 @@ export default class FallbacksGet extends AdaptyCommand {
 
         // The request has succeeded by now; the destination is touched only by the final rename of a
         // complete file, so any failure from here on keeps the old one.
-        await checkContentType(response);
-
         const bytes = await writeFileAtomic(path, checkShape(response.body));
 
         const written: Written = { bytes, path, platform: flags.platform, sdk_version: flags['sdk-version'] };
