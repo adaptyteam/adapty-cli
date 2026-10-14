@@ -67,6 +67,9 @@ Every data command answers in one shape, so one parser reads all six:
 - No rows for the window: `data.segments` is `[]`, and the human view prints `No data for this period.`
 - Numbers are the dashboard's numbers. A real zero is `0`. `null` means the backend has no value (an LTV period not
   reached yet, a cohort that cannot be predicted): never count it as 0.
+- Two known differences from the dashboard. The funnel applies the `cancellation_reason` filter, which the
+  dashboard funnel ignores, so with that filter the number can differ from the dashboard. The retention groupings are
+  the backend's retention list, which differs from the dashboard's list.
 - `meta.query` is the query that ran: every field of the operation with its default, the filters as sent,
   `timezone` and `timezone_source` (`request` when `--timezone` was given, else `app`).
 - Some fields are objects: a cohort gives `revenue`, `arpu`, `arppu` and `arpas` on each basis
@@ -129,5 +132,6 @@ A server refusal exits 4 and prints the API's error code (`--json`: `error.code`
 envelope (a proxy page) exits 4 with `malformed_response`, and nothing is printed. No token exits 3 with the hint
 "Not authenticated. Run `adapty auth login`." A 403 (a token without access to the app) also exits 3.
 
-All analytics calls of one app share a rate limit of 2 requests per second. The data commands are sent once and
-never retried: a `429` exits 4, and the `--json` error carries the wait as `retry_after_seconds`.
+Each analytics route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute
+for all callers together. The data commands are sent once and never retried: over a limit, a `429` exits 4, and the
+`--json` error carries the wait as `retry_after_seconds`.
