@@ -210,6 +210,8 @@ text or JSON.
   CSV; the CSV `level` cell is `root` for the root row, the node's `level` or empty for a child) and the filter values.
   `views/flow-funnel.ts` prints the screen funnel (summary, steps, and the screens of a
   step that has more than one).
+- `output/` — plain functions for a command whose stdout is a file: stream bytes to stdout, send the
+  `--json` error object to stderr, check the raw argv for a flag (`output/file-to-stdout.ts`).
 - `commands/` — one class per command.
 
 ### The shape of a command
