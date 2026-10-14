@@ -194,6 +194,8 @@ text or JSON.
   numbers that each operation names and one column per point; it says under the table when `--json` and `--csv`
   give more fields. `views/metrics.ts` prints the metrics tree and rows (table,
   CSV) and the filter values.
+- `output/` — plain functions for a command whose stdout is a file: stream bytes to stdout, send the
+  `--json` error object to stderr, check the raw argv for a flag (`output/file-to-stdout.ts`).
 - `commands/` — one class per command.
 
 ### The shape of a command
