@@ -1,5 +1,7 @@
 import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
 
+import { exitCode } from '../../src/cli/errors.js';
 import {
     assertFetch,
     mockFetch,
@@ -15,6 +17,46 @@ const PLACEMENT_RESPONSE = { developer_id: 'default', id: TEST_RESOURCE_ID, is_a
 const PAYWALL_ID = '770e8400-e29b-41d4-a716-446655440002';
 const SEGMENT_ID = '880e8400-e29b-41d4-a716-446655440003';
 const FLOW_ID = '990e8400-e29b-41d4-a716-446655440004';
+const OTHER_SEGMENT_ID = 'aa0e8400-e29b-41d4-a716-446655440005';
+const TEST_ID = 'bb0e8400-e29b-41d4-a716-446655440006';
+const DRAFT_TEST_ID = 'cc0e8400-e29b-41d4-a716-446655440007';
+const CROSS_TEST_ID = 'dd0e8400-e29b-41d4-a716-446655440008';
+
+// The placement as `placements get` shows it: a running test on a segment, the default paywall, a crossplacement test
+const RUNNING_TEST = {
+    ab_test_id: TEST_ID,
+    ab_test_title: 'Live paywall test',
+    content_type: 'ab_test',
+    priority: 0,
+    segment_ids: [SEGMENT_ID],
+};
+
+const DEFAULT_PAYWALL = { content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 1, segment_ids: [] };
+
+const CROSS_TEST = {
+    ab_test_id: CROSS_TEST_ID,
+    ab_test_title: 'Cross test',
+    content_type: 'cross_ab_test',
+    priority: 2,
+    segment_ids: [OTHER_SEGMENT_ID],
+};
+
+const PLACEMENT_WITH_TEST = { ...PLACEMENT_RESPONSE, audiences: [RUNNING_TEST, DEFAULT_PAYWALL, CROSS_TEST] };
+
+const updateArgs = (audiences: unknown[], extra: string[] = []): string[] => [
+    'placements',
+    'update',
+    TEST_RESOURCE_ID,
+    '--app',
+    TEST_APP_ID,
+    '--title',
+    'Default',
+    '--developer-id',
+    'default',
+    '--audiences',
+    JSON.stringify(audiences),
+    ...extra,
+];
 
 describe('placements', () => {
     let fetchStub: sinon.SinonStub;
@@ -140,7 +182,7 @@ describe('placements', () => {
 
     it('update with a flow audience sends content_type and flow_id', async () => {
         process.env.ADAPTY_TOKEN = 'test-token';
-        fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+        fetchStub = mockFetch([PLACEMENT_RESPONSE, PLACEMENT_RESPONSE]);
 
         const audiences = [{ content_type: 'flow', flow_id: FLOW_ID, priority: 0, segment_ids: [] }];
 
@@ -160,7 +202,7 @@ describe('placements', () => {
 
         assertFetch({
             body: { audiences, developer_id: 'default', paywall_id: null, title: 'Default' },
-            callIndex: 0,
+            callIndex: 1,
             method: 'PUT',
             path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
             stub: fetchStub,
@@ -283,7 +325,7 @@ describe('placements', () => {
 
     it('update with --paywall-id sends paywall_id directly', async () => {
         process.env.ADAPTY_TOKEN = 'test-token';
-        fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+        fetchStub = mockFetch([PLACEMENT_RESPONSE, PLACEMENT_RESPONSE]);
         await runCommand(`placements update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Default --developer-id default --paywall-id ${PAYWALL_ID}`);
 
         assertFetch({
@@ -293,7 +335,7 @@ describe('placements', () => {
                 paywall_id: PAYWALL_ID,
                 title: 'Default',
             },
-            callIndex: 0,
+            callIndex: 1,
             method: 'PUT',
             path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
             stub: fetchStub,
@@ -302,7 +344,7 @@ describe('placements', () => {
 
     it('update with --audiences sends JSON verbatim', async () => {
         process.env.ADAPTY_TOKEN = 'test-token';
-        fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+        fetchStub = mockFetch([PLACEMENT_RESPONSE, PLACEMENT_RESPONSE]);
 
         const audiences = [{ content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: [] }];
 
@@ -322,10 +364,331 @@ describe('placements', () => {
 
         assertFetch({
             body: { audiences, developer_id: 'default', paywall_id: null, title: 'Default' },
-            callIndex: 0,
+            callIndex: 1,
             method: 'PUT',
             path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
             stub: fetchStub,
+        });
+    });
+
+    describe('A/B tests', () => {
+        const methodsSent = (): string[] => {
+            return fetchStub.getCalls().map(call => (call.args[1] as { method: string }).method);
+        };
+
+        const refusal = async (args: string[]): Promise<{ exit: number | undefined; message: string }> => {
+            const { error } = await runCommand(args);
+
+            return { exit: error?.oclif?.exit, message: error?.message ?? '' };
+        };
+
+        beforeEach(() => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+        });
+
+        it('get prints the A/B and crossplacement entries as the API sends them', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const { stdout } = await runCommand(`placements get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --json`);
+
+            expect(JSON.parse(stdout)).to.deep.equal(PLACEMENT_WITH_TEST);
+        });
+
+        it('update sends the entries of get back unchanged, test and crossplacement entries included', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
+
+            const audiences = PLACEMENT_WITH_TEST.audiences;
+            const { error } = await runCommand(updateArgs(audiences));
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+
+            assertFetch({
+                body: { audiences },
+                callIndex: 1,
+                method: 'PUT',
+                path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
+                stub: fetchStub,
+            });
+        });
+
+        it('update that only changes priorities goes through with no option', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
+
+            const audiences = [
+                { content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: [] },
+                { ...RUNNING_TEST, priority: 1 },
+            ];
+
+            const { error } = await runCommand(updateArgs(audiences));
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+        });
+
+        it('update that adds a segment audience above the test goes through with no option', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
+
+            const audiences = [
+                { content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: [OTHER_SEGMENT_ID] },
+                { ...RUNNING_TEST, priority: 1 },
+                { ...DEFAULT_PAYWALL, priority: 2 },
+            ];
+
+            const { error } = await runCommand(updateArgs(audiences));
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+        });
+
+        it('update does not compare crossplacement entries: dropping or changing one goes through', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST, PLACEMENT_RESPONSE]);
+
+            const audiences = [
+                RUNNING_TEST,
+                DEFAULT_PAYWALL,
+                { ...CROSS_TEST, segment_ids: [SEGMENT_ID] },
+            ];
+
+            const { error } = await runCommand(updateArgs(audiences));
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+        });
+
+        it('update that puts a paywall in place of the test refuses, names the test and sends nothing', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const audiences = [
+                { content_type: 'paywall', paywall_id: PAYWALL_ID, priority: 0, segment_ids: [SEGMENT_ID] },
+                DEFAULT_PAYWALL,
+            ];
+
+            const { exit, message } = await refusal(updateArgs(audiences));
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain('test Live paywall test stops with no winner');
+            expect(message).to.contain('--allow-test-change');
+            expect(methodsSent()).to.deep.equal(['GET']);
+        });
+
+        it('update that leaves the test out refuses', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const { exit, message } = await refusal(updateArgs([DEFAULT_PAYWALL]));
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain('test Live paywall test stops with no winner');
+            expect(methodsSent()).to.deep.equal(['GET']);
+        });
+
+        it('update that puts a draft test id on an audience refuses and names the audience', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const audiences = [
+                RUNNING_TEST,
+                { ab_test_id: DRAFT_TEST_ID, content_type: 'ab_test', priority: 1, segment_ids: [OTHER_SEGMENT_ID] },
+                { ...DEFAULT_PAYWALL, priority: 2 },
+            ];
+
+            const { exit, message } = await refusal(updateArgs(audiences));
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain(`test ${DRAFT_TEST_ID} starts on audience segment ${OTHER_SEGMENT_ID}`);
+            expect(message).to.not.contain('stops');
+            expect(methodsSent()).to.deep.equal(['GET']);
+        });
+
+        it('update that moves the test to other segments refuses: it starts again with a new start time', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const audiences = [{ ...RUNNING_TEST, segment_ids: [OTHER_SEGMENT_ID] }, DEFAULT_PAYWALL];
+            const { exit, message } = await refusal(updateArgs(audiences));
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain('test Live paywall test starts again with a new start time');
+            expect(message).to.not.contain('stops');
+            expect(methodsSent()).to.deep.equal(['GET']);
+        });
+
+        it('update refuses under --json with the same exit code and no write', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            // oclif keeps an exit code an earlier command left behind, so start from none
+            process.exitCode = undefined;
+
+            const { stdout } = await runCommand(updateArgs([DEFAULT_PAYWALL], ['--json']));
+            const exit = process.exitCode;
+
+            process.exitCode = 0;
+
+            expect(exit).to.equal(exitCode.usage);
+            expect((JSON.parse(stdout) as { error: { message: string } }).error.message).to.contain('test Live paywall test stops with no winner');
+            expect(methodsSent()).to.deep.equal(['GET']);
+        });
+
+        it('update with --allow-test-change sends the write that stops the test, with no read first', async () => {
+            fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+
+            const { error } = await runCommand(updateArgs([DEFAULT_PAYWALL], ['--allow-test-change']));
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['PUT']);
+
+            assertFetch({
+                body: { audiences: [DEFAULT_PAYWALL] },
+                callIndex: 0,
+                method: 'PUT',
+                path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
+                stub: fetchStub,
+            });
+        });
+
+        it('update with --paywall-id refuses when the placement has a running test', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const { exit, message } = await refusal([
+                'placements',
+                'update',
+                TEST_RESOURCE_ID,
+                '--app',
+                TEST_APP_ID,
+                '--title',
+                'Default',
+                '--developer-id',
+                'default',
+                '--paywall-id',
+                PAYWALL_ID,
+            ]);
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain('test Live paywall test stops with no winner');
+            expect(methodsSent()).to.deep.equal(['GET']);
+        });
+
+        it('update with --paywall-id goes through on a placement with no running test', async () => {
+            fetchStub = mockFetch([{ ...PLACEMENT_RESPONSE, audiences: [DEFAULT_PAYWALL] }, PLACEMENT_RESPONSE]);
+
+            const { error } = await runCommand(
+                `placements update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --title Default --developer-id default --paywall-id ${PAYWALL_ID}`,
+            );
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['GET', 'PUT']);
+        });
+
+        it('update accepts flow test entries and sends them back', async () => {
+            const flowTest = { ab_test_id: TEST_ID, ab_test_title: 'Flow test', content_type: 'flow_ab_test', priority: 0, segment_ids: [] };
+
+            fetchStub = mockFetch([{ ...PLACEMENT_RESPONSE, audiences: [flowTest] }, PLACEMENT_RESPONSE]);
+
+            const { error } = await runCommand(updateArgs([flowTest]));
+
+            expect(error).to.equal(undefined);
+
+            assertFetch({
+                body: { audiences: [flowTest] },
+                callIndex: 1,
+                method: 'PUT',
+                path: `/apps/${TEST_APP_ID}/placements/${TEST_RESOURCE_ID}/`,
+                stub: fetchStub,
+            });
+        });
+
+        it('update refuses a test entry without ab_test_id before any request', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const { exit, message } = await refusal(
+                updateArgs([{ content_type: 'ab_test', priority: 0, segment_ids: [SEGMENT_ID] }]),
+            );
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain('--audiences[0]: an entry with content_type "ab_test" requires ab_test_id');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('update refuses an entry kind that it does not know and tells to update the CLI', async () => {
+            fetchStub = mockFetch([PLACEMENT_WITH_TEST]);
+
+            const { exit, message } = await refusal(
+                updateArgs([{ content_type: 'onboarding_ab_test', priority: 0, segment_ids: [] }]),
+            );
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain('--audiences[0]: this CLI does not know this audience kind; update the CLI');
+            expect(message).to.not.contain('must be "paywall" or "flow"');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('create with a test id refuses without the option and sends nothing', async () => {
+            fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+
+            const { exit, message } = await refusal([
+                'placements',
+                'create',
+                '--app',
+                TEST_APP_ID,
+                '--title',
+                'Default',
+                '--developer-id',
+                'default',
+                '--audiences',
+                JSON.stringify([{ ab_test_id: DRAFT_TEST_ID, content_type: 'ab_test', priority: 0, segment_ids: [] }]),
+            ]);
+
+            expect(exit).to.equal(exitCode.usage);
+            expect(message).to.contain(`test ${DRAFT_TEST_ID} starts on audience All users`);
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('create with a test id and --allow-test-change sends the write', async () => {
+            fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+
+            const audiences = [{ ab_test_id: DRAFT_TEST_ID, content_type: 'ab_test', priority: 0, segment_ids: [] }];
+
+            const { error } = await runCommand([
+                'placements',
+                'create',
+                '--app',
+                TEST_APP_ID,
+                '--title',
+                'Default',
+                '--developer-id',
+                'default',
+                '--audiences',
+                JSON.stringify(audiences),
+                '--allow-test-change',
+            ]);
+
+            expect(error).to.equal(undefined);
+
+            assertFetch({
+                body: { audiences },
+                callIndex: 0,
+                method: 'POST',
+                path: `/apps/${TEST_APP_ID}/placements/`,
+                stub: fetchStub,
+            });
+        });
+
+        it('create with a crossplacement entry only goes through with no option', async () => {
+            fetchStub = mockFetch([PLACEMENT_RESPONSE]);
+
+            const { error } = await runCommand([
+                'placements',
+                'create',
+                '--app',
+                TEST_APP_ID,
+                '--title',
+                'Default',
+                '--developer-id',
+                'default',
+                '--audiences',
+                JSON.stringify([CROSS_TEST]),
+            ]);
+
+            expect(error).to.equal(undefined);
+            expect(methodsSent()).to.deep.equal(['POST']);
         });
     });
 });

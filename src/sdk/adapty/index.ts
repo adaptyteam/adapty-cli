@@ -16,6 +16,7 @@ import type { RetryAttempt } from '../core/http/index.js';
 
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
+export { placementTestChanges } from './placement-test-changes.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
@@ -39,6 +40,7 @@ export type {
     WizardError,
 } from './migrations/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
+export type { AudienceEntry } from './placement-test-changes.js';
 
 /** Exported because the adapter compares the resolved URL with it and warns when they differ. */
 export const DEFAULT_ADAPTY_API_URL = 'https://api-admin.adapty.io/api/v1/developer';

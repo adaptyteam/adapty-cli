@@ -3,29 +3,43 @@
 // back `unknown`, so the type alone cannot enforce it — this does, the same way
 // for humans and agents (no prompting).
 
+/** The audience kinds a placement read can return and a write accepts back. */
+const A_B_TEST_KINDS = new Set(['ab_test', 'cross_ab_test', 'flow_ab_test', 'flow_cross_ab_test']);
+
 /**
  * Returns a human-readable problem string when `entry` is not a valid placement
  * audience entry, or `null` when it is well-formed. Every entry must carry an
- * explicit `content_type` ('paywall' | 'flow'); there is no implicit paywall.
+ * explicit `content_type`; there is no implicit paywall. A kind that this CLI does
+ * not know is refused with an "update the CLI" text, never with a text that invites
+ * deleting the entry: a write without a running A/B test entry stops that test.
  */
 export function audienceEntryProblem(entry: unknown): null | string {
     if (typeof entry !== 'object' || entry === null) {
         return 'each entry must be a JSON object';
     }
 
-    const { content_type: contentType, flow_id: flowId, paywall_id: paywallId } = entry as Record<string, unknown>;
+    const {
+        ab_test_id: abTestId,
+        content_type: contentType,
+        flow_id: flowId,
+        paywall_id: paywallId,
+    } = entry as Record<string, unknown>;
 
-    if (contentType !== 'flow' && contentType !== 'paywall') {
-        return 'content_type is required and must be "paywall" or "flow"';
+    if (typeof contentType !== 'string') {
+        return 'content_type is required: "paywall", "flow", "ab_test", "flow_ab_test", "cross_ab_test" or "flow_cross_ab_test"';
     }
 
-    if (contentType === 'paywall' && typeof paywallId !== 'string') {
-        return 'a paywall entry requires paywall_id';
+    if (contentType === 'paywall') {
+        return typeof paywallId === 'string' ? null : 'a paywall entry requires paywall_id';
     }
 
-    if (contentType === 'flow' && typeof flowId !== 'string') {
-        return 'a flow entry requires flow_id';
+    if (contentType === 'flow') {
+        return typeof flowId === 'string' ? null : 'a flow entry requires flow_id';
     }
 
-    return null;
+    if (!A_B_TEST_KINDS.has(contentType)) {
+        return 'this CLI does not know this audience kind; update the CLI';
+    }
+
+    return typeof abTestId === 'string' ? null : `an entry with content_type "${contentType}" requires ab_test_id`;
 }

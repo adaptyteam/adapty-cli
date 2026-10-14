@@ -224,7 +224,36 @@ export type PlacementFlowAudienceEntryDTO = {
     segment_ids?: string[];
 };
 
-export type PlacementAudienceEntryDTO = PlacementFlowAudienceEntryDTO | PlacementPaywallAudienceEntryDTO;
+/**
+ * An audience that runs a regular A/B test: the running content of the audience is the test.
+ * `ab_test_title` is read-only: the API ignores it on a write. Writing the same `ab_test_id` back
+ * on the same segments keeps the test running; any other id or segment set starts or stops a test.
+ */
+export type PlacementABTestAudienceEntryDTO = {
+    ab_test_id: string;
+    ab_test_title?: string;
+    content_type: 'ab_test' | 'flow_ab_test';
+    priority: number;
+    segment_ids?: string[];
+};
+
+/**
+ * An audience that shows a crossplacement A/B test (`ab_test_id` is the parent test). Read-only:
+ * the API ignores these entries on a write and keeps the stored ones.
+ */
+export type PlacementCrossABTestAudienceEntryDTO = {
+    ab_test_id: string;
+    ab_test_title?: string;
+    content_type: 'cross_ab_test' | 'flow_cross_ab_test';
+    priority: number;
+    segment_ids?: string[];
+};
+
+export type PlacementAudienceEntryDTO
+    = | PlacementABTestAudienceEntryDTO
+        | PlacementCrossABTestAudienceEntryDTO
+        | PlacementFlowAudienceEntryDTO
+        | PlacementPaywallAudienceEntryDTO;
 
 export type PlacementSummaryDTO = {
     developer_id: string;
