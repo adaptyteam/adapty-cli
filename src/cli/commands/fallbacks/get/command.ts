@@ -1,4 +1,3 @@
-import { once } from 'node:events';
 import { resolve } from 'node:path';
 
 import { Flags } from '@oclif/core';
@@ -6,6 +5,7 @@ import { Flags } from '@oclif/core';
 import { AdaptyCommand } from '../../../base/adapty/index.js';
 import { usageError } from '../../../errors.js';
 import { appIdFlag } from '../../../input/app.js';
+import { flagPassed, streamToStdout, writeJsonToStderr } from '../../../output/file-to-stdout.js';
 
 import { renderWritten } from './lib/render.js';
 import { checkContentType, checkShape } from './lib/shape.js';
@@ -31,16 +31,6 @@ type Written = {
     platform: Platform;
     sdk_version: string;
 };
-
-/**
- * Read from the raw argv, not the parsed flags: a run whose flags the parser rejects writes to stdout
- * as well, and its error must stay off stdout too.
- */
-const writesToStdout = (argv: readonly string[]): boolean =>
-    !argv.some(arg => arg === '--output' || arg.startsWith('--output='));
-
-/** A Buffer, not the bare Uint8Array: a stream writer that stringifies its chunk would print "123,34". */
-const asBuffer = (chunk: Uint8Array): Buffer => Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
 
 export default class FallbacksGet extends AdaptyCommand {
     static override summary = 'Download the fallback file to bundle in your app';
@@ -103,19 +93,15 @@ export default class FallbacksGet extends AdaptyCommand {
     };
 
     /**
-     * Under --json oclif prints the error object to stdout. Without --output stdout is the file, before
-     * the first byte as after it, so the error object goes to stderr: `> file` never captures a document
-     * that is not the file, and the exit code tells the caller there is no complete one. A run without
-     * --output returns undefined, so an error is the only JSON that ever reaches this method there.
+     * Without --output stdout is the file, so the --json error object goes to stderr. Such a run returns
+     * undefined, so an error is the only JSON that ever reaches this method there.
      */
     override logJson(json: unknown): void {
-        if (writesToStdout(this.argv)) {
-            process.stderr.write(`${JSON.stringify(json, null, 2)}\n`);
-
-            return;
+        if (flagPassed(this.argv, 'output')) {
+            super.logJson(json);
+        } else {
+            writeJsonToStderr(json);
         }
-
-        super.logJson(json);
     }
 
     async run(): Promise<undefined | Written> {
@@ -131,7 +117,7 @@ export default class FallbacksGet extends AdaptyCommand {
         await checkContentType(response);
 
         if (flags.output === undefined) {
-            await this.#toStdout(checkShape(response.body));
+            await streamToStdout(checkShape(response.body));
 
             // undefined, so oclif prints no result under --json: the file on stdout is the result
             return undefined;
@@ -148,13 +134,5 @@ export default class FallbacksGet extends AdaptyCommand {
         this.render(written, renderWritten);
 
         return written;
-    }
-
-    async #toStdout(chunks: AsyncIterable<Uint8Array>): Promise<void> {
-        for await (const chunk of chunks) {
-            if (!process.stdout.write(asBuffer(chunk))) {
-                await once(process.stdout, 'drain');
-            }
-        }
     }
 }
