@@ -18,7 +18,7 @@ export type FallbackInput = {
  * pod. Whoever wants another try waits for the server's Retry-After and asks again.
  */
 export const fallbacks = (http: Http) => ({
-    download: (appId: string, input: FallbackInput) => http.stream(`/apps/${appId}/fallbacks`, {
+    get: (appId: string, input: FallbackInput) => http.stream(`/apps/${appId}/fallbacks`, {
         query: { platform: input.platform, sdk_version: input.sdkVersion },
         retry: false,
     }),
