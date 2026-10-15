@@ -51,8 +51,8 @@ All commands support `--json` for machine-readable output.
 |----------------------------------|--------------------------------------------------|
 | `placements list`                 | `--app`                                           |
 | `placements get <placement_id>`   | `--app`                                           |
-| `placements create`               | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated); optional `--allow-test-change` |
-| `placements update <placement_id>` | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated); optional `--allow-test-change` |
+| `placements create`               | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
+| `placements update <placement_id>` | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
 
 **`--audiences` JSON shape** — array of entries, each with an explicit `content_type`:
 - Paywall: `{content_type: "paywall", segment_ids: string[], paywall_id: string, priority: number}`
@@ -71,12 +71,7 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
   --audiences '[{"content_type":"paywall","segment_ids":["<SEG_VIP>"],"paywall_id":"<PW_VIP>","priority":0},{"content_type":"paywall","segment_ids":[],"paywall_id":"<PW_DEFAULT>","priority":1}]'
 ```
 
-**A/B tests on a write** — `placements get` shows the audience of a running test as an `ab_test` or `flow_ab_test` entry. Write that entry back unchanged (same `ab_test_id`, same `segment_ids`) to keep the test running; a change of priority only is safe. `placements update` reads the placement just before it writes, and without `--allow-test-change` it refuses (exit 2, nothing sent, one line per test) a write that would:
-- stop a running test with no winner: its entry is missing or replaced by a paywall or flow (`test <title> stops with no winner`);
-- start a test: an `ab_test_id` that does not run on this placement now, such as a draft (`test <title> starts on audience <segments or All users>`);
-- move a running test to other segments (`test <title> starts again with a new start time`).
-
-`placements create` refuses each A/B test entry the same way. Crossplacement entries are not compared. Pass `--allow-test-change` only when the person has confirmed that change. The check covers `--paywall-id` too, which replaces all audiences.
+**A/B tests on a write** — `placements get` shows the audience of a running test as an `ab_test` or `flow_ab_test` entry. Write that entry back unchanged (same `ab_test_id`, same `segment_ids`) to keep the test running. A write that removes or replaces an A/B test entry (also with `--paywall-id`, which replaces all audiences) stops that test with no winner; a write that puts a test id on an audience starts that test there, and a write that moves a test entry to other segments starts it again with a new start time. A write that only changes priorities keeps the test. The CLI does not check this: confirm with the person before such a write. Crossplacement entries are ignored on a write.
 
 **`--paywall-id` is deprecated.** CLI sends it as `paywall_id` in the request body unchanged; server translates it into a single default audience. CLI emits stderr warnings:
 - Always: `--paywall-id is deprecated. Use --audiences instead.`

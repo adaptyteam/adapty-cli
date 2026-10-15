@@ -1,13 +1,11 @@
 import { Args, Command, Flags } from '@oclif/core';
 
 import { appIdFlag } from '../../cli/input/app.js';
-import { allowTestChangeFlag, testChangeRefusal } from '../../cli/input/placement-audiences.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { isValidUuid } from '../../lib/flags.js';
 import { draftFlowError } from '../../lib/flow-help.js';
 import { printResponse } from '../../lib/output.js';
 import { audienceEntryProblem } from '../../lib/placement-audiences.js';
-import { placementTestChanges } from '../../sdk/adapty/index.js';
 
 import type { PlacementAudienceEntryDTO, PlacementDetailDTO, PlacementWriteRequestDTO } from '../../lib/api-schemas.js';
 
@@ -21,13 +19,11 @@ export default class PlacementsUpdate extends Command {
     static override examples = [
         '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"content_type":"paywall","segment_ids":[],"paywall_id":"PAYWALL_UUID","priority":0}]\'',
         '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"content_type":"flow","segment_ids":[],"flow_id":"FLOW_UUID","priority":0}]\'',
-        '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --audiences \'[{"content_type":"ab_test","ab_test_id":"AB_TEST_UUID","segment_ids":["SEGMENT_UUID"],"priority":0},{"content_type":"paywall","segment_ids":[],"paywall_id":"PAYWALL_UUID","priority":1}]\'',
         '<%= config.bin %> placements update --app UUID 550e8400-... --title "Default" --developer-id default --paywall-id PAYWALL_UUID',
     ];
 
     static override flags = {
         ...appIdFlag,
-        ...allowTestChangeFlag,
         'audiences': Flags.string({
             description:
                 'JSON array of audience entries. Every entry needs an explicit content_type. '
@@ -35,7 +31,8 @@ export default class PlacementsUpdate extends Command {
                 + 'Flow: {content_type:"flow", segment_ids, flow_id, priority}. '
                 + 'A/B test (as `placements get` shows it): {content_type:"ab_test" | "flow_ab_test", ab_test_id, segment_ids, priority}; '
                 + 'crossplacement entries ("cross_ab_test", "flow_cross_ab_test") are read-only, the API keeps the stored ones. '
-                + 'Write the entries of `placements get` back unchanged to keep a running test. '
+                + 'Write the entries of `placements get` back unchanged to keep a running test: a write that removes or replaces '
+                + 'an A/B test entry stops that test with no winner. '
                 + 'A flow must be published first (flows publish) — attaching a draft flow returns 400.',
             exactlyOne: ['paywall-id', 'audiences'],
         }),
@@ -61,9 +58,6 @@ export default class PlacementsUpdate extends Command {
             title: flags.title,
         };
 
-        // What the placement holds after the write: the check below compares it with the placement now
-        let proposed: PlacementAudienceEntryDTO[];
-
         if (flags['paywall-id']) {
             process.stderr.write(
                 '⚠️  --paywall-id is deprecated. Use --audiences instead.\n'
@@ -78,8 +72,6 @@ export default class PlacementsUpdate extends Command {
 
             // eslint-disable-next-line @typescript-eslint/no-deprecated -- FIXME if you see this
             body.paywall_id = flags['paywall-id'];
-            // The API replaces all audiences with one default audience
-            proposed = [{ content_type: 'paywall', paywall_id: flags['paywall-id'], priority: 0, segment_ids: [] }];
         } else {
             let parsed: unknown;
 
@@ -105,32 +97,9 @@ export default class PlacementsUpdate extends Command {
             }
 
             body.audiences = entries as PlacementAudienceEntryDTO[];
-            proposed = body.audiences;
         }
 
         const client = await createAuthenticatedClient(this.config);
-
-        if (!flags['allow-test-change']) {
-            // Read just before the write: a test may have changed since the caller read the placement
-            let current: PlacementDetailDTO;
-
-            try {
-                current = await client.get<PlacementDetailDTO>(`/apps/${flags.app}/placements/${args.placement_id}`);
-            } catch (error) {
-                this.error(
-                    'Could not read the placement before the write. The CLI reads it first to protect running A/B tests '
-                    + `(--allow-test-change skips that read). Nothing was sent.\n${error instanceof Error ? error.message : String(error)}`,
-                    { exit: 1 },
-                );
-            }
-
-            const changes = placementTestChanges(current.audiences ?? [], proposed);
-
-            if (changes.length > 0) {
-                throw testChangeRefusal(changes);
-            }
-        }
-
         let result: PlacementDetailDTO;
 
         try {

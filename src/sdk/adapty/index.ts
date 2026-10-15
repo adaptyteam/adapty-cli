@@ -16,7 +16,6 @@ import type { RetryAttempt } from '../core/http/index.js';
 
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
-export { placementTestChanges } from './placement-test-changes.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';

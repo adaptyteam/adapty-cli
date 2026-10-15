@@ -1,12 +1,10 @@
 import { Command, Flags } from '@oclif/core';
 
 import { appIdFlag } from '../../cli/input/app.js';
-import { allowTestChangeFlag, testChangeRefusal } from '../../cli/input/placement-audiences.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { draftFlowError } from '../../lib/flow-help.js';
 import { printResponse } from '../../lib/output.js';
 import { audienceEntryProblem } from '../../lib/placement-audiences.js';
-import { placementTestChanges } from '../../sdk/adapty/index.js';
 
 import type { PlacementAudienceEntryDTO, PlacementDetailDTO, PlacementWriteRequestDTO } from '../../lib/api-schemas.js';
 
@@ -21,7 +19,6 @@ export default class PlacementsCreate extends Command {
 
     static override flags = {
         ...appIdFlag,
-        ...allowTestChangeFlag,
         'audiences': Flags.string({
             description:
                 'JSON array of audience entries. Every entry needs an explicit content_type. '
@@ -29,7 +26,8 @@ export default class PlacementsCreate extends Command {
                 + 'Flow: {content_type:"flow", segment_ids, flow_id, priority}. '
                 + 'A/B test (as `placements get` shows it): {content_type:"ab_test" | "flow_ab_test", ab_test_id, segment_ids, priority}; '
                 + 'crossplacement entries ("cross_ab_test", "flow_cross_ab_test") are read-only, the API keeps the stored ones. '
-                + 'Write the entries of `placements get` back unchanged to keep a running test. '
+                + 'Write the entries of `placements get` back unchanged to keep a running test: a write that removes or replaces '
+                + 'an A/B test entry stops that test with no winner. '
                 + 'A flow must be published first (flows publish) — attaching a draft flow returns 400.',
             exactlyOne: ['paywall-id', 'audiences'],
         }),
@@ -84,13 +82,6 @@ export default class PlacementsCreate extends Command {
             }
 
             body.audiences = entries as PlacementAudienceEntryDTO[];
-
-            // A new placement runs no test: each test id would start a test, or move a running one
-            const changes = flags['allow-test-change'] ? [] : placementTestChanges([], body.audiences);
-
-            if (changes.length > 0) {
-                throw testChangeRefusal(changes);
-            }
         }
 
         const client = await createAuthenticatedClient(this.config);
