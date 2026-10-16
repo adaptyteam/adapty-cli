@@ -293,6 +293,21 @@ When several agents are found, the command asks which to install into; with no o
 `npx skills add adaptyteam/adapty-skills --all --global`, which covers the other agents. Restart an agent to
 load the skills. Exit **1** means an install failed.
 
+### Feedback
+
+A short report to Adapty on how a task with the CLI or an Adapty skill went. Leave out secrets and personal
+data. There is no `--app`: put app, flow or other ids into the message when they matter:
+
+```sh
+adapty feedback --sentiment positive --message "Imported the paywall from Canva in one pass"
+adapty feedback --sentiment negative --message "flows config update rejected a valid button twice" \
+  --feature flow-generator --context "editing the paywall screen"
+```
+
+`--sentiment` is `positive`, `neutral` or `negative`. `--feature` takes letters, digits, `.`, `_` and `-`;
+Adapty records `unknown` when it is left out. The CLI won't send a report containing something that looks like
+an API key, a bearer token, a JWT or an email address; it exits 2 and names the flag to fix.
+
 ### Apple Search Ads
 
 Apple Search Ads commands live under `adapty asa` and talk to the ASA service rather than the Developer
