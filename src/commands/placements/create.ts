@@ -24,6 +24,10 @@ export default class PlacementsCreate extends Command {
                 'JSON array of audience entries. Every entry needs an explicit content_type. '
                 + 'Paywall: {content_type:"paywall", segment_ids, paywall_id, priority}. '
                 + 'Flow: {content_type:"flow", segment_ids, flow_id, priority}. '
+                + 'A/B test (as `placements get` shows it): {content_type:"ab_test" | "flow_ab_test", ab_test_id, segment_ids, priority}; '
+                + 'crossplacement entries ("cross_ab_test", "flow_cross_ab_test") are read-only, the API keeps the stored ones. '
+                + 'Write the entries of `placements get` back unchanged to keep a running test: a write that removes or replaces '
+                + 'an A/B test entry stops that test with no winner. '
                 + 'A flow must be published first (flows publish) — attaching a draft flow returns 400.',
             exactlyOne: ['paywall-id', 'audiences'],
         }),

@@ -54,7 +54,13 @@ All commands support `--json` for machine-readable output.
 | `placements create`               | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
 | `placements update <placement_id>` | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
 
-**`--audiences` JSON shape** — array of `{segment_ids: string[], paywall_id: string, priority: number}`:
+**`--audiences` JSON shape** — array of entries, each with an explicit `content_type`:
+- Paywall: `{content_type: "paywall", segment_ids: string[], paywall_id: string, priority: number}`
+- Flow: `{content_type: "flow", segment_ids: string[], flow_id: string, priority: number}` (the flow must be published)
+- A/B test: `{content_type: "ab_test" | "flow_ab_test", ab_test_id: string, segment_ids: string[], priority: number}` (`ab_test_title` is read-only: the API ignores it on a write)
+- Crossplacement A/B test: `{content_type: "cross_ab_test" | "flow_cross_ab_test", ab_test_id: string, ...}` — read-only: the API ignores these entries on a write and keeps the stored ones
+- A placement holds paywall and `ab_test`/`cross_ab_test` entries, or flow and `flow_ab_test`/`flow_cross_ab_test` entries, not both families.
+- An entry kind that the CLI does not know is refused with "this CLI does not know this audience kind; update the CLI". Do not delete such an entry to get past the error: a write without a running test's entry stops that test.
 - Default audience uses `segment_ids: []` and must have max priority (last evaluated). Exactly one default required.
 - `segment_ids` capped at length 0 or 1 (UI/API convention; legacy multi-segment data is read-only).
 - `priority` is 0-based, unique per placement.
@@ -62,19 +68,21 @@ All commands support `--json` for machine-readable output.
 Example:
 ```sh
 adapty placements update <id> --app <APP> --title "Default" --developer-id default \
-  --audiences '[{"segment_ids":["<SEG_VIP>"],"paywall_id":"<PW_VIP>","priority":0},{"segment_ids":[],"paywall_id":"<PW_DEFAULT>","priority":1}]'
+  --audiences '[{"content_type":"paywall","segment_ids":["<SEG_VIP>"],"paywall_id":"<PW_VIP>","priority":0},{"content_type":"paywall","segment_ids":[],"paywall_id":"<PW_DEFAULT>","priority":1}]'
 ```
+
+**A/B tests on a write** — `placements get` shows the audience of a running test as an `ab_test` or `flow_ab_test` entry. Write that entry back unchanged (same `ab_test_id`, same `segment_ids`) to keep the test running. A write that removes or replaces an A/B test entry (also with `--paywall-id`, which replaces all audiences) stops that test with no winner; a write that puts a test id on an audience starts that test there, and a write that moves a test entry to other segments starts it again with a new start time. A write that only changes priorities keeps the test. The CLI does not check this: confirm with the person before such a write. Crossplacement entries are ignored on a write.
 
 **`--paywall-id` is deprecated.** CLI sends it as `paywall_id` in the request body unchanged; server translates it into a single default audience. CLI emits stderr warnings:
 - Always: `--paywall-id is deprecated. Use --audiences instead.`
 - On `update` only (additional): `--paywall-id will rewrite all audiences on this placement.` — full replace; segment-specific paywalls are dropped (server-side).
 
-**`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id`). To get the default paywall, read the entry with `segment_ids: []`.
+**`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id`). To get the default paywall, read the `paywall` entry with `segment_ids: []`; the default audience may run an A/B test instead (an `ab_test` entry).
 
 **Workflow — swap a paywall across placements:**
 1. `paywalls placements <PAYWALL_ID> --app <APP>` → list affected placements.
 2. For each: `placements get <ID> --app <APP> --json` → read full `audiences[]`.
-3. Mutate the matching entries client-side.
+3. Mutate the matching `paywall` entries client-side; keep every other entry (A/B test and crossplacement entries too) unchanged.
 4. `placements update <ID> --app <APP> --title ... --developer-id ... --audiences '...'` → write back.
 
 ## Segments
@@ -454,5 +462,5 @@ Before running any of these:
 - `--platform ios` requires `--apple-bundle-id`; `--platform android` requires `--google-bundle-id`
 - Android non-lifetime products require `--android-base-plan-id` with `--android-product-id`
 - `--page` min 1, `--page-size` max 100
-- `--audiences` must be a valid JSON array; each entry's `segment_ids` array length 0 or 1
+- `--audiences` must be a valid JSON array; each entry has an explicit `content_type` (`paywall`, `flow`, `ab_test`, `flow_ab_test`, `cross_ab_test`, `flow_cross_ab_test`) and its required id (`paywall_id`, `flow_id`, `ab_test_id`); each entry's `segment_ids` array length 0 or 1
 - On `placements create`/`update`: exactly one of `--audiences` or `--paywall-id` (passing both or neither errors)

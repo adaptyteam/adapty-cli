@@ -83,7 +83,7 @@ Execution order (each step uses output from previous):
 2. `adapty apps create --title "..." --platform ... --apple-bundle-id/--google-bundle-id ...` → save output: `id` (use as `--app`), `sdk_key` (use in SDK), plus the default access level `id` and `sdk_id` printed after creation
 3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions (non-lifetime) require `--android-base-plan-id`. Web products bind Stripe/Paddle instead: `--stripe-product-id`+`--stripe-price-id` or `--paddle-product-id`+`--paddle-price-id` (each pair required together).
 4. `adapty paywalls create --app <APP_ID> --title "..." --product-id <ID1> --product-id <ID2> ...` → save paywall ID
-5. For each placement: `adapty placements create --app <APP_ID> --title "..." --developer-id ... --audiences '[{"segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'`
+5. For each placement: `adapty placements create --app <APP_ID> --title "..." --developer-id ... --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'`
    - `--paywall-id <PAYWALL_ID>` is still accepted as legacy shorthand but emits a stderr deprecation warning. Prefer `--audiences` for the canonical default-audience shape.
 
 Print progress as you go (e.g. "Created app ✓", "Created product 'Monthly' ✓").
@@ -198,7 +198,7 @@ Attribution dashboard shows them) live in the read-only `adapty attribution` top
 - **Placement** — location in app where paywall appears. Identified by `developer_id`. Holds one or more audiences; each audience routes a segment to a paywall by priority. Default audience (`segment_ids: []`) is the fallback and must have max priority.
 - **Access Level** — permission gate (e.g. "premium"). Products grant access levels on purchase. Identified by `sdk_id`.
 - **Segment** — filter rule (e.g. "VIP users"). `adapty segments list|get|create|update --app <APP_ID>`; filters are `field:OPERATOR:value[,value...]` (`field:IS NULL` with no value; numbers as plain `age:>:18`; or one JSON object for typed values). Segments from Apple Search Ads campaigns, ad groups or keywords: `adapty asa segments create` (dashboard naming, Apple ids resolved for you). Compose into placement audiences to give different segments different paywalls at the same placement.
-- **Audience** — `(segments, paywall, priority)` tuple inside a placement. Auto-materialized from segment composition. CLI exposes audiences as the `--audiences` JSON shape on `placements create`/`update`.
+- **Audience** — `(segments, content, priority)` tuple inside a placement; the content is a paywall, a flow, or a running A/B test. Auto-materialized from segment composition. CLI exposes audiences as the `--audiences` JSON shape on `placements create`/`update`. `placements get` shows every audience, A/B test audiences too (`content_type` `ab_test` or `flow_ab_test`, with `ab_test_id` and `ab_test_title`; crossplacement tests as read-only `cross_ab_test` / `flow_cross_ab_test`). Write the list of `placements get` back with only the changes you mean to make: a write that removes or replaces an A/B test entry stops that test with no winner; a write that only changes priorities keeps it.
 
 ---
 
