@@ -248,6 +248,16 @@ adapty migrations steps -m mig_7x2 --json | jq '.steps'
 adapty migrations show RESOURCE -m mig_7x2 --json | jq '.result'
 ```
 
+## Feedback
+
+| Command    | Flags |
+|------------|-------|
+| `feedback` | `--sentiment` (positive/neutral/negative), `--message` (a few sentences); optional `--feature` (skill or feature name; Adapty records `unknown` when omitted), `--context` |
+
+Sends a report to Adapty on how the task went: tell the user when you send one, and leave out secrets and
+personal data. No `--app`, so put ids into `--message`. The CLI won't send a report containing something that
+looks like an API key, a bearer token, a JWT or an email address; it exits 2 and names the flag to fix.
+
 ## Preview
 
 | Command                                    | Required flags |
