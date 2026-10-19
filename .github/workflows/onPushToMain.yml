@@ -58,6 +58,7 @@ jobs:
           commit: ${{ github.ref_name }}
           token: ${{ secrets.GH_RELEASE_TOKEN }}
           skipIfReleaseExists: true
+          generateReleaseNotes: true
       - name: Sync Apple Ads agent docs
         if: steps.version-check.outputs.skipped == 'false'
         env:
