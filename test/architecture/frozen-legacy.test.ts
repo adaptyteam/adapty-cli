@@ -61,6 +61,8 @@ const FROZEN_COMMANDS = [
     'asa/campaigns/get.ts',
     'asa/campaigns/list.ts',
     'asa/campaigns/update.ts',
+    'asa/change-history/get.ts',
+    'asa/change-history/list.ts',
     'asa/competitors/summary.ts',
     'asa/connect.ts',
     'asa/creatives/list.ts',
@@ -76,6 +78,9 @@ const FROZEN_COMMANDS = [
     'asa/product-pages/list.ts',
     'asa/product-pages/sync.ts',
     'asa/search-terms/list.ts',
+    'asa/segments/create.ts',
+    'asa/segments/list.ts',
+    'asa/segments/update.ts',
     'asa/whoami.ts',
     'flows/config/get.ts',
     'flows/config/preview.ts',
@@ -100,8 +105,10 @@ const FROZEN_COMMANDS = [
     'products/get.ts',
     'products/list.ts',
     'products/update.ts',
+    'segments/create.ts',
     'segments/get.ts',
     'segments/list.ts',
+    'segments/update.ts',
 ];
 
 /** oclif discovers commands only under src/commands, so a ported one keeps a one-line file here. */

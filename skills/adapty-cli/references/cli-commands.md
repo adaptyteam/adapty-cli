@@ -79,12 +79,22 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 
 ## Segments
 
-| Command                           | Required flags |
-|----------------------------------|----------------|
-| `segments list`                   | `--app`        |
-| `segments get <segment_id>`       | `--app`        |
+| Command                           | Required flags                           |
+|----------------------------------|------------------------------------------|
+| `segments list`                   | `--app`                                  |
+| `segments get <segment_id>`       | `--app`                                  |
+| `segments create`                 | `--app`, `--title`, `--filter` (repeatable) |
+| `segments update <segment_id>`    | `--app`, `--title`, `--filter` (repeatable) |
 
-Read-only. Response shape: `{id, title, description}`. Filters are not exposed via this API.
+`--filter` is `field:OPERATOR:value[,value...]` (e.g. `ip_country:IN:US`, `install_date:>=:2026-01-01`, `age:>:18`),
+`field:IS NULL` / `field:IS NOT NULL` with no value, or one JSON object `'{"field_name":"age","operator":">","value_list":[18]}'`
+for typed or nested values. Operators: `IN`, `NOT IN`, `IS NULL`, `IS NOT NULL`, `>`, `>=`, `<`, `<=`, `BETWEEN`. Numeric
+fields (`age`, `total_revenue_usd`, `@float` custom attributes) take the plain number; the server converts it and
+validates field names, operators and value types. `update` replaces the whole segment: pass every filter to keep.
+`get`/`create`/`update` return `{id, title, description, filters[], profile_count, refresh_in_progress, created_at,
+updated_at}`; `list` stays `{id, title, description}`. Segments from Apple Search Ads campaigns, ad groups or
+keywords: `adapty asa segments create` (see `docs/agent/asa-management.md`), which resolves the Apple ids and uses
+the dashboard's `[ASA] ...` naming.
 
 ## Access Levels
 
@@ -230,6 +240,16 @@ adapty migrations steps -m mig_7x2 --json | jq '.steps'
 adapty migrations show RESOURCE -m mig_7x2 --json | jq '.result'
 ```
 
+## Feedback
+
+| Command    | Flags |
+|------------|-------|
+| `feedback` | `--sentiment` (positive/neutral/negative), `--message` (a few sentences); optional `--feature` (skill or feature name; Adapty records `unknown` when omitted), `--context` |
+
+Sends a report to Adapty on how the task went: tell the user when you send one, and leave out secrets and
+personal data. No `--app`, so put ids into `--message`. The CLI won't send a report containing something that
+looks like an API key, a bearer token, a JWT or an email address; it exits 2 and names the flag to fix.
+
 ## Preview
 
 | Command                                    | Required flags |
@@ -316,6 +336,8 @@ The rules for writing to a live ad account, and the campaign playbooks, live in 
 | `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows; `--campaign-level-only` keeps only those |
 | `asa negative-keywords add`          | exactly one of `--ad-group` / `--campaign`; `--all-ad-groups` needs `--campaign` |
 | `asa search-terms list`              | period flags; filter by `--ad-group` / `--campaign` to build the keyword pipeline |
+| `asa change-history list`            | read live from Apple (proxied from the Apple Ads Platform API; 6 months of history, default last 7 days, at most 14 days per call); required `--campaign-group` (one organization per call, loop over `asa orgs list` for several); default entity types are the campaign domain, `Org` / `AdAccount` cannot be mixed with them; Apple-id filters `--campaign` / `--ad-group` / `--entity-id` / `--user` / `--txn`, enums `--entity-type` / `--event-type` / `--user-type`; `--fields` gives flat field-level rows (page size 10; a larger `--page-size` is refused; a page may expand into at most 20 lookups); `modified_by` is an Apple user id, not an email |
+| `asa change-history get <detail_id>` | field-level before/after for one `detail_id` of the list; required `--campaign-group` is the `campaign_group_id` of the list row |
 | `asa ads list` / `get <id>`          | `serving_state_reasons` explains a non-running ad; list has no `--app` filter |
 | `asa ads create`                     | `--ad-group`, `--creative-id`, `--name`; the creative id comes from `asa creatives list` |
 | `asa ads update <ad_id>`             | `--name` and/or `--status`; creative and parent are fixed at creation        |

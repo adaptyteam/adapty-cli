@@ -99,9 +99,6 @@
       "segments": {
         "description": "List segments"
       },
-      "skills": {
-        "description": "Install the Adapty skills into coding agents"
-      },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
       },
@@ -146,6 +143,9 @@
       },
       "asa:automations": {
         "description": "Rule-based automations"
+      },
+      "asa:change-history": {
+        "description": "Apple Ads change history, read live from Apple"
       },
       "asa:metrics": {
         "description": "Metrics and overviews"

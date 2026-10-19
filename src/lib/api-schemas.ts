@@ -181,6 +181,34 @@ export type SegmentDTO = {
     title: string;
 };
 
+export type SegmentFilterDTO = {
+    field_name: string;
+    operator: string;
+    segment_filter_id: null | string;
+    value_list: unknown[];
+};
+
+/** What `segments get`, `create` and `update` return; the list stays `SegmentDTO`. */
+export type SegmentDetailDTO = SegmentDTO & {
+    created_at: string;
+    filters: SegmentFilterDTO[];
+    profile_count: number;
+    refresh_in_progress: boolean;
+    updated_at: string;
+};
+
+export type SegmentFilterInput = {
+    field_name: string;
+    operator: string;
+    value_list: unknown[];
+};
+
+export type SegmentWriteRequestDTO = {
+    description?: string | undefined;
+    filters: SegmentFilterInput[];
+    title: string;
+};
+
 export type PlacementPaywallAudienceEntryDTO = {
     content_type: 'paywall';
     paywall_id: string;

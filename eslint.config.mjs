@@ -266,8 +266,22 @@ const httpDoorOnly = {
     message: 'core/http has one door: import it through core/http/index.js',
 };
 
+// The legacy commands under src/commands follow the same product fence: a global command (apps, segments,
+// placements, …) knows nothing of Apple Search Ads. Input shared between a global command and an `asa`
+// one lives in src/cli/input, not in a lib/asa-* module.
+const noAsaInGlobalCommand = {
+    group: ['**/lib/asa-*', '**/sdk/asa', '**/sdk/asa/**'],
+    message: 'a global command must not import Apple Search Ads code: shared input lives in src/cli/input',
+};
+
 // Live for src/sdk/core; the blocks for products and for src/cli wait for those layers.
 const architecture = tseslint.config(
+    {
+        files: ['src/commands/**/*.ts'],
+        ignores: ['src/commands/asa/**'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [noAsaInGlobalCommand] }] },
+    },
+
     {
         files: ['src/sdk/**/*.ts'],
         rules: { 'no-restricted-imports': ['error', { patterns: [noOclif, noCli, noLegacy] }] },

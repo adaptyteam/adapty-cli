@@ -124,6 +124,35 @@ Invoicing Options. They map to `loc_invoice_details` in the request: advertiser 
 |---|---|---|
 | `asa creatives list` | see Scope filters | Yields the Apple `creative_id` that `ads create` needs. |
 
+## Segments from Apple Search Ads entities
+
+Adapty segments (audiences for placements) built from ASA entities, the way the Ads Manager
+"create segment" button does it: one attribution filter over the Apple ids of the chosen entities.
+These commands write through the Developer API, so they are the one place in this topic that takes
+`--app` — the Adapty app the segment belongs to, from `adapty apps list`, not an ASA scope filter.
+Any other filter shape (country, install date, custom attributes) goes through `adapty segments create`.
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa segments create` | `--app`, plus one kind of entity: `--campaign` (repeatable) / `--ad-group` (repeatable) / `--keyword` (repeatable, with exactly one `--ad-group` as the lookup scope); optional `--title`, `--description`, `--yes` | Reads the entities from the `asa` service, then creates the segment with `campaign IN [...]`, `ad_group IN [...]` or `creative IN [...]` (a keyword is a `creative` for the portal) over their Apple ids. The default title is the dashboard's own — `[ASA] Campaign: <name>`, `[ASA] Ad group: <name>`, `[ASA] Keyword: <text>`, or `[ASA] <N> campaigns: <three names> +<rest>...` — keep it unless the user asks for another: the dashboard recognises its segments by the `[ASA]` prefix. Two kinds of entity in one call exit 2 before the network. The answer is the full segment (`id`, `filters`, `profile_count`, `refresh_in_progress`); `profile_count` starts at 0 and is recomputed by the server later. |
+| `asa segments update <id>` | `--app`, plus the same entity flags as `create`; optional `--title`, `--description`, `--yes` | Replaces the segment's filter with the chosen entities. Title and description are read back and kept unless `--title` / `--description` are passed, because the server takes the whole segment. The id is the segment UUID from `asa segments list` or `adapty segments list`. |
+| `asa segments list` | `--app`; optional `--campaign` or `--ad-group` (one UUID) | The `[ASA]`-titled segments of the app. With `--campaign` or `--ad-group` only the segments whose filter carries that entity's Apple id are kept — run it before `create` to avoid a duplicate segment for the same campaign. Reads one page of 100 segments. |
+
+Recipe — a segment per campaign:
+
+```sh
+adapty asa campaigns list --page-size 1000                    # the campaign UUIDs
+adapty asa segments list --app APP_UUID --campaign CAMPAIGN_UUID   # empty → no segment yet
+adapty asa segments create --app APP_UUID --campaign CAMPAIGN_UUID --yes
+```
+
+## Change history
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa change-history list` | required `--campaign-group` (UUID from `asa orgs list`; one organization per call, loop over `asa orgs list` for several), optional `--date-from` / `--date-to` (YYYY-MM-DD, default: the last 7 days; at most 14 days per call; Apple keeps 6 months), `--entity-type` / `--event-type` / `--user-type` (repeatable enums), `--campaign` / `--ad-group` / `--entity-id` / `--user` / `--txn` (repeatable Apple ids), `--fields` | Apple's change history read live from the Apple Ads Platform API (nothing is stored) for that one organization, newest first. Default entity types are the campaign domain (Campaign, AdGroup, Keyword, NegativeKeyword, Ad, Creative, LocationGroup); `Org` and `AdAccount` cannot be mixed with them. The id filters take Apple's numeric ids as printed in the rows, not the UUIDs the other lists print. Each row is one transaction with `detail_id`s; `--fields` expands the page into flat rows (field, old values, new values); the page size is 10 unless `--page-size` says otherwise, `--page-size` above 10 is refused, and a page may expand into at most 20 lookups (otherwise narrow the filters or drop `--fields`). `page * page-size` must stay within 1000. `modified_by` is an Apple user id, not an email. |
+| `asa change-history get <detail-id>` | positional `detail_id` from `asa change-history list`; required `--campaign-group` | Field-level before/after of one entity in one transaction (`changes`: `field`, `old_values`, `new_values`) plus `entity_metadata`. Pass `--campaign-group` from the list row's `campaign_group_id`; a `detail_id` Apple has no record for is a 404. |
+
 ## Automations
 
 | Command | Flags | Notes |
@@ -243,6 +272,7 @@ Every `asa` command is rate limited per company, not per token:
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
 | `keywords recommend` | 10/min, one in-flight `brand`/`generic` rebuild at a time, `Retry-After: 5` on `cli_analytics_busy` |
+| `change-history list` / `get` | 30/min, burst 5 per 10 s, one request in flight per company (`Retry-After: 5` on `cli_analytics_busy`), 50s server timeout (`504 cli_read_timeout`); an Apple 429 comes back as `429 cli_upstream_rate_limited` with Apple's `Retry-After`; an ad account the CLI cannot read (revoked token, org no longer linked, Apple 403/404) is `403 cli_ad_account_unreadable` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
