@@ -1,5 +1,12 @@
 # Contributing
 
+## Commits and PR titles
+
+Use [Conventional Commits](https://www.conventionalcommits.org): `feat: add webhooks list`,
+`fix(auth): retry the token poll`. PR titles follow the same format, because release notes are generated
+from them. Mark a breaking change with `!` (`fix!: print --json dates in UTC`) so the bump PR doesn't miss
+it. The prefix is a hint; the rules below decide the bump.
+
 ## Versioning
 
 A new `version` in `package.json` on `main` is a release: CI tags `vX.Y.Z`, publishes the GitHub release and
