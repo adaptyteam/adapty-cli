@@ -308,7 +308,8 @@ as `cause` (`describeCleanupFailures` in `cli/errors.ts`). Revoke errors explici
 successful server revocation from failed local cleanup. Credentials stay in the SDK session store;
 migration cleanup belongs to the CLI.
 
-The apps adapter runs the SDK's pure validation rules before requiring a token. The SDK also keeps
+The apps adapter runs the SDK's pure validation rules before requiring a token; `ab-tests create`, `update` and
+`replace` follow the same order, before the read of the test and before the question. The SDK also keeps
 its own validation so other adapters cannot bypass the rules.
 
 ### The old stack is frozen

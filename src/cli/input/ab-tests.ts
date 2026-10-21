@@ -10,12 +10,11 @@ import type { AbTestType, FlowArm, PaywallArm, StopAbTestInput } from '../../sdk
 const TEST_ID_HINT = 'Invalid A/B test ID format. Run `adapty ab-tests list --app <app>` to find the test ID.';
 
 /** A flag value that is an id: the hint names the command that lists the ids, as `appIdFlag` does. */
-const idParser = (what: string, listCommand: string) =>
-    uuidParser(`Invalid ${what} ID format. Run \`${listCommand}\` to find it.`);
+const idParser = (what: string, whereToLook: string) => uuidParser(`Invalid ${what} ID format. ${whereToLook}`);
 
-const placementParser = idParser('placement', 'adapty placements list --app <app>');
-const segmentParser = idParser('segment', 'adapty segments list --app <app>');
-const contentParser = idParser('content', 'adapty paywalls list --app <app>` or `adapty flows list --app <app>');
+const placementParser = idParser('placement', 'Run `adapty placements list --app <app>` to find it.');
+const segmentParser = idParser('segment', 'Run `adapty segments list --app <app>` to find it.');
+const contentParser = idParser('content', 'Run `adapty paywalls list --app <app>` or `adapty flows list --app <app>` to find it.');
 
 export const abTestIdArg = {
     ab_test_id: Args.string({
@@ -122,16 +121,9 @@ export const segmentIds = (flags: { 'all-users'?: boolean | undefined; 'segment'
     return flags['all-users'] === true ? [] : undefined;
 };
 
-/** The audience of a start: `--segment X` is `["X"]`, `--all-users` is `[]`. The flags require one of them. */
-export const runningSegmentIds = (flags: { 'all-users'?: boolean | undefined; 'segment'?: string | undefined }): string[] => {
-    const ids = segmentIds(flags);
-
-    if (ids === undefined) {
-        throw usageError('Pass --segment or --all-users.');
-    }
-
-    return ids;
-};
+/** The audience of a start: `--segment X` is `["X"]`; `exactlyOne` makes anything else `--all-users`, which is `[]`. */
+export const runningSegmentIds = (flags: { segment?: string | undefined }): string[] =>
+    (flags.segment === undefined ? [] : [flags.segment]);
 
 /** Exactly one: the content that the audience shows after the stop, or nothing. */
 export const stopFlags = {

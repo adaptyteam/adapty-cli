@@ -1,5 +1,3 @@
-import { validateStart } from '../../../sdk/adapty/ab-tests/index.js';
-import { assertValid } from '../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
 import { abTestIdArg, requiredPlacementFlag, runningAudienceFlags, runningSegmentIds } from '../../input/ab-tests.js';
 import { appIdFlag } from '../../input/app.js';
@@ -28,8 +26,6 @@ export default class AbTestsStart extends AdaptyCommand {
     async run(): Promise<AbTestDetail> {
         const { args, flags } = await this.parse(AbTestsStart);
         const input: StartAbTestInput = { placementId: flags.placement, segmentIds: runningSegmentIds(flags) };
-
-        assertValid(validateStart(input));
 
         // One read for the title and the state, then the question, then the write
         const test = await this.adapty.abTests.get(flags.app, args.ab_test_id);

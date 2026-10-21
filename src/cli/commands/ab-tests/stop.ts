@@ -1,5 +1,3 @@
-import { validateStop } from '../../../sdk/adapty/ab-tests/index.js';
-import { assertValid } from '../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
 import { abTestIdArg, stopFlags, stopInput } from '../../input/ab-tests.js';
 import { appIdFlag } from '../../input/app.js';
@@ -27,9 +25,6 @@ export default class AbTestsStop extends AdaptyCommand {
     async run(): Promise<AbTestDetail> {
         const { args, flags } = await this.parse(AbTestsStop);
         const content = flags.winner ?? flags.other;
-
-        // The rule counts the fields and does not depend on the type, which is known only after the read
-        assertValid(validateStop(stopInput('paywall', flags)));
 
         // The read gives the title and the type: the server names the content kind in the field it takes
         const test = await this.adapty.abTests.get(flags.app, args.ab_test_id);

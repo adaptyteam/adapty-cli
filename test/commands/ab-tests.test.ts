@@ -199,6 +199,7 @@ describe('ab-tests', () => {
             const { error } = await runCommand(`ab-tests list ${APP} --state paused`);
 
             expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('Expected --state=paused to be one of');
             expect(fetchStub.callCount).to.equal(0);
         });
 
@@ -247,6 +248,7 @@ describe('ab-tests', () => {
             const { error } = await runCommand(`ab-tests get ${APP} nope`);
 
             expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('Invalid A/B test ID format');
             expect(fetchStub.callCount).to.equal(0);
         });
     });
@@ -295,24 +297,25 @@ describe('ab-tests', () => {
             expect((bodyOf(fetchStub, 1) as { segment_ids: string[] }).segment_ids).to.deep.equal([]);
         });
 
-        const refused: [string, string][] = [
-            ['neither arms flag', `--title T`],
-            ['both arms flags', `--title T --paywalls '${PAYWALL_ARMS}' --flows '${FLOW_ARMS}'`],
-            ['--segment with --all-users', `--title T --paywalls '${PAYWALL_ARMS}' --segment ${SEGMENT} --all-users`],
-            ['arms that are not JSON', `--title T --paywalls nope`],
-            ['arms that are not a list', `--title T --paywalls '{"paywall_id":"x"}'`],
-            ['an arm with no weight', `--title T --paywalls '[{"paywall_id":"x"}]'`],
-            ['a flow id in --paywalls', `--title T --paywalls '[{"flow_id":"x","weight":100}]'`],
-            ['a segment that is not a UUID', `--title T --paywalls '${PAYWALL_ARMS}' --segment nope`],
+        const refused: [string, string, string][] = [
+            ['neither arms flag', `--title T`, 'Exactly one of the following must be provided: --flows, --paywalls'],
+            ['both arms flags', `--title T --paywalls '${PAYWALL_ARMS}' --flows '${FLOW_ARMS}'`, 'cannot also be provided'],
+            ['--segment with --all-users', `--title T --paywalls '${PAYWALL_ARMS}' --segment ${SEGMENT} --all-users`, 'cannot also be provided'],
+            ['arms that are not JSON', `--title T --paywalls nope`, 'The arms are not valid JSON'],
+            ['arms that are not a list', `--title T --paywalls '{"paywall_id":"x"}'`, 'The arms must be a JSON array'],
+            ['an arm with no weight', `--title T --paywalls '[{"paywall_id":"x"}]'`, 'Arm 1 needs "paywall_id" (a string) and "weight"'],
+            ['a flow id in --paywalls', `--title T --paywalls '[{"flow_id":"x","weight":100}]'`, 'Arm 1 needs "paywall_id"'],
+            ['a segment that is not a UUID', `--title T --paywalls '${PAYWALL_ARMS}' --segment nope`, 'Invalid segment ID format'],
         ];
 
-        for (const [name, args] of refused) {
+        for (const [name, args, message] of refused) {
             it(`create refuses ${name}, with no request`, async () => {
                 fetchStub = mockFetch();
 
                 const { error } = await runCommand(`ab-tests create ${APP} ${args}`);
 
                 expect(error?.oclif?.exit).to.equal(exitCode.usage);
+                expect(error?.message).to.contain(message);
                 expect(fetchStub.callCount).to.equal(0);
             });
         }
@@ -338,10 +341,11 @@ describe('ab-tests', () => {
                 const id = command === 'create' ? '' : TEST;
 
                 const { error } = await runCommand(
-                    `ab-tests ${command} ${APP} ${id} --title " " --placement ${PLACEMENT} --paywalls '${PAYWALL_ARMS}' --yes`,
+                    `ab-tests ${command} ${APP} ${id} --title " " --placement ${PLACEMENT} --paywalls '${PAYWALL_ARMS}'${command === 'replace' ? ' --yes' : ''}`,
                 );
 
                 expect(error?.oclif?.exit).to.equal(exitCode.usage);
+                expect(error?.message).to.contain('--title: must not be empty');
                 expect(fetchStub.callCount).to.equal(0);
             });
         }
@@ -442,10 +446,15 @@ describe('ab-tests', () => {
         it('refuses neither audience flag, both, and a missing placement, with no request', async () => {
             fetchStub = mockFetch();
 
-            for (const args of [start, `${start} --segment ${SEGMENT} --all-users`, `ab-tests start ${APP} ${TEST} --all-users`]) {
-                const { error } = await runCommand(args);
+            for (const [args, message] of [
+                [start, 'Exactly one of the following must be provided: --all-users, --segment'],
+                [`${start} --segment ${SEGMENT} --all-users`, 'cannot also be provided'],
+                [`ab-tests start ${APP} ${TEST} --all-users`, 'Missing required flag placement'],
+            ]) {
+                const { error } = await runCommand(args ?? '');
 
                 expect(error?.oclif?.exit, args).to.equal(exitCode.usage);
+                expect(error?.message, args).to.contain(message);
             }
 
             expect(fetchStub.callCount).to.equal(0);
@@ -538,10 +547,15 @@ describe('ab-tests', () => {
         it('refuses none or two of winner, other and no-content, with no request', async () => {
             fetchStub = mockFetch();
 
-            for (const args of [stop, `${stop} --winner ${PAYWALL_A} --other ${PAYWALL_B}`, `${stop} --winner ${PAYWALL_A} --no-content`]) {
-                const { error } = await runCommand(args);
+            for (const [args, message] of [
+                [stop, 'Exactly one of the following must be provided: --no-content, --other, --winner'],
+                [`${stop} --winner ${PAYWALL_A} --other ${PAYWALL_B}`, 'cannot also be provided'],
+                [`${stop} --winner ${PAYWALL_A} --no-content`, 'cannot also be provided'],
+            ]) {
+                const { error } = await runCommand(args ?? '');
 
                 expect(error?.oclif?.exit, args).to.equal(exitCode.usage);
+                expect(error?.message, args).to.contain(message);
             }
 
             expect(fetchStub.callCount).to.equal(0);
@@ -586,15 +600,16 @@ describe('ab-tests', () => {
         it('has no audience flag, needs a placement and one arms flag, with no request', async () => {
             fetchStub = mockFetch();
 
-            for (const args of [
-                `${replace} --paywalls '${PAYWALL_ARMS}' --segment ${SEGMENT}`,
-                `${replace} --paywalls '${PAYWALL_ARMS}' --all-users`,
-                `ab-tests replace ${APP} ${TEST} --title T --paywalls '${PAYWALL_ARMS}'`,
-                replace,
+            for (const [args, message] of [
+                [`${replace} --paywalls '${PAYWALL_ARMS}' --segment ${SEGMENT}`, 'Nonexistent flag: --segment'],
+                [`${replace} --paywalls '${PAYWALL_ARMS}' --all-users`, 'Nonexistent flag: --all-users'],
+                [`ab-tests replace ${APP} ${TEST} --title T --paywalls '${PAYWALL_ARMS}'`, 'Missing required flag placement'],
+                [replace, 'Exactly one of the following must be provided: --flows, --paywalls'],
             ]) {
-                const { error } = await runCommand(args);
+                const { error } = await runCommand(args ?? '');
 
                 expect(error?.oclif?.exit, args).to.equal(exitCode.usage);
+                expect(error?.message, args).to.contain(message);
             }
 
             expect(fetchStub.callCount).to.equal(0);

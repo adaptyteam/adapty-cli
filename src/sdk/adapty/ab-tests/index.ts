@@ -5,8 +5,7 @@
  */
 export { abTestStates, abTestTypes } from './model.js';
 export { abTests } from './resource.js';
-export { stopContent, validateStop } from './stop.js';
-export { validateStart } from './start.js';
+export { stopContent } from './stop.js';
 export { validateWrite } from './write.js';
 
 export type { ListAbTestsParams } from './list.js';
