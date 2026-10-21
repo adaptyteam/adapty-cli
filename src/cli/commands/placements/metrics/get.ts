@@ -2,17 +2,16 @@ import { Flags } from '@oclif/core';
 
 import { validateMetricsInput } from '../../../../sdk/adapty/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
-import { AdaptyCommand } from '../../../base/adapty/index.js';
-import { appIdFlag } from '../../../input/app.js';
 import {
-    assertCsvOrJson,
-    csvFlag,
+    AdaptyCommand,
+    metricsCsvFlag,
     depthFlag,
     metricsInput,
     metricsQueryFlags,
     placementIdArg,
     placementTypeFlag,
-} from '../../../input/metrics.js';
+} from '../../../base/adapty/index.js';
+import { appIdFlag } from '../../../input/app.js';
 import { metricsTreeCsv, renderMetricsTree } from '../../../views/metrics.js';
 
 import type { MetricsTree } from '../../../../sdk/adapty/index.js';
@@ -33,7 +32,7 @@ export default class PlacementsMetricsGet extends AdaptyCommand {
         ...metricsQueryFlags,
         'based-on': Flags.string({ description: 'What the first level of the tree splits by: audience, flow or placement' }),
         'group-by': Flags.string({ description: 'Split each audience by: country or store' }),
-        ...csvFlag,
+        ...metricsCsvFlag,
         ...depthFlag,
     };
 
@@ -42,7 +41,6 @@ export default class PlacementsMetricsGet extends AdaptyCommand {
         const input = metricsInput(flags);
 
         // Before this.adapty: bad input is exit 2 even without a token
-        assertCsvOrJson(flags.csv, this.jsonEnabled());
         assertValid(validateMetricsInput(input));
 
         const tree = await this.adapty.entityMetrics.placements.get(flags.app, args.placement_id, flags.type, input);

@@ -34,7 +34,7 @@ export {
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
-export { metricNames, validateMetricsInput } from './entity-metrics/index.js';
+export { validateMetricsInput } from './entity-metrics/index.js';
 export { sentiments } from './feedback/index.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type {
@@ -68,14 +68,11 @@ export type {
     EntityMetricsApi,
     FilterValueNode,
     FilterValues,
-    FlowMetricsRow,
     FlowMetricsRows,
-    MetricName,
     Metrics,
     MetricsInput,
     MetricsNode,
     MetricsTree,
-    PlacementMetricsRow,
     PlacementMetricsRows,
 } from './entity-metrics/index.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';

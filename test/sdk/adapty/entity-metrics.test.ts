@@ -34,21 +34,29 @@ describe('validateMetricsInput', () => {
 describe('adapty.entityMetrics', () => {
     const setup = (script: Parameters<typeof createScriptedFetch>[0]) => {
         const scripted = createScriptedFetch(script);
-        const clock = createFakeClock();
-        const adapty = createAdapty({ baseUrl: BASE, clock, fetch: scripted.fetch, token: 't' });
+        const adapty = createAdapty({ baseUrl: BASE, clock: createFakeClock(), fetch: scripted.fetch, token: 't' });
 
-        return { calls: scripted.calls, clock, metrics: adapty.entityMetrics };
+        return { calls: scripted.calls, metrics: adapty.entityMetrics };
     };
 
-    it('waits out a 429 on a metrics POST and sends it again, because it only reads', async () => {
-        const { calls, clock, metrics } = setup([{ headers: { 'retry-after': '1' }, status: 429 }, { body: TREE }]);
+    it('does not repeat a metrics POST, and leaves the server wait on the error', async () => {
+        for (const status of [429, 503]) {
+            const { calls, metrics } = setup([{ headers: { 'retry-after': '2' }, status }, { body: TREE }]);
 
-        const answer = await metrics.flows.get(APP, 'flow-1', { dateFrom: '2026-09-01', dateTo: '2026-09-30' });
+            const error = await rejection(metrics.flows.get(APP, 'flow-1', { dateFrom: '2026-09-01', dateTo: '2026-09-30' }));
 
-        expect(answer).to.deep.equal(TREE);
-        expect(calls.map(call => call.method)).to.deep.equal(['POST', 'POST']);
-        expect(calls[1]?.body).to.equal(calls[0]?.body);
-        expect(clock.sleeps).to.deep.equal([1000]);
+            expect(error).to.have.property('status', status);
+            expect(error).to.have.property('retryAfterMs', 2000);
+            expect(calls, String(status)).to.have.length(1);
+        }
+    });
+
+    it('repeats a read GET after a 503', async () => {
+        const { calls, metrics } = setup([{ status: 503 }, { body: { data: [], meta: null } }]);
+
+        await metrics.flows.values(APP, 'flow-1');
+
+        expect(calls.map(call => call.method)).to.deep.equal(['GET', 'GET']);
     });
 
     it('refuses half a period without a request', async () => {

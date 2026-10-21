@@ -1,6 +1,5 @@
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { AdaptyCommand, metricsCsvFlag, placementIdsFlag, placementTypeFlag } from '../../../base/adapty/index.js';
 import { appIdFlag } from '../../../input/app.js';
-import { assertCsvOrJson, csvFlag, placementIdsFlag, placementTypeFlag, timezoneFlag } from '../../../input/metrics.js';
 import { metricsRowsCsv, renderMetricsRows } from '../../../views/metrics.js';
 
 import type { PlacementMetricsRows } from '../../../../sdk/adapty/index.js';
@@ -17,18 +16,12 @@ export default class PlacementsMetricsList extends AdaptyCommand {
         ...appIdFlag,
         ...placementTypeFlag,
         ...placementIdsFlag,
-        ...timezoneFlag,
-        ...csvFlag,
+        ...metricsCsvFlag,
     };
 
     async run(): Promise<PlacementMetricsRows> {
         const { flags } = await this.parse(PlacementsMetricsList);
-
-        // Before this.adapty: bad input is exit 2 even without a token
-        assertCsvOrJson(flags.csv, this.jsonEnabled());
-
-        const rows = await this.adapty.entityMetrics.placements.list(flags.app, flags.type, flags.ids, flags.timezone);
-
+        const rows = await this.adapty.entityMetrics.placements.list(flags.app, flags.type, flags.ids);
         const view = flags.csv ? metricsRowsCsv : renderMetricsRows;
 
         this.render(rows, value => view(value, 'placement_id'));

@@ -2,9 +2,8 @@ import { Flags } from '@oclif/core';
 
 import { validateMetricsInput } from '../../../../sdk/adapty/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { AdaptyCommand, metricsCsvFlag, depthFlag, flowIdArg, metricsInput, metricsQueryFlags } from '../../../base/adapty/index.js';
 import { appIdFlag } from '../../../input/app.js';
-import { assertCsvOrJson, csvFlag, depthFlag, flowIdArg, metricsInput, metricsQueryFlags } from '../../../input/metrics.js';
 import { metricsTreeCsv, renderMetricsTree } from '../../../views/metrics.js';
 
 import type { MetricsTree } from '../../../../sdk/adapty/index.js';
@@ -16,14 +15,14 @@ export default class FlowsMetricsGet extends AdaptyCommand {
     static override examples = [
         '<%= config.bin %> flows metrics get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --based-on placement',
         '<%= config.bin %> flows metrics get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --based-on audience --granularity month --date-type purchase_date --depth 3',
-        '<%= config.bin %> flows metrics get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --filter country=US --csv',
+        '<%= config.bin %> flows metrics get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --filter country=US,DE --csv',
     ];
 
     static override flags = {
         ...appIdFlag,
         ...metricsQueryFlags,
         'based-on': Flags.string({ description: 'What the first level of the tree splits by: placement or audience' }),
-        ...csvFlag,
+        ...metricsCsvFlag,
         ...depthFlag,
     };
 
@@ -32,7 +31,6 @@ export default class FlowsMetricsGet extends AdaptyCommand {
         const input = metricsInput(flags);
 
         // Before this.adapty: bad input is exit 2 even without a token
-        assertCsvOrJson(flags.csv, this.jsonEnabled());
         assertValid(validateMetricsInput(input));
 
         const tree = await this.adapty.entityMetrics.flows.get(flags.app, args.flow_id, input);

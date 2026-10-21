@@ -1,6 +1,5 @@
-import { AdaptyCommand } from '../../../base/adapty/index.js';
+import { AdaptyCommand, placementIdArg, placementTypeFlag } from '../../../base/adapty/index.js';
 import { appIdFlag } from '../../../input/app.js';
-import { placementIdArg, placementTypeFlag, timezoneFlag } from '../../../input/metrics.js';
 import { renderFilterValues } from '../../../views/metrics.js';
 
 import type { FilterValues } from '../../../../sdk/adapty/index.js';
@@ -17,13 +16,11 @@ export default class PlacementsMetricsValues extends AdaptyCommand {
     static override flags = {
         ...appIdFlag,
         ...placementTypeFlag,
-        ...timezoneFlag,
     };
 
     async run(): Promise<FilterValues> {
         const { args, flags } = await this.parse(PlacementsMetricsValues);
-        const { app, timezone, type } = flags;
-        const values = await this.adapty.entityMetrics.placements.values(app, args.placement_id, type, timezone);
+        const values = await this.adapty.entityMetrics.placements.values(flags.app, args.placement_id, flags.type);
 
         this.render(values, renderFilterValues);
 

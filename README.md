@@ -90,7 +90,7 @@ adapty placements create --app UUID [flags]
 adapty placements update --app UUID PLACEMENT_ID [flags]
 ```
 
-`placements list` and `placements get` show the placement `type` (`paywall`, `flow`, `onboarding` or `null`).
+`placements list` and `placements get` show the placement `type` (`paywall`, `flow` or `onboarding`; `--json` has `null` for a placement without one, the table leaves it out).
 
 ### Segments
 
@@ -133,11 +133,13 @@ adapty flows metrics list --app UUID --ids FLOW_ID,FLOW_ID [--csv]
 adapty flows metrics values FLOW_ID --app UUID
 adapty flows metrics get FLOW_ID --app UUID --date-from 2026-09-01 --date-to 2026-10-21 \
   [--based-on placement|audience] [--granularity day|week|month|quarter|year] \
-  [--date-type purchase_date|profile_install_date] [--filter key=value ...] [--timezone Europe/Berlin] [--depth N] [--csv]
+  [--date-type purchase_date|profile_install_date] [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
 adapty placements metrics list --app UUID --type flow --ids PLACEMENT_ID,PLACEMENT_ID [--csv]
 adapty placements metrics values PLACEMENT_ID --app UUID --type flow
 adapty placements metrics get PLACEMENT_ID --app UUID --type flow \
-  [--based-on audience|flow|placement] [--group-by country|store] [--date-from ... --date-to ... --date-type ...]
+  [--based-on audience|flow|placement] [--group-by country|store] [--date-from DAY --date-to DAY] \
+  [--date-type purchase_date|profile_install_date] [--granularity day|week|month|quarter|year] \
+  [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
 ```
 
 `get` prints a `Total` line and the first level of the tree under it (`--depth N` for more); `--json` prints the

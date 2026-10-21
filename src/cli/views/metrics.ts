@@ -1,5 +1,3 @@
-import { metricNames } from '../../sdk/adapty/index.js';
-
 import type { FilterValueNode, FilterValues, Metrics, MetricsNode, MetricsTree } from '../../sdk/adapty/index.js';
 
 /**
@@ -113,18 +111,35 @@ const csvLine = (cells: readonly unknown[]): string => cells.map(cell => csvCell
 
 const PATH_SEPARATOR = ' > ';
 
-const treeRows = (node: MetricsNode, path: readonly string[], title: string, rows: string[]): void => {
-    const here = [...path, title];
+/**
+ * The metric columns are the numbers of the first node as the server sent them, in its order: the
+ * CLI keeps no list of the metrics, so a metric the server adds shows up in the CSV by itself.
+ */
+const metricColumns = (node: object): string[] =>
+    Object.entries(node).filter(([, value]) => typeof value === 'number').map(([name]) => name);
 
-    rows.push(csvLine([here.join(PATH_SEPARATOR), node.level ?? 'root', title, ...metricNames.map(name => node[name])]));
+const valueOf = (node: object, name: string): unknown => (node as Record<string, unknown>)[name];
 
-    for (const point of node.values ?? []) {
-        treeRows(point, here, nodeTitle(point), rows);
-    }
+const treeRows = (root: MetricsNode, columns: readonly string[]): string[] => {
+    const rows: string[] = [];
 
-    for (const child of node.items ?? []) {
-        treeRows(child, here, nodeTitle(child), rows);
-    }
+    const visit = (node: MetricsNode, path: readonly string[], title: string): void => {
+        const here = [...path, title];
+
+        rows.push(csvLine([here.join(PATH_SEPARATOR), node.level ?? 'root', title, ...columns.map(name => valueOf(node, name))]));
+
+        for (const point of node.values ?? []) {
+            visit(point, here, nodeTitle(point));
+        }
+
+        for (const child of node.items ?? []) {
+            visit(child, here, nodeTitle(child));
+        }
+    };
+
+    visit(root, [], TOTAL);
+
+    return rows;
 };
 
 /**
@@ -132,18 +147,20 @@ const treeRows = (node: MetricsNode, path: readonly string[], title: string, row
  * level, the title, then the 27 metrics.
  */
 export const metricsTreeCsv = ({ data }: MetricsTree): string => {
-    const rows = [csvLine(['path', 'level', 'title', ...metricNames])];
+    const columns = metricColumns(data);
 
-    treeRows(data, [], TOTAL, rows);
-
-    return rows.join('\n');
+    return [csvLine(['path', 'level', 'title', ...columns]), ...treeRows(data, columns)].join('\n');
 };
 
-/** One row for each entity of a `list`: its id, then the 27 metrics. */
-export const metricsRowsCsv = <K extends RowIdKey>({ data }: { data: Row<K>[] }, idKey: K): string => [
-    csvLine([idKey, ...metricNames]),
-    ...data.map(row => csvLine([row[idKey], ...metricNames.map(name => row[name])])),
-].join('\n');
+/** One row for each entity of a `list`: its id, then the metrics. */
+export const metricsRowsCsv = <K extends RowIdKey>({ data }: { data: Row<K>[] }, idKey: K): string => {
+    const columns = data[0] === undefined ? [] : metricColumns(data[0]);
+
+    return [
+        csvLine([idKey, ...columns]),
+        ...data.map(row => csvLine([row[idKey], ...columns.map(name => valueOf(row, name))])),
+    ].join('\n');
+};
 
 const valueLines = (node: FilterValueNode, level: number, lines: string[]): void => {
     lines.push(`${INDENT.repeat(level)}${node.label} (${node.value})`);

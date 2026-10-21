@@ -1,39 +1,44 @@
 import { Args, Flags } from '@oclif/core';
 
-import { usageError } from '../errors.js';
+import { usageError } from '../../errors.js';
+import { uuidParser } from '../../input/app.js';
+import { dayParser } from '../../input/date.js';
 
-import { uuidParser } from './app.js';
-
-import type { MetricsInput } from '../../sdk/adapty/index.js';
+import type { MetricsInput } from '../../../sdk/adapty/index.js';
 
 /**
- * What the `flows metrics` and `placements metrics` commands share: the flags of the question, the
- * ids, and the one place where flag names meet sdk field names. The values of `--based-on`,
- * `--granularity`, `--date-type` and `--group-by` are the server's to check, so these flags take
- * any string and the help names the values: a wrong one comes back as the server's 400.
+ * The flags and arguments only the metrics commands of the Adapty product take (`flows metrics`,
+ * `placements metrics`), and the one place where they meet the sdk's field names. The values of
+ * `--based-on`, `--granularity`, `--date-type`, `--group-by` and `--type` are the server's to
+ * check, so these flags take any string and the help names the values: a wrong one comes back as
+ * the server's 400.
  */
 
-/** The shape only: whether the day exists is the server's knowledge. */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** A comma not preceded by a backslash: `\,` keeps a comma inside a value, as in `attribution report`. */
+const VALUE_SEPARATOR = /(?<!\\),/;
 
-const dateParser = (input: string): Promise<string> => (ISO_DATE.test(input)
-    ? Promise.resolve(input)
-    : Promise.reject(usageError('Dates must be written as YYYY-MM-DD.')));
-
-/** One `--filter key=value`; the same key given twice becomes two values of one filter. */
+/** One `--filter key=value[,value]`. */
 export type MetricsFilter = {
     key: string;
-    value: string;
+    values: string[];
 };
 
+/**
+ * `key=value[,value]`, the same shape as `attribution report --filter`. An empty value is allowed
+ * (a lone `key=`): the "No Data" leaves of `values` are empty strings.
+ */
 const parseFilter = (input: string): Promise<MetricsFilter> => {
     const separator = input.indexOf('=');
     const key = separator === -1 ? '' : input.slice(0, separator).trim();
+    const raw = separator === -1 ? '' : input.slice(separator + 1);
 
-    // An empty value is allowed: the "No Data" leaves of `values` are empty strings
-    return key === ''
-        ? Promise.reject(usageError(`Expected key=value, got "${input}".`))
-        : Promise.resolve({ key, value: input.slice(separator + 1) });
+    if (key === '') {
+        return Promise.reject(usageError(`Expected key=value[,value], got "${input}".`));
+    }
+
+    const values = raw.split(VALUE_SEPARATOR).map(value => value.replaceAll('\\,', ',').trim());
+
+    return Promise.resolve({ key, values: values.length > 1 ? values.filter(value => value !== '') : values });
 };
 
 export const flowIdArg = {
@@ -68,52 +73,16 @@ export const placementIdsFlag = idsFlag('Placement', uuidParser('Invalid placeme
 /** The placement type the placement routes require; the server refuses one that does not match. */
 export const placementTypeFlag = {
     type: Flags.string({
-        description: 'Placement type, as `placements list` shows it (flow is the only one these routes take today)',
+        description: 'Placement type, as `placements list` shows it',
         required: true,
     }),
 };
 
-export const timezoneFlag = {
-    timezone: Flags.string({
-        description: 'IANA time zone for the day boundaries, e.g. Europe/Berlin (sent as the Adapty-Tz header)',
-    }),
-};
-
-export const csvFlag = {
+export const metricsCsvFlag = {
     csv: Flags.boolean({
-        description: 'Print CSV instead of the table, built by the CLI from the answer (not with --json)',
+        description: 'Print CSV instead of the table, built by the CLI from the answer',
+        exclusive: ['json'],
     }),
-};
-
-/** oclif's `exclusive` does not see its own --json flag, so the pair is refused here, before any request. */
-export const assertCsvOrJson = (csv: boolean, json: boolean): void => {
-    if (csv && json) {
-        throw usageError('--csv and --json cannot be used together.');
-    }
-};
-
-/** The question of a `get`, flags only. `--based-on` and `--group-by` differ per entity and live with it. */
-export const metricsQueryFlags = {
-    'date-from': Flags.string({
-        description: 'First day of the period, inclusive (YYYY-MM-DD)',
-        parse: dateParser,
-    }),
-    'date-to': Flags.string({
-        description: 'Last day of the period, inclusive (YYYY-MM-DD)',
-        parse: dateParser,
-    }),
-    'date-type': Flags.string({
-        description: 'Which date the period applies to: purchase_date or profile_install_date',
-    }),
-    'filter': Flags.custom<MetricsFilter>({
-        description: 'Keep data with this filter value: key=value, as `metrics values` lists them (repeatable)',
-        multiple: true,
-        parse: parseFilter,
-    })(),
-    'granularity': Flags.string({
-        description: 'Split the period into points: day, week, month, quarter or year',
-    }),
-    ...timezoneFlag,
 };
 
 export const depthFlag = {
@@ -121,6 +90,33 @@ export const depthFlag = {
         default: 1,
         description: 'Levels of the tree to print under Total (--json and --csv always have the whole tree)',
         min: 1,
+    }),
+};
+
+/** The question of a `get`, flags only. `--based-on` and `--group-by` differ per entity and live with it. */
+export const metricsQueryFlags = {
+    'date-from': Flags.string({
+        description: 'First day of the period, inclusive (YYYY-MM-DD)',
+        parse: dayParser,
+    }),
+    'date-to': Flags.string({
+        description: 'Last day of the period, inclusive (YYYY-MM-DD)',
+        parse: dayParser,
+    }),
+    'date-type': Flags.string({
+        description: 'Which date the period applies to: purchase_date or profile_install_date',
+    }),
+    'filter': Flags.custom<MetricsFilter>({
+        description: 'Keep data with these values of a filter key: key=value[,value], as `metrics values` lists them '
+            + '(repeatable; `\\,` for a comma inside a value)',
+        multiple: true,
+        parse: parseFilter,
+    })(),
+    'granularity': Flags.string({
+        description: 'Split the period into points: day, week, month, quarter or year',
+    }),
+    'timezone': Flags.string({
+        description: 'IANA time zone of the period points, e.g. Europe/Berlin (sent as the Adapty-Tz header)',
     }),
 };
 
@@ -135,6 +131,7 @@ type QueryFlags = {
     'timezone'?: string | undefined;
 };
 
+/** The same key given twice becomes one filter with all the values. */
 const groupFilters = (filters: readonly MetricsFilter[] | undefined): Record<string, string[]> | undefined => {
     if (filters === undefined || filters.length === 0) {
         return undefined;
@@ -142,14 +139,14 @@ const groupFilters = (filters: readonly MetricsFilter[] | undefined): Record<str
 
     const grouped: Record<string, string[]> = {};
 
-    for (const { key, value } of filters) {
-        (grouped[key] ??= []).push(value);
+    for (const { key, values } of filters) {
+        (grouped[key] ??= []).push(...values);
     }
 
     return grouped;
 };
 
-/** The one place where the flag names meet the sdk's field names. */
+/** Where the flag names meet the sdk's field names. */
 export const metricsInput = (flags: QueryFlags): MetricsInput => ({
     basedOn: flags['based-on'],
     dateFrom: flags['date-from'],

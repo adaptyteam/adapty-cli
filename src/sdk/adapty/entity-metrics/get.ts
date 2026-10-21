@@ -79,7 +79,3 @@ export const toMetricsRequest = (input: MetricsInput): MetricsRequest => {
 
     return body;
 };
-
-/** `Adapty-Tz` is the one request header of these routes. */
-export const metricsHeaders = (timezone: string | undefined): Record<string, string> | undefined =>
-    (timezone === undefined ? undefined : { 'adapty-tz': timezone });

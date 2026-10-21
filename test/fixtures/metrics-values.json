@@ -4,7 +4,7 @@
             "value": "attribution",
             "label": "Attribution",
             "children": [
-                { "value": "attribution_campaign", "label": "Campaign", "children": [{ "value": "", "label": "No Data" }] },
+                { "value": "attribution_campaign", "label": "Campaign", "children": [{ "value": "", "label": "No Data" }, { "value": "Q4,Launch", "label": "Q4,Launch" }] },
                 { "value": "attribution_channel", "label": "Channel", "children": [{ "value": "", "label": "No Data" }] }
             ]
         },

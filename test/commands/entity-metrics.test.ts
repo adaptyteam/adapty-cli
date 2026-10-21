@@ -5,7 +5,6 @@ import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
 
 import { exitCode } from '../../src/cli/errors.js';
-import { metricNames } from '../../src/sdk/adapty/index.js';
 import { mockFetch, mockFetchFailure, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 import type { FilterValueNode, FilterValues, MetricsNode } from '../../src/sdk/adapty/index.js';
@@ -17,9 +16,18 @@ const OTHER_FLOW_ID = '1c1d8f0f-4d17-4a8b-8e8f-3a3a7e4d2c22';
 const PLACEMENT_ID = '2d2e9a1a-5e28-4b9c-9f9a-4b4b8f5e3d33';
 const OTHER_PLACEMENT_ID = '3e3f0b2b-6f39-4cad-a0ab-5c5c9a6f4e44';
 
+/** The 27 metrics in the order the server sends them: what a CSV header must say, written out on purpose. */
+const METRICS = [
+    'views', 'unique_profiles_views', 'total_completions', 'total_uniq_completions', 'from_start_conversion',
+    'revenue', 'proceeds', 'net_revenue', 'purchases', 'trials', 'unique_subscribers', 'unique_paid_subscribers',
+    'arppu', 'arpu', 'conversion_rate_purchases', 'conversion_rate_trials', 'trials_cancelled', 'refunds', 'arpas',
+    'apppu', 'appas', 'conversion_rate_refunds', 'conversion_rate_purchases_by_users', 'conversion_rate_trials_by_users',
+    'conversion_rate_trial_paid', 'trials_finished', 'trials_paid',
+];
+
 /** The 27 metrics, all 0 as the server answers for "no data", with the few that a test looks at. */
 const node = (fields: Record<string, unknown>): MetricsNode =>
-    ({ ...Object.fromEntries(metricNames.map(name => [name, 0])), ...fields }) as MetricsNode;
+    ({ ...Object.fromEntries(METRICS.map(name => [name, 0])), ...fields }) as MetricsNode;
 
 const period = (day: string, views: number, revenue: number): MetricsNode =>
     node({ level: 'period', period: `${day}T00:00:00Z`, revenue, views });
@@ -80,6 +88,37 @@ const PLACEMENT_TREE = {
     }),
 };
 
+// A flow placement by audience and country: audience, variation, then the country segments
+const PLACEMENT_BY_AUDIENCE = {
+    data: node({
+        items: [node({
+            items: [node({
+                items: [
+                    node({ level: 'segment', segmentation: 'SE', title: 'Sweden', views: 3 }),
+                    node({ level: 'segment', segmentation: 'US', title: 'United States', purchases: 1, revenue: 9.99, views: 1 }),
+                ],
+                level: 'variation',
+                purchases: 1,
+                revenue: 9.99,
+                title: 'Variant B',
+                views: 4,
+            })],
+            level: 'audience',
+            purchases: 1,
+            revenue: 9.99,
+            title: 'All Users',
+            views: 4,
+        })],
+        level: 'root',
+        placement_id: PLACEMENT_ID,
+        purchases: 1,
+        revenue: 9.99,
+        title: 'Main placement',
+        values: [],
+        views: 4,
+    }),
+};
+
 type Call = { body: unknown; headers: Headers; method: string; url: URL };
 
 const callOf = (stub: sinon.SinonStub, index = 0): Call => {
@@ -127,8 +166,7 @@ describe('flows metrics and placements metrics', () => {
                 '--based-on', 'placement',
                 '--granularity', 'month',
                 '--date-type', 'purchase_date',
-                '--filter', 'country=US',
-                '--filter', 'country=DE',
+                '--filter', 'country=US,DE',
                 '--filter', 'store=app_store',
                 '--timezone', 'Europe/Berlin',
                 '--json',
@@ -149,6 +187,25 @@ describe('flows metrics and placements metrics', () => {
                 date_type: 'purchase_date',
                 filters: { country: ['US', 'DE'], date: ['2026-09-01', '2026-10-21'], store: ['app_store'] },
                 period_unit: 'month',
+            });
+        });
+
+        it('--filter takes a list, the same key twice, and an escaped comma inside a value', async () => {
+            fetchStub = mockFetch([FLOW_TREE]);
+
+            await runCommand([
+                ...FLOW_GET.split(' '),
+                '--filter', 'country=US',
+                '--filter', 'country=DE',
+                '--filter', String.raw`attribution_campaign=Q4\,Launch,Other`,
+                '--filter', 'attribution_channel=',
+                '--json',
+            ]);
+
+            expect((callOf(fetchStub).body as { filters: unknown }).filters).to.deep.equal({
+                attribution_campaign: ['Q4,Launch', 'Other'],
+                attribution_channel: [''],
+                country: ['US', 'DE'],
             });
         });
 
@@ -230,7 +287,7 @@ describe('flows metrics and placements metrics', () => {
             const { stdout } = await runCommand(`${FLOW_GET} --csv`);
             const lines = stdout.trimEnd().split('\n');
 
-            expect(lines[0]).to.equal(`path,level,title,${metricNames.join(',')}`);
+            expect(lines[0]).to.equal(`path,level,title,${METRICS.join(',')}`);
             // the header, then Total, a placement, its 2 periods, audience, variation, screen, and the other placement
             expect(lines).to.have.length(1 + 1 + 1 + 2 + 1 + 1 + 1 + 1);
 
@@ -268,13 +325,35 @@ describe('flows metrics and placements metrics', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
 
-        it('refuses --csv together with --json, as an error in the JSON that was asked for', async () => {
+        it('refuses --csv together with --json: exit 2, an error in the JSON that was asked for, no request', async () => {
             fetchStub = mockFetch([FLOW_TREE]);
+            // oclif keeps an exit code an earlier command left behind, so start from none
+            process.exitCode = undefined;
 
             const { stdout } = await runCommand(`${FLOW_GET} --csv --json`);
+            const exit = process.exitCode;
 
-            expect(JSON.parse(stdout)).to.deep.equal({ error: { message: '--csv and --json cannot be used together.' } });
+            process.exitCode = 0;
+
+            expect(exit).to.equal(exitCode.usage);
+            expect((JSON.parse(stdout) as { error: { message: string } }).error.message).to.contain('--json=true cannot also be provided when using --csv');
             expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('with --depth 2 prints the second level and no more, and --depth 0 is refused', async () => {
+            fetchStub = mockFetch([FLOW_TREE]);
+
+            const { stdout } = await runCommand(`${FLOW_GET} --depth 2`);
+
+            expect(stdout).to.equal([
+                'Total           views 19  purchases 7  trials 4  revenue 241.93',
+                '  Onboarding    views 10  purchases 7  trials 0  revenue 241.93',
+                '    2026-09-01  views  0  purchases 0  trials 0  revenue   0.00',
+                '    2026-10-01  views 10  purchases 0  trials 0  revenue 241.93',
+                '    All Users   views 10  purchases 7  trials 0  revenue 241.93',
+                '  Settings      views  0  purchases 0  trials 0  revenue   0.00',
+                '',
+            ].join('\n'));
         });
 
         it('exits 2 for an id that is not a UUID', async () => {
@@ -350,6 +429,27 @@ describe('flows metrics and placements metrics', () => {
             expect(callOf(fetchStub).body).to.deep.equal({ segmentation_by: 'product' });
         });
 
+        it('with --depth prints the segments of an audience, and sends --timezone as a header', async () => {
+            fetchStub = mockFetch([PLACEMENT_BY_AUDIENCE]);
+
+            const { stdout } = await runCommand(`${PLACEMENT_GET} --based-on audience --group-by country --depth 4 --timezone Europe/Berlin`);
+
+            expect(stdout).to.equal([
+                'Total                views 4  purchases 1  trials 0  revenue 9.99',
+                '  All Users          views 4  purchases 1  trials 0  revenue 9.99',
+                '    Variant B        views 4  purchases 1  trials 0  revenue 9.99',
+                '      Sweden         views 3  purchases 0  trials 0  revenue 0.00',
+                '      United States  views 1  purchases 1  trials 0  revenue 9.99',
+                '',
+            ].join('\n'));
+
+            expect(callOf(fetchStub).headers.get('adapty-tz')).to.equal('Europe/Berlin');
+
+            await runCommand(`${PLACEMENT_GET} --based-on audience --group-by country --depth 2`);
+
+            expect(fetchStub.callCount).to.equal(2);
+        });
+
         it('exits 2 without --type, before any request', async () => {
             fetchStub = mockFetch([PLACEMENT_TREE]);
 
@@ -420,9 +520,23 @@ describe('flows metrics and placements metrics', () => {
             const csv = await runCommand(`flows metrics list --app ${TEST_APP_ID} --ids ${FLOW_ID},${OTHER_FLOW_ID} --csv`);
             const lines = csv.stdout.trimEnd().split('\n');
 
-            expect(lines[0]).to.equal(`flow_id,${metricNames.join(',')}`);
+            expect(lines[0]).to.equal(`flow_id,${METRICS.join(',')}`);
             expect(lines[1]?.startsWith(`${FLOW_ID},19,`)).to.equal(true);
             expect(lines[1]?.split(',')).to.have.length(28);
+        });
+
+        it('placements metrics list --csv has the id column named placement_id, and an empty answer is a bare header', async () => {
+            fetchStub = mockFetch([{ data: [placementRow(PLACEMENT_ID, 13, 236.94)] }, { data: [] }]);
+
+            const csv = await runCommand(`placements metrics list --app ${TEST_APP_ID} --type flow --ids ${PLACEMENT_ID} --csv`);
+            const lines = csv.stdout.trimEnd().split('\n');
+
+            expect(lines[0]).to.equal(`placement_id,${METRICS.join(',')}`);
+            expect(lines[1]).to.equal(`${PLACEMENT_ID},13,0,0,0,0,236.94,${Array.from({ length: 21 }, () => '0').join(',')}`);
+
+            const empty = await runCommand(`placements metrics list --app ${TEST_APP_ID} --type flow --ids ${PLACEMENT_ID} --csv`);
+
+            expect(empty.stdout).to.equal('placement_id\n');
         });
 
         it('placements metrics list sends the type and the placement ids', async () => {
@@ -459,6 +573,30 @@ describe('flows metrics and placements metrics', () => {
             expect(error?.message).to.contain(FLOW_ID);
         });
 
+        it('exits 2 for a missing --type, a missing id, a bad id and --timezone (only get takes it), before any request', async () => {
+            fetchStub = mockFetch([{ data: [] }]);
+
+            const cases: [string, string][] = [
+                [`placements metrics list --app ${TEST_APP_ID} --ids ${PLACEMENT_ID}`, 'type'],
+                [`placements metrics values ${PLACEMENT_ID} --app ${TEST_APP_ID}`, 'type'],
+                [`placements metrics values nope --app ${TEST_APP_ID} --type flow`, 'Invalid placement ID'],
+                [`placements metrics get nope --app ${TEST_APP_ID} --type flow`, 'Invalid placement ID'],
+                [`flows metrics values nope --app ${TEST_APP_ID}`, 'Invalid flow ID'],
+                [`flows metrics list --app ${TEST_APP_ID} --ids nope`, 'Invalid flow ID'],
+                [`flows metrics list --app ${TEST_APP_ID} --timezone Europe/Berlin --ids ${FLOW_ID}`, 'timezone'],
+                [`flows metrics values ${FLOW_ID} --app ${TEST_APP_ID} --timezone Europe/Berlin`, 'timezone'],
+            ];
+
+            for (const [command, text] of cases) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
+                expect(error?.message, command).to.contain(text);
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
         it('exits 2 without --ids and for an id that is not a UUID', async () => {
             fetchStub = mockFetch([{ data: [] }]);
 
@@ -489,10 +627,11 @@ describe('flows metrics and placements metrics', () => {
             expect(url(call)).to.equal(`${BASE}/apps/${TEST_APP_ID}/flows/${FLOW_ID}/metrics/values/`);
             expect(call.url.search).to.equal('');
 
-            expect(stdout.split('\n').slice(0, 12)).to.deep.equal([
+            expect(stdout.split('\n').slice(0, 13)).to.deep.equal([
                 'Attribution (attribution)',
                 '  Campaign (attribution_campaign)',
                 '    No Data ()',
+                '    Q4,Launch (Q4,Launch)',
                 '  Channel (attribution_channel)',
                 '    No Data ()',
                 'Country (country)',
@@ -503,6 +642,14 @@ describe('flows metrics and placements metrics', () => {
                 'Screen (flow_screen_id)',
                 '  1. Welcome (0b0c7e9e-3c06-4f7a-9d7e-2f2f6d3c1b11:scr_a1B2c3D4)',
             ]);
+        });
+
+        it('says so when the server lists no filter values', async () => {
+            fetchStub = mockFetch([{ data: [], meta: null }]);
+
+            const { stdout } = await runCommand(`flows metrics values ${FLOW_ID} --app ${TEST_APP_ID}`);
+
+            expect(stdout).to.equal('No filter values.\n');
         });
 
         it('placements metrics values sends the type, and --json is the answer', async () => {
@@ -517,18 +664,13 @@ describe('flows metrics and placements metrics', () => {
             expect(call.url.search).to.equal('?type=flow');
         });
 
-        it('every leaf that values lists goes into the request as --filter key=value, unchanged', async () => {
+        it('every leaf that values lists goes into the request as --filter key=value, a comma escaped, and comes out unchanged', async () => {
             const pairs = leaves(values.data);
-
-            // Every key of the fixture, the empty "No Data" value and a value with a colon among them
-            expect(pairs.length).to.be.greaterThan(8);
-            expect(pairs).to.deep.include(['attribution', '']);
-            expect(pairs).to.deep.include(['flow_screen_id', '0b0c7e9e-3c06-4f7a-9d7e-2f2f6d3c1b11:scr_a1B2c3D4']);
 
             fetchStub = mockFetch([FLOW_TREE]);
 
             for (const [key, value] of pairs) {
-                const { error } = await runCommand([...FLOW_GET.split(' '), '--filter', `${key}=${value}`, '--json']);
+                const { error } = await runCommand([...FLOW_GET.split(' '), '--filter', `${key}=${value.replaceAll(',', String.raw`\,`)}`, '--json']);
 
                 expect(error, `${key}=${value}`).to.equal(undefined);
             }
@@ -556,8 +698,12 @@ describe('flows metrics and placements metrics', () => {
 
             expect(callOf(fetchStub).url.searchParams.get('filter[placement_type]')).to.equal('flow');
             expect(stdout).to.contain('Type: flow');
+            // the second placement has no type: the human view leaves it out, as it leaves out every empty value
+            expect(stdout.match(/Type:/g)).to.have.length(1);
 
-            await runCommand(`placements list --app ${TEST_APP_ID}`);
+            const json = await runCommand(`placements list --app ${TEST_APP_ID} --json`);
+
+            expect((JSON.parse(json.stdout) as { data: { type: null | string }[] }).data.map(item => item.type)).to.deep.equal(['flow', null]);
 
             expect(callOf(fetchStub, 1).url.searchParams.has('filter[placement_type]')).to.equal(false);
         });

@@ -77,7 +77,7 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 - Always: `--paywall-id is deprecated. Use --audiences instead.`
 - On `update` only (additional): `--paywall-id will rewrite all audiences on this placement.` — full replace; segment-specific paywalls are dropped (server-side).
 
-**`placements list` and `placements get` show the placement `type`** (`paywall`, `flow`, `onboarding` or `null`).
+**`placements list` and `placements get` show the placement `type`** (`paywall`, `flow` or `onboarding`). `--json` has `null` for a placement without a type; the table leaves an empty value out.
 
 **`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id`). To get the default paywall, read the `paywall` entry with `segment_ids: []`; the default audience may run an A/B test instead (an `ab_test` entry).
 
@@ -95,12 +95,12 @@ dashboard's tree and the CLI prints it. Every node and every row has the same 27
 
 | Command | Required flags / notes |
 |---------|------------------------|
-| `flows metrics list` | `--app`, `--ids <flow_id>,<flow_id>` (repeatable); one lifetime row for each flow; `--timezone`, `--csv` |
-| `flows metrics get <flow_id>` | `--app`; `--date-from` and `--date-to` (give both), `--date-type purchase_date\|profile_install_date`, `--granularity day\|week\|month\|quarter\|year`, `--based-on placement\|audience`, `--filter key=value` (repeatable), `--timezone`, `--depth N`, `--csv` |
-| `flows metrics values <flow_id>` | `--app`; the filter keys and values that `get --filter` takes; `--timezone` |
-| `placements metrics list` | `--app`, `--type flow`, `--ids <placement_id>,<placement_id>` (repeatable); one lifetime row for each placement; `--timezone`, `--csv` |
+| `flows metrics list` | `--app`, `--ids <flow_id>,<flow_id>` (repeatable); one lifetime row for each flow; `--csv` |
+| `flows metrics get <flow_id>` | `--app`; `--date-from` and `--date-to` (give both), `--date-type purchase_date\|profile_install_date`, `--granularity day\|week\|month\|quarter\|year`, `--based-on placement\|audience`, `--filter key=value[,value]` (repeatable), `--timezone`, `--depth N`, `--csv` |
+| `flows metrics values <flow_id>` | `--app`; the filter keys and values that `get --filter` takes |
+| `placements metrics list` | `--app`, `--type flow`, `--ids <placement_id>,<placement_id>` (repeatable); one lifetime row for each placement; `--csv` |
 | `placements metrics get <placement_id>` | `--app`, `--type flow`; the flags of `flows metrics get`, with `--based-on audience\|flow\|placement`, and `--group-by country\|store` |
-| `placements metrics values <placement_id>` | `--app`, `--type flow`; `--timezone` |
+| `placements metrics values <placement_id>` | `--app`, `--type flow` |
 
 ```sh
 adapty placements list --app APP_UUID --type flow
@@ -113,16 +113,17 @@ adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-
   it; `--depth N` shows N levels, and the points of a period (`--granularity`) come right under their node.
   `--json` prints the whole answer unchanged; `--csv` prints one row for each node of the whole tree
   (`path,level,title`, then the 27 metrics). `--csv` and `--json` cannot be used together.
-- **Filters.** Read `values` first: the top value of each group is the key, the leaves are its values. Give the same
-  key twice (`--filter country=US --filter country=DE`) to keep any of them; different keys combine.
+- **Filters.** Read `values` first: the top value of each group is the key, the leaves are its values.
+  `--filter country=US,DE` (or the same key twice) keeps any of them; `\,` is a comma inside a value; different
+  keys combine.
 - **The server owns the value lists.** A wrong `--based-on`, `--date-type`, `--granularity`, `--group-by` or
   `--type` comes back as exit 4 with the valid values; the CLI does not check them.
-- **`--type`.** The placement commands need the placement `type` (`placements list` shows it) and refuse a placement
-  of another type. Only `flow` works today.
+- **`--type`.** The placement commands need the placement type, as `placements list` shows it, and refuse a
+  placement of another type.
 - **Dates.** A flow needs a day range. A flow placement uses the range only together with `--date-type`; without it
   the answer is lifetime, and `--date-type` without a range is refused (exit 4).
 - **Not yours.** A flow or placement of another app answers 404 (exit 4), also inside a `list`.
-- **Time zone.** `--timezone` (an IANA name such as `Europe/Berlin`) sets the day boundaries.
+- **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
 
 ## Segments
 
