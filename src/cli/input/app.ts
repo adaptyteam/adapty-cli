@@ -14,7 +14,7 @@ const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
  * a *flag* parser's failure into exit 2 itself but passes an *arg* parser's error through, hence
  * the explicit code. The hint is per resource: `adapty apps list` only helps for an app id.
  */
-const uuidParser = (hint: string) => (input: string): Promise<string> => (isUuid(input)
+export const uuidParser = (hint: string) => (input: string): Promise<string> => (isUuid(input)
     ? Promise.resolve(input)
     : Promise.reject(usageError(hint)));
 

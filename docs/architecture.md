@@ -52,7 +52,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `feedback`, `migrations`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `feedback`, `migrations`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -248,6 +248,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
 | 5 | network — the server was never reached |
+| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
 ### The `--json` contract
@@ -278,7 +279,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` was written on the new
+most topics. Migrated so far: `apps`, `auth` and `migrations`; `ab-tests` was written on the new
+stack from the start. `attribution` was written on the new
 stack from the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file

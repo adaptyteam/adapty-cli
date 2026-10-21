@@ -1,0 +1,84 @@
+import type { AbTestDetail, AbTestSummary, FlowArmView, Paginated, PaywallArmView } from '../../../sdk/adapty/index.js';
+
+const NONE = '—';
+
+/** `[]` is the audience that every user belongs to; no list at all is a draft with no audience planned. */
+export const audienceText = (segmentIds: null | readonly string[] | undefined): string => {
+    if (segmentIds === null || segmentIds === undefined) {
+        return NONE;
+    }
+
+    const [first] = segmentIds;
+
+    return first === undefined ? 'All users' : `segment ${first}`;
+};
+
+const placementText = (placement: AbTestSummary['placement']): string => {
+    if (placement === null) {
+        return NONE;
+    }
+
+    return placement.title === null ? placement.placement_id : `${placement.title} (${placement.placement_id})`;
+};
+
+const armLine = (arm: FlowArmView | PaywallArmView): string => {
+    const [id, name] = 'paywall_id' in arm ? [arm.paywall_id, arm.paywall_title] : [arm.flow_id, arm.flow_name];
+    const content = name === null ? id : `${name} (${id})`;
+    const parts = [content, `weight ${String(arm.weight)}`];
+
+    if (arm.title !== null && arm.title !== '') {
+        parts.push(`title ${arm.title}`);
+    }
+
+    parts.push(`variation ${arm.variation_id}`);
+
+    return `  - ${parts.join(', ')}`;
+};
+
+/** The labels of the summary, in the order the spec fixes. Empty values show as a dash, so a label never vanishes. */
+const summaryLines = (test: AbTestSummary): string[] => [
+    `ID: ${test.ab_test_id}`,
+    `Title: ${test.title}`,
+    `Type: ${test.type}`,
+    `State: ${test.state}`,
+    `Placement: ${placementText(test.placement)}`,
+    `Audience: ${audienceText(test.segment_ids)}`,
+    `Started At: ${test.started_at ?? NONE}`,
+    `Stopped At: ${test.stopped_at ?? NONE}`,
+];
+
+/** One block of a list: the summary, nothing more. */
+export const renderAbTestSummary = (test: AbTestSummary): string => summaryLines(test).join('\n');
+
+/** The test and its arms. */
+export const renderAbTest = (test: AbTestDetail): string => {
+    const lines = summaryLines(test);
+
+    if (test.goal !== '') {
+        lines.splice(2, 0, `Goal: ${test.goal}`);
+    }
+
+    if (test.priority !== null) {
+        lines.push(`Priority: ${String(test.priority)}`);
+    }
+
+    const arms = [...test.paywalls, ...test.flows];
+
+    if (arms.length > 0) {
+        lines.push('Arms:', ...arms.map(arm => armLine(arm)));
+    }
+
+    return lines.join('\n');
+};
+
+/** Blocks with `---` between them, then the pagination footer: as every other list of the CLI. */
+export const renderAbTestPage = (page: Paginated<AbTestSummary>): string => {
+    const { count, page: number, pages } = page.meta.pagination;
+    const footer = `Page ${String(number)} of ${String(pages)} (${String(count)} total)`;
+
+    if (page.data.length === 0) {
+        return footer;
+    }
+
+    return `${page.data.map(test => renderAbTestSummary(test)).join('\n---\n')}\n\n${footer}`;
+};

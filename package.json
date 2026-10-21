@@ -90,6 +90,9 @@
       "placements": {
         "description": "Manage placements"
       },
+      "ab-tests": {
+        "description": "Manage A/B tests of paywalls and flows"
+      },
       "flows": {
         "description": "Manage flows (onboardings)"
       },
