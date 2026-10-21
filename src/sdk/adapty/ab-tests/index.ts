@@ -5,13 +5,13 @@
  */
 export { abTestStates, abTestTypes } from './model.js';
 export { abTests } from './resource.js';
-export { stopContent } from './stop.js';
+export { stopContent, validateStop } from './stop.js';
+export { validateStart } from './start.js';
+export { validateWrite } from './write.js';
 
 export type { ListAbTestsParams } from './list.js';
 export type {
     AbTestDetail,
-    AbTestPlacement,
-    AbTestState,
     AbTestSummary,
     AbTestType,
     FlowArmView,

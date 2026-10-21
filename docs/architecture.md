@@ -136,8 +136,10 @@ text or JSON.
   error kind fails to compile until it is given a message and an exit code.
 - `input/` — flags and args that several commands or products take, one module per concern: the
   app id UUID as a positional and as `--app` (`appIdArg`, `appIdFlag` in `input/app.ts`),
-  pagination (`input/pagination.ts`), the migration id; and the one place flag names meet sdk field
-  names. Legacy commands take `--app` from `input/app.ts` too.
+  pagination (`input/pagination.ts`), the migration id, the A/B test arms, audience and stop flags
+  (`input/ab-tests.ts`), the `--yes` flag with the one confirmation of an action that cannot be undone
+  (`input/confirm.ts`) and the one-answer prompt it stands on (`input/prompt.ts`); and the one place flag
+  names meet sdk field names. Legacy commands take `--app` from `input/app.ts` too.
 - `context/migration/` — CLI-owned migration selection in `context.json` beside credentials.
   `model.ts` defines and validates the record and token fingerprint; `store.ts` owns file I/O and
   storage errors; `resolve.ts` chooses an ID by source priority. `current.ts` binds those three

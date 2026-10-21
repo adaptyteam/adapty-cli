@@ -10,13 +10,11 @@ import type { AbTestDetail } from '../../../sdk/adapty/index.js';
 export default class AbTestsArchive extends AdaptyCommand {
     static override args = { ...abTestIdArg };
 
-    static override description
-        = 'Archive an A/B test that does not run (draft, completed, inactive). A live test is refused: stop it first. '
-            + 'An archived test cannot be unarchived. It asks first, or refuses (exit 6) without --yes when nobody can answer';
+    static override description = 'Archive an A/B test that does not run; it cannot be unarchived, so it asks first';
 
     static override examples = [
-        '<%= config.bin %> ab-tests archive --app APP_UUID TEST_UUID',
-        '<%= config.bin %> ab-tests archive --app APP_UUID TEST_UUID --yes',
+        '<%= config.bin %> ab-tests archive --app UUID TEST_ID',
+        '<%= config.bin %> ab-tests archive --app UUID TEST_ID --yes',
     ];
 
     static override flags = {

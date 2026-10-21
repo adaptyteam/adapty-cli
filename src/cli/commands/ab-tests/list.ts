@@ -10,13 +10,11 @@ import { renderAbTestPage } from '../../views/ab-tests/record.js';
 import type { AbTestSummary, Paginated } from '../../../sdk/adapty/index.js';
 
 export default class AbTestsList extends AdaptyCommand {
-    static override description
-        = 'List the regular A/B tests of an app, one type at a time: flow tests by default, paywall tests with --type paywall. '
-            + 'All states, in the order live, draft, completed, inactive, archived, unless --state picks one';
+    static override description = 'List the A/B tests of an app, flow tests by default (--type paywall for paywall tests)';
 
     static override examples = [
-        '<%= config.bin %> ab-tests list --app APP_UUID',
-        '<%= config.bin %> ab-tests list --app APP_UUID --type paywall --state live',
+        '<%= config.bin %> ab-tests list --app UUID',
+        '<%= config.bin %> ab-tests list --app UUID --type paywall --state live',
     ];
 
     static override flags = {

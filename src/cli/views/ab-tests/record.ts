@@ -1,3 +1,5 @@
+import { renderFooter } from '../list.js';
+
 import type { AbTestDetail, AbTestSummary, FlowArmView, Paginated, PaywallArmView } from '../../../sdk/adapty/index.js';
 
 const NONE = '—';
@@ -35,10 +37,10 @@ const armLine = (arm: FlowArmView | PaywallArmView): string => {
     return `  - ${parts.join(', ')}`;
 };
 
-/** The labels of the summary, in the order the spec fixes. Empty values show as a dash, so a label never vanishes. */
-const summaryLines = (test: AbTestSummary): string[] => [
-    `ID: ${test.ab_test_id}`,
-    `Title: ${test.title}`,
+const summaryHead = (test: AbTestSummary): string[] => [`ID: ${test.ab_test_id}`, `Title: ${test.title}`];
+
+/** Empty values show as a dash, so a label never vanishes. */
+const summaryTail = (test: AbTestSummary): string[] => [
     `Type: ${test.type}`,
     `State: ${test.state}`,
     `Placement: ${placementText(test.placement)}`,
@@ -48,19 +50,16 @@ const summaryLines = (test: AbTestSummary): string[] => [
 ];
 
 /** One block of a list: the summary, nothing more. */
-export const renderAbTestSummary = (test: AbTestSummary): string => summaryLines(test).join('\n');
+export const renderAbTestSummary = (test: AbTestSummary): string => [...summaryHead(test), ...summaryTail(test)].join('\n');
 
-/** The test and its arms. */
+/** The test and its arms; the goal follows the title, the priority and the arms come last. */
 export const renderAbTest = (test: AbTestDetail): string => {
-    const lines = summaryLines(test);
-
-    if (test.goal !== '') {
-        lines.splice(2, 0, `Goal: ${test.goal}`);
-    }
-
-    if (test.priority !== null) {
-        lines.push(`Priority: ${String(test.priority)}`);
-    }
+    const lines = [
+        ...summaryHead(test),
+        ...(test.goal === '' ? [] : [`Goal: ${test.goal}`]),
+        ...summaryTail(test),
+        ...(test.priority === null ? [] : [`Priority: ${String(test.priority)}`]),
+    ];
 
     const arms = [...test.paywalls, ...test.flows];
 
@@ -71,14 +70,11 @@ export const renderAbTest = (test: AbTestDetail): string => {
     return lines.join('\n');
 };
 
-/** Blocks with `---` between them, then the pagination footer: as every other list of the CLI. */
+/** Blocks with `---` between them, then the pagination footer, as every other list of the CLI. */
 export const renderAbTestPage = (page: Paginated<AbTestSummary>): string => {
-    const { count, page: number, pages } = page.meta.pagination;
-    const footer = `Page ${String(number)} of ${String(pages)} (${String(count)} total)`;
+    const footer = renderFooter(page.meta.pagination);
 
-    if (page.data.length === 0) {
-        return footer;
-    }
-
-    return `${page.data.map(test => renderAbTestSummary(test)).join('\n---\n')}\n\n${footer}`;
+    return page.data.length === 0
+        ? footer
+        : `${page.data.map(test => renderAbTestSummary(test)).join('\n---\n')}\n\n${footer}`;
 };

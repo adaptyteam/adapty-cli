@@ -24,9 +24,7 @@ export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export type {
     AbTestDetail,
-    AbTestPlacement,
     AbTestsApi,
-    AbTestState,
     AbTestSummary,
     AbTestType,
     AbTestWriteInput,

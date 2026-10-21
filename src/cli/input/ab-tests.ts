@@ -9,7 +9,13 @@ import type { AbTestType, FlowArm, PaywallArm, StopAbTestInput } from '../../sdk
 
 const TEST_ID_HINT = 'Invalid A/B test ID format. Run `adapty ab-tests list --app <app>` to find the test ID.';
 
-const uuid = (what: string) => uuidParser(`Invalid ${what} ID format: it must be a UUID.`);
+/** A flag value that is an id: the hint names the command that lists the ids, as `appIdFlag` does. */
+const idParser = (what: string, listCommand: string) =>
+    uuidParser(`Invalid ${what} ID format. Run \`${listCommand}\` to find it.`);
+
+const placementParser = idParser('placement', 'adapty placements list --app <app>');
+const segmentParser = idParser('segment', 'adapty segments list --app <app>');
+const contentParser = idParser('content', 'adapty paywalls list --app <app>` or `adapty flows list --app <app>');
 
 export const abTestIdArg = {
     ab_test_id: Args.string({
@@ -74,11 +80,11 @@ export const abTestWriteFlags = {
 };
 
 export const placementFlag = (description: string) => ({
-    placement: Flags.string({ description, parse: uuid('placement') }),
+    placement: Flags.string({ description, parse: placementParser }),
 });
 
 export const requiredPlacementFlag = (description: string) => ({
-    placement: Flags.string({ description, parse: uuid('placement'), required: true }),
+    placement: Flags.string({ description, parse: placementParser, required: true }),
 });
 
 /** At most one of the two: none is no planned audience. */
@@ -90,7 +96,7 @@ export const plannedAudienceFlags = {
     'segment': Flags.string({
         description: 'Plan the test for one segment (ID)',
         exclusive: ['all-users'],
-        parse: uuid('segment'),
+        parse: segmentParser,
     }),
 };
 
@@ -103,7 +109,7 @@ export const runningAudienceFlags = {
     'segment': Flags.string({
         description: 'Run the test for one segment (ID)',
         exactlyOne: ['segment', 'all-users'],
-        parse: uuid('segment'),
+        parse: segmentParser,
     }),
 };
 
@@ -116,6 +122,17 @@ export const segmentIds = (flags: { 'all-users'?: boolean | undefined; 'segment'
     return flags['all-users'] === true ? [] : undefined;
 };
 
+/** The audience of a start: `--segment X` is `["X"]`, `--all-users` is `[]`. The flags require one of them. */
+export const runningSegmentIds = (flags: { 'all-users'?: boolean | undefined; 'segment'?: string | undefined }): string[] => {
+    const ids = segmentIds(flags);
+
+    if (ids === undefined) {
+        throw usageError('Pass --segment or --all-users.');
+    }
+
+    return ids;
+};
+
 /** Exactly one: the content that the audience shows after the stop, or nothing. */
 export const stopFlags = {
     'no-content': Flags.boolean({
@@ -125,12 +142,12 @@ export const stopFlags = {
     'other': Flags.string({
         description: 'Show other content (a paywall of a paywall test, a flow of a flow test) instead',
         exactlyOne: ['winner', 'other', 'no-content'],
-        parse: uuid('content'),
+        parse: contentParser,
     }),
     'winner': Flags.string({
         description: 'Show the content of this arm (paywall or flow ID) to the whole audience',
         exactlyOne: ['winner', 'other', 'no-content'],
-        parse: uuid('content'),
+        parse: contentParser,
     }),
 };
 

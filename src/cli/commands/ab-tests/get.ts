@@ -7,8 +7,8 @@ import type { AbTestDetail } from '../../../sdk/adapty/index.js';
 
 export default class AbTestsGet extends AdaptyCommand {
     static override args = { ...abTestIdArg };
-    static override description = 'Get an A/B test with its arms: content, weight, arm title and the variation ID';
-    static override examples = ['<%= config.bin %> ab-tests get --app APP_UUID TEST_UUID'];
+    static override description = 'Get an A/B test with its arms';
+    static override examples = ['<%= config.bin %> ab-tests get --app UUID TEST_ID'];
     static override flags = { ...appIdFlag };
 
     async run(): Promise<AbTestDetail> {

@@ -25,6 +25,24 @@ export function mockFetch(responses: unknown[] = [{}]): sinon.SinonStub {
     return stub;
 }
 
+type Step = {
+    body: unknown;
+    status?: number;
+};
+
+/** Answers each call with its own status; mockFetch's canned responses are all 200. */
+export function mockFetchSteps(steps: Step[]): sinon.SinonStub {
+    let index = 0;
+
+    return sinon.stub(globalThis, 'fetch').callsFake(() => {
+        const step = steps[index] ?? steps.at(-1);
+
+        index += 1;
+
+        return Promise.resolve(new Response(JSON.stringify(step?.body), { status: step?.status ?? 200 }));
+    });
+}
+
 type FailureOpts = {
     headers?: Record<string, string>;
     status: number;

@@ -7,7 +7,6 @@
  * not served by this resource.
  */
 
-/** `flow` last in the published help, but it is the default of `list`: see list.ts. */
 export const abTestTypes = ['paywall', 'flow'] as const;
 export type AbTestType = (typeof abTestTypes)[number];
 

@@ -1,33 +1,18 @@
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
-import * as sinon from 'sinon';
 
 import { exitCode } from '../../src/cli/errors.js';
 import {
     assertFetch,
     EMPTY_LIST_RESPONSE,
     mockFetch,
+    mockFetchSteps,
     restoreFetch,
     TEST_APP_ID,
     TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js';
 
-type Step = {
-    body: unknown;
-    status?: number;
-};
-
-/** Answers each call with its own status; mockFetch's canned responses are all 200. */
-const mockFetchSteps = (steps: Step[]): sinon.SinonStub => {
-    let index = 0;
-
-    return sinon.stub(globalThis, 'fetch').callsFake(() => {
-        const step = steps[index] ?? steps.at(-1);
-        index += 1;
-
-        return Promise.resolve(new Response(JSON.stringify(step?.body), { status: step?.status ?? 200 }));
-    });
-};
+import type * as sinon from 'sinon';
 
 const CREATE_IOS = 'apps create --title "My App" --platform ios --apple-bundle-id com.example.app';
 

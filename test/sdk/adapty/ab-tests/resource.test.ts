@@ -134,19 +134,22 @@ describe('adapty.abTests', () => {
     });
 
     describe('input that makes no sense is refused before the network', () => {
-        const cases: [string, () => Promise<unknown>][] = [
-            ['an empty title', () => setup().abTests.create(APP, { paywalls: [A], title: ' ' })],
-            ['no arms', () => setup().abTests.create(APP, { title: 'T' })],
-            ['paywalls and flows together', () => setup().abTests.create(APP, { flows: [], paywalls: [A], title: 'T' })],
-            ['two segments', () => setup().abTests.update(APP, TEST, { paywalls: [A], segmentIds: ['a', 'b'], title: 'T' })],
-            ['a replace with no placement', () => setup().abTests.replace(APP, TEST, { paywalls: [A], title: 'T' })],
-            ['a start on two segments', () => setup().abTests.start(APP, TEST, { placementId: 'pl', segmentIds: ['a', 'b'] })],
-            ['a stop with two contents', () => setup().abTests.stop(APP, TEST, { winnerFlowId: 'a', winnerPaywallId: 'b' })],
+        const cases: [string, (abTests: ReturnType<typeof setup>['abTests']) => Promise<unknown>][] = [
+            ['an empty title', abTests => abTests.create(APP, { paywalls: [A], title: ' ' })],
+            ['no arms', abTests => abTests.create(APP, { title: 'T' })],
+            ['paywalls and flows together', abTests => abTests.create(APP, { flows: [], paywalls: [A], title: 'T' })],
+            ['two segments', abTests => abTests.update(APP, TEST, { paywalls: [A], segmentIds: ['a', 'b'], title: 'T' })],
+            ['a replace with no placement', abTests => abTests.replace(APP, TEST, { paywalls: [A], title: 'T' })],
+            ['a start on two segments', abTests => abTests.start(APP, TEST, { placementId: 'pl', segmentIds: ['a', 'b'] })],
+            ['a stop with two contents', abTests => abTests.stop(APP, TEST, { winnerFlowId: 'a', winnerPaywallId: 'b' })],
         ];
 
         for (const [name, call] of cases) {
             it(name, async () => {
-                expect(await rejection(call())).to.be.instanceOf(ValidationError);
+                const { abTests, calls } = setup([]);
+
+                expect(await rejection(call(abTests))).to.be.instanceOf(ValidationError);
+                expect(calls).to.deep.equal([]);
             });
         }
     });

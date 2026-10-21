@@ -4,10 +4,11 @@ import { PassThrough } from 'node:stream';
 import { run } from '@oclif/core';
 import { captureOutput } from '@oclif/test';
 import { expect } from 'chai';
-import * as sinon from 'sinon';
 
 import { exitCode } from '../../src/cli/errors.js';
-import { assertFetch, mockFetch, restoreFetch, TEST_APP_ID, TEST_RESOURCE_ID } from '../helpers/mock-fetch.js';
+import { assertFetch, mockFetch, mockFetchSteps, restoreFetch, TEST_APP_ID, TEST_RESOURCE_ID } from '../helpers/mock-fetch.js';
+
+import type * as sinon from 'sinon';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 
@@ -77,62 +78,65 @@ const FLOW_LIST = [{ flow_id: FLOW_A, weight: 50 }, { flow_id: FLOW_B, weight: 5
 const PAYWALL_ARMS = JSON.stringify(PAYWALL_LIST);
 const FLOW_ARMS = JSON.stringify(FLOW_LIST);
 
-/** Answers each call with its own status; mockFetch's canned responses are all 200. */
-const mockFetchSteps = (steps: { body: unknown; status?: number }[]): sinon.SinonStub => {
-    let index = 0;
-
-    return sinon.stub(globalThis, 'fetch').callsFake(() => {
-        const step = steps[index] ?? steps.at(-1);
-
-        index += 1;
-
-        return Promise.resolve(new Response(JSON.stringify(step?.body), { status: step?.status ?? 200 }));
-    });
-};
-
 const methods = (stub: sinon.SinonStub): string[] =>
     stub.getCalls().map(call => (call.args[1] as { method: string }).method);
 
 const bodyOf = (stub: sinon.SinonStub, index: number): unknown =>
     JSON.parse((stub.getCall(index).args[1] as { body: string }).body);
 
-/** Node deletes isTTY on a pipe rather than setting it false, so a stub has nothing to replace. */
-const withTerminal = async (typed: string | undefined, body: () => Promise<void>): Promise<void> => {
-    const stdout = process.stdout as { isTTY?: boolean };
+/**
+ * Whether a person is at a terminal is decided by the real streams, so a test says it for itself: a
+ * run from a developer's terminal must not stop at a prompt. Node deletes isTTY on a pipe rather
+ * than setting it false, so the property is put back the way it was found.
+ */
+const useStreams = ({ terminal, typed }: { terminal: boolean; typed?: string }): (() => void) => {
+    const stdout = process.stdout as { isTTY?: boolean | undefined };
     const hadStdout = Object.hasOwn(stdout, 'isTTY');
+    const wasTty = stdout.isTTY;
     const stdinDescriptor = Object.getOwnPropertyDescriptor(process, 'stdin');
+    const input = Object.assign(new PassThrough(), { isTTY: terminal });
 
-    stdout.isTTY = true;
+    stdout.isTTY = terminal;
+    input.end(typed === undefined ? undefined : `${typed}\n`);
+    Object.defineProperty(process, 'stdin', { configurable: true, value: input });
 
-    if (typed !== undefined) {
-        const input = Object.assign(new PassThrough(), { isTTY: true });
-
-        input.end(`${typed}\n`);
-        Object.defineProperty(process, 'stdin', { configurable: true, value: input });
-    }
-
-    try {
-        await body();
-    } finally {
-        if (!hadStdout) {
+    return () => {
+        if (hadStdout) {
+            stdout.isTTY = wasTty;
+        } else {
             delete stdout.isTTY;
         }
 
         if (stdinDescriptor) {
             Object.defineProperty(process, 'stdin', stdinDescriptor);
         }
+    };
+};
+
+/** A person at a terminal who types `typed`. */
+const withTerminal = async (typed: string, body: () => Promise<void>): Promise<void> => {
+    const restore = useStreams({ terminal: true, typed });
+
+    try {
+        await body();
+    } finally {
+        restore();
     }
 };
 
 describe('ab-tests', () => {
     let fetchStub: sinon.SinonStub;
 
+    let restoreStreams: () => void;
+
     beforeEach(() => {
         process.env.ADAPTY_TOKEN = 'test-token';
+        restoreStreams = useStreams({ terminal: false });
     });
 
     afterEach(() => {
         restoreFetch(fetchStub);
+        restoreStreams();
         delete process.env.ADAPTY_TOKEN;
     });
 
@@ -311,7 +315,25 @@ describe('ab-tests', () => {
             const { error } = await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--paywalls', PAYWALL_ARMS]);
 
             expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.message).to.contain('The sum of the weights must equal 100, but has 90.');
         });
+
+        // The input rule comes before the token, the read and the question
+        for (const command of ['create', 'update', 'replace']) {
+            it(`${command} refuses a blank title with exit 2 before any request, even with no token`, async () => {
+                delete process.env.ADAPTY_TOKEN;
+                fetchStub = mockFetch();
+
+                const id = command === 'create' ? '' : TEST;
+
+                const { error } = await runCommand(
+                    `ab-tests ${command} ${APP} ${id} --title " " --placement ${PLACEMENT} --paywalls '${PAYWALL_ARMS}' --yes`,
+                );
+
+                expect(error?.oclif?.exit).to.equal(exitCode.usage);
+                expect(fetchStub.callCount).to.equal(0);
+            });
+        }
 
         it('update sends the whole test with PUT, and never asks', async () => {
             fetchStub = mockFetch([abTest()]);
