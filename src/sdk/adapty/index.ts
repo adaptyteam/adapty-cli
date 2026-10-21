@@ -5,6 +5,7 @@ import { accessLevels } from './access-levels.js';
 import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
+import { entityMetrics } from './entity-metrics/index.js';
 import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
 import { migrations } from './migrations/index.js';
@@ -13,6 +14,7 @@ import type { AccessLevelsApi } from './access-levels.js';
 import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
+import type { EntityMetricsApi } from './entity-metrics/index.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { MigrationApi } from './migrations/index.js';
 import type { Clock } from '../core/clock.js';
@@ -32,6 +34,7 @@ export {
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
+export { metricNames, validateMetricsInput } from './entity-metrics/index.js';
 export { sentiments } from './feedback/index.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type {
@@ -61,6 +64,20 @@ export type {
 } from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
+export type {
+    EntityMetricsApi,
+    FilterValueNode,
+    FilterValues,
+    FlowMetricsRow,
+    FlowMetricsRows,
+    MetricName,
+    Metrics,
+    MetricsInput,
+    MetricsNode,
+    MetricsTree,
+    PlacementMetricsRow,
+    PlacementMetricsRows,
+} from './entity-metrics/index.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type {
     Action,
@@ -110,6 +127,7 @@ export type Adapty = {
     analytics: AnalyticsApi;
     apps: AppsApi;
     auth: AuthApi;
+    entityMetrics: EntityMetricsApi;
     feedback: FeedbackApi;
     migrations: MigrationApi;
 };
@@ -159,6 +177,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         analytics: analytics(http),
         apps: apps(http),
         auth: auth(http),
+        entityMetrics: entityMetrics(http),
         feedback: feedback(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.

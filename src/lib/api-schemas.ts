@@ -264,6 +264,8 @@ export type PlacementSummaryDTO = {
      */
     is_active?: boolean;
     title: string;
+    /** What the placement shows; null for a placement made without a type. */
+    type?: 'flow' | 'onboarding' | 'paywall' | null;
 };
 
 export type PlacementDetailDTO = {
@@ -273,6 +275,8 @@ export type PlacementDetailDTO = {
     /** Placement activation state: true = Live, false = Inactive. */
     is_active: boolean;
     title: string;
+    /** What the placement shows; null for a placement made without a type. */
+    type?: 'flow' | 'onboarding' | 'paywall' | null;
 };
 
 export type PlacementWriteRequestDTO = {
