@@ -1,6 +1,7 @@
 import { systemClock } from '../core/clock.js';
 import { createHttp } from '../core/http/index.js';
 
+import { abTests } from './ab-tests/index.js';
 import { accessLevels } from './access-levels.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
@@ -8,6 +9,7 @@ import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
 import { migrations } from './migrations/index.js';
 
+import type { AbTestsApi } from './ab-tests/index.js';
 import type { AccessLevelsApi } from './access-levels.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
@@ -16,9 +18,26 @@ import type { MigrationApi } from './migrations/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
+export { abTestStates, abTestTypes, stopContent } from './ab-tests/index.js';
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
+export type {
+    AbTestDetail,
+    AbTestPlacement,
+    AbTestsApi,
+    AbTestState,
+    AbTestSummary,
+    AbTestType,
+    AbTestWriteInput,
+    FlowArm,
+    FlowArmView,
+    ListAbTestsParams,
+    PaywallArm,
+    PaywallArmView,
+    StartAbTestInput,
+    StopAbTestInput,
+} from './ab-tests/index.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
@@ -67,6 +86,7 @@ export type AdaptyOptions = {
 };
 
 export type Adapty = {
+    abTests: AbTestsApi;
     accessLevels: AccessLevelsApi;
     apps: AppsApi;
     auth: AuthApi;
@@ -115,6 +135,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
     const wizard = createHttp({ ...transport, trailingSlash: false });
 
     return {
+        abTests: abTests(http),
         accessLevels: accessLevels(http),
         apps: apps(http),
         auth: auth(http),
