@@ -32,7 +32,9 @@ const armLine = (arm: FlowArmView | PaywallArmView): string => {
         parts.push(`title ${arm.title}`);
     }
 
-    parts.push(`variation ${arm.variation_id}`);
+    if (arm.variation_id !== null) {
+        parts.push(`variation ${arm.variation_id}`);
+    }
 
     return `  - ${parts.join(', ')}`;
 };

@@ -213,6 +213,17 @@ describe('ab-tests', () => {
             expect(stdout).to.contain(`Spare (${PAYWALL_B}), weight 50, variation v2`);
         });
 
+        it('shows an arm of a new draft, whose variation is not known yet', async () => {
+            fetchStub = mockFetch([abTest({
+                paywalls: [{ paywall_id: PAYWALL_A, paywall_title: 'Default', title: 'A', variation_id: null, weight: 100 }],
+                state: 'draft',
+            })]);
+
+            const { stdout } = await runCommand(`ab-tests get ${APP} ${TEST}`);
+
+            expect(stdout).to.contain(`Default (${PAYWALL_A}), weight 100, title A`).and.not.to.contain('variation');
+        });
+
         it('get shows a draft with no placement and no audience', async () => {
             fetchStub = mockFetch([abTest({ placement: null, priority: null, segment_ids: null, started_at: null, state: 'draft' })]);
 

@@ -39,8 +39,8 @@ export type PaywallArmView = {
     paywall_title: null | string;
     /** The arm's own title; without one the SDK of the app reports the content name. */
     title: null | string;
-    /** The id of the arm that the app SDK reports. */
-    variation_id: string;
+    /** The id of the arm that the app SDK reports. A new draft answers with `null` until it is read again. */
+    variation_id: null | string;
     weight: number;
 };
 
@@ -48,7 +48,7 @@ export type FlowArmView = {
     flow_id: string;
     flow_name: null | string;
     title: null | string;
-    variation_id: string;
+    variation_id: null | string;
     weight: number;
 };
 
