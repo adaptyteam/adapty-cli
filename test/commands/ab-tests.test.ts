@@ -46,7 +46,7 @@ const REPLACEMENT = 'dd0e8400-e29b-41d4-a716-446655440008';
 const BASE = `/apps/${TEST_APP_ID}/ab-tests`;
 const APP = `--app ${TEST_APP_ID}`;
 
-const test = (overrides: Record<string, unknown> = {}) => ({
+const abTest = (overrides: Record<string, unknown> = {}) => ({
     ab_test_id: TEST,
     flows: [],
     goal: 'Find the price',
@@ -65,7 +65,7 @@ const test = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-const flowTest = (overrides: Record<string, unknown> = {}) => test({
+const flowTest = (overrides: Record<string, unknown> = {}) => abTest({
     flows: [{ flow_id: FLOW_A, flow_name: 'Flow A', title: null, variation_id: 'v1', weight: 50 }],
     paywalls: [],
     type: 'flow',
@@ -137,7 +137,7 @@ describe('ab-tests', () => {
     });
 
     describe('list and get', () => {
-        const page = { data: [test()], meta: { pagination: { count: 1, page: 1, pages: 1 } } };
+        const page = { data: [abTest()], meta: { pagination: { count: 1, page: 1, pages: 1 } } };
 
         it('list asks for flow tests and the first page by default', async () => {
             fetchStub = mockFetch([page]);
@@ -199,7 +199,7 @@ describe('ab-tests', () => {
         });
 
         it('get shows the test and its arms', async () => {
-            fetchStub = mockFetch([test()]);
+            fetchStub = mockFetch([abTest()]);
 
             const { stdout } = await runCommand(`ab-tests get ${APP} ${TEST}`);
 
@@ -210,7 +210,7 @@ describe('ab-tests', () => {
         });
 
         it('get shows a draft with no placement and no audience', async () => {
-            fetchStub = mockFetch([test({ placement: null, priority: null, segment_ids: null, started_at: null, state: 'draft' })]);
+            fetchStub = mockFetch([abTest({ placement: null, priority: null, segment_ids: null, started_at: null, state: 'draft' })]);
 
             const { stdout } = await runCommand(`ab-tests get ${APP} ${TEST}`);
 
@@ -238,7 +238,7 @@ describe('ab-tests', () => {
 
     describe('create and update', () => {
         it('create sends a paywall test, and never asks', async () => {
-            fetchStub = mockFetch([test({ state: 'draft' })]);
+            fetchStub = mockFetch([abTest({ state: 'draft' })]);
 
             const { error, stdout } = await runCommand(
                 ['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'Price test', '--placement', PLACEMENT, '--paywalls', PAYWALL_ARMS],
@@ -271,7 +271,7 @@ describe('ab-tests', () => {
         });
 
         it('create sends --segment as one id and --all-users as an empty list', async () => {
-            fetchStub = mockFetch([test()]);
+            fetchStub = mockFetch([abTest()]);
 
             await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--paywalls', PAYWALL_ARMS, '--segment', SEGMENT]);
             await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--paywalls', PAYWALL_ARMS, '--all-users']);
@@ -314,7 +314,7 @@ describe('ab-tests', () => {
         });
 
         it('update sends the whole test with PUT, and never asks', async () => {
-            fetchStub = mockFetch([test()]);
+            fetchStub = mockFetch([abTest()]);
 
             const { error } = await runCommand(
                 ['ab-tests', 'update', '--app', TEST_APP_ID, TEST, '--title', 'Price test (Q4)', '--placement', PLACEMENT, '--paywalls', PAYWALL_ARMS],
@@ -336,10 +336,10 @@ describe('ab-tests', () => {
 
     describe('start', () => {
         const start = `ab-tests start ${APP} ${TEST} --placement ${PLACEMENT}`;
-        const draft = test({ placement: null, priority: null, segment_ids: null, started_at: null, state: 'draft' });
+        const draft = abTest({ placement: null, priority: null, segment_ids: null, started_at: null, state: 'draft' });
 
         it('reads the test, then writes with --yes: one segment', async () => {
-            fetchStub = mockFetch([draft, test()]);
+            fetchStub = mockFetch([draft, abTest()]);
 
             const { error, stdout } = await runCommand(`${start} --segment ${SEGMENT} --yes`);
 
@@ -359,7 +359,7 @@ describe('ab-tests', () => {
         });
 
         it('--all-users is an empty list', async () => {
-            fetchStub = mockFetch([draft, test()]);
+            fetchStub = mockFetch([draft, abTest()]);
 
             await runCommand(`${start} --all-users -y`);
 
@@ -367,7 +367,7 @@ describe('ab-tests', () => {
         });
 
         it('--json with no --yes writes nothing: exit 6, confirm_required, the effect', async () => {
-            fetchStub = mockFetch([draft, test()]);
+            fetchStub = mockFetch([draft, abTest()]);
 
             const { error: { code, message }, exit } = await runJson(`${start} --segment ${SEGMENT} --json`);
 
@@ -379,7 +379,7 @@ describe('ab-tests', () => {
         });
 
         it('with no terminal and no --yes writes nothing: exit 6 on stderr', async () => {
-            fetchStub = mockFetch([draft, test()]);
+            fetchStub = mockFetch([draft, abTest()]);
 
             const { error } = await runCommand(`${start} --all-users`);
 
@@ -389,7 +389,7 @@ describe('ab-tests', () => {
         });
 
         it('says what a test that is not a draft does, and writes nothing without --yes', async () => {
-            fetchStub = mockFetch([test({ state: 'archived' }), test()]);
+            fetchStub = mockFetch([abTest({ state: 'archived' }), abTest()]);
 
             const { error } = await runCommand(`${start} --all-users`);
 
@@ -419,7 +419,7 @@ describe('ab-tests', () => {
         });
 
         it('at a terminal shows the question; "n" writes nothing and exits 1', async () => {
-            fetchStub = mockFetch([draft, test()]);
+            fetchStub = mockFetch([draft, abTest()]);
 
             await withTerminal('n', async () => {
                 const { error, stderr } = await runCommand(`${start} --all-users`);
@@ -433,7 +433,7 @@ describe('ab-tests', () => {
         });
 
         it('at a terminal "y" writes', async () => {
-            fetchStub = mockFetch([draft, test()]);
+            fetchStub = mockFetch([draft, abTest()]);
 
             await withTerminal('y', async () => {
                 const { error } = await runCommand(`${start} --all-users`);
@@ -447,15 +447,15 @@ describe('ab-tests', () => {
 
     describe('stop', () => {
         const stop = `ab-tests stop ${APP} ${TEST}`;
-        const completed = (overrides: Record<string, unknown> = {}) => test({ state: 'completed', stopped_at: '2026-10-21T10:00:00Z', ...overrides });
+        const completed = (overrides: Record<string, unknown> = {}) => abTest({ state: 'completed', stopped_at: '2026-10-21T10:00:00Z', ...overrides });
 
         // The server names the content kind in the field: the type from the read picks it
         const bodies: [string, Record<string, unknown>, string, unknown][] = [
-            ['paywall winner', test(), `--winner ${PAYWALL_B}`, { winner_paywall_id: PAYWALL_B }],
+            ['paywall winner', abTest(), `--winner ${PAYWALL_B}`, { winner_paywall_id: PAYWALL_B }],
             ['flow winner', flowTest(), `--winner ${FLOW_A}`, { winner_flow_id: FLOW_A }],
-            ['paywall other', test(), `--other ${PAYWALL_A}`, { another_paywall_id_to_run: PAYWALL_A }],
+            ['paywall other', abTest(), `--other ${PAYWALL_A}`, { another_paywall_id_to_run: PAYWALL_A }],
             ['flow other', flowTest(), `--other ${FLOW_B}`, { another_flow_id_to_run: FLOW_B }],
-            ['paywall no content', test(), '--no-content', {}],
+            ['paywall no content', abTest(), '--no-content', {}],
             ['flow no content', flowTest(), '--no-content', {}],
         ];
 
@@ -472,7 +472,7 @@ describe('ab-tests', () => {
         }
 
         it('prints the stop line, then the test', async () => {
-            fetchStub = mockFetch([test(), completed()]);
+            fetchStub = mockFetch([abTest(), completed()]);
 
             const { stdout } = await runCommand(`${stop} --winner ${PAYWALL_B} --yes`);
 
@@ -481,7 +481,7 @@ describe('ab-tests', () => {
         });
 
         it('prints the removal for no content', async () => {
-            fetchStub = mockFetch([test(), completed()]);
+            fetchStub = mockFetch([abTest(), completed()]);
 
             const { stdout } = await runCommand(`${stop} --no-content --yes`);
 
@@ -489,7 +489,7 @@ describe('ab-tests', () => {
         });
 
         it('without --yes under --json writes nothing: exit 6 with the effect', async () => {
-            fetchStub = mockFetch([test(), completed()]);
+            fetchStub = mockFetch([abTest(), completed()]);
 
             const { error, exit } = await runJson(`${stop} --no-content --json`);
 
@@ -519,7 +519,7 @@ describe('ab-tests', () => {
         const replace = `ab-tests replace ${APP} ${TEST} --title "Price test v2" --placement ${PLACEMENT}`;
 
         it('reads the test, then posts the new one, and says which test replaces which', async () => {
-            fetchStub = mockFetch([test(), test({ ab_test_id: REPLACEMENT, title: 'Price test v2' })]);
+            fetchStub = mockFetch([abTest(), abTest({ ab_test_id: REPLACEMENT, title: 'Price test v2' })]);
 
             const { error, stdout } = await runCommand(['ab-tests', 'replace', '--app', TEST_APP_ID, TEST, '--title', 'Price test v2', '--placement', PLACEMENT, '--paywalls', PAYWALL_ARMS, '--yes']);
 
@@ -537,7 +537,7 @@ describe('ab-tests', () => {
         });
 
         it('without --yes under --json writes nothing: exit 6 with the effect', async () => {
-            fetchStub = mockFetch([test()]);
+            fetchStub = mockFetch([abTest()]);
 
             const { error, exit } = await runJson(`ab-tests replace ${APP} ${TEST} --title v2 --placement ${PLACEMENT} --flows '${FLOW_ARMS}' --json`);
 
@@ -572,7 +572,7 @@ describe('ab-tests', () => {
         const archive = `ab-tests archive ${APP} ${TEST}`;
 
         it('reads the test, deletes it with --yes, and prints the archived line, then the test', async () => {
-            fetchStub = mockFetch([test({ state: 'completed' }), test({ state: 'archived' })]);
+            fetchStub = mockFetch([abTest({ state: 'completed' }), abTest({ state: 'archived' })]);
 
             const { error, stdout } = await runCommand(`${archive} --yes`);
 
@@ -583,7 +583,7 @@ describe('ab-tests', () => {
         });
 
         it('without --yes under --json writes nothing: exit 6 with the dashboard text', async () => {
-            fetchStub = mockFetch([test({ state: 'completed' })]);
+            fetchStub = mockFetch([abTest({ state: 'completed' })]);
 
             const { error, exit } = await runJson(`${archive} --json`);
 
@@ -597,7 +597,7 @@ describe('ab-tests', () => {
 
         it('shows the backend refusal of a live test (exit 4)', async () => {
             fetchStub = mockFetchSteps([
-                { body: test() },
+                { body: abTest() },
                 { body: { errors: { non_field_errors: ['Live Ab Test can not be deleted.'] }, error_code: 'validation_error' }, status: 400 },
             ]);
 
