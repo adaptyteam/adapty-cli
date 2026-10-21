@@ -21,12 +21,14 @@ src/
     apps/            # list, get, create, update
     products/        # list, get, create, update
     paywalls/        # list, get, create, update, placements (placements using a paywall)
-    placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
+    placements/      # list (--type), get, create, update (audiences[] or deprecated --paywall-id);
+                     # metrics/ (list, get, values — flow placements; implementation in src/cli/commands/placements/metrics)
     flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
                      # preview — local config → render URL, opens on a TTY, prints bare URL when piped;
                      # capture is the caller's job, the CLI only builds the URL;
                      # validate — advisory publishability check, always 200, exits non-zero when invalid);
-                     # media/ (upload — multipart image upload, returns CDN url to reference in a config)
+                     # media/ (upload — multipart image upload, returns CDN url to reference in a config);
+                     # metrics/ (list, get, values — the dashboard metrics page; implementation in src/cli/commands/flows/metrics)
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
