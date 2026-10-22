@@ -640,9 +640,15 @@ value) and `No data for this period.` for an empty window. The analytics numbers
 numbers. Dates are
 inclusive days of `--timezone`, else the app time zone. Only `chart` and `conversion` take a compared period. Bad
 input exits 2 before anything is sent; a refusal exits 4 with the API's error code; a missing token or an app the
-token cannot access (403) exits 3. Each analytics route has its own rate limits, as the Export API: 2 requests per
-second per app and 360 per minute for all callers together. Over a limit, the command exits 4 with the wait
+token cannot access (403) exits 3; an Adapty that cannot be reached (no connection) exits 5 with
+`Could not reach <url>`, or `code: network_error` and `status: 0` under `--json`. Each analytics route has its own
+rate limits, as the Export API: 2 requests per second per app and 360 per minute for all callers together. Over a limit, the command exits 4 with the wait
 (`retry_after_seconds` in `--json`).
+
+The analytics queries are stricter than the Export API and the dashboard: a filter or grouping that the report does
+not take is a 400 that names the field, never ignored; the funnel refuses the `cancellation_reason` filter; retention
+and conversion group by the dashboard's retention list; retention, LTV, cohort and funnel take no compared period.
+The full list is in `docs/agent/analytics.md`.
 
 ### Attribution
 

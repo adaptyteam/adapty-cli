@@ -67,9 +67,8 @@ Every data command answers in one shape, so one parser reads all six:
 - No rows for the window: `data.segments` is `[]`, and the human view prints `No data for this period.`
 - Numbers are the dashboard's numbers. A real zero is `0`. `null` means the backend has no value (an LTV period not
   reached yet, a cohort that cannot be predicted): never count it as 0.
-- Two known differences from the dashboard. The funnel applies the `cancellation_reason` filter, which the
-  dashboard funnel ignores, so with that filter the number can differ from the dashboard. The retention groupings are
-  the backend's retention list, which differs from the dashboard's list.
+- The funnel, retention and conversion rules differ from the Export API and the dashboard in a few places: see
+  "Differences from the Export API and the dashboard".
 - `meta.query` is the query that ran: every field of the operation with its default, the filters as sent,
   `timezone` and `timezone_source` (`request` when `--timezone` was given, else `app`).
 - Some fields are objects: a cohort gives `revenue`, `arpu`, `arppu` and `arpas` on each basis
@@ -126,12 +125,44 @@ time zone.
   groups, stderr has `No data for this period.` and the summary of each period, as the human view shows it under
   its heading.
 
+## Differences from the Export API and the dashboard
+
+The `analytics` commands run on the dashboard's own queries with a strict request check. If you know the Export API
+or the dashboard, these are the differences.
+
+- The total is the first group of `data.segments` (`is_total` true, `key` null). Tell it from a group by `is_total`.
+- A filter or a grouping that the report does not take is never ignored. The API refuses it with exit 4 and an
+  error that names the field and lists the accepted ones: `filter_not_supported` (a filter key that the report
+  does not take, for example `cancellation_reason` and `renewal_period` on `ltv`, `cohort`, `retention` and
+  `conversion`; some charts hide filters too), `grouping_not_supported` (a grouping that the report does not
+  take), `invalid_filter_value` (a value that the filter cannot take). `adapty analytics catalog --app <app>` lists
+  the groupings and filter keys of each operation and chart. `state` and `paywalls_group_id` are not analytics
+  filters at all.
+- `funnel` refuses the `cancellation_reason` filter (400 `filter_not_supported`). The Export API and the dashboard
+  funnel page ignore that filter; this route refuses it because the shared funnel query would count purchases
+  without a reason as refunds. `funnel` refuses `paywalls_group_id` too, which the Export API accepts.
+- `retention` takes the dashboard retention groupings (see `catalog`). The Export API also takes older groupings
+  (`day`, `week`, `month`, `renewal_status`); the API refuses them with a 400.
+- `conversion` groups like the dashboard: by the retention list, with `segment_id`.
+- `retention`, `ltv`, `cohort` and `funnel` cannot compare two periods: their queries mix two date ranges into one, so
+  the API refuses a compared window (`compare_not_supported`). These commands have no `--compare-from` and
+  `--compare-to` flags. Only `chart` and `conversion` compare (`can_compare` in the catalog).
+- `cohort` has no grouping: it has no `--group-by` flag, and the API refuses a grouping (400).
+- Each analytics route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute
+  for all callers together. See "Errors and limits".
+
 ## Errors and limits
 
-A server refusal exits 4 and prints the API's error code (`--json`: `error.code`). A success that is not the API
-envelope (a proxy page) exits 4 with `malformed_response`, and nothing is printed. No token exits 3 with the hint
+A server refusal exits 4 and prints the API's error code (`--json`: `error.code`). A 5xx exits 4 the same way. A success that is
+not the API envelope (a proxy page) exits 4 with `malformed_response`, and nothing is printed. No token exits 3 with the hint
 "Not authenticated. Run `adapty auth login`." A 403 (a token without access to the app) also exits 3.
 
 Each analytics route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute
 for all callers together. The data commands are sent once and never retried: over a limit, a `429` exits 4, and the
 `--json` error carries the wait as `retry_after_seconds`.
+
+When the CLI cannot reach Adapty (no connection, or the connection fails before the answer is read), it exits 5 and
+prints `Could not reach <url>. Check the connection and try again.` With `--json` the error has `code`
+`network_error` and `status` 0. `catalog` and `values` are GETs: the CLI retries them (up to 3 attempts) on a
+network error, a 5xx or a 429 before it gives up. A 5xx or a 429 exits 4 with the API's error code, and `--json`
+has `retry_after_seconds` when the server sends `Retry-After`.
