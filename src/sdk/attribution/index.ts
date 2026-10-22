@@ -9,7 +9,7 @@ import type { Clock } from '../core/clock.js';
 import type { RetryAttempt, ShouldRetry } from '../core/http/index.js';
 
 export { attributionErrorParser } from './errors.js';
-export { granularities, ISO_DATE, reportGroupBy, revenueBases, sortDirections, validateReport } from './report.js';
+export { granularities, reportGroupBy, revenueBases, sortDirections, validateReport } from './report.js';
 export { validateValues } from './values.js';
 export type {
     Dimension,

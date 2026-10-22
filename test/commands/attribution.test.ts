@@ -4,41 +4,9 @@ import * as sinon from 'sinon';
 
 import { exitCode } from '../../src/cli/errors.js';
 import { errorBody } from '../helpers/attribution-errors.js';
-import { assertFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
+import { assertFetch, mockFetchSteps, requestOf, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 const BASE = 'https://api-ua.adapty.io/api/v1/cli';
-
-type Step = {
-    body: unknown;
-    headers?: Record<string, string>;
-    status?: number;
-};
-
-/** Answers each call with its own status and headers; mockFetch's canned responses are all 200. */
-const mockFetchSteps = (steps: Step[]): sinon.SinonStub => {
-    let index = 0;
-
-    return sinon.stub(globalThis, 'fetch').callsFake(() => {
-        const step = steps[index] ?? steps.at(-1);
-        index += 1;
-
-        return Promise.resolve(new Response(JSON.stringify(step?.body), {
-            headers: { 'content-type': 'application/json', ...step?.headers },
-            status: step?.status ?? 200,
-        }));
-    });
-};
-
-const requestOf = (stub: sinon.SinonStub, callIndex: number) => {
-    const [url, init] = stub.getCall(callIndex).args as [string, RequestInit];
-
-    return {
-        body: typeof init.body === 'string' ? init.body : undefined,
-        headers: new Headers(init.headers),
-        method: init.method,
-        url,
-    };
-};
 
 const PERIOD = '--date-from 2026-08-01 --date-to 2026-08-31';
 const REPORT = `attribution report --app ${TEST_APP_ID} ${PERIOD} --metrics spend --group-by campaign`;

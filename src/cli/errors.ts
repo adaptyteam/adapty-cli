@@ -145,8 +145,15 @@ export const describeCleanupFailures = (
 /** Issue.path is a camelCase sdk field; the user typed a kebab-case flag. */
 const flagName = (path: string): string => `--${path.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`)}`;
 
-const describeIssue = (issue: Issue): string =>
-    (issue.path === undefined ? issue.message : `${flagName(issue.path)}: ${issue.message}`);
+/**
+ * A rule names another input field as `{fieldName}` and lists it in `fields`: the user reads the flag they would
+ * type. Only the listed names are written, so other braces in a message stay as they are.
+ */
+const describeIssue = (issue: Issue): string => {
+    const message = (issue.fields ?? []).reduce((text, field) => text.replaceAll(`{${field}}`, flagName(field)), issue.message);
+
+    return issue.path === undefined ? message : `${flagName(issue.path)}: ${message}`;
+};
 
 /**
  * The one place where an sdk error gets a human text and an exit code. No default in the switch:

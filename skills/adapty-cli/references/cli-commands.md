@@ -427,6 +427,46 @@ Before running any of these:
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 
+## Analytics (`analytics` topic)
+
+The analytics of one app as the Adapty dashboard shows them, from the Developer API with the same token. Read-only;
+every command takes `--app`. The full agent guide is `docs/agent/analytics.md` in the adapty-cli repository.
+
+| Command                | Required flags / notes                                                        |
+|------------------------|-------------------------------------------------------------------------------|
+| `analytics catalog`    | `--app`; the six operations with options, groupings and filter keys, every chart and conversion id, every filter dimension |
+| `analytics values`     | `--app`, `--dimension`; the exact values a data command's filter takes |
+| `analytics chart`      | `--app`, `--chart`, `--date-from`, `--date-to`; optional `--compare-from`/`--compare-to`, `--group-by`, `--filter dimension=value[,value]`, `--granularity`, `--revenue-basis`, `--timezone`, `--csv` |
+| `analytics conversion` | `--app`, `--conversion`, `--date-from`, `--date-to`; optional `--compare-from`/`--compare-to`, `--group-by`, `--filter`, `--granularity`, `--timezone`, `--csv` |
+| `analytics funnel`     | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--timezone`, `--csv` |
+| `analytics retention`  | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--use-trial`, `--timezone`, `--csv` |
+| `analytics ltv`        | `--app`, `--date-from`, `--date-to`; optional `--group-by`, `--filter`, `--revenue-basis`, `--period-type`, `--renewal-days`, `--timezone`, `--csv` |
+| `analytics cohort`     | `--app`, `--date-from`, `--date-to`; optional `--filter`, `--granularity`, `--revenue-basis`, `--period-type`, `--renewal-days`, `--timezone`, `--csv` |
+
+```sh
+adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --date-to 2026-09-30 --group-by country --json
+```
+
+- **One shape for all six**: `data.value` is the number of the period, `data.segments` starts with the total
+  (`is_total` true), and each group's `key` is the raw value the backend gives for that group (a "No Data" group
+  can have `null`, `""`, `"None"` or the zero UUID `00000000-0000-0000-0000-000000000000`; a funnel group's `key` is
+  its title, such as `Pro annual`, and can repeat: every group stays a row). Tell the total by `is_total`, never by a
+  null `key`. No rows: `segments` is
+  `[]` and the human view prints `No data for this period.`
+- **`0` is a real zero; `null` means no value** (an LTV period not reached, a cohort without a prediction).
+- **Filter** with values from `analytics values`, not with group keys: a key is not promised to be a filter
+  value. Values are exact (an empty one too); write a comma inside a value as `\,`.
+- **Never add `analytics` numbers to `attribution` numbers**: ad-network questions (campaigns, spend, ROAS) belong
+  to `attribution`.
+- **Compare** only with `chart` and `conversion` (`data.compare`); the other queries cannot keep two periods apart.
+- **Outputs**: a short table (default: one row per group, total first, the main numbers and one column per date,
+  step or period, money with 2 decimals, `—` for null; the group title, not its key), the API answer (`--json`), or a CSV made from it (`--csv`, one row per group,
+  total first; a compared period in `compare.*` columns, the answer's numbers in `data.*` and `meta.*` columns; no
+  groups: the header only, and the summary on stderr).
+- **Errors**: bad input exits 2 before any request; a server refusal exits 4 with its error code; each analytics
+  route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute for all callers
+  together. Over a limit, the command exits 4 with the wait (`retry_after_seconds` in `--json`).
+
 ## Attribution (`attribution` topic)
 
 Cross-network attribution analytics, the numbers of the Attribution dashboard, from a different service behind the same token.

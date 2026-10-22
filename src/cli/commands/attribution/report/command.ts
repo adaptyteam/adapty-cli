@@ -5,27 +5,20 @@ import { assertValid } from '../../../../sdk/core/validation.js';
 import { AttributionCommand, periodFlags, periodParams, revenueBasisFlag } from '../../../base/attribution/index.js';
 import { usageError } from '../../../errors.js';
 import { appIdFlag } from '../../../input/app.js';
+import { splitFilter } from '../../../input/filter.js';
 
 import { renderReport } from './lib/render.js';
 
 import type { ReportFilter, ReportInput, ReportResponse, ReportSort, SortDirection } from '../../../../sdk/attribution/index.js';
 
-/** A comma not preceded by a backslash: `\,` keeps a comma inside a value, as oclif's own delimiter does. */
-const VALUE_SEPARATOR = /(?<!\\),/;
-
-/** `dimension=value[,value]`: one value filters by equality, several by any of them. */
+/** `dimension=value[,value]`: one value filters by equality, several by any; values trimmed, empties dropped. */
 const parseFilter = (input: string): Promise<ReportFilter> => {
-    const separator = input.indexOf('=');
-    const dimension = separator === -1 ? '' : input.slice(0, separator).trim();
+    const filter = splitFilter(input);
+    const values = filter?.values.map(value => value.trim()).filter(value => value !== '') ?? [];
 
-    const values = separator === -1
-        ? []
-        : input.slice(separator + 1).split(VALUE_SEPARATOR).map(value => value.replaceAll('\\,', ',').trim())
-                .filter(value => value !== '');
-
-    return dimension === '' || values.length === 0
+    return filter === undefined || values.length === 0
         ? Promise.reject(usageError(`Expected dimension=value[,value], got "${input}".`))
-        : Promise.resolve({ dimension, values });
+        : Promise.resolve({ dimension: filter.dimension, values });
 };
 
 const isDirection = (value: string): value is SortDirection => (sortDirections as readonly string[]).includes(value);
