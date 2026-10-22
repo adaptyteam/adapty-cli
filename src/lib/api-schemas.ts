@@ -69,6 +69,7 @@ export type AccessLevelUpdateRequestDTO = {
 export type ProductDTO = {
     access_level_id: string;
     id: string;
+    offers_count: number;
     period: ProductPeriod;
     title: string;
     vendor_products: Record<string, VendorProductDTO>;

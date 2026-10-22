@@ -52,7 +52,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `feedback`, `migrations`).
+resources off it (`apps`, `auth`, `accessLevels`, `feedback`, `migrations`, `productOffers`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -80,6 +80,10 @@ after nothing. Outside the resource nobody sees either way — imports go throug
 the reading of its answer together, so `device-code.ts` and `poll-token.ts` keep their own paths,
 and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port it satisfies, plus
 `me` and `revokeToken`. The endpoint map is a property of `apps`, not a law.
+
+`product-offers/` is the apps shape too, except that `update` reads the stored offer first: the
+server replaces the whole offer, so `validateMergedProductOffer` checks the merge after the read and
+before the write.
 
 Responses pass through in the server's snake_case (that is what `--json` has always printed);
 input is camelCase, because that side is our API, not the server's.
@@ -278,8 +282,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` was written on the new
-stack from the start.
+most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` and `product-offers` were
+written on the new stack from the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

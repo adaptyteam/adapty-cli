@@ -20,6 +20,7 @@ src/
     auth/            # login (device flow OAuth), logout, revoke, whoami, status
     apps/            # list, get, create, update
     products/        # list, get, create, update
+    product-offers/  # list, get, create, update (no delete: dashboard only); implementation in src/cli/commands/product-offers
     paywalls/        # list, get, create, update, placements (placements using a paywall)
     placements/      # list, get, create, update (audiences[] or deprecated --paywall-id)
     flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;

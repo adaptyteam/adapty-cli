@@ -1,4 +1,5 @@
 import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
 
 import {
     assertFetch,
@@ -103,5 +104,19 @@ describe('products', () => {
             path: `/apps/${TEST_APP_ID}/products/${TEST_RESOURCE_ID}/`,
             stub: fetchStub,
         });
+    });
+
+    it('list prints offers_count', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([{ ...EMPTY_LIST_RESPONSE, data: [{ ...PRODUCT_RESPONSE, offers_count: 2 }] }]);
+        const { stdout } = await runCommand(`products list --app ${TEST_APP_ID}`);
+        expect(stdout).to.contain('Offers Count: 2');
+    });
+
+    it('get prints offers_count', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([{ ...PRODUCT_RESPONSE, access_level_id: 'al', offers_count: 3, period: 'monthly' }]);
+        const { stdout } = await runCommand(`products get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+        expect(stdout).to.contain('Offers Count: 3');
     });
 });
