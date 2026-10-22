@@ -20,7 +20,7 @@ export default class FlowsMetricsList extends AdaptyCommand {
 
     async run(): Promise<FlowMetricsRows> {
         const { flags } = await this.parse(FlowsMetricsList);
-        const rows = await this.adapty.entityMetrics.flows.list(flags.app, flags.ids);
+        const rows = await this.adapty.flows.metrics.list(flags.app, flags.ids);
         const view = flags.csv ? metricsRowsCsv : renderMetricsRows;
 
         this.render(rows, value => view(value, 'flow_id'));

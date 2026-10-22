@@ -53,7 +53,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `analytics`, `entityMetrics`, `feedback`, `migrations`).
+resources off it (`apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `migrations`, `placements`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -87,11 +87,12 @@ the reading of its answer together, so `device-code.ts` and `poll-token.ts` keep
 and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port it satisfies, plus
 `me` and `revokeToken`. The endpoint map is a property of `apps`, not a law.
 
-`entityMetrics` is such a directory (`entity-metrics/`): the metrics of one flow or one flow placement, read
-through the Developer API (`flows` and `placements`, each with `list`, `get` and `values`). `get.ts` holds the
-input shape and the request body, which carries only the keys the caller set; the server owns every value list
-(`based_on`, `period_unit`, `date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day
-range has both ends. The two analytics POSTs are never retried, like `attribution report`.
+`flows` and `placements` hold only `metrics` (`list`, `get` and `values`) for now: the other operations of
+these entities still live in the old stack and move into the resource when their topic is ported. What the two
+share sits beside them, like `pagination.ts`: `metrics.ts` has the input shape, the request body (only the keys the
+caller set), the timezone header and the answer types. The server owns every value list (`based_on`, `period_unit`,
+`date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day range has both ends. The two
+analytics POSTs are never retried, like `attribution report`.
 
 Responses pass through in the server's snake_case (that is what `--json` has always printed);
 input is camelCase, because that side is our API, not the server's.

@@ -43,7 +43,7 @@ export default class PlacementsMetricsGet extends AdaptyCommand {
         // Before this.adapty: bad input is exit 2 even without a token
         assertValid(validateMetricsInput(input));
 
-        const tree = await this.adapty.entityMetrics.placements.get(flags.app, args.placement_id, flags.type, input);
+        const tree = await this.adapty.placements.metrics.get(flags.app, args.placement_id, flags.type, input);
 
         this.render(tree, flags.csv ? metricsTreeCsv : value => renderMetricsTree(value, flags.depth));
 

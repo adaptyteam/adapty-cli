@@ -5,18 +5,20 @@ import { accessLevels } from './access-levels.js';
 import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
-import { entityMetrics } from './entity-metrics/index.js';
 import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
+import { flows } from './flows.js';
 import { migrations } from './migrations/index.js';
+import { placements } from './placements.js';
 
 import type { AccessLevelsApi } from './access-levels.js';
 import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
-import type { EntityMetricsApi } from './entity-metrics/index.js';
 import type { FeedbackApi } from './feedback/index.js';
+import type { FlowsApi } from './flows.js';
 import type { MigrationApi } from './migrations/index.js';
+import type { PlacementsApi } from './placements.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
@@ -34,8 +36,8 @@ export {
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
-export { validateMetricsInput } from './entity-metrics/index.js';
 export { sentiments } from './feedback/index.js';
+export { validateMetricsInput } from './metrics.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type {
     AnalyticsFilter,
@@ -64,8 +66,9 @@ export type {
 } from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
+export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
+export type { FlowsApi } from './flows.js';
 export type {
-    EntityMetricsApi,
     FilterValueNode,
     FilterValues,
     FlowMetricsRows,
@@ -74,8 +77,7 @@ export type {
     MetricsNode,
     MetricsTree,
     PlacementMetricsRows,
-} from './entity-metrics/index.js';
-export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
+} from './metrics.js';
 export type {
     Action,
     ActionKind,
@@ -96,6 +98,7 @@ export type {
     WizardError,
 } from './migrations/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
+export type { PlacementsApi } from './placements.js';
 
 /** Exported because the adapter compares the resolved URL with it and warns when they differ. */
 export const DEFAULT_ADAPTY_API_URL = 'https://api-admin.adapty.io/api/v1/developer';
@@ -124,9 +127,10 @@ export type Adapty = {
     analytics: AnalyticsApi;
     apps: AppsApi;
     auth: AuthApi;
-    entityMetrics: EntityMetricsApi;
     feedback: FeedbackApi;
+    flows: FlowsApi;
     migrations: MigrationApi;
+    placements: PlacementsApi;
 };
 
 /**
@@ -174,10 +178,11 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         analytics: analytics(http),
         apps: apps(http),
         auth: auth(http),
-        entityMetrics: entityMetrics(http),
         feedback: feedback(http),
+        flows: flows(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.
         migrations: migrations(wizard, options.clock ?? systemClock),
+        placements: placements(http),
     };
 };

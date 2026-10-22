@@ -17,7 +17,7 @@ export default class FlowsMetricsValues extends AdaptyCommand {
 
     async run(): Promise<FilterValues> {
         const { args, flags } = await this.parse(FlowsMetricsValues);
-        const values = await this.adapty.entityMetrics.flows.values(flags.app, args.flow_id);
+        const values = await this.adapty.flows.metrics.values(flags.app, args.flow_id);
 
         this.render(values, renderFilterValues);
 

@@ -21,7 +21,7 @@ export default class PlacementsMetricsList extends AdaptyCommand {
 
     async run(): Promise<PlacementMetricsRows> {
         const { flags } = await this.parse(PlacementsMetricsList);
-        const rows = await this.adapty.entityMetrics.placements.list(flags.app, flags.type, flags.ids);
+        const rows = await this.adapty.placements.metrics.list(flags.app, flags.type, flags.ids);
         const view = flags.csv ? metricsRowsCsv : renderMetricsRows;
 
         this.render(rows, value => view(value, 'placement_id'));

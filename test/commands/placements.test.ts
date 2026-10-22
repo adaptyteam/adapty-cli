@@ -435,4 +435,51 @@ describe('placements', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
     });
+
+    describe('list --type', () => {
+        const queryOf = (index: number): URLSearchParams =>
+            new URL(fetchStub.getCall(index).args[0] as string).searchParams;
+
+        it('sends filter[placement_type] only when --type is given, and shows the type of each placement', async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+
+            fetchStub = mockFetch([{
+                data: [
+                    { ...PLACEMENT_RESPONSE, title: 'Main', type: 'flow' },
+                    { ...PLACEMENT_RESPONSE, developer_id: 'old', title: 'Old', type: null },
+                ],
+                meta: { pagination: { count: 2, page: 1, pages: 1 } },
+            }]);
+
+            const { stdout } = await runCommand(`placements list --app ${TEST_APP_ID} --type flow`);
+
+            expect(queryOf(0).get('filter[placement_type]')).to.equal('flow');
+            expect(stdout).to.contain('Type: flow');
+            // the second placement has no type: the human view leaves it out, as it leaves out every empty value
+            expect(stdout.match(/Type:/g)).to.have.length(1);
+
+            const json = await runCommand(`placements list --app ${TEST_APP_ID} --json`);
+
+            expect((JSON.parse(json.stdout) as { data: { type: null | string }[] }).data.map(item => item.type)).to.deep.equal(['flow', null]);
+            expect(queryOf(1).has('filter[placement_type]')).to.equal(false);
+        });
+
+        it('sends a type it cannot judge, and the server answer is the error', async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+
+            fetchStub = mockFetchFailure(
+                {
+                    error_code: 'validation_error',
+                    errors: { 'filter[placement_type]': ['Allowed values: paywall, flow, onboarding'] },
+                    status_code: 400,
+                },
+                { status: 400 },
+            );
+
+            const { error } = await runCommand(`placements list --app ${TEST_APP_ID} --type foo`);
+
+            expect(error?.message).to.contain('Allowed values: paywall, flow, onboarding');
+            expect(queryOf(0).get('filter[placement_type]')).to.equal('foo');
+        });
+    });
 });

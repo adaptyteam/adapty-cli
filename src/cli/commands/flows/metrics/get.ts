@@ -33,7 +33,7 @@ export default class FlowsMetricsGet extends AdaptyCommand {
         // Before this.adapty: bad input is exit 2 even without a token
         assertValid(validateMetricsInput(input));
 
-        const tree = await this.adapty.entityMetrics.flows.get(flags.app, args.flow_id, input);
+        const tree = await this.adapty.flows.metrics.get(flags.app, args.flow_id, input);
 
         this.render(tree, flags.csv ? metricsTreeCsv : value => renderMetricsTree(value, flags.depth));
 

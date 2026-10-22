@@ -20,7 +20,7 @@ export default class PlacementsMetricsValues extends AdaptyCommand {
 
     async run(): Promise<FilterValues> {
         const { args, flags } = await this.parse(PlacementsMetricsValues);
-        const values = await this.adapty.entityMetrics.placements.values(flags.app, args.placement_id, flags.type);
+        const values = await this.adapty.placements.metrics.values(flags.app, args.placement_id, flags.type);
 
         this.render(values, renderFilterValues);
 
