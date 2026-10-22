@@ -618,6 +618,38 @@ too. A burst of 429s puts the token into an escalating cool-down (`cli_cooldown_
 not waiting out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID
 and the outcome shows up in `adapty asa automations runs`.
 
+### Analytics
+
+The analytics of an app, as the dashboard shows them, live under `adapty analytics`: the charts, conversions, the
+funnel, retention, LTV and cohorts, all on the Developer API with the same token.
+
+```sh
+adapty analytics catalog --app APP_UUID                          # operations, charts, conversions, filters
+adapty analytics values --app APP_UUID --dimension country       # what --filter country=... takes
+adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --date-to 2026-09-30 \
+  --group-by country --compare-from 2026-04-01 --compare-to 2026-06-30
+adapty analytics funnel --app APP_UUID --date-from 2026-07-01 --date-to 2026-09-30 --csv
+```
+
+Every data command (`chart`, `conversion`, `funnel`, `retention`, `ltv`, `cohort`) answers in one shape: the
+number of the period, then segments with the total first (`is_total`), each group keyed by the raw backend value.
+`--json` prints the API answer unchanged; `--csv` prints a table made from it (one row per group, total first; a
+compared period in `compare.*` columns);
+the human view prints a short table (one row per group, total first, money with 2 decimals, `—` for a missing
+value) and `No data for this period.` for an empty window. The analytics numbers never add to the `attribution`
+numbers. Dates are
+inclusive days of `--timezone`, else the app time zone. Only `chart` and `conversion` take a compared period. Bad
+input exits 2 before anything is sent; a refusal exits 4 with the API's error code; a missing token or an app the
+token cannot access (403) exits 3; an Adapty that cannot be reached (no connection) exits 5 with
+`Could not reach <url>`, or `code: network_error` and `status: 0` under `--json`. Each analytics route has its own
+rate limits, as the Export API: 2 requests per second per app and 360 per minute for all callers together. Over a limit, the command exits 4 with the wait
+(`retry_after_seconds` in `--json`).
+
+The analytics queries are stricter than the Export API and the dashboard: a filter or grouping that the report does
+not take is a 400 that names the field, never ignored; the funnel refuses the `cancellation_reason` filter; retention
+and conversion group by the dashboard's retention list; retention, LTV, cohort and funnel take no compared period.
+The full list is in `docs/agent/analytics.md`.
+
 ### Attribution
 
 Attribution analytics across ad networks live under `adapty attribution` and talk to the attribution service
