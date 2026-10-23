@@ -49,7 +49,7 @@ All commands support `--json` for machine-readable output.
 
 | Command                           | Required flags                                    |
 |----------------------------------|--------------------------------------------------|
-| `placements list`                 | `--app`                                           |
+| `placements list`                 | `--app`; optional `--type paywall\|flow\|onboarding` (only placements of that type) |
 | `placements get <placement_id>`   | `--app`                                           |
 | `placements create`               | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
 | `placements update <placement_id>` | `--app`, `--title`, `--developer-id`, exactly one of `--audiences` or `--paywall-id` (deprecated) |
@@ -77,6 +77,8 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 - Always: `--paywall-id is deprecated. Use --audiences instead.`
 - On `update` only (additional): `--paywall-id will rewrite all audiences on this placement.` — full replace; segment-specific paywalls are dropped (server-side).
 
+**`placements list` and `placements get` show the placement `type`** (`paywall`, `flow` or `onboarding`). `--json` has `null` for a placement without a type; the table leaves an empty value out.
+
 **`placements get` response shape** — returns `audiences[]` (no top-level `paywall_id`). To get the default paywall, read the `paywall` entry with `segment_ids: []`; the default audience may run an A/B test instead (an `ab_test` entry).
 
 **Workflow — swap a paywall across placements:**
@@ -84,6 +86,44 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 2. For each: `placements get <ID> --app <APP> --json` → read full `audiences[]`.
 3. Mutate the matching `paywall` entries client-side; keep every other entry (A/B test and crossplacement entries too) unchanged.
 4. `placements update <ID> --app <APP> --title ... --developer-id ... --audiences '...'` → write back.
+
+## Flow and placement metrics
+
+The numbers of the dashboard metrics page of a flow and of a flow placement. Read-only; the Developer API gives the
+dashboard's tree and the CLI prints it. Every node and every row has the same 27 metrics (`views`, `purchases`,
+`trials`, `revenue` and 23 more); "no data" is `0`, never `null`, and a rate can be above 100, as on the dashboard.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `flows metrics list` | `--app`, `--ids <flow_id>,<flow_id>` (repeatable); one lifetime row for each flow; `--csv` |
+| `flows metrics get <flow_id>` | `--app`; `--date-from` and `--date-to` (give both), `--date-type purchase_date\|profile_install_date`, `--granularity day\|week\|month\|quarter\|year`, `--based-on placement\|audience`, `--filter key=value[,value]` (repeatable), `--timezone`, `--depth N`, `--csv` |
+| `flows metrics values <flow_id>` | `--app`; the filter keys and values that `get --filter` takes |
+| `placements metrics list` | `--app`, `--type flow`, `--ids <placement_id>,<placement_id>` (repeatable); one lifetime row for each placement; `--csv` |
+| `placements metrics get <placement_id>` | `--app`, `--type flow`; the flags of `flows metrics get`, with `--based-on audience\|flow\|placement`, and `--group-by country\|store` |
+| `placements metrics values <placement_id>` | `--app`, `--type flow` |
+
+```sh
+adapty placements list --app APP_UUID --type flow
+adapty flows metrics values FLOW_UUID --app APP_UUID
+adapty flows metrics get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --based-on placement --filter country=US
+adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-on flow --group-by store --json
+```
+
+- **Output.** `get` prints a `Total` line (views, purchases, trials, revenue), then the first level of the tree under
+  it; `--depth N` shows N levels, and the points of a period (`--granularity`) come right under their node.
+  `--json` prints the whole answer unchanged; `--csv` prints one row for each node of the whole tree
+  (`path,level,title`, then the 27 metrics). `--csv` and `--json` cannot be used together.
+- **Filters.** Read `values` first: the top value of each group is the key, the leaves are its values.
+  `--filter country=US,DE` (or the same key twice) keeps any of them; `\,` is a comma inside a value; different
+  keys combine.
+- **The server owns the value lists.** A wrong `--based-on`, `--date-type`, `--granularity`, `--group-by` or
+  `--type` comes back as exit 4 with the valid values; the CLI does not check them.
+- **`--type`.** The placement commands need the placement type, as `placements list` shows it, and refuse a
+  placement of another type.
+- **Dates.** A flow needs a day range. A flow placement uses the range only together with `--date-type`; without it
+  the answer is lifetime, and `--date-type` without a range is refused (exit 4).
+- **Not yours.** A flow or placement of another app answers 404 (exit 4), also inside a `list`.
+- **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
 
 ## Segments
 

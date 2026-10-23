@@ -1,0 +1,41 @@
+{
+    "data": [
+        {
+            "value": "attribution",
+            "label": "Attribution",
+            "children": [
+                { "value": "attribution_campaign", "label": "Campaign", "children": [{ "value": "", "label": "No Data" }, { "value": "Q4,Launch", "label": "Q4,Launch" }] },
+                { "value": "attribution_channel", "label": "Channel", "children": [{ "value": "", "label": "No Data" }] }
+            ]
+        },
+        {
+            "value": "country",
+            "label": "Country",
+            "children": [
+                { "value": "Americas", "label": "Americas", "children": [{ "value": "US", "label": "United States" }] },
+                { "value": "Europe", "label": "Europe", "children": [{ "value": "DE", "label": "Germany" }] }
+            ]
+        },
+        {
+            "value": "flow_screen_id",
+            "label": "Screen",
+            "children": [{ "value": "0b0c7e9e-3c06-4f7a-9d7e-2f2f6d3c1b11:scr_a1B2c3D4", "label": "1. Welcome" }]
+        },
+        {
+            "value": "placement_audience_version_id",
+            "label": "A/B tests",
+            "children": [{ "value": "6a9d1c52-5e0b-4c58-8a44-7c1d3b9e0f21", "label": "Launch test" }]
+        },
+        {
+            "value": "store",
+            "label": "Store",
+            "children": [{ "value": "app_store", "label": "App Store" }, { "value": "play_store", "label": "Google Play" }]
+        },
+        {
+            "value": "state",
+            "label": "State",
+            "children": [{ "value": "live", "label": "Live" }, { "value": "inactive", "label": "Inactive" }]
+        }
+    ],
+    "meta": null
+}

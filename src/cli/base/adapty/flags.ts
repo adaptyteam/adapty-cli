@@ -28,7 +28,7 @@ export const compareFlags = {
  * `dimension=value[,value]` with every value exactly as written. An empty value is a value: `country=` keeps the
  * data without a country, as the dashboard filter does.
  */
-const parseExactFilter = (input: string): Promise<AnalyticsFilter> => {
+export const parseExactFilter = (input: string): Promise<AnalyticsFilter> => {
     const filter = splitFilter(input);
 
     return filter === undefined

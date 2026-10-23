@@ -53,7 +53,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `migrations`).
+resources off it (`apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `migrations`, `placements`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -86,6 +86,13 @@ sends it; `query.ts` and `renewal-periods.ts` what several operations share; `mo
 the reading of its answer together, so `device-code.ts` and `poll-token.ts` keep their own paths,
 and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port it satisfies, plus
 `me` and `revokeToken`. The endpoint map is a property of `apps`, not a law.
+
+`flows` and `placements` hold only `metrics` (`list`, `get` and `values`) for now: the other operations of
+these entities still live in the old stack and move into the resource when their topic is ported. What the two
+share sits beside them, like `pagination.ts`: `metrics.ts` has the input shape, the request body (only the keys the
+caller set), the timezone header and the answer types. The server owns every value list (`based_on`, `period_unit`,
+`date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day range has both ends. The two
+analytics POSTs are never retried, like `attribution report`.
 
 Responses pass through in the server's snake_case (that is what `--json` has always printed);
 input is camelCase, because that side is our API, not the server's.
@@ -133,6 +140,9 @@ text or JSON.
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
 - `base/adapty/migration-command.ts` — `AdaptyCommand` plus `this.currentMigration`. "Works on the
   saved migration" is the second thing a command says by what it extends.
+- `base/adapty/metrics-flags.ts` — the flags and arguments only the metrics commands take (`--ids`, `--type`,
+  `--csv`, `--depth` and the optional period flags), built on the shared `--filter` parser and `--timezone` of
+  `flags.ts`, and `metricsInput`, where they meet the sdk's field names. Commands import them through `index.ts`.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
@@ -174,7 +184,8 @@ text or JSON.
   analytics operations into the CSV (`segments.ts`), reading the fields from the answer itself, so a field the
   API adds is never dropped, and into the human table (`human.ts`): one row per group, total first, the main
   numbers that each operation names and one column per point; it says under the table when `--json` and `--csv`
-  give more fields.
+  give more fields. `views/metrics.ts` prints the metrics tree and rows (table,
+  CSV) and the filter values.
 - `commands/` — one class per command.
 
 ### The shape of a command
@@ -207,6 +218,7 @@ base/
 ├── adapty/
 │   ├── index.ts
 │   ├── adapty-command.ts
+│   ├── metrics-flags.ts
 │   ├── migration-command.ts
 │   ├── build.ts
 │   ├── flags.ts
@@ -296,8 +308,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` was written on the new
-stack from the start.
+most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` and the `flows metrics` and
+`placements metrics` commands were written on the new stack from the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

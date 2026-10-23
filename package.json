@@ -96,6 +96,12 @@
       "flows:config": {
         "description": "Read and write a flow's builder config"
       },
+      "flows:metrics": {
+        "description": "Metrics of flows: lifetime rows, the metrics tree of one flow and its filter values"
+      },
+      "placements:metrics": {
+        "description": "Metrics of flow placements: lifetime rows, the metrics tree of one placement and its filter values"
+      },
       "segments": {
         "description": "List segments"
       },
