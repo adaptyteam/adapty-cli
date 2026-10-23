@@ -1,3 +1,4 @@
+import type { AnalyticsFilter } from './analytics/query.js';
 import type { Issue } from '../core/errors.js';
 
 /**
@@ -25,8 +26,8 @@ export type MetricsInput = {
     dateFrom?: string | undefined;
     dateTo?: string | undefined;
     dateType?: string | undefined;
-    /** Filter key → leaf values, as the `values` route lists them. */
-    filters?: Readonly<Record<string, readonly string[]>> | undefined;
+    /** Key (as `dimension`) and leaf values, as the `values` route lists them; a key given twice keeps all values. */
+    filters?: readonly AnalyticsFilter[] | undefined;
     granularity?: string | undefined;
     /** Flow placements only; `country` and `store`. */
     groupBy?: string | undefined;
@@ -61,8 +62,8 @@ export const toMetricsRequest = (input: MetricsInput): MetricsRequest => {
     const body: MetricsRequest = {};
     const filters: Record<string, string[]> = {};
 
-    for (const [key, values] of Object.entries(input.filters ?? {})) {
-        filters[key] = [...values];
+    for (const { dimension, values } of input.filters ?? []) {
+        (filters[dimension] ??= []).push(...values);
     }
 
     if (input.dateFrom !== undefined && input.dateTo !== undefined) {

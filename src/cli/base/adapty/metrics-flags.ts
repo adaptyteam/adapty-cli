@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 
-import { usageError } from '../../errors.js';
 import { uuidParser } from '../../input/app.js';
-import { dayParser } from '../../input/date.js';
+import { dateParser } from '../../input/period.js';
 
-import type { MetricsInput } from '../../../sdk/adapty/index.js';
+import { filterFlags, parseExactFilter } from './flags.js';
+
+import type { AnalyticsFilter, MetricsInput } from '../../../sdk/adapty/index.js';
 
 /**
  * The flags and arguments only the metrics commands of the Adapty product take (`flows metrics`,
@@ -13,33 +14,6 @@ import type { MetricsInput } from '../../../sdk/adapty/index.js';
  * check, so these flags take any string and the help names the values: a wrong one comes back as
  * the server's 400.
  */
-
-/** A comma not preceded by a backslash: `\,` keeps a comma inside a value, as in `attribution report`. */
-const VALUE_SEPARATOR = /(?<!\\),/;
-
-/** One `--filter key=value[,value]`. */
-export type MetricsFilter = {
-    key: string;
-    values: string[];
-};
-
-/**
- * `key=value[,value]`, the same shape as `attribution report --filter`. An empty value is allowed
- * (a lone `key=`): the "No Data" leaves of `values` are empty strings.
- */
-const parseFilter = (input: string): Promise<MetricsFilter> => {
-    const separator = input.indexOf('=');
-    const key = separator === -1 ? '' : input.slice(0, separator).trim();
-    const raw = separator === -1 ? '' : input.slice(separator + 1);
-
-    if (key === '') {
-        return Promise.reject(usageError(`Expected key=value[,value], got "${input}".`));
-    }
-
-    const values = raw.split(VALUE_SEPARATOR).map(value => value.replaceAll('\\,', ',').trim());
-
-    return Promise.resolve({ key, values: values.length > 1 ? values.filter(value => value !== '') : values });
-};
 
 export const flowIdArg = {
     flow_id: Args.string({
@@ -97,27 +71,25 @@ export const depthFlag = {
 export const metricsQueryFlags = {
     'date-from': Flags.string({
         description: 'First day of the period, inclusive (YYYY-MM-DD)',
-        parse: dayParser,
+        parse: dateParser,
     }),
     'date-to': Flags.string({
         description: 'Last day of the period, inclusive (YYYY-MM-DD)',
-        parse: dayParser,
+        parse: dateParser,
     }),
     'date-type': Flags.string({
         description: 'Which date the period applies to: purchase_date or profile_install_date',
     }),
-    'filter': Flags.custom<MetricsFilter>({
+    'filter': Flags.custom<AnalyticsFilter>({
         description: 'Keep data with these values of a filter key: key=value[,value], as `metrics values` lists them '
-            + '(repeatable; `\\,` for a comma inside a value)',
+            + '(repeatable; `\\,` for a comma inside a value; values exactly as written)',
         multiple: true,
-        parse: parseFilter,
+        parse: parseExactFilter,
     })(),
     'granularity': Flags.string({
         description: 'Split the period into points: day, week, month, quarter or year',
     }),
-    'timezone': Flags.string({
-        description: 'IANA time zone of the period points, e.g. Europe/Berlin (sent as the Adapty-Tz header)',
-    }),
+    'timezone': filterFlags.timezone,
 };
 
 type QueryFlags = {
@@ -125,25 +97,10 @@ type QueryFlags = {
     'date-from'?: string | undefined;
     'date-to'?: string | undefined;
     'date-type'?: string | undefined;
-    'filter'?: MetricsFilter[] | undefined;
+    'filter'?: AnalyticsFilter[] | undefined;
     'granularity'?: string | undefined;
     'group-by'?: string | undefined;
     'timezone'?: string | undefined;
-};
-
-/** The same key given twice becomes one filter with all the values. */
-const groupFilters = (filters: readonly MetricsFilter[] | undefined): Record<string, string[]> | undefined => {
-    if (filters === undefined || filters.length === 0) {
-        return undefined;
-    }
-
-    const grouped: Record<string, string[]> = {};
-
-    for (const { key, values } of filters) {
-        (grouped[key] ??= []).push(...values);
-    }
-
-    return grouped;
 };
 
 /** Where the flag names meet the sdk's field names. */
@@ -152,7 +109,7 @@ export const metricsInput = (flags: QueryFlags): MetricsInput => ({
     dateFrom: flags['date-from'],
     dateTo: flags['date-to'],
     dateType: flags['date-type'],
-    filters: groupFilters(flags.filter),
+    filters: flags.filter,
     granularity: flags.granularity,
     groupBy: flags['group-by'],
     timezone: flags.timezone,

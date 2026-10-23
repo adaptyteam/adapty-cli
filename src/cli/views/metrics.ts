@@ -1,3 +1,6 @@
+import { csvLine } from './analytics/csv.js';
+
+import type { Cell } from './analytics/csv.js';
 import type { FilterValueNode, FilterValues, Metrics, MetricsNode, MetricsTree } from '../../sdk/adapty/index.js';
 
 /**
@@ -94,21 +97,6 @@ export const renderMetricsRows = <K extends RowIdKey>({ data }: { data: Row<K>[]
     return alignLines(data.map(row => ({ cells: cellsOf(row), label: row[idKey] })));
 };
 
-/** RFC 4180: quote a cell that holds a comma, a quote or a line break. */
-const csvCell = (value: unknown): string => {
-    if (value === null || value === undefined) {
-        return '';
-    }
-
-    const text = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-        ? String(value)
-        : JSON.stringify(value);
-
-    return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-};
-
-const csvLine = (cells: readonly unknown[]): string => cells.map(cell => csvCell(cell)).join(',');
-
 const PATH_SEPARATOR = ' > ';
 
 /**
@@ -118,7 +106,7 @@ const PATH_SEPARATOR = ' > ';
 const metricColumns = (node: object): string[] =>
     Object.entries(node).filter(([, value]) => typeof value === 'number').map(([name]) => name);
 
-const valueOf = (node: object, name: string): unknown => (node as Record<string, unknown>)[name];
+const valueOf = (node: object, name: string): Cell => (node as Record<string, Cell>)[name];
 
 const treeRows = (root: MetricsNode, columns: readonly string[]): string[] => {
     const rows: string[] = [];

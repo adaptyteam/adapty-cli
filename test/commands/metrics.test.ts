@@ -311,7 +311,7 @@ describe('flows metrics and placements metrics', () => {
                 ['--date-from 2026-09-01', 'both ends'],
                 ['--date-to 2026-09-01', 'both ends'],
                 ['--date-from 2026-9-1 --date-to 2026-09-01', 'YYYY-MM-DD'],
-                ['--filter country', 'key=value'],
+                ['--filter country', 'dimension=value'],
                 ['--depth 0', 'depth'],
             ];
 

@@ -141,8 +141,8 @@ text or JSON.
 - `base/adapty/migration-command.ts` — `AdaptyCommand` plus `this.currentMigration`. "Works on the
   saved migration" is the second thing a command says by what it extends.
 - `base/adapty/metrics-flags.ts` — the flags and arguments only the metrics commands take (`--ids`, `--type`,
-  `--filter key=value[,value]`, `--csv`, `--depth`, `--timezone` and the period flags), and `metricsInput`, where
-  they meet the sdk's field names. Commands import them through `index.ts`.
+  `--csv`, `--depth` and the optional period flags), built on the shared `--filter` parser and `--timezone` of
+  `flags.ts`, and `metricsInput`, where they meet the sdk's field names. Commands import them through `index.ts`.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
   only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
@@ -160,8 +160,7 @@ text or JSON.
   names. Legacy commands take `--app` from `input/app.ts` too. What attribution and analytics share:
   the date parser and the day-range flag factory that takes the time-zone text (`input/period.ts`), and
   the split of `dimension=value[,value]` (`input/filter.ts`); each product's adapter decides what an
-  empty or padded value means. `input/date.ts` is the `YYYY-MM-DD` parser that
-  both products' period flags use.
+  empty or padded value means.
 - `context/migration/` — CLI-owned migration selection in `context.json` beside credentials.
   `model.ts` defines and validates the record and token fingerprint; `store.ts` owns file I/O and
   storage errors; `resolve.ts` chooses an ID by source priority. `current.ts` binds those three
