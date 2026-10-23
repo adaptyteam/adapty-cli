@@ -1,6 +1,7 @@
 import { systemClock } from '../core/clock.js';
 import { createHttp } from '../core/http/index.js';
 
+import { abTests } from './ab-tests/index.js';
 import { accessLevels } from './access-levels.js';
 import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
@@ -9,6 +10,7 @@ import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
 import { migrations } from './migrations/index.js';
 
+import type { AbTestsApi } from './ab-tests/index.js';
 import type { AccessLevelsApi } from './access-levels.js';
 import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
@@ -18,6 +20,7 @@ import type { MigrationApi } from './migrations/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
+export { abTestStates, abTestTypes, stopContent } from './ab-tests/index.js';
 export {
     periodTypes,
     periodUnits,
@@ -33,6 +36,20 @@ export {
 export { platforms } from './apps/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
+export type {
+    AbTestDetail,
+    AbTestsApi,
+    AbTestSummary,
+    AbTestType,
+    AbTestWriteInput,
+    FlowArm,
+    FlowArmView,
+    ListAbTestsParams,
+    PaywallArm,
+    PaywallArmView,
+    StartAbTestInput,
+    StopAbTestInput,
+} from './ab-tests/index.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
 export type {
     AnalyticsFilter,
@@ -106,6 +123,7 @@ export type AdaptyOptions = {
 };
 
 export type Adapty = {
+    abTests: AbTestsApi;
     accessLevels: AccessLevelsApi;
     analytics: AnalyticsApi;
     apps: AppsApi;
@@ -155,6 +173,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
     const wizard = createHttp({ ...transport, trailingSlash: false });
 
     return {
+        abTests: abTests(http),
         accessLevels: accessLevels(http),
         analytics: analytics(http),
         apps: apps(http),

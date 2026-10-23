@@ -53,7 +53,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `migrations`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `migrations`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -146,8 +146,10 @@ text or JSON.
   error kind fails to compile until it is given a message and an exit code.
 - `input/` — flags and args that several commands or products take, one module per concern: the
   app id UUID as a positional and as `--app` (`appIdArg`, `appIdFlag` in `input/app.ts`),
-  pagination (`input/pagination.ts`), the migration id; and the one place flag names meet sdk field
-  names. Legacy commands take `--app` from `input/app.ts` too. What attribution and analytics share:
+  pagination (`input/pagination.ts`), the migration id, the A/B test arms, audience and stop flags
+  (`input/ab-tests.ts`), the `--yes` flag with the one confirmation of an action that cannot be undone
+  (`input/confirm.ts`) and the one-answer prompt it stands on (`input/prompt.ts`); and the one place flag
+  names meet sdk field names. Legacy commands take `--app` from `input/app.ts` too. What attribution and analytics share:
   the date parser and the day-range flag factory that takes the time-zone text (`input/period.ts`), and
   the split of `dimension=value[,value]` (`input/filter.ts`); each product's adapter decides what an
   empty or padded value means.
@@ -266,6 +268,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
 | 5 | network — the server was never reached |
+| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
 ### The `--json` contract
@@ -296,7 +299,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps`, `auth` and `migrations`. `attribution` was written on the new
+most topics. Migrated so far: `apps`, `auth` and `migrations`; `ab-tests` was written on the new
+stack from the start. `attribution` was written on the new
 stack from the start.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
@@ -322,7 +326,8 @@ as `cause` (`describeCleanupFailures` in `cli/errors.ts`). Revoke errors explici
 successful server revocation from failed local cleanup. Credentials stay in the SDK session store;
 migration cleanup belongs to the CLI.
 
-The apps adapter runs the SDK's pure validation rules before requiring a token. The SDK also keeps
+The apps adapter runs the SDK's pure validation rules before requiring a token; `ab-tests create`, `update` and
+`replace` follow the same order, before the read of the test and before the question. The SDK also keeps
 its own validation so other adapters cannot bypass the rules.
 
 ### The old stack is frozen

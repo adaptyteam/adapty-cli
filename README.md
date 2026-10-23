@@ -90,6 +90,28 @@ adapty placements create --app UUID [flags]
 adapty placements update --app UUID PLACEMENT_ID [flags]
 ```
 
+### A/B tests
+
+Regular paywall and flow tests. `list` shows flow tests unless `--type paywall` is given.
+
+```sh
+adapty ab-tests list --app UUID [--type paywall|flow] [--state live|draft|completed|inactive|archived] [--placement UUID] [--search TEXT] [--page N] [--page-size N]
+adapty ab-tests get --app UUID TEST_ID
+adapty ab-tests create --app UUID --title "Price test" [--goal TEXT] [--placement UUID] [--segment UUID | --all-users] (--paywalls JSON | --flows JSON)
+adapty ab-tests update --app UUID TEST_ID [the flags of create]
+adapty ab-tests start --app UUID TEST_ID --placement UUID (--segment UUID | --all-users) [--yes]
+adapty ab-tests stop --app UUID TEST_ID (--winner ID | --other ID | --no-content) [--yes]
+adapty ab-tests replace --app UUID TEST_ID --title "..." --placement UUID (--paywalls JSON | --flows JSON) [--goal TEXT] [--yes]
+adapty ab-tests archive --app UUID TEST_ID [--yes]
+```
+
+Arms are a JSON array: `[{"paywall_id":"<id>","weight":50,"title":"A"}, ...]` (`--flows`: the same with `flow_id`; `title`
+is optional). The server checks the weights (they sum to 100) and the content. `start`, `stop`, `replace` and `archive`
+change what real users see, or cannot be undone: in a terminal they print the effect and ask `Apply? [y/N]`. With `--json`,
+a pipe or no terminal they refuse with exit 6 (`confirm_required`) and change nothing unless `--yes` is given. `update` of a
+test that started (live, completed, inactive, archived) changes only its title and goal: send the same arms and placement.
+`replace` is what the dashboard calls "Modify": the live test is completed and a new test with a new id starts on the same audience.
+
 ### Segments
 
 ```sh
