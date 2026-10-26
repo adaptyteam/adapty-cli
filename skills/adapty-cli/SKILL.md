@@ -149,12 +149,12 @@ For users who already have an Adapty app and want to manage entities, see `refer
 
 Key notes:
 
-- Product, paywall, placement, access-level and segment commands require `--app <APP_ID>` (UUID)
+- Product, product-offer, paywall, placement, access-level and segment commands require `--app <APP_ID>` (UUID)
 - `apps get <app_id>` and `apps update <app_id>` use a positional arg (no `--app` flag)
-- For products, paywalls, placements and access levels, `get`/`update` use a positional resource ID **plus** `--app`
-- Lists of these entities and apps support `--page` and `--page-size`; `migrations list` does not
+- For products, product offers, paywalls, placements and access levels, `get`/`update` use a positional resource ID **plus** `--app`
+- Lists of these entities and apps support `--page` and `--page-size`; `product-offers list` and `migrations list` do not
 - All commands support `--json`
-- Use `--title` for apps, products, paywalls, placements and access levels; `migrations create` uses `--name`
+- Use `--title` for apps, products, product offers, paywalls, placements and access levels; `migrations create` uses `--name`
 - Use `--apple-bundle-id` / `--google-bundle-id` (not ios/android)
 
 ### Migrations
