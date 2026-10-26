@@ -53,7 +53,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `migrations`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `migrations`, `productOffers`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -86,6 +86,10 @@ sends it; `query.ts` and `renewal-periods.ts` what several operations share; `mo
 the reading of its answer together, so `device-code.ts` and `poll-token.ts` keep their own paths,
 and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port it satisfies, plus
 `me` and `revokeToken`. The endpoint map is a property of `apps`, not a law.
+
+`product-offers/` is the apps shape too, except that `update` reads the stored offer first: the
+server replaces the whole offer, so `validateMergedProductOffer` checks the merge after the read and
+before the write.
 
 Responses pass through in the server's snake_case (that is what `--json` has always printed);
 input is camelCase, because that side is our API, not the server's.
@@ -146,7 +150,8 @@ text or JSON.
   error kind fails to compile until it is given a message and an exit code.
 - `input/` — flags and args that several commands or products take, one module per concern: the
   app id UUID as a positional and as `--app` (`appIdArg`, `appIdFlag` in `input/app.ts`),
-  pagination (`input/pagination.ts`), the migration id, the A/B test arms, audience and stop flags
+  pagination (`input/pagination.ts`), the migration id, the product and offer ids (`input/product.ts`,
+  `input/offer.ts`) on the UUID parser of `input/uuid.ts`, the A/B test arms, audience and stop flags
   (`input/ab-tests.ts`), the `--yes` flag with the one confirmation of an action that cannot be undone
   (`input/confirm.ts`) and the one-answer prompt it stands on (`input/prompt.ts`); and the one place flag
   names meet sdk field names. Legacy commands take `--app` from `input/app.ts` too. What attribution and analytics share:
@@ -299,9 +304,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. Migrated so far: `apps`, `auth` and `migrations`; `ab-tests` was written on the new
-stack from the start. `attribution` was written on the new
-stack from the start.
+most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `migrations`,
+`product-offers` and `skills`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

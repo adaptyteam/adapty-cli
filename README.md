@@ -72,6 +72,19 @@ adapty products create --app UUID [flags]
 adapty products update --app UUID PRODUCT_ID [flags]
 ```
 
+### Product offers
+
+```sh
+adapty product-offers list --app UUID --product UUID
+adapty product-offers get OFFER_ID --app UUID
+adapty product-offers create --app UUID --product UUID --title "Spring" --type promotional|win_back [--ios-offer-id ID] [--android-offer-id ID]
+adapty product-offers update OFFER_ID --app UUID [--title ...] [--type ...] [--ios-offer-id ID | --clear-ios-offer-id] [--android-offer-id ID | --clear-android-offer-id]
+```
+
+`list` returns every offer on one page. `create` needs at least one store offer id; `win_back` is App Store only.
+`update` reads the offer and writes it back whole: it keeps every field you leave out, overwrites a dashboard edit made
+in between, and refuses to clear the last store side. Introductory offers are read-only. Offers are deleted in the dashboard.
+
 ### Paywalls
 
 ```sh

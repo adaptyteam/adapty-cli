@@ -76,13 +76,19 @@ type PointPosition = { title?: unknown; x?: unknown };
 /** A point is found by its `x`. */
 export const pointId = (point: object): string => String((point as PointPosition).x);
 
+/** A period start as the backend gives it: a date, a time and an offset, as in `2026-09-22T00:00:00.000000+0200`. */
+const TIMESTAMP = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?$/;
+
+/** The date of a period start in the period's own time zone: the date part as given, with no conversion. */
+const dateOf = (id: string): string => TIMESTAMP.exec(id)?.[1] ?? id;
+
 /**
- * How the human view names a point: its `x`, and for a funnel step or a retention period also its title, the
- * number once (`-2 Install`, `1 Paid`, `2 Period`).
+ * How the human view names a point: its `x` (a period start as its date, `2026-09-22`), and for a funnel step or a
+ * retention period also its title, the number once (`-2 Install`, `1 Paid`, `2 Period`). The CSV keeps the raw `x`.
  */
 export const pointLabel = (point: object): string => {
     const { title } = point as PointPosition;
-    const id = pointId(point);
+    const id = dateOf(pointId(point));
 
     if (typeof title !== 'string') {
         return id;

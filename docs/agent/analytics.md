@@ -87,7 +87,8 @@ time zone.
   the period, the length of one point, the time zone and where it comes from, and the filters. Then one row per
   group, the total first, named by its title (the `key` is in `--json` and `--csv`); the
   main numbers of the group; one column per point (a date, a funnel step or retention period with its title such
-  as `-2 Install`, an LTV or cohort renewal or day). Money (a money chart, LTV, cohort revenue) has 2 decimals;
+  as `-2 Install`, an LTV or cohort renewal or day). A period start is its date in the time zone of the query
+  (`2026-09-22`), not the raw timestamp that `--json` and `--csv` keep. Money (a money chart, LTV, cohort revenue) has 2 decimals;
   other numbers print as the API gives them; `null` prints as `—`. A compared period has its own table under
   `Compared period: <from> – <to>`. The main numbers per command:
   - `chart`: `Total` (the group's `value`), then the value of each point.

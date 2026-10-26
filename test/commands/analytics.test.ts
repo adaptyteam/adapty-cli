@@ -740,6 +740,35 @@ describe('analytics', () => {
             ].join('\n'));
         });
 
+        // The backend names a point of a chart by the start of its period, in the time zone of the query, as a
+        // timestamp with an offset. The human header is the date in that time zone: the date part as given, never
+        // converted to UTC or to the local time. The CSV and --json keep the timestamp.
+        const periodStarts = [
+            { header: '2026-09-22', x: '2026-09-22T00:00:00.000000+0200' },
+            { header: '2026-10-01', x: '2026-10-01T00:00:00.000000+0000' },
+            { header: '2026-10-02', x: '2026-10-02T00:00:00.000000-0500' },
+            { header: '2026-10-03', x: '2026-10-03T00:00:00+02:00' },
+            { header: '2026-10-04', x: '2026-10-04T00:00:00Z' },
+            { header: '2026-10-05', x: '2026-10-05' },
+        ];
+
+        for (const { header, x } of periodStarts) {
+            it(`names a period column by its date in the period's time zone: ${x} is ${header}`, async () => {
+                fetchStub = mockFetchSteps([{
+                    body: {
+                        data: { value: 412.9, segments: [{ key: null, title: 'Total', is_total: true, value: 412.9, values: [{ x, value: 412.9 }] }] },
+                        meta,
+                    },
+                }]);
+
+                const human = await runCommand(`analytics chart ${APP} ${PERIOD} --chart revenue`);
+                const csv = await runCommand(`analytics chart ${APP} ${PERIOD} --chart revenue --csv`);
+
+                expect(human.stdout.split('\n')[3]?.trim().split(/\s+/)).to.deep.equal(['Total', header]);
+                expect(csv.stdout.split('\n')[0]).to.contain(`,${x},`);
+            });
+        }
+
         it('keeps every group when a key repeats in one period (a funnel key is the title): the n-th with the n-th', async () => {
             const point = (value: number, x: string) => [{ x, value }];
 

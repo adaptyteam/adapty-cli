@@ -3,7 +3,7 @@ import { Args, Flags } from '@oclif/core';
 import { stopContent } from '../../sdk/adapty/index.js';
 import { usageError } from '../errors.js';
 
-import { uuidParser } from './app.js';
+import { uuidParser } from './uuid.js';
 
 import type { AbTestType, FlowArm, PaywallArm, StopAbTestInput } from '../../sdk/adapty/index.js';
 
