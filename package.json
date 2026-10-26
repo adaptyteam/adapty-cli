@@ -81,6 +81,9 @@
       "products": {
         "description": "Manage products"
       },
+      "product-offers": {
+        "description": "Manage product offers"
+      },
       "access-levels": {
         "description": "Manage access levels"
       },

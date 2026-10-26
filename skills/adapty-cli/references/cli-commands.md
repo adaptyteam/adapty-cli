@@ -1,7 +1,7 @@
 # CLI Command Reference
 
-Product, paywall, placement, access-level and segment commands require `--app <APP_ID>` (UUID).
-Lists of these entities and apps support `--page` (default 1) and `--page-size` (default 20, max 100).
+Product, product-offer, paywall, placement, access-level and segment commands require `--app <APP_ID>` (UUID).
+Lists of these entities except product offers, and apps, support `--page` (default 1) and `--page-size` (default 20, max 100).
 Migrations use their own IDs and have no list pagination; ASA scope and pagination are described below.
 All commands support `--json` for machine-readable output.
 
@@ -34,6 +34,17 @@ All commands support `--json` for machine-readable output.
 | `products update <product_id>` | `--app`, `--title`, `--access-level-id`         |
 
 **Immutable on create:** `--period` and all store bindings (`--ios-product-id`, `--android-product-id`, `--android-base-plan-id`, `--stripe-product-id`, `--stripe-price-id`, `--paddle-product-id`, `--paddle-price-id`) cannot be changed after creation.
+
+## Product offers
+
+| Command                  | Required flags                                                                 |
+|--------------------------|--------------------------------------------------------------------------------|
+| `product-offers list`    | `--app`, `--product`                                                           |
+| `product-offers get <offer_id>` | `--app` |
+| `product-offers create`  | `--app`, `--product`, `--title`, `--type` (`promotional` / `win_back`), at least one of `--ios-offer-id` / `--android-offer-id` |
+| `product-offers update <offer_id>` | `--app`, and at least one of `--title`, `--type`, `--ios-offer-id`, `--android-offer-id`, `--clear-ios-offer-id`, `--clear-android-offer-id` |
+
+`win_back` offers are App Store only: a Google Play id exits 2, also on an `update` to `win_back` that keeps a stored Google Play side (clear it with `--clear-android-offer-id`). `update` reads the offer and sends it back whole: what you leave out is kept, a dashboard edit made in between is overwritten, clearing the last store side exits 2, and introductory offers are read-only. An offer with a store side other than `app_store` / `play_store` exits 2: the write would delete that side, so edit it in the dashboard. A product the app does not have answers 404 `adapty_product_does_not_exist`. There is no delete: offers are deleted in the dashboard. `products get` and `products list` show `offers_count`.
 
 ## Paywalls
 

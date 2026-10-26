@@ -8,6 +8,7 @@ import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
 import { migrations } from './migrations/index.js';
+import { productOffers } from './product-offers/index.js';
 
 import type { AccessLevelsApi } from './access-levels.js';
 import type { AnalyticsApi } from './analytics/index.js';
@@ -15,6 +16,7 @@ import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { MigrationApi } from './migrations/index.js';
+import type { ProductOffersApi } from './product-offers/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
@@ -31,6 +33,7 @@ export {
     validateRetention,
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
+export { offerTypes } from './product-offers/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export type { AccessLevel, AccessLevelList, AccessLevelsApi } from './access-levels.js';
@@ -81,6 +84,14 @@ export type {
     WaitOptions,
     WizardError,
 } from './migrations/index.js';
+export type {
+    CreateProductOfferInput,
+    OfferType,
+    ProductOffer,
+    ProductOffersApi,
+    StoreOffer,
+    UpdateProductOfferInput,
+} from './product-offers/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
 
 /** Exported because the adapter compares the resolved URL with it and warns when they differ. */
@@ -112,6 +123,7 @@ export type Adapty = {
     auth: AuthApi;
     feedback: FeedbackApi;
     migrations: MigrationApi;
+    productOffers: ProductOffersApi;
 };
 
 /**
@@ -163,5 +175,6 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.
         migrations: migrations(wizard, options.clock ?? systemClock),
+        productOffers: productOffers(http),
     };
 };
