@@ -108,9 +108,9 @@ adapty placements update --app UUID PLACEMENT_ID [flags]
 Regular paywall and flow tests. `list` shows flow tests unless `--type paywall` is given.
 
 ```sh
-adapty ab-tests list --app UUID [--type paywall|flow] [--state live|draft|completed|inactive|archived] [--placement UUID] [--search TEXT] [--page N] [--page-size N]
+adapty ab-tests list --app UUID [--type paywall|flow] [--state live|draft|completed|inactive|archived] [--placement UUID]... [--segment UUID]... [--search TEXT] [--page N] [--page-size N]
 adapty ab-tests get --app UUID TEST_ID
-adapty ab-tests create --app UUID --title "Price test" [--goal TEXT] [--placement UUID] [--segment UUID | --all-users] (--paywalls JSON | --flows JSON)
+adapty ab-tests create --app UUID --title "Price test" [--goal TEXT] --placement UUID [--segment UUID | --all-users] (--paywalls JSON | --flows JSON)
 adapty ab-tests update --app UUID TEST_ID [the flags of create]
 adapty ab-tests start --app UUID TEST_ID --placement UUID (--segment UUID | --all-users) [--yes]
 adapty ab-tests stop --app UUID TEST_ID (--winner ID | --other ID | --no-content) [--yes]

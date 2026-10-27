@@ -11,7 +11,7 @@ import type { AbTestDetail, AbTestWriteInput } from '../../../sdk/adapty/index.j
 
 export default class AbTestsReplace extends AdaptyCommand {
     static override args = { ...abTestIdArg };
-    static override description = 'Replace a live A/B test with a new one on the same audience ("Modify" in the dashboard); it asks first';
+    static override description = 'Replace a live A/B test with a new one on the same audience ("Modify" in the dashboard); the new test has the same number of variants; it asks first';
 
     static override examples = [
         '<%= config.bin %> ab-tests replace --app UUID TEST_ID --title "Price test v2" --placement UUID --paywalls \'[{"paywall_id":"A","weight":80},{"paywall_id":"B","weight":20}]\'',

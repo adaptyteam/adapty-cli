@@ -86,6 +86,20 @@ export const requiredPlacementFlag = (description: string) => ({
     placement: Flags.string({ description, parse: placementParser, required: true }),
 });
 
+/** The filters of a list: each one may repeat, and the tests of any of the given ids match. */
+export const listFilterFlags = {
+    placement: Flags.string({
+        description: 'Only the tests of this placement (ID); repeat it for several placements',
+        multiple: true,
+        parse: placementParser,
+    }),
+    segment: Flags.string({
+        description: 'Only the tests that run for exactly this segment (ID); repeat it for several segments',
+        multiple: true,
+        parse: segmentParser,
+    }),
+};
+
 /** At most one of the two: none is no planned audience. */
 export const plannedAudienceFlags = {
     'all-users': Flags.boolean({

@@ -2,7 +2,7 @@ import { Flags } from '@oclif/core';
 
 import { abTestStates, abTestTypes } from '../../../sdk/adapty/index.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
-import { placementFlag } from '../../input/ab-tests.js';
+import { listFilterFlags } from '../../input/ab-tests.js';
 import { appIdFlag } from '../../input/app.js';
 import { pageParams, paginationFlags } from '../../input/pagination.js';
 import { renderAbTestPage } from '../../views/ab-tests/record.js';
@@ -15,12 +15,13 @@ export default class AbTestsList extends AdaptyCommand {
     static override examples = [
         '<%= config.bin %> ab-tests list --app UUID',
         '<%= config.bin %> ab-tests list --app UUID --type paywall --state live',
+        '<%= config.bin %> ab-tests list --app UUID --placement UUID --placement UUID --segment UUID',
     ];
 
     static override flags = {
         ...appIdFlag,
         ...paginationFlags,
-        ...placementFlag('Only the tests of this placement (ID)'),
+        ...listFilterFlags,
         search: Flags.string({ description: 'Only the tests whose title has this text' }),
         state: Flags.option({
             description: 'Only the tests in this state',
@@ -38,8 +39,9 @@ export default class AbTestsList extends AdaptyCommand {
 
         const page = await this.adapty.abTests.list(flags.app, {
             ...pageParams(flags),
-            placementId: flags.placement,
+            placementIds: flags.placement,
             search: flags.search,
+            segmentIds: flags.segment,
             state: flags.state,
             type: flags.type,
         });

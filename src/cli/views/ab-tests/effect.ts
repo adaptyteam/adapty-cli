@@ -3,37 +3,21 @@ import { audienceText } from './record.js';
 import type { AbTestDetail } from '../../../sdk/adapty/index.js';
 
 /**
- * What an action does to real users, in words. One read of the test gives the title and the state;
+ * What an action does to real users, in words. One read of the test gives the title;
  * a placement and a segment are shown by id. Four actions cannot be undone — start, stop, replace,
  * archive — and each one says so before the question is asked.
  */
 
 type Titled = Pick<AbTestDetail, 'title'>;
 
-/** The line a start adds for a test that is not a draft: the backend starts it again with the same id. */
-const restartNote = (state: string): string => {
-    const note = `This test is ${state}: it starts again with the same id, and users who were in it get their old arm again.`;
-
-    return state === 'archived' ? `${note} It serves again but still reads archived.` : note;
-};
-
 export const startEffect = (
-    test: Pick<AbTestDetail, 'state' | 'title'>,
+    test: Titled,
     target: { placementId: string; segmentIds: readonly string[] },
-): string => {
-    const lines = [
-        `Start A/B test "${test.title}" on placement ${target.placementId} for ${audienceText(target.segmentIds)}. `
-        + 'Users of this audience stop seeing what the audience shows now; a test that runs there stops and becomes completed. '
-        + 'A new segment audience goes to the top: users of this segment who now get another audience move into the test. '
-        + 'A change on a segment audience can take up to 20 minutes to reach users. You cannot undo a start.',
-    ];
-
-    if (test.state !== 'draft') {
-        lines.push(restartNote(test.state));
-    }
-
-    return lines.join('\n');
-};
+): string =>
+    `Start A/B test "${test.title}" on placement ${target.placementId} for ${audienceText(target.segmentIds)}. `
+    + 'Users of this audience stop seeing what the audience shows now; a test that runs there stops and becomes completed. '
+    + 'A new segment audience goes to the top: users of this segment who now get another audience move into the test. '
+    + 'A change on a segment audience can take up to 20 minutes to reach users. You cannot undo a start.';
 
 /** `content` is the id that the audience shows afterwards; none removes the audience from the placement. */
 export const stopEffect = (test: Titled, content: string | undefined): string => {

@@ -62,14 +62,14 @@ Regular paywall and flow tests. `ab-tests list` reads one type per call: flow te
 
 | Command                         | Required flags                                                                     |
 |--------------------------------|-----------------------------------------------------------------------------------|
-| `ab-tests list`                 | `--app`; optional `--type paywall\|flow`, `--state`, `--placement`, `--search`      |
+| `ab-tests list`                 | `--app`; optional `--type paywall\|flow`, `--state`, `--placement` and `--segment` (each may repeat), `--search` |
 | `ab-tests get <ab_test_id>`     | `--app`                                                                            |
-| `ab-tests create`               | `--app`, `--title`, exactly one of `--paywalls` / `--flows`; optional `--goal`, `--placement`, `--segment` or `--all-users` (a planned audience; none = none planned) |
-| `ab-tests update <ab_test_id>`  | the same as create, all sent again. A test that started changes only title and goal: same arms and placement |
-| `ab-tests start <ab_test_id>`   | `--app`, `--placement`, exactly one of `--segment` / `--all-users`; `--yes`        |
-| `ab-tests stop <ab_test_id>`    | `--app`, exactly one of `--winner` / `--other` / `--no-content`; `--yes`           |
-| `ab-tests replace <ab_test_id>` | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows`; `--yes`; no audience flag |
-| `ab-tests archive <ab_test_id>` | `--app`; `--yes`                                                                   |
+| `ab-tests create`               | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows` (the kind must match the placement: a flow placement takes flow tests); optional `--goal`, `--segment` or `--all-users` (a planned audience; none = none planned) |
+| `ab-tests update <ab_test_id>`  | the same as create, all sent again (`--placement` optional). A test that started changes only title and goal: same arms, placement and audience; a completed or archived test cannot change |
+| `ab-tests start <ab_test_id>`   | `--app`, `--placement`, exactly one of `--segment` / `--all-users`; `--yes`. Only a draft starts: to run a test again, make a copy (get, then create) |
+| `ab-tests stop <ab_test_id>`    | `--app`, exactly one of `--winner` / `--other` / `--no-content` (refused on All users); `--yes` |
+| `ab-tests replace <ab_test_id>` | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows` (the same number of variants as the live test); `--yes`; no audience flag |
+| `ab-tests archive <ab_test_id>` | `--app`; `--yes`; an archived test gives an error                                  |
 
 **Arms JSON** — `[{"paywall_id": "<id>", "weight": 50, "title": "A"}, ...]`, or the same with `flow_id` for `--flows`; `title` is optional. The server checks that the weights sum to 100 and the content rules, and the CLI shows its text.
 

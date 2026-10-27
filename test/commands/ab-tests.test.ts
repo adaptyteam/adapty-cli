@@ -185,6 +185,29 @@ describe('ab-tests', () => {
             expect(stdout).to.contain('Page 1 of 1 (1 total)');
         });
 
+        it('list sends repeated --placement and --segment as comma separated ids', async () => {
+            const placementB = 'ee0e8400-e29b-41d4-a716-446655440009';
+            const segmentB = 'ff0e8400-e29b-41d4-a716-44665544000a';
+
+            fetchStub = mockFetch([page]);
+
+            await runCommand(`ab-tests list ${APP} --placement ${PLACEMENT} --placement ${placementB} --segment ${SEGMENT} --segment ${segmentB}`);
+
+            assertFetch({
+                callIndex: 0,
+                method: 'GET',
+                path: `${BASE}/`,
+                query: {
+                    'filter[placement_id]': `${PLACEMENT},${placementB}`,
+                    'filter[segment_id]': `${SEGMENT},${segmentB}`,
+                    'page[number]': '1',
+                    'page[size]': '20',
+                    'type': 'flow',
+                },
+                stub: fetchStub,
+            });
+        });
+
         it('list --json prints the answer as it came', async () => {
             fetchStub = mockFetch([page]);
 
@@ -278,11 +301,12 @@ describe('ab-tests', () => {
         it('create sends a flow test with the goal', async () => {
             fetchStub = mockFetch([flowTest({ state: 'draft' })]);
 
-            await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'Flows', '--goal', 'More trials', '--flows', FLOW_ARMS]);
+            await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'Flows', '--goal', 'More trials', '--placement', PLACEMENT, '--flows', FLOW_ARMS]);
 
             expect(bodyOf(fetchStub, 0)).to.deep.equal({
                 flows: FLOW_LIST,
                 goal: 'More trials',
+                placement_id: PLACEMENT,
                 title: 'Flows',
             });
         });
@@ -290,8 +314,8 @@ describe('ab-tests', () => {
         it('create sends --segment as one id and --all-users as an empty list', async () => {
             fetchStub = mockFetch([abTest()]);
 
-            await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--paywalls', PAYWALL_ARMS, '--segment', SEGMENT]);
-            await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--paywalls', PAYWALL_ARMS, '--all-users']);
+            await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--placement', PLACEMENT, '--paywalls', PAYWALL_ARMS, '--segment', SEGMENT]);
+            await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--placement', PLACEMENT, '--paywalls', PAYWALL_ARMS, '--all-users']);
 
             expect((bodyOf(fetchStub, 0) as { segment_ids: string[] }).segment_ids).to.deep.equal([SEGMENT]);
             expect((bodyOf(fetchStub, 1) as { segment_ids: string[] }).segment_ids).to.deep.equal([]);
@@ -312,7 +336,7 @@ describe('ab-tests', () => {
             it(`create refuses ${name}, with no request`, async () => {
                 fetchStub = mockFetch();
 
-                const { error } = await runCommand(`ab-tests create ${APP} ${args}`);
+                const { error } = await runCommand(`ab-tests create ${APP} --placement ${PLACEMENT} ${args}`);
 
                 expect(error?.oclif?.exit).to.equal(exitCode.usage);
                 expect(error?.message).to.contain(message);
@@ -320,13 +344,23 @@ describe('ab-tests', () => {
             });
         }
 
+        it('create needs a placement, with no request', async () => {
+            fetchStub = mockFetch();
+
+            const { error } = await runCommand(`ab-tests create ${APP} --title T --paywalls '${PAYWALL_ARMS}'`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('Missing required flag placement');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
         it('create shows the backend text when the weights are wrong (exit 4)', async () => {
             fetchStub = mockFetchSteps([{
                 body: { errors: { non_field_errors: ['The sum of the weights must equal 100, but has 90.'] }, error_code: 'validation_error' },
                 status: 400,
             }]);
 
-            const { error } = await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--paywalls', PAYWALL_ARMS]);
+            const { error } = await runCommand(['ab-tests', 'create', '--app', TEST_APP_ID, '--title', 'T', '--placement', PLACEMENT, '--paywalls', PAYWALL_ARMS]);
 
             expect(error?.oclif?.exit).to.equal(exitCode.api);
             expect(error?.message).to.contain('The sum of the weights must equal 100, but has 90.');
@@ -425,24 +459,6 @@ describe('ab-tests', () => {
             expect(methods(fetchStub)).to.deep.equal(['GET']);
         });
 
-        it('says what a test that is not a draft does, and writes nothing without --yes', async () => {
-            fetchStub = mockFetch([abTest({ state: 'archived' }), abTest()]);
-
-            const { error } = await runCommand(`${start} --all-users`);
-
-            expect(error?.message).to.contain('This test is archived: it starts again with the same id');
-            expect(error?.message).to.contain('It serves again but still reads archived.');
-            expect(methods(fetchStub)).to.deep.equal(['GET']);
-        });
-
-        it('says nothing extra about a draft', async () => {
-            fetchStub = mockFetch([draft]);
-
-            const { error } = await runCommand(`${start} --all-users`);
-
-            expect(error?.message).not.to.contain('This test is');
-        });
-
         it('refuses neither audience flag, both, and a missing placement, with no request', async () => {
             fetchStub = mockFetch();
 
@@ -528,6 +544,16 @@ describe('ab-tests', () => {
             const { stdout } = await runCommand(`${stop} --no-content --yes`);
 
             expect(stdout).to.contain('Stopped A/B test "Price test": the audience is removed from the placement.');
+        });
+
+        it('refuses --no-content on All users before the question, with no write (exit 4)', async () => {
+            fetchStub = mockFetch([abTest({ segment_ids: [] }), completed()]);
+
+            const { error } = await runCommand(`${stop} --no-content`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.message).to.equal('AB Test from default audience can not be stopped.');
+            expect(methods(fetchStub)).to.deep.equal(['GET']);
         });
 
         it('without --yes under --json writes nothing: exit 6 with the effect', async () => {

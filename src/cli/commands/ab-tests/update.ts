@@ -9,7 +9,7 @@ import type { AbTestDetail, AbTestWriteInput } from '../../../sdk/adapty/index.j
 
 export default class AbTestsUpdate extends AdaptyCommand {
     static override args = { ...abTestIdArg };
-    static override description = 'Update an A/B test (the whole test is sent again; a started test changes only title and goal)';
+    static override description = 'Update an A/B test (the whole test is sent again). A started test changes only title and goal, and its audience cannot change; a completed or archived test cannot change at all';
 
     static override examples = [
         '<%= config.bin %> ab-tests update --app UUID TEST_ID --title "Price test (Q4)" --paywalls \'[{"paywall_id":"A","weight":70},{"paywall_id":"B","weight":30}]\'',

@@ -9,7 +9,7 @@ import type { AbTestDetail, StartAbTestInput } from '../../../sdk/adapty/index.j
 
 export default class AbTestsStart extends AdaptyCommand {
     static override args = { ...abTestIdArg };
-    static override description = 'Start an A/B test on a placement for one audience; it cannot be undone, so it asks first';
+    static override description = 'Start a draft A/B test on a placement for one audience (only a draft starts; to run a test again, make a copy: get, then create); it cannot be undone, so it asks first';
 
     static override examples = [
         '<%= config.bin %> ab-tests start --app UUID TEST_ID --placement UUID --segment UUID',

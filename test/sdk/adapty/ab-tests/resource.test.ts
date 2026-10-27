@@ -26,7 +26,7 @@ describe('adapty.abTests', () => {
     it('lists with the names this API uses, and leaves an unset filter out', async () => {
         const { abTests, calls } = setup([{ body: {} }, { body: {} }]);
 
-        await abTests.list(APP, { page: 2, pageSize: 10, placementId: 'pl', search: 'price', state: 'live', type: 'paywall' });
+        await abTests.list(APP, { page: 2, pageSize: 10, placementIds: ['pl'], search: 'price', state: 'live', type: 'paywall' });
         await abTests.list(APP);
 
         const query = new URL(calls[0]?.url ?? '').searchParams;

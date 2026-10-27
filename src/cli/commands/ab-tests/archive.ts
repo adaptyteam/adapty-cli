@@ -10,7 +10,7 @@ import type { AbTestDetail } from '../../../sdk/adapty/index.js';
 export default class AbTestsArchive extends AdaptyCommand {
     static override args = { ...abTestIdArg };
 
-    static override description = 'Archive an A/B test that does not run; it cannot be unarchived, so it asks first';
+    static override description = 'Archive an A/B test that does not run (an archived test gives an error); it cannot be unarchived, so it asks first';
 
     static override examples = [
         '<%= config.bin %> ab-tests archive --app UUID TEST_ID',
