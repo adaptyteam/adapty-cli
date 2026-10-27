@@ -100,17 +100,21 @@ export const listFilterFlags = {
     }),
 };
 
-/** At most one of the two: none is no planned audience. */
-export const plannedAudienceFlags = {
-    'all-users': Flags.boolean({
-        description: 'Plan the test for All users',
-        exclusive: ['segment'],
-    }),
-    'segment': Flags.string({
-        description: 'Plan the test for one segment (ID)',
-        exclusive: ['all-users'],
-        parse: segmentParser,
-    }),
+/** At most one of the two: none is no planned audience. `note` is added to both descriptions. */
+export const plannedAudienceFlags = (note?: string) => {
+    const suffix = note === undefined ? '' : `. ${note}`;
+
+    return {
+        'all-users': Flags.boolean({
+            description: `Plan the test for All users${suffix}`,
+            exclusive: ['segment'],
+        }),
+        'segment': Flags.string({
+            description: `Plan the test for one segment (ID)${suffix}`,
+            exclusive: ['all-users'],
+            parse: segmentParser,
+        }),
+    };
 };
 
 /** Exactly one of the two: the audience of a start is chosen on purpose. */

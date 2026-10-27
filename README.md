@@ -111,7 +111,7 @@ Regular paywall and flow tests. `list` shows flow tests unless `--type paywall` 
 adapty ab-tests list --app UUID [--type paywall|flow] [--state live|draft|completed|inactive|archived] [--placement UUID]... [--segment UUID]... [--search TEXT] [--page N] [--page-size N]
 adapty ab-tests get --app UUID TEST_ID
 adapty ab-tests create --app UUID --title "Price test" [--goal TEXT] --placement UUID [--segment UUID | --all-users] (--paywalls JSON | --flows JSON)
-adapty ab-tests update --app UUID TEST_ID [the flags of create]
+adapty ab-tests update --app UUID TEST_ID [the flags of create; --placement is optional]
 adapty ab-tests start --app UUID TEST_ID --placement UUID (--segment UUID | --all-users) [--yes]
 adapty ab-tests stop --app UUID TEST_ID (--winner ID | --other ID | --no-content) [--yes]
 adapty ab-tests replace --app UUID TEST_ID --title "..." --placement UUID (--paywalls JSON | --flows JSON) [--goal TEXT] [--yes]
@@ -121,8 +121,9 @@ adapty ab-tests archive --app UUID TEST_ID [--yes]
 Arms are a JSON array: `[{"paywall_id":"<id>","weight":50,"title":"A"}, ...]` (`--flows`: the same with `flow_id`; `title`
 is optional). The server checks the weights (they sum to 100) and the content. `start`, `stop`, `replace` and `archive`
 change what real users see, or cannot be undone: in a terminal they print the effect and ask `Apply? [y/N]`. With `--json`,
-a pipe or no terminal they refuse with exit 6 (`confirm_required`) and change nothing unless `--yes` is given. `update` of a
-test that started (live, completed, inactive, archived) changes only its title and goal: send the same arms and placement.
+a pipe or no terminal they refuse with exit 6 (`confirm_required`) and change nothing unless `--yes` is given. `update` takes the flags
+of create, with `--placement` optional. A live or inactive test changes only its title and goal: send the same arms,
+placement and audience again. A completed or archived test cannot change.
 `replace` is what the dashboard calls "Modify": the live test is completed and a new test with a new id starts on the same audience.
 
 ### Segments

@@ -20,7 +20,7 @@ export default class AbTestsCreate extends AdaptyCommand {
         ...appIdFlag,
         ...abTestWriteFlags,
         ...requiredPlacementFlag('Placement the test is planned for (ID); the kind of the test must match it: a flow placement takes flow tests'),
-        ...plannedAudienceFlags,
+        ...plannedAudienceFlags(),
     };
 
     async run(): Promise<AbTestDetail> {

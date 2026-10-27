@@ -21,7 +21,7 @@ export default class AbTestsReplace extends AdaptyCommand {
     static override flags = {
         ...appIdFlag,
         ...abTestWriteFlags,
-        ...requiredPlacementFlag('Placement of the new test (ID); another placement moves the audience there'),
+        ...requiredPlacementFlag('Placement of the new test (ID); another placement moves the audience there (refused on All users)'),
         ...yesFlag,
     };
 

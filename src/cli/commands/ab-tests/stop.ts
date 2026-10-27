@@ -1,5 +1,5 @@
+import { ApiError } from '../../../sdk/core/errors.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
-import { CliError, exitCode } from '../../errors.js';
 import { abTestIdArg, stopFlags, stopInput } from '../../input/ab-tests.js';
 import { appIdFlag } from '../../input/app.js';
 import { confirmAction, yesFlag } from '../../input/confirm.js';
@@ -32,10 +32,13 @@ export default class AbTestsStop extends AdaptyCommand {
         // The read gives the title and the type: the server names the content kind in the field it takes
         const test = await this.adapty.abTests.get(flags.app, args.ab_test_id);
 
-        // All users cannot be left with nothing: refuse here, before the question, as the server would
-        if (flags['no-content'] && test.segment_ids?.length === 0) {
-            throw new CliError(NO_CONTENT_ON_ALL_USERS, exitCode.api, 'validation_error', {
-                json: { error_code: 'validation_error', message: NO_CONTENT_ON_ALL_USERS },
+        // All users cannot be left with nothing: refuse here, before the question, with the error the server gives
+        if (flags['no-content'] && test.state === 'live' && test.segment_ids?.length === 0) {
+            throw new ApiError({
+                code: 'validation_error',
+                details: { errors: { non_field_errors: [NO_CONTENT_ON_ALL_USERS] } },
+                message: NO_CONTENT_ON_ALL_USERS,
+                status: 400,
             });
         }
 

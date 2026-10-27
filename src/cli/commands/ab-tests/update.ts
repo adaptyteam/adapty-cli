@@ -9,7 +9,7 @@ import type { AbTestDetail, AbTestWriteInput } from '../../../sdk/adapty/index.j
 
 export default class AbTestsUpdate extends AdaptyCommand {
     static override args = { ...abTestIdArg };
-    static override description = 'Update an A/B test (the whole test is sent again). A started test changes only title and goal, and its audience cannot change; a completed or archived test cannot change at all';
+    static override description = 'Update an A/B test (the whole test is sent again). A started test changes only its title and goal: send the same arms, placement and audience again. A completed or archived test cannot change';
 
     static override examples = [
         '<%= config.bin %> ab-tests update --app UUID TEST_ID --title "Price test (Q4)" --paywalls \'[{"paywall_id":"A","weight":70},{"paywall_id":"B","weight":30}]\'',
@@ -18,8 +18,8 @@ export default class AbTestsUpdate extends AdaptyCommand {
     static override flags = {
         ...appIdFlag,
         ...abTestWriteFlags,
-        ...placementFlag('Placement the test is planned for (ID)'),
-        ...plannedAudienceFlags,
+        ...placementFlag('Placement the test is planned for (ID); a started test: the same placement again'),
+        ...plannedAudienceFlags('A started test: the same audience again'),
     };
 
     async run(): Promise<AbTestDetail> {

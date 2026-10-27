@@ -554,6 +554,22 @@ describe('ab-tests', () => {
             expect(error?.oclif?.exit).to.equal(exitCode.api);
             expect(error?.message).to.equal('AB Test from default audience can not be stopped.');
             expect(methods(fetchStub)).to.deep.equal(['GET']);
+
+            // The same shape as the server's own refusal, so --json readers see one error
+            fetchStub.restore();
+            fetchStub = mockFetch([abTest({ segment_ids: [] })]);
+
+            const json = await runJson(`${stop} --no-content --json`);
+
+            expect(json.exit).to.equal(exitCode.api);
+
+            expect(json.error).to.include({
+                code: 'validation_error',
+                error_code: 'validation_error',
+                message: 'AB Test from default audience can not be stopped.',
+                status: 400,
+                status_code: 400,
+            }).and.to.deep.include({ errors: { non_field_errors: ['AB Test from default audience can not be stopped.'] } });
         });
 
         it('without --yes under --json writes nothing: exit 6 with the effect', async () => {
@@ -565,7 +581,7 @@ describe('ab-tests', () => {
 
             expect(error.message)
                 .to.contain('The audience is removed from the placement')
-                .and.to.contain('It does not run again unless you start it again.');
+                .and.to.contain('The test becomes completed.');
 
             expect(methods(fetchStub)).to.deep.equal(['GET']);
         });
