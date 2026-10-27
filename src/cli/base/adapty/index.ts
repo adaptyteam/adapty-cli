@@ -1,9 +1,5 @@
 export { AdaptyCommand } from './adapty-command.js';
 export { build } from './build.js';
-export { MigrationCommand } from './migration-command.js';
-export { openSession, resolveSession } from './openSession.js';
-
-export type { AuthenticatedSession, ResolvedSession } from '../session.js';
 export {
     compareFlags,
     compareParams,
@@ -17,3 +13,20 @@ export {
     renewalPeriodFlags,
     revenueBasisFlag,
 } from './flags.js';
+export {
+    dateTypeFlag,
+    depthFlag,
+    flowIdArg,
+    flowIdsFlag,
+    metricsCsvFlag,
+    metricsInput,
+    metricsQueryFlags,
+    placementIdArg,
+    placementIdsFlag,
+    placementTypeFlag,
+    requiredDateTypeFlag,
+} from './metrics-flags.js';
+export { MigrationCommand } from './migration-command.js';
+export { openSession, resolveSession } from './openSession.js';
+
+export type { AuthenticatedSession, ResolvedSession } from '../session.js';
