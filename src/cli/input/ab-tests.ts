@@ -78,10 +78,6 @@ export const abTestWriteFlags = {
     title: Flags.string({ description: 'Test title', required: true }),
 };
 
-export const placementFlag = (description: string) => ({
-    placement: Flags.string({ description, parse: placementParser }),
-});
-
 export const requiredPlacementFlag = (description: string) => ({
     placement: Flags.string({ description, parse: placementParser, required: true }),
 });

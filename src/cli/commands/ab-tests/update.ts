@@ -1,7 +1,7 @@
 import { validateWrite } from '../../../sdk/adapty/ab-tests/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
-import { abTestIdArg, abTestWriteFlags, placementFlag, plannedAudienceFlags, segmentIds } from '../../input/ab-tests.js';
+import { abTestIdArg, abTestWriteFlags, plannedAudienceFlags, requiredPlacementFlag, segmentIds } from '../../input/ab-tests.js';
 import { appIdFlag } from '../../input/app.js';
 import { renderAbTest } from '../../views/ab-tests/record.js';
 
@@ -18,7 +18,7 @@ export default class AbTestsUpdate extends AdaptyCommand {
     static override flags = {
         ...appIdFlag,
         ...abTestWriteFlags,
-        ...placementFlag('Placement the test is planned for (ID); a started test: the same placement again'),
+        ...requiredPlacementFlag('Placement the test is planned for (ID); a started test: the same placement again'),
         ...plannedAudienceFlags('A started test: the same audience again'),
     };
 

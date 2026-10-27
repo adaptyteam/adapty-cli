@@ -65,7 +65,7 @@ Regular paywall and flow tests. `ab-tests list` reads one type per call: flow te
 | `ab-tests list`                 | `--app`; optional `--type paywall\|flow`, `--state`, `--placement` and `--segment` (each may repeat), `--search` |
 | `ab-tests get <ab_test_id>`     | `--app`                                                                            |
 | `ab-tests create`               | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows` (the kind must match the placement: a flow placement takes flow tests); optional `--goal`, `--segment` or `--all-users` (a planned audience; none = none planned) |
-| `ab-tests update <ab_test_id>`  | the same as create, all sent again (`--placement` optional). A live or inactive test changes only title and goal: send the same arms, placement and audience again; a completed or archived test cannot change |
+| `ab-tests update <ab_test_id>`  | the same as create, all sent again (`--placement` is required). A live or inactive test changes only title and goal: send the same arms, placement and audience again; a completed or archived test cannot change |
 | `ab-tests start <ab_test_id>`   | `--app`, `--placement`, exactly one of `--segment` / `--all-users`; `--yes`. Only a draft starts: to run a test again, make a copy (get, then create) |
 | `ab-tests stop <ab_test_id>`    | `--app`, exactly one of `--winner` / `--other` / `--no-content` (refused on All users); `--yes` |
 | `ab-tests replace <ab_test_id>` | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows` (the same number of variants as the live test); `--yes`; no audience flag |

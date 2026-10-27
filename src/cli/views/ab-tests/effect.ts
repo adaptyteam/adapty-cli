@@ -25,7 +25,7 @@ export const stopEffect = (test: Titled, content: string | undefined): string =>
         ? 'The audience is removed from the placement; its users get the next matching audience.'
         : `All users of its audience see ${content} from now on.`;
 
-    return `Stop A/B test "${test.title}". ${outcome} The test becomes completed.`;
+    return `Stop A/B test "${test.title}". ${outcome} The test becomes completed. You cannot start it again as the same test.`;
 };
 
 /** What a stop reports when it is done: the same facts, in the past tense. */

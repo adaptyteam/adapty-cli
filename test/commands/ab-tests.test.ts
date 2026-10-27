@@ -403,6 +403,18 @@ describe('ab-tests', () => {
 
             expect(fetchStub.callCount).to.equal(1);
         });
+
+        it('update without --placement refuses with exit 2 and sends nothing', async () => {
+            fetchStub = mockFetch();
+
+            const { error } = await runCommand(
+                ['ab-tests', 'update', '--app', TEST_APP_ID, TEST, '--title', 'Price test (Q4)', '--paywalls', PAYWALL_ARMS],
+            );
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('Missing required flag placement');
+            expect(fetchStub.callCount).to.equal(0);
+        });
     });
 
     describe('start', () => {
@@ -581,7 +593,7 @@ describe('ab-tests', () => {
 
             expect(error.message)
                 .to.contain('The audience is removed from the placement')
-                .and.to.contain('The test becomes completed.');
+                .and.to.contain('The test becomes completed. You cannot start it again as the same test.');
 
             expect(methods(fetchStub)).to.deep.equal(['GET']);
         });
