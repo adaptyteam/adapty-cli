@@ -1,6 +1,4 @@
-import { createInterface } from 'node:readline/promises';
-
-import { CliError, exitCode } from '../../../../errors.js';
+import { ask } from '../../../../input/prompt.js';
 
 import type { Agent } from './agents.js';
 
@@ -19,43 +17,6 @@ export const parseChoice = (answer: string, count: number): number[] | undefined
     }
 
     return [...new Set(picked)].sort((a, b) => a - b).map(number => number - 1);
-};
-
-/**
- * Asked on stderr, so the answer never mixes into what a program reads from stdout. A terminal's
- * Ctrl+C reaches readline, not the process, so the prompt turns it into the usual exit 130 itself.
- */
-const ask = async <T>(
-    { question, retry, signal }: { question: string; retry: string; signal: AbortSignal },
-    parse: (answer: string) => T | undefined,
-): Promise<T> => {
-    const reader = createInterface({ input: process.stdin, output: process.stderr });
-    const interrupted = new AbortController();
-
-    reader.on('SIGINT', () => {
-        interrupted.abort();
-    });
-
-    try {
-        for (;;) {
-            const answer = await reader.question(question, { signal: AbortSignal.any([signal, interrupted.signal]) });
-            const parsed = parse(answer);
-
-            if (parsed !== undefined) {
-                return parsed;
-            }
-
-            process.stderr.write(`${retry}\n`);
-        }
-    } catch (error) {
-        if (signal.aborted || interrupted.signal.aborted) {
-            throw new CliError('Cancelled.', exitCode.cancelled, undefined, { cause: error });
-        }
-
-        throw error;
-    } finally {
-        reader.close();
-    }
 };
 
 export const choose = async (found: readonly Agent[], signal: AbortSignal): Promise<Agent[]> => {

@@ -56,6 +56,27 @@ All commands support `--json` for machine-readable output.
 | `paywalls update <paywall_id>`       | `--app`, `--title`, `--product-id` (repeatable) |
 | `paywalls placements <paywall_id>`   | `--app` — lists placements that currently use this paywall (slim summary; no `audiences`) |
 
+## A/B tests
+
+Regular paywall and flow tests. `ab-tests list` reads one type per call: flow tests by default, `--type paywall` for paywall tests.
+
+| Command                         | Required flags                                                                     |
+|--------------------------------|-----------------------------------------------------------------------------------|
+| `ab-tests list`                 | `--app`; optional `--type paywall\|flow`, `--state`, `--placement` and `--segment` (each may repeat), `--search` |
+| `ab-tests get <ab_test_id>`     | `--app`                                                                            |
+| `ab-tests create`               | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows` (the kind must match the placement: a flow placement takes flow tests); optional `--goal`, `--segment` or `--all-users` (a planned audience; none = none planned) |
+| `ab-tests update <ab_test_id>`  | the same as create, all sent again (`--placement` is required). A live or inactive test changes only title and goal: send the same arms, placement and audience again; a completed or archived test cannot change |
+| `ab-tests start <ab_test_id>`   | `--app`, `--placement`, exactly one of `--segment` / `--all-users`; `--yes`. Only a draft starts: to run a test again, make a copy (get, then create) |
+| `ab-tests stop <ab_test_id>`    | `--app`, exactly one of `--winner` / `--other` / `--no-content` (refused on All users); `--yes` |
+| `ab-tests replace <ab_test_id>` | `--app`, `--title`, `--placement`, exactly one of `--paywalls` / `--flows` (the same number of variants as the live test); `--yes`; no audience flag |
+| `ab-tests archive <ab_test_id>` | `--app`; `--yes`; an archived test gives an error                                  |
+
+**Arms JSON** — `[{"paywall_id": "<id>", "weight": 50, "title": "A"}, ...]`, or the same with `flow_id` for `--flows`; `title` is optional. The server checks that the weights sum to 100 and the content rules, and the CLI shows its text.
+
+**One-way actions** — `start`, `stop`, `replace` and `archive` change what real users see, or cannot be undone. In a terminal the CLI prints the effect and asks `Apply? [y/N]`; any answer but y or yes sends nothing (exit 1). With `--json`, a pipe or no terminal it sends nothing and exits 6 (`confirm_required`) with the effect in the message, unless `--yes` is given. Show the person the effect and wait for their yes before you pass `--yes`.
+
+**A started test** — only a draft starts. `stop` makes the test completed. `archive` refuses a live test. `replace` needs a live test and gives a new test id.
+
 ## Placements
 
 | Command                           | Required flags                                    |
@@ -82,7 +103,7 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
   --audiences '[{"content_type":"paywall","segment_ids":["<SEG_VIP>"],"paywall_id":"<PW_VIP>","priority":0},{"content_type":"paywall","segment_ids":[],"paywall_id":"<PW_DEFAULT>","priority":1}]'
 ```
 
-**A/B tests on a write** — `placements get` shows the audience of a running test as an `ab_test` or `flow_ab_test` entry. Write that entry back unchanged (same `ab_test_id`, same `segment_ids`) to keep the test running. A write that removes or replaces an A/B test entry (also with `--paywall-id`, which replaces all audiences) stops that test with no winner; a write that puts a test id on an audience starts that test there, and a write that moves a test entry to other segments starts it again with a new start time. A write that only changes priorities keeps the test. The CLI does not check this: confirm with the person before such a write. Crossplacement entries are ignored on a write.
+**A/B tests on a write** — `placements get` shows the audience of a running test as an `ab_test` or `flow_ab_test` entry. Write that entry back unchanged (same `ab_test_id`, same `segment_ids`) to keep the test running. A write that removes or replaces an A/B test entry (also with `--paywall-id`, which replaces all audiences) stops that test with no winner; a write that puts a test id on an audience starts that test there, and a write that moves a test entry to other segments starts it again with a new start time. A write that only changes priorities keeps the test. The CLI does not check this: confirm with the person before such a write. Crossplacement entries are ignored on a write. To start, stop, replace or archive a test, use the `ab-tests` commands above: they ask before the change.
 
 **`--paywall-id` is deprecated.** CLI sends it as `paywall_id` in the request body unchanged; server translates it into a single default audience. CLI emits stderr warnings:
 - Always: `--paywall-id is deprecated. Use --audiences instead.`
