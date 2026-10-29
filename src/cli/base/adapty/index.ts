@@ -8,6 +8,7 @@ export {
     granularityFlag,
     groupByFlag,
     groupingParams,
+    parseExactFilter,
     periodFlags,
     queryParams,
     renewalPeriodFlags,
