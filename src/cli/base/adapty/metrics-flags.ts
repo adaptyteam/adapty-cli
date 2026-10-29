@@ -9,8 +9,8 @@ import type { AnalyticsFilter, MetricsInput } from '../../../sdk/adapty/index.js
 
 /**
  * The flags and arguments only the metrics commands of the Adapty product take (`flows metrics`,
- * `placements metrics`), and the one place where they meet the sdk's field names. The values of
- * `--based-on`, `--granularity`, `--date-type`, `--group-by` and `--type` are the server's to
+ * `paywalls metrics`, `placements metrics`), and the one place where they meet the sdk's field
+ * names. The values of `--based-on`, `--granularity`, `--date-type`, `--group-by` and `--type` are the server's to
  * check, so these flags take any string and the help names the values: a wrong one comes back as
  * the server's 400.
  */
@@ -19,6 +19,14 @@ export const flowIdArg = {
     flow_id: Args.string({
         description: 'Flow ID (UUID)',
         parse: uuidParser('Invalid flow ID format. Run `adapty flows list` to find a flow ID.'),
+        required: true,
+    }),
+};
+
+export const paywallIdArg = {
+    paywall_id: Args.string({
+        description: 'Paywall ID (UUID)',
+        parse: uuidParser('Invalid paywall ID format. Run `adapty paywalls list` to find a paywall ID.'),
         required: true,
     }),
 };
@@ -42,12 +50,13 @@ const idsFlag = (entity: string, parse: (input: string) => Promise<string>) => (
 });
 
 export const flowIdsFlag = idsFlag('Flow', uuidParser('Invalid flow ID format in --ids.'));
+export const paywallIdsFlag = idsFlag('Paywall', uuidParser('Invalid paywall ID format in --ids.'));
 export const placementIdsFlag = idsFlag('Placement', uuidParser('Invalid placement ID format in --ids.'));
 
 /** The placement type the placement routes require; the server refuses one that does not match. */
 export const placementTypeFlag = {
     type: Flags.string({
-        description: 'Placement type, as `placements list` shows it',
+        description: 'Placement type, as `placements list` shows it: flow or paywall',
         required: true,
     }),
 };
@@ -69,7 +78,7 @@ export const depthFlag = {
 
 const dateTypeDescription = 'Which date the period applies to: purchase_date or profile_install_date';
 
-/** No default: a flow placement takes it together with the day range, a flow always (`requiredDateTypeFlag`). */
+/** No default: a flow placement takes it with the day range, a flow and a paywall always (`requiredDateTypeFlag`). */
 export const dateTypeFlag = { 'date-type': Flags.string({ description: dateTypeDescription }) };
 export const requiredDateTypeFlag = { 'date-type': Flags.string({ description: dateTypeDescription, required: true }) };
 

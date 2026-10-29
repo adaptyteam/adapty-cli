@@ -10,6 +10,7 @@ import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
 import { flows } from './flows.js';
 import { migrations } from './migrations/index.js';
+import { paywalls } from './paywalls.js';
 import { placements } from './placements.js';
 import { productOffers } from './product-offers/index.js';
 
@@ -21,6 +22,7 @@ import type { AuthApi } from './auth/index.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { FlowsApi } from './flows.js';
 import type { MigrationApi } from './migrations/index.js';
+import type { PaywallsApi } from './paywalls.js';
 import type { PlacementsApi } from './placements.js';
 import type { ProductOffersApi } from './product-offers/index.js';
 import type { Clock } from '../core/clock.js';
@@ -88,6 +90,7 @@ export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } f
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowsApi } from './flows.js';
+export type { PaywallsApi } from './paywalls.js';
 export type {
     FilterValueNode,
     FilterValues,
@@ -96,6 +99,10 @@ export type {
     MetricsInput,
     MetricsNode,
     MetricsTree,
+    PaywallMetrics,
+    PaywallMetricsNode,
+    PaywallMetricsRows,
+    PaywallMetricsTree,
     PlacementMetricsRows,
 } from './metrics.js';
 export type {
@@ -159,6 +166,7 @@ export type Adapty = {
     feedback: FeedbackApi;
     flows: FlowsApi;
     migrations: MigrationApi;
+    paywalls: PaywallsApi;
     placements: PlacementsApi;
     productOffers: ProductOffersApi;
 };
@@ -214,6 +222,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.
         migrations: migrations(wizard, options.clock ?? systemClock),
+        paywalls: paywalls(http),
         placements: placements(http),
         productOffers: productOffers(http),
     };

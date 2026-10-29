@@ -2,11 +2,11 @@ import { assertValid } from '../core/validation.js';
 
 import { timezoneHeaders, toMetricsRequest, validateMetricsInput } from './metrics.js';
 
-import type { FilterValues, MetricsInput, MetricsTree, PlacementMetricsRows } from './metrics.js';
+import type { FilterValues, MetricsInput, MetricsTree, PaywallMetricsTree, PlacementMetricsRows } from './metrics.js';
 import type { Http } from '../core/http/index.js';
 
 /**
- * The placements of an app. Only the metrics of flow placements are here: the other placement
+ * The placements of an app. Only the metrics of flow and paywall placements are here: the other placement
  * operations still live in the old stack and move here when the topic is ported.
  *
  * Metrics are reads, though `get` is a POST: the body only describes the question. Like the other
@@ -19,10 +19,15 @@ import type { Http } from '../core/http/index.js';
  */
 export const placements = (http: Http) => ({
     metrics: {
-        get: async (appId: string, placementId: string, type: string, input: MetricsInput): Promise<MetricsTree> => {
+        get: async (
+            appId: string,
+            placementId: string,
+            type: string,
+            input: MetricsInput,
+        ): Promise<MetricsTree | PaywallMetricsTree> => {
             assertValid(validateMetricsInput(input));
 
-            return http.post<MetricsTree>(`/apps/${appId}/placements/${placementId}/metrics`, toMetricsRequest(input), {
+            return http.post<MetricsTree | PaywallMetricsTree>(`/apps/${appId}/placements/${placementId}/metrics`, toMetricsRequest(input), {
                 headers: timezoneHeaders(input.timezone),
                 idempotent: false,
                 query: { type },

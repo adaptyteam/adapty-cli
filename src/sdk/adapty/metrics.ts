@@ -2,25 +2,29 @@ import type { AnalyticsFilter } from './analytics/query.js';
 import type { Issue } from '../core/errors.js';
 
 /**
- * What the metrics of a flow and of a flow placement share: the input of a `get`, its request
- * body, the one request header, and the answers as the server sends them. `flows.ts` and
- * `placements.ts` keep their own paths.
+ * What the metrics of a flow, a paywall and a placement share: the input of a `get`, its request
+ * body, the one request header, and the answers as the server sends them. `flows.ts`,
+ * `paywalls.ts` and `placements.ts` keep their own paths.
  *
  * The answers pass through exactly as they arrive, in snake_case — the tree is the dashboard's
  * tree, so what `--json` prints is what the dashboard metrics page reads.
  *
  * Which node kinds a tree has (placement, audience, variation, screen, product, period, segment,
  * flow …) depends on `based_on`, so a node is typed by what every kind has, not by its kind.
+ *
+ * A flow and a flow placement have 27 metrics on every node; a paywall and a paywall placement
+ * have 21 (`PaywallMetrics`), and no node of their trees has a `level`.
  */
 
 /**
- * What a `get` takes, for a flow and for a flow placement. The values are the server's words and
+ * What a `get` takes, for a flow, a paywall and a placement. The values are the server's words and
  * the server owns the lists (`based_on`, `period_unit`, `date_type`, `segmentation_by`), so none
  * is checked here: a wrong one comes back as a 400 that names the valid ones.
  *
  * Dates are inclusive days. There is no default `based_on` or `date_type`: the commands require
- * `basedOn` (and `dateType` on a flow) as flags, and the server owns the rest of the rules (a flow
- * placement takes a day range only together with `dateType`).
+ * `basedOn` (and `dateType` on a flow and a paywall) as flags, and the server owns the rest of the
+ * rules (a flow placement takes a day range only together with `dateType`; a paywall and a paywall
+ * placement need a day range).
  */
 export type MetricsInput = {
     basedOn?: string | undefined;
@@ -30,7 +34,7 @@ export type MetricsInput = {
     /** Key (as `dimension`) and leaf values, as the `values` route lists them; a key given twice keeps all values. */
     filters?: readonly AnalyticsFilter[] | undefined;
     granularity?: string | undefined;
-    /** Flow placements only; `country` and `store`. */
+    /** Placements and paywalls only; `country` and `store` (and `product` for a paywall or a paywall placement). */
     groupBy?: string | undefined;
     /** IANA name, sent as `Adapty-Tz`. */
     timezone?: string | undefined;
@@ -148,6 +152,67 @@ export type MetricsTree = {
     data: MetricsNode;
 };
 
+/**
+ * The 21 metrics of every node and row of a paywall tree or a paywall list, in the order the
+ * server sends them. `in_current_state` is a flag, the rest are numbers; "no data" is 0, never null.
+ */
+type PaywallMetricName
+    = | 'revenue'
+        | 'proceeds'
+        | 'net_revenue'
+        | 'purchases'
+        | 'trials'
+        | 'trials_cancelled'
+        | 'refunds'
+        | 'unique_subscribers'
+        | 'unique_paid_subscribers'
+        | 'views'
+        | 'unique_profiles_views'
+        | 'arppu'
+        | 'arpas'
+        | 'apppu'
+        | 'appas'
+        | 'conversion_rate_purchases'
+        | 'conversion_rate_trials'
+        | 'conversion_rate_refunds'
+        | 'conversion_rate_purchases_by_users'
+        | 'conversion_rate_trials_by_users';
+
+export type PaywallMetrics = Record<PaywallMetricName, number> & { in_current_state: boolean };
+
+/**
+ * One node of a paywall or paywall placement tree, whatever its kind (placement, audience, paywall,
+ * A/B test, arm, product, segment, period …). The root is the Total row with `title: "Total"`, and
+ * its children are in `items`.
+ */
+export type PaywallMetricsNode = PaywallMetrics & {
+    content_type?: string;
+    items?: PaywallMetricsNode[];
+    /** On `period` nodes only: an ISO timestamp. */
+    period?: string;
+    title?: string | null;
+    /** The period points of this node, when the request asked for periods. */
+    values?: PaywallMetricsNode[];
+};
+
+export type PaywallMetricsTree = {
+    data: PaywallMetricsNode;
+};
+
+/** One lifetime row of a paywall `list`: the 21 metrics, the id and the last purchase (null with none). */
+export type PaywallMetricsRow = PaywallMetrics & { last_purchases: string | null; paywall_id: string };
+
+export type PaywallMetricsRows = {
+    data: PaywallMetricsRow[];
+};
+
+/** One lifetime row of a paywall placement `list`: the metrics without the views and their rates. */
+export type PaywallPlacementMetricsRow = Omit<
+    PaywallMetrics,
+    'conversion_rate_purchases' | 'conversion_rate_purchases_by_users' | 'conversion_rate_trials' | 'conversion_rate_trials_by_users'
+    | 'unique_profiles_views' | 'views'
+> & { placement_id: string };
+
 /** One lifetime row of a `list`: the 27 metrics and the id of the entity. */
 export type FlowMetricsRow = Metrics & { flow_id: string };
 export type PlacementMetricsRow = Metrics & { placement_id: string };
@@ -157,7 +222,7 @@ export type FlowMetricsRows = {
 };
 
 export type PlacementMetricsRows = {
-    data: PlacementMetricsRow[];
+    data: (PaywallPlacementMetricsRow | PlacementMetricsRow)[];
 };
 
 /** `value` of a top node is the filter key; the leaves are what a filter takes. */

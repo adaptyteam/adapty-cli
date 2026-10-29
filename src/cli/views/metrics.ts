@@ -1,12 +1,13 @@
 import { csvLine } from './analytics/csv.js';
 
 import type { Cell } from './analytics/csv.js';
-import type { FilterValueNode, FilterValues, Metrics, MetricsNode, MetricsTree } from '../../sdk/adapty/index.js';
+import type { FilterValueNode, FilterValues } from '../../sdk/adapty/index.js';
 
 /**
- * The metrics answers as text. A node of a tree or a row of a list has 27 numbers; the table shows
- * the four that answer "is it working": views, purchases, trials and revenue. `--json` and `--csv`
- * have all of them.
+ * The metrics answers as text. A node of a tree or a row of a list has 21 (paywall) or 27 (flow)
+ * numbers; the table shows the four that answer "is it working": views, purchases, trials and
+ * revenue. `--json` and `--csv` have all of them. One renderer reads every kind of tree: a node is
+ * typed by what the renderer reads, so a metric a kind does not have shows as `—`.
  */
 
 const TOTAL = 'Total';
@@ -26,7 +27,20 @@ const columns: readonly Column[] = [
 
 type Line = { cells: string[]; label: string };
 
-const cellsOf = (node: Partial<Record<(typeof columns)[number]['metric'], number>>): string[] =>
+type ColumnValues = Partial<Record<(typeof columns)[number]['metric'], number>>;
+
+/** What the renderer reads of a node: the metrics of a flow, a paywall or a placement tree all fit. */
+type Node = ColumnValues & {
+    items?: Node[];
+    level?: string;
+    period?: string;
+    title?: string | null;
+    values?: Node[];
+};
+
+type Tree = { data: Node };
+
+const cellsOf = (node: ColumnValues): string[] =>
     columns.map(({ format, metric }) => {
         const value = node[metric];
 
@@ -48,7 +62,7 @@ const alignLines = (lines: readonly Line[]): string => {
 };
 
 /** A period node has no title, only a timestamp (`Z`, `.000Z` or an offset like `+02:00`): its label is the date. */
-const nodeTitle = (node: MetricsNode): string => {
+const nodeTitle = (node: Node): string => {
     if (node.period !== undefined) {
         return node.period.slice(0, DATE_LENGTH);
     }
@@ -57,10 +71,10 @@ const nodeTitle = (node: MetricsNode): string => {
 };
 
 /** Depth-first, a node first, then its period points, then its children while `level` is under `maxLevel`. */
-const treeLines = (root: MetricsNode, maxLevel: number): Line[] => {
+const treeLines = (root: Node, maxLevel: number): Line[] => {
     const lines: Line[] = [];
 
-    const visit = (node: MetricsNode, level: number, label: string): void => {
+    const visit = (node: Node, level: number, label: string): void => {
         lines.push({ cells: cellsOf(node), label: INDENT.repeat(level) + label });
 
         for (const point of node.values ?? []) {
@@ -83,11 +97,11 @@ const treeLines = (root: MetricsNode, maxLevel: number): Line[] => {
  * The tree of one entity: a Total line, then its children indented, `depth` levels down. The
  * period points of a node (when the request asked for periods) come right under it.
  */
-export const renderMetricsTree = ({ data }: MetricsTree, depth: number): string => alignLines(treeLines(data, depth));
+export const renderMetricsTree = ({ data }: Tree, depth: number): string => alignLines(treeLines(data, depth));
 
-/** The id a row of a `list` carries: a flow row has `flow_id`, a placement row `placement_id`. */
-type RowIdKey = 'flow_id' | 'placement_id';
-type Row<K extends RowIdKey> = Metrics & Record<K, string>;
+/** The id a row of a `list` carries: `flow_id`, `paywall_id` or `placement_id`, by the entity. */
+type RowIdKey = 'flow_id' | 'paywall_id' | 'placement_id';
+type Row<K extends RowIdKey> = ColumnValues & Record<K, string>;
 
 /** The lifetime rows of a `list`: the id of the entity, then the same four numbers. */
 export const renderMetricsRows = <K extends RowIdKey>({ data }: { data: Row<K>[] }, idKey: K): string => {
@@ -109,13 +123,21 @@ const metricColumns = (node: object): string[] =>
 
 const valueOf = (node: object, name: string): Cell => (node as Record<string, Cell>)[name];
 
-const treeRows = (root: MetricsNode, columns: readonly string[]): string[] => {
+/**
+ * `root` marks the root row only. A child with no `level` (every node of a paywall tree has none)
+ * writes an empty cell (`undefined`: `""` would read as an empty level), not a level it does not have.
+ */
+const levelCell = (node: Node, path: readonly string[]): string | undefined => node.level ?? (path.length === 0 ? 'root' : undefined);
+
+const treeRows = (root: Node, columns: readonly string[]): string[] => {
     const rows: string[] = [];
 
-    const visit = (node: MetricsNode, path: readonly string[], title: string): void => {
+    const visit = (node: Node, path: readonly string[], title: string): void => {
         const here = [...path, title];
 
-        rows.push(csvLine([here.join(PATH_SEPARATOR), node.level ?? 'root', title, ...columns.map(name => valueOf(node, name))]));
+        const cells = columns.map(name => valueOf(node, name));
+
+        rows.push(csvLine([here.join(PATH_SEPARATOR), levelCell(node, path), title, ...cells]));
 
         for (const point of node.values ?? []) {
             visit(point, here, nodeTitle(point));
@@ -133,9 +155,9 @@ const treeRows = (root: MetricsNode, columns: readonly string[]): string[] => {
 
 /**
  * One row for each node of the whole tree, periods included: the path of titles from Total, the
- * level, the title, then the 27 metrics.
+ * level, the title, then the metrics.
  */
-export const metricsTreeCsv = ({ data }: MetricsTree): string => {
+export const metricsTreeCsv = ({ data }: Tree): string => {
     const columns = metricColumns(data);
 
     return [csvLine(['path', 'level', 'title', ...columns]), ...treeRows(data, columns)].join('\n');
