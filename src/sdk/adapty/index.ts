@@ -102,6 +102,7 @@ export type {
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
+export type { FlowFunnelAnswer, FlowFunnelScreen, FlowFunnelStep } from './flow-funnel.js';
 export type { FlowsApi } from './flows.js';
 export type { PaywallsApi } from './paywalls.js';
 export type {

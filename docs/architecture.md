@@ -94,12 +94,18 @@ server replaces the whole offer, so `validateMergedProductOffer` checks the merg
 before the write. `products` does the same for its update, and `product-prices` previews before it saves: the CLI
 decides on the preview (`decideSave`) and saves the rows of the preview answer.
 
-`flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now: the other operations of
+`flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now (`flows` also holds `funnel`, below): the other operations of
 these entities still live in the old stack and move into the resource when their topic is ported. What the three
 share sits beside them, like `pagination.ts`: `metrics.ts` has the input shape, the request body (only the keys the
 caller set), the timezone header and the answer types (27 metrics on a flow tree, 21 on a paywall tree, which has no `level` on its nodes). The server owns every value list (`based_on`, `period_unit`,
 `date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day range has both ends. `--based-on` (every `get` command) and `--date-type` (`flows metrics get` and `paywalls metrics get`) are required flags, which oclif checks; the rest (a flow placement range needs `date_type`; a paywall or paywall placement needs a day range) is the server's 400. The two
 analytics POSTs are never retried, like `attribution report`.
+
+`flows.funnel` (`get`, `csv`, `values`) is the screen funnel of one flow version. Its input, request body and answer
+types are in `flow-funnel.ts`, beside `metrics.ts`; the time zone header is the one of `metrics.ts`. The request
+has no `based_on` and no granularity, so it does not reuse the metrics body: `date_type`, `filters` (with `date`)
+and `flow_version_id` only when given. `csv` is the same POST with `?format=csv` and `accept: text/csv`; the server
+writes the CSV (the dashboard file) and the sdk returns its text, so the CLI builds none. The POSTs are never retried.
 
 Responses pass through in the server's snake_case (that is what `--json` has always printed);
 input is camelCase, because that side is our API, not the server's.
@@ -196,6 +202,8 @@ text or JSON.
   numbers that each operation names and one column per point; it says under the table when `--json` and `--csv`
   give more fields. `views/metrics.ts` prints the metrics tree and rows (table,
   CSV; the CSV `level` cell is `root` for the root row, the node's `level` or empty for a child) and the filter values.
+  `views/flow-funnel.ts` prints the screen funnel (summary, steps, and the screens of a
+  step that has more than one).
 - `commands/` — one class per command.
 
 ### The shape of a command
@@ -319,7 +327,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows metrics`, `migrations`,
+most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows funnel`, `flows metrics`, `migrations`,
 `paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`
 and `skills`.
 
