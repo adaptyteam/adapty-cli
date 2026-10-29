@@ -91,11 +91,11 @@ and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port
 server replaces the whole offer, so `validateMergedProductOffer` checks the merge after the read and
 before the write.
 
-`flows` and `placements` hold only `metrics` (`list`, `get` and `values`) for now: the other operations of
-these entities still live in the old stack and move into the resource when their topic is ported. What the two
+`flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now: the other operations of
+these entities still live in the old stack and move into the resource when their topic is ported. What the three
 share sits beside them, like `pagination.ts`: `metrics.ts` has the input shape, the request body (only the keys the
-caller set), the timezone header and the answer types. The server owns every value list (`based_on`, `period_unit`,
-`date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day range has both ends. `--based-on` (both `get` commands) and `--date-type` (`flows metrics get`) are required flags, which oclif checks; the rest (a flow placement range needs `date_type`) is the server's 400. The two
+caller set), the timezone header and the answer types (27 metrics on a flow tree, 21 on a paywall tree, which has no `level` on its nodes). The server owns every value list (`based_on`, `period_unit`,
+`date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day range has both ends. `--based-on` (every `get` command) and `--date-type` (`flows metrics get` and `paywalls metrics get`) are required flags, which oclif checks; the rest (a flow placement range needs `date_type`; a paywall or paywall placement needs a day range) is the server's 400. The two
 analytics POSTs are never retried, like `attribution report`.
 
 Responses pass through in the server's snake_case (that is what `--json` has always printed);
@@ -192,7 +192,7 @@ text or JSON.
   API adds is never dropped, and into the human table (`human.ts`): one row per group, total first, the main
   numbers that each operation names and one column per point; it says under the table when `--json` and `--csv`
   give more fields. `views/metrics.ts` prints the metrics tree and rows (table,
-  CSV) and the filter values.
+  CSV; the CSV `level` cell is `root` for the root row, the node's `level` or empty for a child) and the filter values.
 - `commands/` — one class per command.
 
 ### The shape of a command
@@ -317,7 +317,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
 most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows metrics`, `migrations`,
-`placements metrics`, `product-offers` and `skills`.
+`paywalls metrics`, `placements metrics`, `product-offers` and `skills`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

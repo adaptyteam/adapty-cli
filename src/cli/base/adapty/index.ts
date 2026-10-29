@@ -21,6 +21,8 @@ export {
     metricsCsvFlag,
     metricsInput,
     metricsQueryFlags,
+    paywallIdArg,
+    paywallIdsFlag,
     placementIdArg,
     placementIdsFlag,
     placementTypeFlag,

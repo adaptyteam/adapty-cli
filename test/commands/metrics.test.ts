@@ -7,7 +7,7 @@ import { expect } from 'chai';
 import { exitCode } from '../../src/cli/errors.js';
 import { mockFetch, mockFetchFailure, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
-import type { FilterValueNode, FilterValues, MetricsNode } from '../../src/sdk/adapty/index.js';
+import type { FilterValueNode, FilterValues, MetricsNode, PaywallMetricsTree } from '../../src/sdk/adapty/index.js';
 import type * as sinon from 'sinon';
 
 const BASE = 'https://api-admin.adapty.io/api/v1/developer';
@@ -15,6 +15,8 @@ const FLOW_ID = '0b0c7e9e-3c06-4f7a-9d7e-2f2f6d3c1b11';
 const OTHER_FLOW_ID = '1c1d8f0f-4d17-4a8b-8e8f-3a3a7e4d2c22';
 const PLACEMENT_ID = '2d2e9a1a-5e28-4b9c-9f9a-4b4b8f5e3d33';
 const OTHER_PLACEMENT_ID = '3e3f0b2b-6f39-4cad-a0ab-5c5c9a6f4e44';
+const PAYWALL_ID = '4f4a1c3c-7a4a-4dbe-b1bc-6d6dab7a5f55';
+const OTHER_PAYWALL_ID = '5a5b2d4d-8b5b-4ecf-82cd-7e7ebc8b6a66';
 
 /** The 27 metrics in the order the server sends them: what a CSV header must say, written out on purpose. */
 const METRICS = [
@@ -767,6 +769,371 @@ describe('flows metrics and placements metrics', () => {
             const sent = pairs.map((_, index) => (callOf(stub, index).body as { filters: unknown }).filters);
 
             expect(sent).to.deep.equal(pairs.map(([key, value]) => ({ [key]: [value] })));
+        });
+    });
+});
+
+/** The 20 numbers of a paywall tree that `--csv` writes, in the server's order (`in_current_state` is a flag). */
+const PAYWALL_COLUMNS = [
+    'revenue', 'proceeds', 'net_revenue', 'purchases', 'trials', 'trials_cancelled', 'refunds', 'unique_subscribers',
+    'unique_paid_subscribers', 'views', 'unique_profiles_views', 'arppu', 'arpas', 'apppu', 'appas',
+    'conversion_rate_purchases', 'conversion_rate_trials', 'conversion_rate_refunds', 'conversion_rate_purchases_by_users',
+    'conversion_rate_trials_by_users',
+];
+
+const fixture = async <T>(name: string): Promise<T> =>
+    JSON.parse(await readFile(join(import.meta.dirname, '..', 'fixtures', name), 'utf8')) as T;
+
+describe('paywalls metrics and paywall placements metrics', () => {
+    let fetchStub: sinon.SinonStub | undefined;
+    let byPlacement: PaywallMetricsTree;
+    let byStore: PaywallMetricsTree;
+    let placementByAudience: PaywallMetricsTree;
+    let placementByPaywall: PaywallMetricsTree;
+
+    before(async () => {
+        // Real dashboard answers in the form of the Developer API: the Total row is the root, the other rows its items
+        byPlacement = await fixture('paywall-metrics-by-placement.json');
+        byStore = await fixture('paywall-metrics-by-store.json');
+        placementByAudience = await fixture('placement-paywall-metrics-by-audience.json');
+        placementByPaywall = await fixture('placement-paywall-metrics-by-paywall.json');
+    });
+
+    beforeEach(() => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+    });
+
+    afterEach(() => {
+        if (fetchStub !== undefined) {
+            restoreFetch(fetchStub);
+            fetchStub = undefined;
+        }
+    });
+
+    const PAYWALL_GET_BARE = `paywalls metrics get ${PAYWALL_ID} --app ${TEST_APP_ID}`;
+    const PAYWALL_GET = `${PAYWALL_GET_BARE} --date-from 2015-01-01 --date-to 2026-10-27 --date-type purchase_date --based-on placement`;
+    const PLACEMENT_GET_BARE = `placements metrics get ${PLACEMENT_ID} --app ${TEST_APP_ID} --type paywall`;
+    const PLACEMENT_GET = `${PLACEMENT_GET_BARE} --date-from 2015-01-01 --date-to 2026-10-27 --date-type purchase_date --based-on audience`;
+    const url = (call: Call): string => call.url.origin + call.url.pathname;
+
+    describe('paywalls metrics get', () => {
+        it('sends every flag in the body, --group-by as segmentation_by, and --json prints the answer unchanged', async () => {
+            fetchStub = mockFetch([byStore]);
+
+            const { stdout } = await runCommand([
+                ...PAYWALL_GET_BARE.split(' '),
+                '--date-from', '2015-01-01',
+                '--date-to', '2026-10-27',
+                '--date-type', 'purchase_date',
+                '--based-on', 'placement',
+                '--group-by', 'store',
+                '--granularity', 'year',
+                '--filter', 'store=app_store',
+                '--timezone', 'Europe/Berlin',
+                '--json',
+            ]);
+
+            expect(JSON.parse(stdout)).to.deep.equal(byStore);
+
+            const call = callOf(fetchStub);
+
+            expect(call.method).to.equal('POST');
+            expect(url(call)).to.equal(`${BASE}/apps/${TEST_APP_ID}/paywalls/${PAYWALL_ID}/metrics/`);
+            expect(call.url.search).to.equal('');
+            expect(call.headers.get('adapty-tz')).to.equal('Europe/Berlin');
+
+            expect(call.body).to.deep.equal({
+                based_on: 'placement',
+                date_type: 'purchase_date',
+                filters: { date: ['2015-01-01', '2026-10-27'], store: ['app_store'] },
+                period_unit: 'year',
+                segmentation_by: 'store',
+            });
+        });
+
+        it('prints the Total row as the root and the placements under it, each with the periods that the answer has', async () => {
+            fetchStub = mockFetch([byPlacement, byPlacement]);
+
+            const { stdout } = await runCommand(PAYWALL_GET);
+
+            expect(stdout).to.equal([
+                'Total                  views    1  purchases 61  trials 0  revenue 603.72',
+                '  Secondary placement  views    0  purchases  0  trials 0  revenue   0.00',
+                '    2015-01-01         views    0  purchases  0  trials 0  revenue   0.00',
+                '    2016-01-01         views    0  purchases  0  trials 0  revenue   0.00',
+                '  Main placement       views 2005  purchases 61  trials 0  revenue 603.72',
+                '    2015-01-01         views    0  purchases  0  trials 0  revenue   0.00',
+                '    2016-01-01         views    0  purchases  0  trials 0  revenue   0.00',
+                '',
+            ].join('\n'));
+
+            const deep = await runCommand(`${PAYWALL_GET} --depth 4`);
+            const names = deep.stdout.trimEnd().split('\n').map(line => line.slice(0, line.indexOf('  views')).trim());
+
+            // audience, content paywall and product nodes: each has a name, none is empty
+            expect(names).to.include.members(['All Users', 'Video Paywall', 'Weekly intro offer', 'Cross test child-1']);
+            expect(names.every(name => name !== '' && name !== '—')).to.equal(true);
+        });
+
+        it('--csv has one row for each node, the root with `root` and a node with no level with an empty cell', async () => {
+            fetchStub = mockFetch([byPlacement]);
+
+            const { stdout } = await runCommand(`${PAYWALL_GET} --csv`);
+            const lines = stdout.trimEnd().split('\n');
+
+            expect(lines[0]).to.equal(`path,level,title,${PAYWALL_COLUMNS.join(',')}`);
+            expect(lines[1]?.startsWith('Total,root,Total,603.7200000000001,')).to.equal(true);
+            expect(lines[2]?.startsWith('Total > Secondary placement,,Secondary placement,')).to.equal(true);
+            expect(lines[3]?.startsWith('Total > Secondary placement > 2015-01-01,,2015-01-01,')).to.equal(true);
+
+            // `root` once; no other row has a level, so every other row has an empty second cell
+            expect(lines.slice(2).every(line => /^[^,]+,,/.test(line))).to.equal(true);
+            expect(lines.every(line => line.split(',').length === 3 + PAYWALL_COLUMNS.length)).to.equal(true);
+        });
+
+        it('sends a value it cannot judge, and the server text is the error (exit 4)', async () => {
+            fetchStub = mockFetchFailure(
+                {
+                    error_code: 'validation_error',
+                    errors: { based_on: ['"paywall" is not valid: use placement or audience'] },
+                    status_code: 400,
+                },
+                { status: 400 },
+            );
+
+            const { error } = await runCommand(`${PAYWALL_GET_BARE} --date-type shown_at --based-on paywall --group-by profile_country`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.message).to.contain('based_on: "paywall" is not valid: use placement or audience');
+            expect(callOf(fetchStub).body).to.deep.equal({ based_on: 'paywall', date_type: 'shown_at', segmentation_by: 'profile_country' });
+        });
+
+        it('sends no date when none is given, and the server refusal that names the date is the error (exit 4)', async () => {
+            fetchStub = mockFetchFailure(
+                { error_code: 'validation_error', errors: { date: ['Field required'] }, status_code: 400 },
+                { status: 400 },
+            );
+
+            const { error } = await runCommand(`${PAYWALL_GET_BARE} --date-type purchase_date --based-on placement`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.message).to.contain('date: Field required');
+            expect(callOf(fetchStub).body).to.deep.equal({ based_on: 'placement', date_type: 'purchase_date' });
+        });
+
+        it('exits 4 with the server text for a paywall of another app (404)', async () => {
+            fetchStub = mockFetchFailure(
+                { error_code: 'not_found', errors: { non_field_errors: ['Paywall not found.'] }, status_code: 404 },
+                { status: 404 },
+            );
+
+            const { error } = await runCommand(PAYWALL_GET);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.message).to.contain('Paywall not found.');
+        });
+
+        it('exits 2 for a missing --date-type, a missing --based-on and a bad id, before any request and without a token', async () => {
+            fetchStub = mockFetch([byPlacement]);
+            delete process.env.ADAPTY_TOKEN;
+
+            const cases: [string, string][] = [
+                [`${PAYWALL_GET_BARE} --date-from 2026-09-01 --date-to 2026-09-30 --based-on placement`, 'Missing required flag date-type'],
+                [`${PAYWALL_GET_BARE} --date-from 2026-09-01 --date-to 2026-09-30 --date-type purchase_date`, 'Missing required flag based-on'],
+                [`${PAYWALL_GET_BARE} --date-from 2026-09-01 --date-type purchase_date --based-on placement`, 'both ends'],
+                [`paywalls metrics get not-a-uuid --app ${TEST_APP_ID} --date-type purchase_date --based-on placement`, 'Invalid paywall ID format'],
+            ];
+
+            for (const [command, text] of cases) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
+                expect(error?.message, command).to.contain(text);
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+    });
+
+    describe('placements metrics get --type paywall', () => {
+        it('sends the type as a query value and every flag in the body, and --json prints the answer unchanged', async () => {
+            fetchStub = mockFetch([placementByAudience]);
+
+            const { stdout } = await runCommand(`${PLACEMENT_GET} --group-by product --granularity month --json`);
+
+            expect(JSON.parse(stdout)).to.deep.equal(placementByAudience);
+
+            const call = callOf(fetchStub);
+
+            expect(call.method).to.equal('POST');
+            expect(url(call)).to.equal(`${BASE}/apps/${TEST_APP_ID}/placements/${PLACEMENT_ID}/metrics/`);
+            expect(call.url.search).to.equal('?type=paywall');
+
+            expect(call.body).to.deep.equal({
+                based_on: 'audience',
+                date_type: 'purchase_date',
+                filters: { date: ['2015-01-01', '2026-10-27'] },
+                period_unit: 'month',
+                segmentation_by: 'product',
+            });
+        });
+
+        it('prints the tree like a flow placement tree: the Total line, then the audiences, and every node has a name', async () => {
+            fetchStub = mockFetch([placementByAudience, placementByAudience]);
+
+            const shallow = await runCommand(PLACEMENT_GET);
+
+            expect(shallow.stdout).to.equal([
+                'Total                views 4005  purchases 126  trials 0  revenue 1253.07',
+                '  Audience 6636      views 4000  purchases 126  trials 0  revenue 1253.07',
+                '    2015-01-01       views    0  purchases   0  trials 0  revenue    0.00',
+                '    2016-01-01       views    0  purchases   0  trials 0  revenue    0.00',
+                '  Segment placement  views    0  purchases   0  trials 0  revenue    0.00',
+                '    2015-01-01       views    0  purchases   0  trials 0  revenue    0.00',
+                '    2016-01-01       views    0  purchases   0  trials 0  revenue    0.00',
+                '',
+            ].join('\n'));
+
+            const deep = await runCommand(`${PLACEMENT_GET} --depth 6`);
+
+            // a content paywall node has the title of its paywall, never an empty name
+            expect(deep.stdout).to.contain('    Video Paywall');
+            expect(deep.stdout).to.not.contain('—  ');
+        });
+
+        it('--csv writes `root` in the level cell of the first row only', async () => {
+            fetchStub = mockFetch([placementByAudience]);
+
+            const { stdout } = await runCommand(`${PLACEMENT_GET} --csv`);
+            const lines = stdout.trimEnd().split('\n');
+
+            expect(lines[0]).to.equal(`path,level,title,${PAYWALL_COLUMNS.join(',')}`);
+            expect(lines[1]?.startsWith('Total,root,Total,1253.0700000000004,')).to.equal(true);
+            expect(lines.slice(2).every(line => /^[^,]+,,/.test(line))).to.equal(true);
+        });
+
+        it('splits by paywall, and the server refusal of a flow placement or a missing date is the error (exit 4)', async () => {
+            fetchStub = mockFetch([placementByPaywall]);
+
+            const ok = await runCommand(`${PLACEMENT_GET_BARE} --date-from 2015-01-01 --date-to 2026-10-27 --date-type purchase_date --based-on paywall`);
+
+            expect(ok.stdout).to.contain('  Video Paywall');
+            expect(callOf(fetchStub).body).to.deep.include({ based_on: 'paywall' });
+
+            restoreFetch(fetchStub);
+
+            fetchStub = mockFetchFailure(
+                {
+                    error_code: 'validation_error',
+                    errors: { non_field_errors: ['Placement type is flow, not paywall.'] },
+                    status_code: 400,
+                },
+                { status: 400 },
+            );
+
+            const { error } = await runCommand(`${PLACEMENT_GET} --depth 2`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.message).to.contain('Placement type is flow, not paywall.');
+        });
+
+        it('exits 2 without --based-on, before any request', async () => {
+            fetchStub = mockFetch([placementByAudience]);
+
+            const { error } = await runCommand(`${PLACEMENT_GET_BARE} --date-type purchase_date`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(error?.message).to.contain('Missing required flag based-on');
+            expect(fetchStub.callCount).to.equal(0);
+        });
+    });
+
+    describe('list and values', () => {
+        // The paywall row has the 21 metrics and the last purchase; the paywall placement row has no view fields
+        const paywallRow = (id: string, views: number, revenue: number) => ({
+            arppu: 0,
+            arpas: 0,
+            appas: 0,
+            apppu: 0,
+            in_current_state: true,
+            last_purchases: null,
+            paywall_id: id,
+            purchases: 3,
+            revenue,
+            trials: 0,
+            views,
+        });
+
+        const placementRow = (id: string, revenue: number) =>
+            ({ in_current_state: true, placement_id: id, purchases: 126, revenue, trials: 0 });
+
+        it('paywalls metrics list joins the ids into one filter and prints one line for each paywall', async () => {
+            const rows = [paywallRow(PAYWALL_ID, 2045, 603.72), paywallRow(OTHER_PAYWALL_ID, 15, 699.9)];
+
+            fetchStub = mockFetch([{ data: rows }]);
+
+            const { stdout } = await runCommand(`paywalls metrics list --app ${TEST_APP_ID} --ids ${PAYWALL_ID} --ids ${OTHER_PAYWALL_ID}`);
+            const call = callOf(fetchStub);
+
+            expect(call.method).to.equal('GET');
+            expect(url(call)).to.equal(`${BASE}/apps/${TEST_APP_ID}/paywalls/metrics/`);
+            expect(call.url.searchParams.get('filter[paywall_id]')).to.equal(`${PAYWALL_ID},${OTHER_PAYWALL_ID}`);
+
+            expect(stdout).to.equal([
+                `${PAYWALL_ID}  views 2045  purchases 3  trials 0  revenue 603.72`,
+                `${OTHER_PAYWALL_ID}  views   15  purchases 3  trials 0  revenue 699.90`,
+                '',
+            ].join('\n'));
+        });
+
+        it('paywalls metrics list --csv has the id column named paywall_id and the numbers of the row only', async () => {
+            fetchStub = mockFetch([{ data: [paywallRow(PAYWALL_ID, 2045, 603.72)] }]);
+
+            const { stdout } = await runCommand(`paywalls metrics list --app ${TEST_APP_ID} --ids ${PAYWALL_ID} --csv`);
+            const [header, row] = stdout.trimEnd().split('\n');
+
+            expect(header).to.equal('paywall_id,arppu,arpas,appas,apppu,purchases,revenue,trials,views');
+            expect(row).to.equal(`${PAYWALL_ID},0,0,0,0,3,603.72,0,2045`);
+        });
+
+        it('a paywall placement row has no view fields: the table shows a dash, not 0', async () => {
+            fetchStub = mockFetch([{ data: [placementRow(PLACEMENT_ID, 1253.07)] }]);
+
+            const { stdout } = await runCommand(`placements metrics list --app ${TEST_APP_ID} --type paywall --ids ${PLACEMENT_ID}`);
+            const call = callOf(fetchStub);
+
+            expect(call.url.searchParams.get('type')).to.equal('paywall');
+            expect(stdout).to.equal(`${PLACEMENT_ID}  views —  purchases 126  trials 0  revenue 1253.07\n`);
+        });
+
+        it('exits 2 for a bad id and a missing --ids of paywalls metrics list, before any request', async () => {
+            fetchStub = mockFetch([{ data: [] }]);
+
+            for (const command of [`paywalls metrics list --app ${TEST_APP_ID}`, `paywalls metrics list --app ${TEST_APP_ID} --ids nope`]) {
+                const { error } = await runCommand(command);
+
+                expect(error?.oclif?.exit, command).to.equal(exitCode.usage);
+            }
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('paywalls metrics values reads the values route; placements metrics values sends the type', async () => {
+            const values = await fixture<FilterValues>('metrics-values.json');
+
+            fetchStub = mockFetch([values, values]);
+
+            const paywall = await runCommand(`paywalls metrics values ${PAYWALL_ID} --app ${TEST_APP_ID} --json`);
+
+            expect(JSON.parse(paywall.stdout)).to.deep.equal(values);
+            expect(callOf(fetchStub).method).to.equal('GET');
+            expect(url(callOf(fetchStub))).to.equal(`${BASE}/apps/${TEST_APP_ID}/paywalls/${PAYWALL_ID}/metrics/values/`);
+            expect(callOf(fetchStub).url.search).to.equal('');
+
+            await runCommand(`placements metrics values ${PLACEMENT_ID} --app ${TEST_APP_ID} --type paywall`);
+
+            expect(url(callOf(fetchStub, 1))).to.equal(`${BASE}/apps/${TEST_APP_ID}/placements/${PLACEMENT_ID}/metrics/values/`);
+            expect(callOf(fetchStub, 1).url.search).to.equal('?type=paywall');
         });
     });
 });

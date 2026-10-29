@@ -21,12 +21,13 @@ src/
     apps/            # list, get, create, update
     products/        # list, get, create, update
     product-offers/  # list, get, create, update (no delete: dashboard only); implementation in src/cli/commands/product-offers
-    paywalls/        # list, get, create, update, placements (placements using a paywall)
+    paywalls/        # list, get, create, update, placements (placements using a paywall);
+                     # metrics/ (list, get, values — the dashboard metrics page; implementation in src/cli/commands/paywalls/metrics)
     ab-tests/        # list, get, create, update, start, stop, replace, archive — regular paywall and flow tests;
                      # start, stop, replace and archive ask first (cli/input/confirm.ts, --yes; exit 6 when nobody can answer).
                      # Implementation in src/cli/commands/ab-tests
     placements/      # list (--type), get, create, update (audiences[] or deprecated --paywall-id);
-                     # metrics/ (list, get, values — flow placements; implementation in src/cli/commands/placements/metrics)
+                     # metrics/ (list, get, values — flow and paywall placements, --type; implementation in src/cli/commands/placements/metrics)
     flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
                      # preview — local config → render URL, opens on a TTY, prints bare URL when piped;
                      # capture is the caller's job, the CLI only builds the URL;

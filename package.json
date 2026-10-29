@@ -105,8 +105,11 @@
       "flows:metrics": {
         "description": "Metrics of flows: lifetime rows, the metrics tree of one flow and its filter values"
       },
+      "paywalls:metrics": {
+        "description": "Metrics of paywalls: lifetime rows, the metrics tree of one paywall and its filter values"
+      },
       "placements:metrics": {
-        "description": "Metrics of flow placements: lifetime rows, the metrics tree of one placement and its filter values"
+        "description": "Metrics of flow and paywall placements: lifetime rows, the metrics tree of one placement and its filter values"
       },
       "segments": {
         "description": "List segments"
