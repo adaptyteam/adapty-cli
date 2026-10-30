@@ -66,8 +66,8 @@ All commands support `--json` for machine-readable output.
 |-------------------------------------|---------------------------------|
 | `paywalls list`                      | `--app`                         |
 | `paywalls get <paywall_id>`          | `--app`                         |
-| `paywalls create`                    | `--app`, `--title`, `--product-id` (repeatable) |
-| `paywalls update <paywall_id>`       | `--app`, `--title`, `--product-id` (repeatable) |
+| `paywalls create`                    | `--app`, `--title`, `--product-id` (repeatable); optional `--remote-configs`, `--use-paywall-builder-v4`, `--screenshot-id`, `--builder-screenshot-id`, `--web-purchase-url` (`null` clears) |
+| `paywalls update <paywall_id>`       | `--app`, then either `--file <path\|->` (the body of `paywalls get --json`) or every field flag: `--title`, `--product-id`, `--remote-configs`, `--use-paywall-builder-v4`/`--no-use-paywall-builder-v4`, `--screenshot-id`, `--builder-screenshot-id`, `--web-purchase-url`. A missing field is refused (exit 2), never reset; `--file` and a field flag cannot be mixed; a write replaces the whole remote config list |
 | `paywalls placements <paywall_id>`   | `--app` — lists placements that currently use this paywall (slim summary; no `audiences`) |
 
 ## A/B tests

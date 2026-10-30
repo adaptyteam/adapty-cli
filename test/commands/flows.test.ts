@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
 import sinon from 'sinon';
 
+import { exitCode } from '../../src/cli/errors.js';
 import {
     assertFetch,
     EMPTY_LIST_RESPONSE,
@@ -216,10 +218,12 @@ describe('flows', () => {
             TEST_APP_ID,
             '--config',
             '{"locales":[],"screens":[]}',
+            '--remote-configs',
+            '[]',
         ]);
 
         assertFetch({
-            body: { config: { locales: [], screens: [] } },
+            body: { config: { locales: [], screens: [] }, remote_configs: [] },
             callIndex: 0,
             method: 'PUT',
             path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
@@ -292,6 +296,124 @@ describe('flows', () => {
             method: 'PUT',
             path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
             stub: fetchStub,
+        });
+    });
+
+    describe('config update bodies', () => {
+        const REMOTE_CONFIGS = [{ data: '{"cta":"Buy"}', locale: 'en' }];
+        const CONFIG = { locales: [{ code: 'en' }], screens: [] };
+        let dir: string;
+
+        beforeEach(async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+            fetchStub = mockFetch([CONFIG_RESPONSE]);
+            dir = await mkdtemp(join(tmpdir(), 'flow-config-update-'));
+        });
+
+        it('--file sends config and remote_configs of the `get --json` envelope and ignores its other keys', async () => {
+            const file = join(dir, 'f.json');
+
+            await writeFile(
+                file,
+                JSON.stringify({ config: CONFIG, remote_configs: REMOTE_CONFIGS, status: 'draft', updated_at: 1 }),
+            );
+
+            await runCommand(
+                `flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --file ${file} --expected-updated-at 5`,
+            );
+
+            assertFetch({
+                body: { config: CONFIG, expected_updated_at: 5, remote_configs: REMOTE_CONFIGS },
+                callIndex: 0,
+                method: 'PUT',
+                path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
+                stub: fetchStub,
+            });
+        });
+
+        it('--file with remote_configs [] sends the empty list', async () => {
+            const file = join(dir, 'f.json');
+
+            await writeFile(file, JSON.stringify({ config: CONFIG, remote_configs: [] }));
+            await runCommand(`flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --file ${file}`);
+
+            assertFetch({
+                body: { config: CONFIG, remote_configs: [] },
+                callIndex: 0,
+                method: 'PUT',
+                path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
+                stub: fetchStub,
+            });
+        });
+
+        it('--config-file without --remote-configs exits 2 with the missing flag and sends no request', async () => {
+            const file = join(dir, 'c.json');
+
+            await writeFile(file, JSON.stringify(CONFIG));
+
+            const result = await runCommand(
+                `flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --config-file ${file}`,
+            );
+
+            expect(result.error?.oclif?.exit).to.equal(exitCode.usage);
+
+            expect(result.error?.message).to.equal(
+                'Missing flags: --remote-configs. Give both, or send the whole body with --file PATH|-.',
+            );
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('with no body flag at all lists both missing flags and sends no request', async () => {
+            const result = await runCommand(`flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+
+            expect(result.error?.oclif?.exit).to.equal(exitCode.usage);
+
+            expect(result.error?.message).to.equal(
+                'Missing flags: --config or --config-file, --remote-configs. '
+                + 'Give both, or send the whole body with --file PATH|-.',
+            );
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('--file without remote_configs or config exits 2 naming the missing keys and sends no request', async () => {
+            const noRemote = join(dir, 'no-remote.json');
+            const noConfig = join(dir, 'no-config.json');
+
+            await writeFile(noRemote, JSON.stringify({ config: CONFIG }));
+            await writeFile(noConfig, JSON.stringify({ status: 'draft' }));
+
+            const first = await runCommand(`flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --file ${noRemote}`);
+            const second = await runCommand(`flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --file ${noConfig}`);
+
+            expect(first.error?.oclif?.exit).to.equal(exitCode.usage);
+
+            expect(first.error?.message).to.equal(
+                `Missing keys in ${noRemote}: remote_configs. The file needs both config and remote_configs.`,
+            );
+
+            expect(second.error?.oclif?.exit).to.equal(exitCode.usage);
+
+            expect(second.error?.message).to.equal(
+                `Missing keys in ${noConfig}: config, remote_configs. The file needs both config and remote_configs.`,
+            );
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('refuses --file together with --remote-configs, before any request', async () => {
+            const file = join(dir, 'f.json');
+
+            await writeFile(file, JSON.stringify({ config: CONFIG, remote_configs: [] }));
+
+            const result = await runCommand(
+                `flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --file ${file} --remote-configs []`,
+            );
+
+            expect(result.error?.oclif?.exit).to.equal(exitCode.usage);
+            expect(result.error?.message).to.contain('--remote-configs=[] cannot also be provided when using --file');
+            expect(fetchStub.callCount).to.equal(0);
         });
     });
 
