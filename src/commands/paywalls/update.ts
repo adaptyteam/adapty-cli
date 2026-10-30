@@ -2,14 +2,14 @@ import { Args, Command, Flags } from '@oclif/core';
 
 import { appIdFlag } from '../../cli/input/app.js';
 import { readBodyFile } from '../../cli/input/json.js';
-import { paywallFieldFlags, paywallFieldsFromFlags, requirePaywallFields } from '../../cli/input/paywall.js';
+import { paywallFieldFlags, paywallFieldsFromFlags, PRODUCT_ID_DEPRECATION, requirePaywallFields } from '../../cli/input/paywall.js';
 import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { isValidUuid } from '../../lib/flags.js';
 import { printResponse } from '../../lib/output.js';
 
 import type { PaywallDTO } from '../../lib/api-schemas.js';
 
-const FIELD_FLAGS = ['title', 'product-id', ...Object.keys(paywallFieldFlags)];
+const FIELD_FLAGS = ['title', ...Object.keys(paywallFieldFlags)];
 
 export default class PaywallsUpdate extends Command {
     static override args = {
@@ -24,20 +24,19 @@ export default class PaywallsUpdate extends Command {
     static override examples = [
         '<%= config.bin %> paywalls get --app UUID 550e8400-... --json > paywall.json',
         '<%= config.bin %> paywalls update --app UUID 550e8400-... --file paywall.json',
-        '<%= config.bin %> paywalls update --app UUID 550e8400-... --title "Default Paywall" --product-id UUID1 '
-        + '--remote-configs \'[{"locale":"en","data":"{}"}]\' --use-paywall-builder-v4 --screenshot-id null '
+        '<%= config.bin %> paywalls update --app UUID 550e8400-... --title "Default Paywall" '
+        + '--products \'[{"product_id":"UUID1"}]\' --remote-configs \'[{"locale":"en","data":"{}"}]\' --use-paywall-builder-v4 --screenshot-id null '
         + '--builder-screenshot-id null --web-purchase-url null',
     ];
 
     static override flags = {
         ...appIdFlag,
         ...paywallFieldFlags,
-        'file': Flags.string({
+        file: Flags.string({
             description: 'JSON file with the whole body, or - to read stdin. `id` in it is ignored.',
             exclusive: FIELD_FLAGS,
         }),
-        'product-id': Flags.string({ description: 'Product ID (UUID). Repeat for multiple.', multiple: true }),
-        'title': Flags.string({ description: 'Paywall title' }),
+        title: Flags.string({ description: 'Paywall title' }),
     };
 
     async run(): Promise<PaywallDTO> {
@@ -45,6 +44,11 @@ export default class PaywallsUpdate extends Command {
 
         if (!isValidUuid(args.paywall_id)) {
             this.error('Invalid paywall ID format.', { exit: 2 });
+        }
+
+        // oclif drops its own deprecation warning under --json
+        if (this.jsonEnabled() && flags['product-id'] !== undefined) {
+            process.stderr.write(`Warning: ${PRODUCT_ID_DEPRECATION}\n`);
         }
 
         let body: Record<string, unknown>;

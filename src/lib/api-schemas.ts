@@ -75,10 +75,19 @@ export type ProductDTO = {
     vendor_products: Record<string, VendorProductDTO>;
 };
 
+/** A product on a paywall, with the offer and the billing plan it is sold under. */
+export type PaywallProductDTO = {
+    billing_plan_id: null | string;
+    fallback_offer_id: null | string;
+    flow_product_id: null | string;
+    offer_id: null | string;
+    product_id: string;
+};
+
 /** One item of a paywall list: the list answer has no remote configs. */
 export type PaywallSummaryDTO = {
     id: string;
-    product_ids: string[];
+    products: PaywallProductDTO[];
     title: string;
 };
 
@@ -91,7 +100,7 @@ export type PaywallRemoteConfigDTO = {
 export type PaywallDTO = {
     builder_screenshot_id: null | number;
     id: string;
-    product_ids: string[];
+    products: PaywallProductDTO[];
     remote_configs: PaywallRemoteConfigDTO[];
     screenshot_id: null | number;
     title: string;
@@ -102,8 +111,8 @@ export type PaywallDTO = {
 /** The update body: every field is required, and `null` is a value where the type says so. */
 export type PaywallWriteRequestDTO = Omit<PaywallDTO, 'id'>;
 
-/** The create body: the fields after `product_ids` are optional, and the API fills in `false`, `null` and `[]`. */
-export type PaywallCreateRequestDTO = Partial<PaywallWriteRequestDTO> & Pick<PaywallWriteRequestDTO, 'product_ids' | 'title'>;
+/** The create body: the fields after `products` are optional, and the API fills in `false`, `null` and `[]`. */
+export type PaywallCreateRequestDTO = Partial<PaywallWriteRequestDTO> & Pick<PaywallWriteRequestDTO, 'products' | 'title'>;
 
 /** Flow lifecycle status. Values come from the server-side `FlowStatus` enum (e.g. draft, dirty, published). */
 export type FlowStatus = string;

@@ -122,11 +122,15 @@ in between, and refuses to clear the last store side. Introductory offers are re
 ```sh
 adapty paywalls list --app UUID [--page N] [--page-size N]
 adapty paywalls get --app UUID PAYWALL_ID
-adapty paywalls create --app UUID --title "Name" --product-id UUID1 [--product-id UUID2] [--remote-configs JSON] [--use-paywall-builder-v4] [--screenshot-id ID|null] [--builder-screenshot-id ID|null] [--web-purchase-url URL|null]
-adapty paywalls update --app UUID PAYWALL_ID (--file PATH|- | --title "Name" --product-id UUID1 [--product-id UUID2] --remote-configs JSON (--use-paywall-builder-v4 | --no-use-paywall-builder-v4) --screenshot-id ID|null --builder-screenshot-id ID|null --web-purchase-url URL|null)
+adapty paywalls create --app UUID --title "Name" --products JSON [--remote-configs JSON] [--use-paywall-builder-v4] [--screenshot-id ID|null] [--builder-screenshot-id ID|null] [--web-purchase-url URL|null]
+adapty paywalls update --app UUID PAYWALL_ID (--file PATH|- | --title "Name" --products JSON --remote-configs JSON (--use-paywall-builder-v4 | --no-use-paywall-builder-v4) --screenshot-id ID|null --builder-screenshot-id ID|null --web-purchase-url URL|null)
 ```
 
-`paywalls get` prints the remote configs and the other fields that `update` writes. `update` replaces the whole paywall:
+`paywalls get` and `paywalls list` print the products with their offers and billing plans, and `get` prints the remote
+configs and the other fields that `update` writes. `--products` takes the list that `get` printed:
+`[{"product_id": "UUID", "offer_id": null, "fallback_offer_id": null, "billing_plan_id": null, "flow_product_id": null}]`.
+`--product-id UUID` (repeatable) is deprecated: it sets products with no offer and no billing plan, and it cannot be
+combined with `--products`. `update` replaces the whole paywall:
 every field is required, and a missing one is refused, not reset. Send the file that `get --json` printed with `--file`
 (`adapty paywalls get ... --json > paywall.json`, edit it, then `adapty paywalls update ... --file paywall.json`), or give
 one flag for each field; `--file` and the field flags cannot be mixed. `null` clears a field that can be null. A write

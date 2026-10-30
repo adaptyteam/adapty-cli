@@ -13,12 +13,25 @@ const imageId = (input: string): Promise<number> => (/^\d+$/.test(input)
     ? Promise.resolve(Number(input))
     : Promise.reject(usageError('Expected an image ID (an integer) or null.')));
 
-/** The paywall fields after `title` and `product-id`; `create` takes them as optional, `update` as required. */
+export const PRODUCT_ID_DEPRECATION = 'The --product-id flag is deprecated: it sets products with no offer and no billing plan. '
+    + 'Use --products with a JSON list of {product_id, offer_id, fallback_offer_id, billing_plan_id, flow_product_id}.';
+
+/** The paywall fields after `title`; `create` takes them as optional, `update` as required. */
 export const paywallFieldFlags = {
     'builder-screenshot-id': Flags.custom<null | number>({
         description: 'Image ID of the builder screenshot, or null for none',
         parse: nullable(imageId),
     })(),
+    'product-id': Flags.string({
+        deprecated: { message: PRODUCT_ID_DEPRECATION },
+        description: 'Product ID (UUID). Repeat for multiple.',
+        exclusive: ['products'],
+        multiple: true,
+    }),
+    'products': Flags.string({
+        description: 'JSON array of the products: [{product_id, offer_id, fallback_offer_id, billing_plan_id, flow_product_id}]. '
+            + 'Send the list that `get` printed.',
+    }),
     'remote-configs': Flags.string({
         description: 'JSON array of remote config entries: [{locale, data}]. `data` is a JSON string. A write replaces the whole list; [] deletes all.',
     }),
@@ -39,6 +52,7 @@ export const paywallFieldFlags = {
 type PaywallFlags = {
     'builder-screenshot-id'?: null | number | undefined;
     'product-id'?: string[] | undefined;
+    'products'?: string | undefined;
     'remote-configs'?: string | undefined;
     'screenshot-id'?: null | number | undefined;
     'title'?: string | undefined;
@@ -50,7 +64,9 @@ type PaywallFlags = {
 export const paywallFieldsFromFlags = (flags: PaywallFlags): Record<string, unknown> => {
     const fields: Record<string, unknown> = {
         builder_screenshot_id: flags['builder-screenshot-id'],
-        product_ids: flags['product-id'],
+        products: flags.products === undefined
+            ? flags['product-id']?.map(id => ({ product_id: id }))
+            : parseJson(flags.products, '--products'),
         remote_configs: flags['remote-configs'] === undefined ? undefined : parseJson(flags['remote-configs'], '--remote-configs'),
         screenshot_id: flags['screenshot-id'],
         title: flags.title,
@@ -64,13 +80,20 @@ export const paywallFieldsFromFlags = (flags: PaywallFlags): Record<string, unkn
 /** Each field that `update` requires, with the flag that gives it. */
 const REQUIRED_FIELDS = [
     ['title', '--title'],
-    ['product_ids', '--product-id'],
+    ['products', '--products'],
     ['remote_configs', '--remote-configs'],
     ['use_paywall_builder_v4', '--use-paywall-builder-v4 or --no-use-paywall-builder-v4'],
     ['screenshot_id', '--screenshot-id'],
     ['builder_screenshot_id', '--builder-screenshot-id'],
     ['web_purchase_url', '--web-purchase-url'],
 ] as const;
+
+/** `create` takes the products from `--products` or from the deprecated `--product-id`, one of the two. */
+export const requireProducts = (fields: Record<string, unknown>): void => {
+    if (!('products' in fields)) {
+        throw usageError('Missing flags: --products, or the deprecated --product-id. Give one of the two.');
+    }
+};
 
 /** Every missing flag in one exit-2 error; nothing is sent. */
 export const requirePaywallFields = (fields: Record<string, unknown>): void => {
