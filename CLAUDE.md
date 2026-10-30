@@ -19,7 +19,11 @@ src/
   commands/          # oclif command classes
     auth/            # login (device flow OAuth), logout, revoke, whoami, status
     apps/            # list, get, create, update
-    products/        # list, get, create, update
+    products/        # list, get, create, update, push (to App Store Connect or Google Play, asks first);
+                     # create, get, update and push are in src/cli/commands/products
+    product-groups/  # list, create (App Store subscription groups; Google Play lists only); implementation in src/cli/commands/product-groups
+    product-prices/  # list (table or --csv), set (preview, then save; --file or --country; --dry-run, --wait, asks first);
+                     # implementation in src/cli/commands/product-prices
     product-offers/  # list, get, create, update (no delete: dashboard only); implementation in src/cli/commands/product-offers
     paywalls/        # list, get, create, update, placements (placements using a paywall)
     ab-tests/        # list, get, create, update, start, stop, replace, archive — regular paywall and flow tests;

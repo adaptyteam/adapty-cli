@@ -68,9 +68,41 @@ adapty apps update APP_ID [flags]
 ```sh
 adapty products list --app UUID [--page N] [--page-size N]
 adapty products get --app UUID PRODUCT_ID
-adapty products create --app UUID [flags]
-adapty products update --app UUID PRODUCT_ID [flags]
+adapty products create --app UUID --title ... --period monthly --access-level-id UUID [--price-usd 9.99] [store binding flags]
+adapty products update --app UUID PRODUCT_ID [--title ...] [--access-level-id UUID] [--price-usd 9.99]
 ```
+
+`products get` shows the USD price and the `store_status` of each store product. `update` reads the product and writes it
+back whole. The USD price is set once, while the product has none; a set price stays, and `--price-usd` on such a
+product exits 4 with the code `price_usd_not_applied`, after saving a title or access level given with it. To make a product in the stores,
+create it without a store binding and with `--price-usd`, then run `products push`; a store binding on `create` means
+the product already exists in that store.
+
+### Push to the stores, groups and prices
+
+```sh
+adapty products push PRODUCT_ID --app UUID --store play_store --store-product-id ID --android-base-plan-id ID
+adapty products push PRODUCT_ID --app UUID --store app_store --store-product-id ID --group-id ID --screenshot review.png
+adapty product-groups list --app UUID --store app_store|play_store [--page N] [--page-size N]
+adapty product-groups create --app UUID --store app_store --name "Premium"
+adapty product-prices list --app UUID --product UUID [--csv]
+adapty product-prices set --app UUID --product UUID --file prices.csv [--dry-run] [--wait] [--apply-to-existing-subscribers]
+adapty product-prices set --app UUID --product UUID --country DE --app-store-price 9.99 [--play-store-price 8.99] [--yes]
+```
+
+`products push` creates the product in the real store account, needs the USD price of the product (`--price-usd` of
+`products create` or `products update`) and the store credentials of the app, and asks first (`--yes`; exit 6 without a terminal). App Store errors
+after Apple has created the product are not reported by the push: read `products get` and look at `store_status`.
+`--screenshot` is a PNG or JPEG file and is required for the App Store push. `product-groups create` is for the App Store; Google Play subscriptions are made
+in the Google Play Console and `list --store play_store` shows them.
+`product-prices list --csv` prints the columns of the dashboard price download, and `set --file` takes that CSV back.
+`set` previews first (the store rounding), saves the rounded prices and asks before the save. A preview with errors saves
+nothing and exits 4 (row errors such as `invalid_region_code`, `invalid_price` or `missing_currency`; a refused save has the code
+`product_prices_store_validation_error`); a preview with no difference saves nothing and exits 0. `--dry-run` stops after the preview. The
+prices reach the store about a minute later: `--wait` polls the sync (exit 0 when all are synced; 4 with `price_sync_failed`
+when one failed, 4 with `price_sync_unknown` when a saved row is missing from the list or has another status; a timeout prints
+the last rows, sets `timed_out` and exits 0), and `list` shows the status of each row. Any failure after the save, including a
+network error or Ctrl+C during the wait, keeps its exit code and says `saved: true` with `saved_rows` in the error JSON.
 
 ### Product offers
 
@@ -295,8 +327,8 @@ adapty migrations status -m mig_7x2 --wait --timeout 5m --json
 ```
 
 `--wait` returns when the revision changes, the state is no longer `running`, or the polling budget
-cannot accommodate another pause. `--timeout` requires `--wait`: default 120s, range 1–600s,
-with formats such as `300`, `300s` or `5m`. In-flight requests and retries may take longer.
+cannot accommodate another pause. `--timeout` requires `--wait` and
+takes seconds or minutes, such as `300`, `300s` or `5m`; without it a short default budget applies. In-flight requests and retries may take longer.
 Exit **0** means the request succeeded, even when the migration is still running or has failed;
 inspect `migration.state`. Progress goes to stderr; Ctrl+C exits **130**.
 
