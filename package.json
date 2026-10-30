@@ -102,6 +102,9 @@
       "flows:config": {
         "description": "Read and write a flow's builder config"
       },
+      "flows:funnel": {
+        "description": "The screen funnel of a flow: where users leave it, and the filter values it takes"
+      },
       "flows:metrics": {
         "description": "Metrics of flows: lifetime rows, the metrics tree of one flow and its filter values"
       },

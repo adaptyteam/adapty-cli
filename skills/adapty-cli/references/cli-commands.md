@@ -159,6 +159,36 @@ adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-
 - **Not yours.** A flow or placement of another app answers 404 (exit 4), also inside a `list`.
 - **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
 
+## Flow screen funnel
+
+On which screen the users of a flow leave it: the funnel of one flow version, as the Funnel tab of the dashboard shows
+it. Read-only; one funnel is one flow version, never all versions.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `flows funnel get <flow_id>` | `--app`, `--date-from`, `--date-to`, `--date-type purchase_date\|profile_install_date` (all required, no default); `--flow-version-id` (a version ID; the published version when omitted), `--filter key=value[,value]` (repeatable), `--timezone`, `--csv` |
+| `flows funnel values <flow_id>` | `--app`; the filter keys and values that `get --filter` takes (`platform`, `subscription_state` and the keys the app has data for) |
+
+```sh
+adapty flows funnel values FLOW_UUID --app APP_UUID
+adapty flows funnel get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --date-type purchase_date --json
+adapty flows funnel get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --date-type profile_install_date --filter platform=iOS
+```
+
+- **Output.** `get` prints the summary (entered, completed, drop rate, revenue), then a row for each step (reached,
+  completed, drop rate, revenue) and the screens under a step that has more than one. `—` is a value that does not
+  apply (the revenue of an onboarding screen, a rate with nothing to divide); it is not 0. `--json` prints the whole
+  answer unchanged (`data` with `summary`, `steps[].screens[]` and `version_screens[]`, `meta: null`); `--csv` prints
+  the CSV that the dashboard downloads (the total row first), written by the server. `--csv` and
+  `--json` cannot be used together.
+- **Dates.** `--date-type purchase_date` counts the users whose flow session started in the period;
+  `profile_install_date` counts the profiles installed in the period. Without `--date-type`, `--date-from` or
+  `--date-to` the CLI exits 2 and sends no request. `--timezone` (an IANA name) sets the time zone of the days.
+- **Version.** Without `--flow-version-id` the answer is the published version, and says which (`version`,
+  `flow_version_id`). The CLI lists no versions.
+- **Errors.** A flow with no published version (and no `--flow-version-id`) is a 400; an unknown flow, a flow of
+  another app and a version of another flow are a 404. Each exits 4 with the route's text.
+
 ## Segments
 
 | Command                           | Required flags                           |

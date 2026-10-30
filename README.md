@@ -184,6 +184,26 @@ whole answer unchanged and `--csv` one row for each node. Read `values` first fo
 `--filter key=value` takes. `--based-on` is required on both `get` commands, and `--date-type` on `flows metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. The server checks
 every value and answers a wrong one with the valid ones (exit 4).
 
+#### Flow screen funnel
+
+Where the users of a flow leave it: the funnel of one flow version, step by step and screen by screen (the Funnel
+tab of the dashboard; read-only).
+
+```sh
+adapty flows funnel values FLOW_ID --app UUID
+adapty flows funnel get FLOW_ID --app UUID --date-from 2026-09-01 --date-to 2026-10-21 \
+  --date-type purchase_date|profile_install_date [--flow-version-id UUID] \
+  [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--csv]
+```
+
+`get` prints a summary (entered, completed, drop rate, revenue), then a row for each step and, under a step with more
+than one screen, a row for each of its screens; `—` is a value that does not apply (it is not 0). `--json` prints the
+whole answer unchanged and `--csv` the CSV that the dashboard downloads, as the server writes it. Without
+`--flow-version-id` the funnel is the one of the published version; the CLI lists no versions. `--date-from`,
+`--date-to` and `--date-type` are required; there are no defaults. Read `values` first for the keys and values that
+`--filter key=value` takes. A flow with no published version, an unknown flow and a version of another flow answer
+with the route's text (exit 4).
+
 ### Access Levels
 
 ```sh
