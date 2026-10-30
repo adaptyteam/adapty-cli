@@ -36,6 +36,11 @@ export type ErrorJson = WizardDiagnostics & {
      * which says null for no wait. Absent when the server said nothing.
      */
     retry_after_seconds?: number | null | undefined;
+    /** A failure after a write: the write went through, a later step did not. */
+    saved?: boolean | undefined;
+    saved_rows?: number | undefined;
+    /** The last read of a store sync, when the failure is about what was read. */
+    sync?: unknown;
     status?: number | undefined;
     status_code?: number | undefined;
 };

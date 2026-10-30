@@ -6,7 +6,7 @@ export { migrations } from './resource.js';
 export type { RunActionInput } from './action.js';
 export type { CloseMigrationInput, CloseOutcome } from './close.js';
 export type { CreateMigrationInput } from './create.js';
-export type { MigrationApi, WaitOptions } from './resource.js';
+export type { MigrationApi } from './resource.js';
 export type {
     Action,
     ActionKind,
