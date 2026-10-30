@@ -1,6 +1,6 @@
-import { csvLine } from './analytics/csv.js';
+import { csvLine } from './csv.js';
 
-import type { Cell } from './analytics/csv.js';
+import type { Cell } from './csv.js';
 import type { FilterValueNode, FilterValues, Metrics, MetricsNode, MetricsTree } from '../../sdk/adapty/index.js';
 
 /**

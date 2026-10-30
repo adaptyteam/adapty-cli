@@ -44,6 +44,8 @@ Everything here would be the same for any HTTP API.
 - `session.ts` — `SessionStore` is a port; `createFileSessionStore(dir)` is the file implementation.
   The directory comes from the caller: the sdk touches neither `HOME` nor `process.env`.
 - `clock.ts` — time as a dependency, so retry and device flow are testable without waiting.
+- `poll.ts` — `pollUntil`: read, then re-read on an interval until a predicate holds or the budget runs
+  out; `WaitOptions` and the default budget every `--wait` shares.
 - `auth/device-flow.ts` — RFC 8628 orchestration with every effect outside it: network behind a
   port, time behind `Clock`, cancellation behind a signal.
 - `validation.ts` — `assertValid(issues)`, the only place a rule's problems become a throw.
@@ -53,7 +55,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `migrations`, `placements`, `productOffers`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -89,7 +91,8 @@ and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port
 
 `product-offers/` is the apps shape too, except that `update` reads the stored offer first: the
 server replaces the whole offer, so `validateMergedProductOffer` checks the merge after the read and
-before the write.
+before the write. `products` does the same for its update, and `product-prices` previews before it saves: the CLI
+decides on the preview (`decideSave`) and saves the rows of the preview answer.
 
 `flows` and `placements` hold only `metrics` (`list`, `get` and `values`) for now: the other operations of
 these entities still live in the old stack and move into the resource when their topic is ported. What the two
@@ -189,7 +192,7 @@ text or JSON.
   failures warn without failing creation. The SDK remains unaware of this local selection.
 - `views/` — plain functions, value in, string out. `views/analytics/` turns the one answer shape of the
   analytics operations into the CSV (`segments.ts`), reading the fields from the answer itself, so a field the
-  API adds is never dropped, and into the human table (`human.ts`): one row per group, total first, the main
+  API adds is never dropped, and into the human table (`human.ts`, its table in `views/table.ts`): one row per group, total first, the main
   numbers that each operation names and one column per point; it says under the table when `--json` and `--csv`
   give more fields. `views/metrics.ts` prints the metrics tree and rows (table,
   CSV) and the filter values.
@@ -317,7 +320,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
 most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows metrics`, `migrations`,
-`placements metrics`, `product-offers` and `skills`.
+`placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push` and `skills`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

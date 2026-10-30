@@ -1,3 +1,5 @@
+import { table } from '../table.js';
+
 import {
     formatValue, line, NO_DATA, NO_VALUE, pointId, pointLabel, renderCsv, sectionsOf,
 } from './segments.js';
@@ -137,15 +139,6 @@ const periodLine = (query: Query): string => {
 
     return [range(filters.date), text(query.period_unit), timezone, filtersOf(filters)]
         .filter(part => part !== undefined).join(', ');
-};
-
-/** Rows of cells, the first column left-aligned, the numbers right-aligned, two spaces between. */
-const table = (rows: readonly string[][]): string => {
-    const widths = rows[0]?.map((_, column) => Math.max(...rows.map(row => row[column]?.length ?? 0))) ?? [];
-
-    return rows.map(row => row.map((cell, column) => (column === 0
-        ? cell.padEnd(widths[column] ?? 0)
-        : cell.padStart(widths[column] ?? 0))).join('  ').trimEnd()).join('\n');
 };
 
 const fieldOf = (value: object, name: string): unknown => (value as Record<string, unknown>)[name];

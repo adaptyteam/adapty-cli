@@ -1,8 +1,10 @@
+import { Flags } from '@oclif/core';
+
 import { MigrationCommand } from '../../../base/adapty/index.js';
 import { migrationFlags } from '../../../input/migration.js';
+import { timeoutFlag } from '../../../input/wait.js';
 import { renderEnvelope } from '../../../views/migrations/envelope/envelope.js';
 
-import { waitFlags } from './lib/flags.js';
 import { pollNotice } from './lib/notice.js';
 
 import type { Envelope } from '../../../../sdk/adapty/index.js';
@@ -37,7 +39,11 @@ export default class Status extends MigrationCommand {
         },
     ];
 
-    static override flags = { ...migrationFlags, ...waitFlags };
+    static override flags = {
+        ...migrationFlags,
+        timeout: timeoutFlag,
+        wait: Flags.boolean({ description: 'Poll for a revision or state change, then return the latest response' }),
+    };
 
     async run(): Promise<Envelope> {
         const { flags } = await this.parse(Status);
