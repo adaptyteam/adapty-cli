@@ -11,7 +11,10 @@ import { feedback } from './feedback/index.js';
 import { flows } from './flows.js';
 import { migrations } from './migrations/index.js';
 import { placements } from './placements.js';
+import { productGroups } from './product-groups/index.js';
 import { productOffers } from './product-offers/index.js';
+import { productPrices } from './product-prices/index.js';
+import { products } from './products/index.js';
 
 import type { AbTestsApi } from './ab-tests/index.js';
 import type { AccessLevelsApi } from './access-levels.js';
@@ -22,7 +25,10 @@ import type { FeedbackApi } from './feedback/index.js';
 import type { FlowsApi } from './flows.js';
 import type { MigrationApi } from './migrations/index.js';
 import type { PlacementsApi } from './placements.js';
+import type { ProductGroupsApi } from './product-groups/index.js';
 import type { ProductOffersApi } from './product-offers/index.js';
+import type { ProductPricesApi } from './product-prices/index.js';
+import type { ProductsApi } from './products/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
@@ -41,6 +47,8 @@ export {
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
 export { offerTypes } from './product-offers/index.js';
+export { decideSave, isFailed, isPending, isSynced, storePrices, storesWritten } from './product-prices/index.js';
+export { productPeriods, productStores } from './products/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
@@ -114,7 +122,6 @@ export type {
     ResourceRef,
     Step,
     StepStatus,
-    WaitOptions,
     WizardError,
 } from './migrations/index.js';
 export type {
@@ -125,6 +132,26 @@ export type {
     StoreOffer,
     UpdateProductOfferInput,
 } from './product-offers/index.js';
+export type { CreatedProductGroup, CreateProductGroupInput, ProductGroup } from './product-groups/index.js';
+export type {
+    PreviewPricesInput,
+    PriceDifferenceRow,
+    PricePreview,
+    PriceRow,
+    PriceRowError,
+    PriceRowInput,
+    PriceWriteRow,
+    SaveDecision,
+    StorePrice,
+} from './product-prices/index.js';
+export type {
+    CreateProductInput,
+    Product,
+    ProductPeriod,
+    ProductStore,
+    PushProductInput,
+    UpdateProductInput,
+} from './products/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
 export type { PlacementsApi } from './placements.js';
 
@@ -160,7 +187,10 @@ export type Adapty = {
     flows: FlowsApi;
     migrations: MigrationApi;
     placements: PlacementsApi;
+    productGroups: ProductGroupsApi;
     productOffers: ProductOffersApi;
+    productPrices: ProductPricesApi;
+    products: ProductsApi;
 };
 
 /**
@@ -215,6 +245,9 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         // between polls, and a test must be able to do that instantly.
         migrations: migrations(wizard, options.clock ?? systemClock),
         placements: placements(http),
+        productGroups: productGroups(http),
         productOffers: productOffers(http),
+        productPrices: productPrices(http, options.clock ?? systemClock),
+        products: products(http),
     };
 };

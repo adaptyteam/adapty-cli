@@ -1,6 +1,6 @@
 import { Errors, Flags } from '@oclif/core';
 
-import { exitCode } from '../../../../errors.js';
+import { exitCode } from '../errors.js';
 
 const DURATION_PATTERN = /^(\d+)(m|s)?$/;
 
@@ -22,16 +22,11 @@ const parseDuration = (input: string): Promise<number> => {
 const duration = Flags.custom<number>({ parse: async input => parseDuration(input) });
 
 /**
- * Keep defaults out of these flags so dependsOn can detect a missing --wait.
+ * Keep the default out of this flag so dependsOn can detect a missing --wait.
  * The SDK supplies the default timeout.
  */
-export const waitFlags = {
-    timeout: duration({
-        dependsOn: ['wait'],
-        description: 'Polling budget with --wait: 1-600s, default 120s (e.g. 300, 300s, 5m); in-flight requests may take longer',
-        helpValue: 'DURATION',
-    }),
-    wait: Flags.boolean({
-        description: 'Poll for a revision or state change, then return the latest response',
-    }),
-};
+export const timeoutFlag = duration({
+    dependsOn: ['wait'],
+    description: 'Polling budget with --wait: 1-600s, default 120s (e.g. 300, 300s, 5m); in-flight requests may take longer',
+    helpValue: 'DURATION',
+});

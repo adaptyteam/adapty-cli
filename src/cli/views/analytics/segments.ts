@@ -1,7 +1,7 @@
-import { csvLine } from './csv.js';
+import { csvLine } from '../csv.js';
 
-import type { Cell } from './csv.js';
 import type { AnalyticsSegment } from '../../../sdk/adapty/index.js';
+import type { Cell } from '../csv.js';
 
 /**
  * The CSV of the six analytics operations and the summary of a period, made from the answer itself: every field
