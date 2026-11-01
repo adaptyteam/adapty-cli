@@ -14,6 +14,8 @@ export {
     revenueBasisFlag,
 } from './flags.js';
 export {
+    abTestIdsFlag,
+    abTestTypeFlag,
     dateTypeFlag,
     depthFlag,
     flowIdArg,

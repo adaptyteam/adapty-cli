@@ -16,6 +16,18 @@ const placementParser = idParser('placement', 'Run `adapty placements list --app
 const segmentParser = idParser('segment', 'Run `adapty segments list --app <app>` to find it.');
 const contentParser = idParser('content', 'Run `adapty paywalls list --app <app>` or `adapty flows list --app <app>` to find it.');
 
+/** What the numbers of the A/B metrics mean, in the help of the commands that print them. */
+export const metricsNumbersHelp = {
+    notComputed: 'P2BB is the chance, in percent, that an arm is the best by revenue per viewer. '
+        + 'P2BB 0 on every arm means it is not computed (no views with purchases, more payers than viewers, or a model failure); '
+        + 'P2BB 0 on one arm beside an arm above 0 is a real 0. '
+        + 'The same P2BB on every arm with no purchase on any arm means it is not computed. '
+        + 'With no views on any arm there is no result, whatever the P2BB. ',
+    range: 'The range is the 99 % range of revenue per 1,000 unique viewers (low / mean / high); '
+        + 'with fewer than 50 payers (paying users of the arm) it is 0, the mean and two times the mean, and with no payers 0, 0 and 0. ',
+    pValue: 'The p-value exists only for a flow test with exactly two arms.',
+};
+
 export const abTestIdArg = {
     ab_test_id: Args.string({
         description: 'A/B test ID (UUID)',

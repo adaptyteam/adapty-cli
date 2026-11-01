@@ -49,6 +49,10 @@ const idsFlag = (entity: string, parse: (input: string) => Promise<string>) => (
     }),
 });
 
+export const abTestIdsFlag = idsFlag(
+    'A/B test',
+    uuidParser('Invalid A/B test ID format in --ids. Run `adapty ab-tests list` to find the test IDs.'),
+);
 export const flowIdsFlag = idsFlag('Flow', uuidParser('Invalid flow ID format in --ids.'));
 export const paywallIdsFlag = idsFlag('Paywall', uuidParser('Invalid paywall ID format in --ids.'));
 export const placementIdsFlag = idsFlag('Placement', uuidParser('Invalid placement ID format in --ids.'));
@@ -57,6 +61,14 @@ export const placementIdsFlag = idsFlag('Placement', uuidParser('Invalid placeme
 export const placementTypeFlag = {
     type: Flags.string({
         description: 'Placement type, as `placements list` shows it: flow or paywall',
+        required: true,
+    }),
+};
+
+/** The A/B test type the metrics routes require; the server refuses one that does not match. */
+export const abTestTypeFlag = {
+    type: Flags.string({
+        description: 'A/B test type: paywall or flow, as `ab-tests get` shows it; a type that does not match the test is refused',
         required: true,
     }),
 };
@@ -71,7 +83,7 @@ export const metricsCsvFlag = {
 export const depthFlag = {
     depth: Flags.integer({
         default: 1,
-        description: 'Levels of the tree to print under Total (--json and --csv always have the whole tree)',
+        description: 'Levels of the tree to print (--json and --csv always have the whole tree)',
         min: 1,
     }),
 };

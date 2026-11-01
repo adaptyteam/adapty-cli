@@ -148,6 +148,12 @@ adapty ab-tests start --app UUID TEST_ID --placement UUID (--segment UUID | --al
 adapty ab-tests stop --app UUID TEST_ID (--winner ID | --other ID | --no-content) [--yes]
 adapty ab-tests replace --app UUID TEST_ID --title "..." --placement UUID (--paywalls JSON | --flows JSON) [--goal TEXT] [--yes]
 adapty ab-tests archive --app UUID TEST_ID [--yes]
+adapty ab-tests metrics list --app UUID --type paywall|flow --ids TEST_ID,TEST_ID [--csv]
+adapty ab-tests metrics total TEST_ID --app UUID --type paywall|flow
+adapty ab-tests metrics values TEST_ID --app UUID --type paywall|flow
+adapty ab-tests metrics get TEST_ID --app UUID --type paywall|flow \
+  [--date-from DAY --date-to DAY --date-type purchase_date|profile_install_date] [--granularity day|week|month|quarter|year] \
+  [--group-by country|store] [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
 ```
 
 Arms are a JSON array: `[{"paywall_id":"<id>","weight":50,"title":"A"}, ...]` (`--flows`: the same with `flow_id`; `title`
@@ -225,6 +231,8 @@ adapty placements metrics get PLACEMENT_ID --app UUID --type paywall \
 whole answer unchanged and `--csv` one row for each node. Read `values` first for the keys and values that
 `--filter key=value` takes. `--based-on` is required on every `get` command, and `--date-type` on `flows metrics get` and `paywalls metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. A paywall and a paywall placement need a date range (the server refuses a `get` without one). The paywall answers have 21 metrics and no `level` on a node: the root is the `Total` row, its children are in `items`, and the CSV `level` cell is empty for a child. The server checks
 every value and answers a wrong one with the valid ones (exit 4).
+
+`ab-tests metrics` reads the results of A/B tests: weight, revenue, P2BB (the chance, in percent, that an arm is the best by revenue per viewer; 0 on every arm means it is not computed), the 99 % range per 1,000 viewers and, for a flow test with two arms, the p-value. `--type` is the stored type of the test. `list` prints a Total line for each test; `get` and `total` print none. Read the leader in `total`, not in a period of `get`. A paywall test needs the date range and `--date-type` on `get`.
 
 ### Access Levels
 

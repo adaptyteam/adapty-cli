@@ -1,6 +1,7 @@
 import { assertValid } from '../../core/validation.js';
 
 import { listQuery } from './list.js';
+import { abTestMetrics } from './metrics.js';
 import { toStartRequest, validateStart } from './start.js';
 import { toStopRequest, validateStop } from './stop.js';
 import { toWriteRequest, validateWrite } from './write.js';
@@ -28,6 +29,8 @@ export const abTests = (http: Http) => {
         get: (appId: string, abTestId: string) => http.get<AbTestDetail>(`${base(appId)}/${abTestId}`),
         list: (appId: string, params?: ListAbTestsParams) =>
             http.get<Paginated<AbTestSummary>>(base(appId), { query: listQuery(params) }),
+
+        metrics: abTestMetrics(http, base),
 
         /** The test read back, in state `archived`. A live test is refused by the server. */
         archive: (appId: string, abTestId: string) => http.delete<AbTestDetail>(`${base(appId)}/${abTestId}`),

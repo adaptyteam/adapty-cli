@@ -55,7 +55,12 @@ export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
 export type {
+    AbMetricsNode,
     AbTestDetail,
+    AbTestMetricsDetail,
+    AbTestMetricsRow,
+    AbTestMetricsRows,
+    AbTestMetricsTotal,
     AbTestsApi,
     AbTestSummary,
     AbTestType,
