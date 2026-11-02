@@ -25,7 +25,8 @@ export const metricsNumbersHelp = {
         + 'With no views on any arm there is no result, whatever the P2BB. ',
     range: 'The range is the 99 % range of revenue per 1,000 unique viewers (low / mean / high); '
         + 'with fewer than 50 payers (paying users of the arm) it is 0, the mean and two times the mean, and with no payers 0, 0 and 0. ',
-    pValue: 'The p-value exists only for a flow test with exactly two arms.',
+    pValue: 'The p-value exists only for a flow test with exactly two arms; it is empty (null in --json) when it is not computed '
+        + 'or with three or more arms.',
 };
 
 export const abTestIdArg = {

@@ -7,8 +7,9 @@ import type { AbTestMetricsRows } from '../../../../sdk/adapty/index.js';
 
 export default class AbTestsMetricsList extends AdaptyCommand {
     static override description = 'Show the lifetime metrics of several A/B tests, a Total line for each test and a line for each arm (the dashboard A/B tests list). '
-        + `${metricsNumbersHelp.notComputed}${metricsNumbersHelp.pValue} `
-        + 'A paywall test arm carries only the mean of the range, no low and no high';
+        + `${metricsNumbersHelp.notComputed}${metricsNumbersHelp.range}`
+        + 'A paywall test arm carries only the mean of the range, no low and no high. '
+        + metricsNumbersHelp.pValue;
 
     static override examples = [
         '<%= config.bin %> ab-tests metrics list --app APP_UUID --type paywall --ids TEST_UUID,TEST_UUID',
