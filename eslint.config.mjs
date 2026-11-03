@@ -69,8 +69,10 @@ const correctness = tseslint.config(
             // doc-stability marker from inflating the package's public engines contract:
             //   readline/promises   — shipped in 17.0.0, labelled Stable in 22.17
             //   import.meta.dirname — shipped in 20.11.0, labelled Stable in 22.16
+            //   ReadableStream      — a global since 18.0.0, labelled Stable in 22.15; fetch's
+            //                         Response.body is one on every version we support
             'n/no-unsupported-features/node-builtins': ['error', {
-                ignores: ['readline/promises', 'import.meta.dirname'],
+                ignores: ['readline/promises', 'import.meta.dirname', 'ReadableStream'],
             }],
         },
     },

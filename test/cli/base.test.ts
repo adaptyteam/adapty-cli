@@ -363,7 +363,6 @@ describe('cli base commands', () => {
         process.env.ADAPTY_TOKEN = 'env-token';
 
         const stub = sinon.stub(globalThis, 'fetch').callsFake(() => Promise.resolve(new Response(
-            // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Web streams exist in Node 22; only their stability label changed later.
             new ReadableStream({
                 pull(controller) {
                     process.emit('SIGINT', 'SIGINT');
