@@ -787,16 +787,12 @@ const fixture = async <T>(name: string): Promise<T> =>
 describe('paywalls metrics and paywall placements metrics', () => {
     let fetchStub: sinon.SinonStub | undefined;
     let byPlacement: PaywallMetricsTree;
-    let byStore: PaywallMetricsTree;
     let placementByAudience: PaywallMetricsTree;
-    let placementByPaywall: PaywallMetricsTree;
 
     before(async () => {
         // Real dashboard answers in the form of the Developer API: the Total row is the root, the other rows its items
         byPlacement = await fixture('paywall-metrics-by-placement.json');
-        byStore = await fixture('paywall-metrics-by-store.json');
         placementByAudience = await fixture('placement-paywall-metrics-by-audience.json');
-        placementByPaywall = await fixture('placement-paywall-metrics-by-paywall.json');
     });
 
     beforeEach(() => {
@@ -818,7 +814,7 @@ describe('paywalls metrics and paywall placements metrics', () => {
 
     describe('paywalls metrics get', () => {
         it('sends every flag in the body, --group-by as segmentation_by, and --json prints the answer unchanged', async () => {
-            fetchStub = mockFetch([byStore]);
+            fetchStub = mockFetch([byPlacement]);
 
             const { stdout } = await runCommand([
                 ...PAYWALL_GET_BARE.split(' '),
@@ -833,7 +829,7 @@ describe('paywalls metrics and paywall placements metrics', () => {
                 '--json',
             ]);
 
-            expect(JSON.parse(stdout)).to.deep.equal(byStore);
+            expect(JSON.parse(stdout)).to.deep.equal(byPlacement);
 
             const call = callOf(fetchStub);
 
@@ -857,13 +853,9 @@ describe('paywalls metrics and paywall placements metrics', () => {
             const { stdout } = await runCommand(PAYWALL_GET);
 
             expect(stdout).to.equal([
-                'Total                  views    1  purchases 61  trials 0  revenue 603.72',
-                '  Secondary placement  views    0  purchases  0  trials 0  revenue   0.00',
-                '    2015-01-01         views    0  purchases  0  trials 0  revenue   0.00',
-                '    2016-01-01         views    0  purchases  0  trials 0  revenue   0.00',
-                '  Main placement       views 2005  purchases 61  trials 0  revenue 603.72',
-                '    2015-01-01         views    0  purchases  0  trials 0  revenue   0.00',
-                '    2016-01-01         views    0  purchases  0  trials 0  revenue   0.00',
+                'Total             views    1  purchases 61  trials 0  revenue 603.72',
+                '  Main placement  views 2005  purchases 61  trials 0  revenue 603.72',
+                '    2015-01-01    views    0  purchases  0  trials 0  revenue   0.00',
                 '',
             ].join('\n'));
 
@@ -883,8 +875,8 @@ describe('paywalls metrics and paywall placements metrics', () => {
 
             expect(lines[0]).to.equal(`path,level,title,${PAYWALL_COLUMNS.join(',')}`);
             expect(lines[1]?.startsWith('Total,root,Total,603.7200000000001,')).to.equal(true);
-            expect(lines[2]?.startsWith('Total > Secondary placement,,Secondary placement,')).to.equal(true);
-            expect(lines[3]?.startsWith('Total > Secondary placement > 2015-01-01,,2015-01-01,')).to.equal(true);
+            expect(lines[2]?.startsWith('Total > Main placement,,Main placement,')).to.equal(true);
+            expect(lines[3]?.startsWith('Total > Main placement > 2015-01-01,,2015-01-01,')).to.equal(true);
 
             // `root` once; no other row has a level, so every other row has an empty second cell
             expect(lines.slice(2).every(line => /^[^,]+,,/.test(line))).to.equal(true);
@@ -984,13 +976,9 @@ describe('paywalls metrics and paywall placements metrics', () => {
             const shallow = await runCommand(PLACEMENT_GET);
 
             expect(shallow.stdout).to.equal([
-                'Total                views 4005  purchases 126  trials 0  revenue 1253.07',
-                '  Audience 6636      views 4000  purchases 126  trials 0  revenue 1253.07',
-                '    2015-01-01       views    0  purchases   0  trials 0  revenue    0.00',
-                '    2016-01-01       views    0  purchases   0  trials 0  revenue    0.00',
-                '  Segment placement  views    0  purchases   0  trials 0  revenue    0.00',
-                '    2015-01-01       views    0  purchases   0  trials 0  revenue    0.00',
-                '    2016-01-01       views    0  purchases   0  trials 0  revenue    0.00',
+                'Total            views 4005  purchases 126  trials 0  revenue 1253.07',
+                '  Audience 6636  views 4000  purchases 126  trials 0  revenue 1253.07',
+                '    2015-01-01   views    0  purchases   0  trials 0  revenue    0.00',
                 '',
             ].join('\n'));
 
@@ -1013,7 +1001,7 @@ describe('paywalls metrics and paywall placements metrics', () => {
         });
 
         it('splits by paywall, and the server refusal of a flow placement or a missing date is the error (exit 4)', async () => {
-            fetchStub = mockFetch([placementByPaywall]);
+            fetchStub = mockFetch([{ data: { purchases: 0, revenue: 0, title: 'Total', trials: 0, views: 0, items: [{ purchases: 0, revenue: 0, title: 'Video Paywall', trials: 0, views: 0 }] } }]);
 
             const ok = await runCommand(`${PLACEMENT_GET_BARE} --date-from 2015-01-01 --date-to 2026-10-27 --date-type purchase_date --based-on paywall`);
 
