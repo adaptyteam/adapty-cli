@@ -119,32 +119,37 @@ adapty placements update <id> --app <APP> --title "Default" --developer-id defau
 3. Mutate the matching `paywall` entries client-side; keep every other entry (A/B test and crossplacement entries too) unchanged.
 4. `placements update <ID> --app <APP> --title ... --developer-id ... --audiences '...'` → write back.
 
-## Flow and placement metrics
+## Flow, paywall and placement metrics
 
-The numbers of the dashboard metrics page of a flow and of a flow placement. Read-only; the Developer API gives the
-dashboard's tree and the CLI prints it. Every node and every row has the same 27 metrics (`views`, `purchases`,
-`trials`, `revenue` and 23 more); "no data" is `0`, never `null`, and a rate can be above 100, as on the dashboard.
+The numbers of the dashboard metrics page of a flow, a paywall and a flow or paywall placement. Read-only; the Developer API gives the
+dashboard's tree and the CLI prints it. Every node and every row of a flow or flow placement has the same 27 metrics (`views`, `purchases`,
+`trials`, `revenue` and 23 more); a paywall or paywall placement has 21 (the same names, without the flow-only ones; `in_current_state` is a flag). "No data" is `0`, never `null`, and a rate can be above 100, as on the dashboard.
 
 | Command | Required flags / notes |
 |---------|------------------------|
 | `flows metrics list` | `--app`, `--ids <flow_id>,<flow_id>` (repeatable); one lifetime row for each flow; `--csv` |
 | `flows metrics get <flow_id>` | `--app`, `--date-from` and `--date-to` (give both), `--date-type purchase_date\|profile_install_date` (no default); `--based-on placement\|audience` (no default), `--granularity day\|week\|month\|quarter\|year`, `--filter key=value[,value]` (repeatable), `--timezone`, `--depth N`, `--csv` |
 | `flows metrics values <flow_id>` | `--app`; the filter keys and values that `get --filter` takes |
-| `placements metrics list` | `--app`, `--type flow`, `--ids <placement_id>,<placement_id>` (repeatable); one lifetime row for each placement; `--csv` |
-| `placements metrics get <placement_id>` | `--app`, `--type flow`; the flags of `flows metrics get` (`--date-from`, `--date-to` and `--date-type` only together), with `--based-on audience\|flow\|placement` (required), and `--group-by country\|store` |
-| `placements metrics values <placement_id>` | `--app`, `--type flow` |
+| `paywalls metrics list` | `--app`, `--ids <paywall_id>,<paywall_id>` (repeatable); one lifetime row for each paywall; `--csv` |
+| `paywalls metrics get <paywall_id>` | `--app`, `--date-from` and `--date-to` (the server needs a range), `--date-type purchase_date\|profile_install_date` (no default); `--based-on placement\|audience` (no default), `--group-by product\|store\|country`, `--granularity day\|week\|month\|quarter\|year`, `--filter key=value[,value]` (repeatable), `--timezone`, `--depth N`, `--csv` |
+| `paywalls metrics values <paywall_id>` | `--app`; the filter keys and values that `get --filter` takes |
+| `placements metrics list` | `--app`, `--type flow\|paywall`, `--ids <placement_id>,<placement_id>` (repeatable); one lifetime row for each placement; `--csv` |
+| `placements metrics get <placement_id>` | `--app`, `--type flow\|paywall`; the flags of `flows metrics get` (flow: `--date-from`, `--date-to` and `--date-type` only together; paywall: a range and `--date-type` are needed), with `--based-on audience\|flow\|placement` for a flow placement or `audience\|paywall` for a paywall placement (required), and `--group-by country\|store` (flow) or `product\|store\|country` (paywall) |
+| `placements metrics values <placement_id>` | `--app`, `--type flow\|paywall` |
 
 ```sh
 adapty placements list --app APP_UUID --type flow
 adapty flows metrics values FLOW_UUID --app APP_UUID
 adapty flows metrics get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --based-on placement --filter country=US
 adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-on flow --group-by store --json
+adapty paywalls metrics get PAYWALL_UUID --app APP_UUID --date-from 2026-09-01 --date-to 2026-10-21 --date-type purchase_date --based-on placement
+adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type paywall --date-from 2026-09-01 --date-to 2026-10-21 --date-type purchase_date --based-on audience
 ```
 
 - **Output.** `get` prints a `Total` line (views, purchases, trials, revenue), then the first level of the tree under
   it; `--depth N` shows N levels, and the points of a period (`--granularity`) come right under their node.
   `--json` prints the whole answer unchanged; `--csv` prints one row for each node of the whole tree
-  (`path,level,title`, then the 27 metrics). `--csv` and `--json` cannot be used together.
+  (`path,level,title`, then the numeric metrics; the `level` cell is `root` on the first row and empty for a node of a paywall tree, which has no `level`). `--csv` and `--json` cannot be used together.
 - **Filters.** Read `values` first: the top value of each group is the key, the leaves are its values.
   `--filter country=US,DE` (or the same key twice) keeps any of them; `\,` is a comma inside a value; different
   keys combine.
@@ -152,11 +157,12 @@ adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-
   `--type` comes back as exit 4 with the valid values; the CLI does not check them.
 - **`--type`.** The placement commands need the placement type, as `placements list` shows it, and refuse a
   placement of another type.
-- **`--based-on`.** Both `get` commands need it: there is no default. Without it the CLI exits 2 and sends no request.
-- **Dates.** A flow needs `--date-from`, `--date-to` and `--date-type` (no default date type; without
-  `--date-type` the CLI exits 2). A flow placement takes the range and `--date-type` only together; neither gives
-  lifetime. One without the other is the server's 400 (exit 4).
-- **Not yours.** A flow or placement of another app answers 404 (exit 4), also inside a `list`.
+- **`--based-on`.** Every `get` command needs it: there is no default. Without it the CLI exits 2 and sends no request.
+- **Dates.** A flow or a paywall needs `--date-type` (no default; without it the CLI exits 2); a flow also needs
+  `--date-from` and `--date-to`, a paywall and a paywall placement need them too (the server's 400 without them, exit 4).
+  A flow placement takes the range and `--date-type` only together; neither gives lifetime. One without the other is
+  the server's 400 (exit 4).
+- **Not yours.** A flow, paywall or placement of another app answers 404 (exit 4), also inside a `list`.
 - **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
 
 ## Segments

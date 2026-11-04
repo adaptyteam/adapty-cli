@@ -15,16 +15,17 @@ import {
 import { appIdFlag } from '../../../input/app.js';
 import { metricsTreeCsv, renderMetricsTree } from '../../../views/metrics.js';
 
-import type { MetricsTree } from '../../../../sdk/adapty/index.js';
+import type { MetricsTree, PaywallMetricsTree } from '../../../../sdk/adapty/index.js';
 
 export default class PlacementsMetricsGet extends AdaptyCommand {
     static override args = { ...placementIdArg };
-    static override description = 'Show the metrics of one flow placement, lifetime or for a period, split by flow, audience or placement (the dashboard metrics page)';
+    static override description = 'Show the metrics of one flow placement or paywall placement (the dashboard metrics page). A flow placement: lifetime or for a period, split by flow, audience or placement. A paywall placement: for a period, split by audience or paywall';
 
     static override examples = [
         '<%= config.bin %> placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-on flow',
         '<%= config.bin %> placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-on audience --group-by country --date-from 2026-09-01 --date-to 2026-10-21 --date-type purchase_date',
         '<%= config.bin %> placements metrics get PLACEMENT_UUID --app APP_UUID --type flow --based-on flow --csv',
+        '<%= config.bin %> placements metrics get PLACEMENT_UUID --app APP_UUID --type paywall --based-on audience --date-from 2026-09-01 --date-to 2026-10-21 --date-type purchase_date',
     ];
 
     static override flags = {
@@ -32,13 +33,13 @@ export default class PlacementsMetricsGet extends AdaptyCommand {
         ...placementTypeFlag,
         ...metricsQueryFlags,
         ...dateTypeFlag,
-        'based-on': Flags.string({ description: 'What the first level of the tree splits by: audience, flow or placement', required: true }),
-        'group-by': Flags.string({ description: 'Split each audience by: country or store' }),
+        'based-on': Flags.string({ description: 'What the first level of the tree splits by: audience, flow or placement for a flow placement; audience or paywall for a paywall placement', required: true }),
+        'group-by': Flags.string({ description: 'Group by: country or store for a flow placement; product, store or country for a paywall placement' }),
         ...metricsCsvFlag,
         ...depthFlag,
     };
 
-    async run(): Promise<MetricsTree> {
+    async run(): Promise<MetricsTree | PaywallMetricsTree> {
         const { args, flags } = await this.parse(PlacementsMetricsGet);
         const input = metricsInput(flags);
 

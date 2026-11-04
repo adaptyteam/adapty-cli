@@ -160,9 +160,9 @@ A freshly created flow has no config until the first `flows config update`; `flo
 until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of
 overwriting a concurrent dashboard edit.
 
-#### Flow and placement metrics
+#### Flow, paywall and placement metrics
 
-The numbers of the dashboard metrics page of a flow and of a flow placement (read-only).
+The numbers of the dashboard metrics page of a flow, a paywall and a flow or paywall placement (read-only).
 
 ```sh
 adapty flows metrics list --app UUID --ids FLOW_ID,FLOW_ID [--csv]
@@ -171,17 +171,27 @@ adapty flows metrics get FLOW_ID --app UUID --date-from 2026-09-01 --date-to 202
   --date-type purchase_date|profile_install_date --based-on placement|audience \
   [--granularity day|week|month|quarter|year] \
   [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
-adapty placements metrics list --app UUID --type flow --ids PLACEMENT_ID,PLACEMENT_ID [--csv]
-adapty placements metrics values PLACEMENT_ID --app UUID --type flow
+adapty paywalls metrics list --app UUID --ids PAYWALL_ID,PAYWALL_ID [--csv]
+adapty paywalls metrics values PAYWALL_ID --app UUID
+adapty paywalls metrics get PAYWALL_ID --app UUID --date-from 2026-09-01 --date-to 2026-10-21 \
+  --date-type purchase_date|profile_install_date --based-on placement|audience [--group-by product|store|country] \
+  [--granularity day|week|month|quarter|year] \
+  [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
+adapty placements metrics list --app UUID --type flow|paywall --ids PLACEMENT_ID,PLACEMENT_ID [--csv]
+adapty placements metrics values PLACEMENT_ID --app UUID --type flow|paywall
 adapty placements metrics get PLACEMENT_ID --app UUID --type flow \
   --based-on audience|flow|placement [--group-by country|store] [--date-from DAY --date-to DAY --date-type purchase_date|profile_install_date] \
+  [--granularity day|week|month|quarter|year] \
+  [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
+adapty placements metrics get PLACEMENT_ID --app UUID --type paywall \
+  --based-on audience|paywall [--group-by product|store|country] --date-from DAY --date-to DAY --date-type purchase_date|profile_install_date \
   [--granularity day|week|month|quarter|year] \
   [--filter key=value[,value] ...] [--timezone Europe/Berlin] [--depth N] [--csv]
 ```
 
 `get` prints a `Total` line and the first level of the tree under it (`--depth N` for more); `--json` prints the
 whole answer unchanged and `--csv` one row for each node. Read `values` first for the keys and values that
-`--filter key=value` takes. `--based-on` is required on both `get` commands, and `--date-type` on `flows metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. The server checks
+`--filter key=value` takes. `--based-on` is required on every `get` command, and `--date-type` on `flows metrics get` and `paywalls metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. A paywall and a paywall placement need a date range (the server refuses a `get` without one). The paywall answers have 21 metrics and no `level` on a node: the root is the `Total` row, its children are in `items`, and the CSV `level` cell is empty for a child. The server checks
 every value and answers a wrong one with the valid ones (exit 4).
 
 ### Access Levels
