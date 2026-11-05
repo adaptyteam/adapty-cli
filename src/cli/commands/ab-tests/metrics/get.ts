@@ -21,7 +21,7 @@ export default class AbTestsMetricsGet extends AdaptyCommand {
     static override args = { ...abTestIdArg };
     static override description = 'Show the metrics of one A/B test for a period, by period, with the arms and what is under them '
         + '(the dashboard results page). '
-        + 'The P2BB of a period is a running total from the start of the window for a paywall test and the value of that period '
+        + 'The P2BB of a period is a running total from the start of the window for a paywall test (it holds on days with no views) and the value of that period '
         + 'for a flow test; it is never the P2BB of the arm: read the leader in `ab-tests metrics total`. '
         + `${metricsNumbersHelp.notComputed}${metricsNumbersHelp.range}${metricsNumbersHelp.pValue} `
         + 'Views are counted by the view date; --date-type is purchase_date or profile_install_date, and views are the same with either. '

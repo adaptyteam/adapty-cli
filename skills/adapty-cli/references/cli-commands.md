@@ -92,7 +92,7 @@ Regular paywall and flow tests. `ab-tests list` reads one type per call: flow te
 **A/B test metrics** — weight, revenue, purchases, views, P2BB, the range and the p-value of each arm. Read-only. `--type` is required and must be the stored type of the test (`ab-tests get` shows it); the server refuses another (exit 4). The detail has no Total line; the list has one for each test.
 
 - **P2BB** is the chance, in percent, that the arm is the best by revenue per viewer. 0 on every arm means it is not computed (no views, more payers than viewers, or the model failed). The same P2BB on every arm with no purchase means it is not computed. With no views on any arm it is no result, whatever its value.
-- **The P2BB of a period** is a running total from the start of the window for a paywall test, and the value of that period for a flow test. Take the leader only from `total` or `list`, never from a period.
+- **The P2BB of a period** is a running total from the start of the window for a paywall test (it holds on days with no views), and the value of that period for a flow test. Take the leader only from `total` or `list`, never from a period.
 - **The range** is the 99 % range of revenue per 1,000 unique viewers (low / mean / high). With fewer than 50 payers it is 0, the mean and two times the mean.
 - **The p-value** exists only for a flow test with exactly two arms.
 
