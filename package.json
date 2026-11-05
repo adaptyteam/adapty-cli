@@ -84,6 +84,12 @@
       "product-offers": {
         "description": "Manage product offers"
       },
+      "product-groups": {
+        "description": "List the App Store subscription groups or Google Play subscriptions of an app, and create App Store groups"
+      },
+      "product-prices": {
+        "description": "Read, preview and save the prices of a product by country"
+      },
       "access-levels": {
         "description": "Manage access levels"
       },

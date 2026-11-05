@@ -75,25 +75,6 @@ export type ProductDTO = {
     vendor_products: Record<string, VendorProductDTO>;
 };
 
-export type ProductCreateRequestDTO = {
-    access_level_id: string;
-    android_base_plan_id?: null | string;
-    android_product_id?: null | string;
-    ios_product_id?: null | string;
-    paddle_price_id?: null | string;
-    paddle_product_id?: null | string;
-    period: ProductPeriod;
-    price_usd?: null | number;
-    stripe_price_id?: null | string;
-    stripe_product_id?: null | string;
-    title: string;
-};
-
-export type ProductUpdateRequestDTO = {
-    access_level_id: string;
-    title: string;
-};
-
 export type PaywallDTO = {
     id: string;
     product_ids: string[];
