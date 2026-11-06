@@ -10,6 +10,13 @@ export { validateWrite } from './write.js';
 
 export type { ListAbTestsParams } from './list.js';
 export type {
+    AbMetricsNode,
+    AbTestMetricsDetail,
+    AbTestMetricsRow,
+    AbTestMetricsRows,
+    AbTestMetricsTotal,
+} from './metrics.js';
+export type {
     AbTestDetail,
     AbTestSummary,
     AbTestType,

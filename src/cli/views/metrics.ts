@@ -10,11 +10,11 @@ import type { FilterValueNode, FilterValues } from '../../sdk/adapty/index.js';
  * typed by what the renderer reads, so a metric a kind does not have shows as `—`.
  */
 
-const TOTAL = 'Total';
-const INDENT = '  ';
-const SEPARATOR = '  ';
-const MISSING = '—';
-const DATE_LENGTH = 'YYYY-MM-DD'.length;
+export const TOTAL = 'Total';
+export const INDENT = '  ';
+export const SEPARATOR = '  ';
+export const MISSING = '—';
+export const DATE_LENGTH = 'YYYY-MM-DD'.length;
 
 type Column = { format: (value: number) => string; metric: 'purchases' | 'revenue' | 'trials' | 'views' };
 
@@ -62,7 +62,7 @@ const alignLines = (lines: readonly Line[]): string => {
 };
 
 /** A period node has no title, only a timestamp (`Z`, `.000Z` or an offset like `+02:00`): its label is the date. */
-const nodeTitle = (node: Node): string => {
+export const nodeTitle = (node: { period?: string; title?: null | string }): string => {
     if (node.period !== undefined) {
         return node.period.slice(0, DATE_LENGTH);
     }
@@ -112,7 +112,7 @@ export const renderMetricsRows = <K extends RowIdKey>({ data }: { data: Row<K>[]
     return alignLines(data.map(row => ({ cells: cellsOf(row), label: row[idKey] })));
 };
 
-const PATH_SEPARATOR = ' > ';
+export const PATH_SEPARATOR = ' > ';
 
 /**
  * The metric columns are the numbers of the first node as the server sent them, in its order: the
@@ -121,7 +121,7 @@ const PATH_SEPARATOR = ' > ';
 const metricColumns = (node: object): string[] =>
     Object.entries(node).filter(([, value]) => typeof value === 'number').map(([name]) => name);
 
-const valueOf = (node: object, name: string): Cell => (node as Record<string, Cell>)[name];
+export const valueOf = (node: object, name: string): Cell => (node as Record<string, Cell>)[name];
 
 /**
  * `root` marks the root row only. A child with no `level` (every node of a paywall tree has none)

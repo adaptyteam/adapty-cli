@@ -102,6 +102,9 @@
       "ab-tests": {
         "description": "Manage A/B tests of paywalls and flows"
       },
+      "ab-tests:metrics": {
+        "description": "Metrics of A/B tests: lifetime rows, the arms of one test for a period, its total and its filter values"
+      },
       "flows": {
         "description": "Manage flows (onboardings)"
       },

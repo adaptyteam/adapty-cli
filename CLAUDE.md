@@ -29,7 +29,8 @@ src/
                      # metrics/ (list, get, values — the dashboard metrics page; implementation in src/cli/commands/paywalls/metrics)
     ab-tests/        # list, get, create, update, start, stop, replace, archive — regular paywall and flow tests;
                      # start, stop, replace and archive ask first (cli/input/confirm.ts, --yes; exit 6 when nobody can answer).
-                     # Implementation in src/cli/commands/ab-tests
+                     # Implementation in src/cli/commands/ab-tests;
+                     # metrics/ (list, get, values, total — the dashboard A/B results; implementation in src/cli/commands/ab-tests/metrics)
     placements/      # list (--type), get, create, update (audiences[] or deprecated --paywall-id);
                      # metrics/ (list, get, values — flow and paywall placements, --type; implementation in src/cli/commands/placements/metrics)
     flows/           # list, get, create; config/ (get, update — builder config with optimistic lock;
