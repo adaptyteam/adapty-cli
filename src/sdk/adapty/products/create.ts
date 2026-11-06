@@ -1,4 +1,6 @@
-import type { ProductPeriod } from './model.js';
+import { oneTimePeriods } from './model.js';
+
+import type { CreatePeriod } from './model.js';
 import type { Issue } from '../../core/errors.js';
 
 export type CreateProductInput = {
@@ -8,7 +10,7 @@ export type CreateProductInput = {
     iosProductId?: string | undefined;
     paddlePriceId?: string | undefined;
     paddleProductId?: string | undefined;
-    period: ProductPeriod;
+    period: CreatePeriod;
     priceUsd?: number | undefined;
     stripePriceId?: string | undefined;
     stripeProductId?: string | undefined;
@@ -60,7 +62,9 @@ export const validateCreateProduct = (input: CreateProductInput): Issue[] => {
         issues.push({ fields: ['androidProductId'], message: 'needs {androidProductId}', path: 'androidBasePlanId' });
     }
 
-    if (input.androidProductId !== undefined && input.androidBasePlanId === undefined && input.period !== 'lifetime') {
+    const isSubscription = !(oneTimePeriods as readonly CreatePeriod[]).includes(input.period);
+
+    if (input.androidProductId !== undefined && input.androidBasePlanId === undefined && isSubscription) {
         issues.push({
             fields: ['androidProductId'],
             message: 'required with {androidProductId} for a subscription',
@@ -82,7 +86,7 @@ type CreateProductRequest = {
     ios_product_id?: string;
     paddle_price_id?: string;
     paddle_product_id?: string;
-    period: ProductPeriod;
+    period: CreatePeriod;
     price_usd?: number;
     stripe_price_id?: string;
     stripe_product_id?: string;

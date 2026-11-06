@@ -30,7 +30,7 @@ All commands support `--json` for machine-readable output.
 |-----------------------------|--------------------------------------------------|
 | `products list`              | `--app`                                           |
 | `products get <product_id>`  | `--app`                                           |
-| `products create`            | `--app`, `--title`, `--period`, `--access-level-id`; optional `--price-usd` and store bindings (`--ios-product-id` / `--android-product-id` / `--stripe-product-id` / `--paddle-product-id`). Android subscriptions also need `--android-base-plan-id`. Stripe/Paddle each require the product+price pair together: `--stripe-product-id` + `--stripe-price-id`, `--paddle-product-id` + `--paddle-price-id`. To make a product in the stores, create it with `--price-usd` and no binding, then `products push`; a binding means the product already exists in that store |
+| `products create`            | `--app`, `--title`, `--period`, `--access-level-id`; optional `--price-usd` and store bindings (`--ios-product-id` / `--android-product-id` / `--stripe-product-id` / `--paddle-product-id`). Android subscriptions also need `--android-base-plan-id`; a one-time period (`lifetime`, `consumable`, `nonsubscriptions`) takes none. Stripe/Paddle each require the product+price pair together: `--stripe-product-id` + `--stripe-price-id`, `--paddle-product-id` + `--paddle-price-id`. To make a product in the stores, create it with `--price-usd` and no binding, then `products push`; a binding means the product already exists in that store |
 | `products update <product_id>` | `--app`, and at least one of `--title`, `--access-level-id`, `--price-usd` |
 
 `products update` reads the product and writes it back whole. `--price-usd` sets the USD price once, while the product has none; a set price stays, and `--price-usd` on such a product exits 4 with the code `price_usd_not_applied` (a title or access level given with it is saved, and the error JSON says `saved: true` then). `products get` shows `price_usd` and the `store_status` of each store product (`draft`, `in_review`, `rejected`, `approved`, `action_required`).
@@ -591,10 +591,10 @@ Before running any of these:
 
 - `--app` must be a valid UUID
 - `--product-id`, `--paywall-id`, `--access-level-id` must be valid UUIDs
-- `--period`: weekly | monthly | two_months | trimonthly | semiannual | annual | lifetime
+- `--period`: weekly | monthly | two_months | trimonthly | semiannual | annual | lifetime | consumable | nonsubscriptions (the last three are one-time purchases)
 - `--platform`: ios | android (repeatable for apps create)
 - `--platform ios` requires `--apple-bundle-id`; `--platform android` requires `--google-bundle-id`
-- Android non-lifetime products require `--android-base-plan-id` with `--android-product-id`
+- Android subscription products (not `lifetime`, `consumable`, `nonsubscriptions`) require `--android-base-plan-id` with `--android-product-id`
 - `--page` min 1, `--page-size` max 100
 - `--audiences` must be a valid JSON array; each entry has an explicit `content_type` (`paywall`, `flow`, `ab_test`, `flow_ab_test`, `cross_ab_test`, `flow_cross_ab_test`) and its required id (`paywall_id`, `flow_id`, `ab_test_id`); each entry's `segment_ids` array length 0 or 1
 - On `placements create`/`update`: exactly one of `--audiences` or `--paywall-id` (passing both or neither errors)

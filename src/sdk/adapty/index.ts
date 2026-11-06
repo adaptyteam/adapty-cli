@@ -50,7 +50,7 @@ export {
 export { platforms } from './apps/index.js';
 export { offerTypes } from './product-offers/index.js';
 export { decideSave, isFailed, isPending, isSynced, storePrices, storesWritten } from './product-prices/index.js';
-export { productPeriods, productStores } from './products/index.js';
+export { createPeriods, oneTimePeriods, productStores } from './products/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';

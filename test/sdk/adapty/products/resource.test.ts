@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 import { createAdapty } from '../../../../src/sdk/adapty/index.js';
-import { validateCreateProduct } from '../../../../src/sdk/adapty/products/index.js';
+import { oneTimePeriods, validateCreateProduct } from '../../../../src/sdk/adapty/products/index.js';
 import { ValidationError } from '../../../../src/sdk/core/errors.js';
 import { createScriptedFetch } from '../../../../src/sdk/core/testing.js';
 import { rejection } from '../../../helpers/rejection.js';
@@ -106,9 +106,11 @@ describe('adapty.products', () => {
         });
     });
 
-    it('takes an Android lifetime product without a base plan', () => {
-        expect(validateCreateProduct({ accessLevelId: 'al1', androidProductId: 'premium', period: 'lifetime', title: 'Forever' })).to.deep.equal([]);
-    });
+    for (const period of oneTimePeriods) {
+        it(`takes an Android ${period} product without a base plan`, () => {
+            expect(validateCreateProduct({ accessLevelId: 'al1', androidProductId: 'premium', period, title: 'One' })).to.deep.equal([]);
+        });
+    }
 
     const base = { accessLevelId: 'al1', period: 'monthly', title: 'Monthly' } as const;
 

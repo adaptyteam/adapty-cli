@@ -6,10 +6,12 @@ import {
     assertFetch,
     EMPTY_LIST_RESPONSE,
     mockFetch,
+    mockFetchFailure,
     restoreFetch,
     TEST_APP_ID,
     TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js';
+import { unwrap } from '../helpers/unwrap.js';
 
 import type sinon from 'sinon';
 
@@ -87,6 +89,7 @@ describe('products', () => {
         { flags: '--period monthly --android-product-id premium', name: 'an Android subscription without a base plan' },
         { flags: '--period monthly --price-usd abc', name: 'a price that is not a number' },
         { flags: '--period yearly', name: 'an unknown period' },
+        { flags: '--period uncategorised', name: 'the period uncategorised' },
     ];
 
     for (const { flags, name } of badCreates) {
@@ -99,6 +102,89 @@ describe('products', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
     }
+
+    for (const period of ['lifetime', 'consumable', 'nonsubscriptions']) {
+        it(`create of an Android ${period} product without a base plan sends it with no base plan`, async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+            fetchStub = mockFetch([PRODUCT_RESPONSE]);
+            await runCommand(`${CREATE} --period ${period} --ios-product-id com.example.one --android-product-id com.example.one`);
+
+            assertFetch({
+                body: {
+                    access_level_id: TEST_RESOURCE_ID,
+                    android_product_id: 'com.example.one',
+                    ios_product_id: 'com.example.one',
+                    period,
+                    title: 'Monthly',
+                },
+                callIndex: 0,
+                method: 'POST',
+                path: `/apps/${TEST_APP_ID}/products/`,
+                stub: fetchStub,
+            });
+        });
+    }
+
+    it('create with the period uncategorised names the nine accepted periods', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([PRODUCT_RESPONSE]);
+        const { error } = await runCommand(`${CREATE} --period uncategorised`);
+
+        expect(unwrap(error?.message ?? '')).to.contain('weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime, consumable, nonsubscriptions');
+    });
+
+    it('create sends a base plan with a one-time period as given', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([PRODUCT_RESPONSE]);
+        await runCommand(`${CREATE} --period consumable --android-product-id com.example.one --android-base-plan-id base`);
+
+        assertFetch({
+            body: { access_level_id: TEST_RESOURCE_ID, android_base_plan_id: 'base', android_product_id: 'com.example.one', period: 'consumable', title: 'Monthly' },
+            callIndex: 0,
+            method: 'POST',
+            path: `/apps/${TEST_APP_ID}/products/`,
+            stub: fetchStub,
+        });
+    });
+
+    it('create shows the API error when the base plan is refused', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+
+        fetchStub = mockFetchFailure(
+            {
+                error_code: 'base_error',
+                errors: {
+                    non_field_errors: [
+                        '`android_base_plan_id` is only for a subscription period: weekly, monthly, two_months, trimonthly, semiannual, annual',
+                    ],
+                },
+                status_code: 400,
+            },
+            { status: 400 },
+        );
+
+        const { error } = await runCommand(`${CREATE} --period consumable --android-product-id com.example.one --android-base-plan-id base`);
+
+        expect(error?.oclif?.exit).to.equal(4);
+        expect(unwrap(error?.message ?? '')).to.contain('`android_base_plan_id` is only for a subscription period');
+        expect(fetchStub.callCount).to.equal(1);
+    });
+
+    it('create --help names the one-time periods and the base plan rule', async () => {
+        const { stdout } = await runCommand('products create --help');
+        const help = unwrap(stdout);
+
+        expect(help).to.contain('a one-time purchase (lifetime, consumable, nonsubscriptions)');
+        expect(help).to.contain('for a subscription period only');
+    });
+
+    it('get prints the period uncategorised of a product', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        fetchStub = mockFetch([{ ...PRODUCT_RESPONSE, access_level_id: 'al', period: 'uncategorised' }]);
+        const { stdout } = await runCommand(`products get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+
+        expect(stdout).to.contain('Period: uncategorised');
+    });
 
     it('create --json prints the product', async () => {
         process.env.ADAPTY_TOKEN = 'test-token';
