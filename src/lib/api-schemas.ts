@@ -92,6 +92,8 @@ export type FlowStatus = string;
 export type FlowDTO = {
     id: string;
     name: string;
+    /** The live version; null when the flow was never published. */
+    published_flow_version_id?: null | string;
     /** Optional: the flows-update (rename) response leaves status out. Read it from flows get. */
     status?: FlowStatus;
     updated_at: string;

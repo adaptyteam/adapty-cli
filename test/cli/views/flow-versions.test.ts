@@ -8,6 +8,7 @@ import {
     renamedLine,
     renderVersion,
     renderVersionList,
+    neverPublishedLines,
     replaceDraftQuestion,
     replaceDraftRefusal,
     restoredLine,
@@ -67,6 +68,7 @@ describe('flow version views', () => {
         expect(restoredLine('Black Friday', draft)).to.equal('Restored \'Black Friday\' as the draft \'Version 2\' (d-1). Nothing is published.');
         expect(renamedLine(draft)).to.equal('Version d-1 is now \'Version 2\'.');
         expect(duplicatedLine({ id: 'f-2', name: 'Onboarding_copy' })).to.equal('New flow \'Onboarding_copy\' (f-2), not published.');
+        expect(neverPublishedLines(['f-1'])).to.deep.equal(['f-1: No data: the flow was never published.']);
     });
 });
 

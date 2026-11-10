@@ -18,6 +18,39 @@ export type Flow = {
     updated_at?: string;
 };
 
+/** A flow that has no live version and never had one. An older server that does not send the field says nothing. */
+export const isNeverPublished = (flow: Flow): boolean => flow.published_flow_version_id === null;
+
+/** How many flow reads of one `neverPublished` call are in flight at most: a long id list stays polite. */
+export const FLOW_READ_LIMIT = 5;
+
+/**
+ * `Promise.allSettled` with at most `limit` tasks in flight: each worker takes the next item when its
+ * task settles. The results keep the order of the items.
+ */
+const settleLimited = async <T, R>(
+    items: readonly T[],
+    limit: number,
+    task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> => {
+    const results: PromiseSettledResult<R>[] = [];
+    let next = 0;
+
+    const worker = async (): Promise<void> => {
+        for (let index = next++; index < items.length; index = next++) {
+            try {
+                results[index] = { status: 'fulfilled', value: await task(items[index] as T) };
+            } catch (reason) {
+                results[index] = { reason, status: 'rejected' };
+            }
+        }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+
+    return results;
+};
+
 /**
  * The flows of an app. The read of one flow, the duplicate, the version history, the metrics and the
  * screen funnel are here: the other flow operations still live in the old stack and move here when
@@ -38,6 +71,21 @@ export const flows = (http: Http) => ({
         http.post<Flow>(`/apps/${appId}/flows/${flowId}/copy`, versionId === undefined ? {} : { flow_version_id: versionId }),
 
     get: (appId: string, flowId: string) => http.get<Flow>(`/apps/${appId}/flows/${flowId}`),
+
+    /**
+     * Which of these flows were never published, read in parallel, at most `FLOW_READ_LIMIT` at a time.
+     * A flow that cannot be read is not known to be unpublished: it is left out, and the read failure
+     * is not the caller's problem.
+     */
+    neverPublished: async (appId: string, flowIds: readonly string[]): Promise<Set<string>> => {
+        const reads = await settleLimited(flowIds, FLOW_READ_LIMIT, flowId => http.get<Flow>(`/apps/${appId}/flows/${flowId}`));
+
+        return new Set(flowIds.filter((_, index) => {
+            const read = reads[index];
+
+            return read?.status === 'fulfilled' && isNeverPublished(read.value);
+        }));
+    },
 
     versions: flowVersions(http, (appId, flowId) => `/apps/${appId}/flows/${flowId}`),
 

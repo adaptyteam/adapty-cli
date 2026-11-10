@@ -261,8 +261,10 @@ adapty placements metrics get PLACEMENT_ID --app UUID --type paywall \
 ```
 
 `get` prints a `Total` line and the first level of the tree under it (`--depth N` for more); `--json` prints the
-whole answer unchanged and `--csv` one row for each node. Read `values` first for the keys and values that
-`--filter key=value` takes. `--based-on` is required on every `get` command, and `--date-type` on `flows metrics get` and `paywalls metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. A paywall and a paywall placement need a date range (the server refuses a `get` without one). The paywall answers have 21 metrics and no `level` on a node: the root is the `Total` row, its children are in `items`, and the CSV `level` cell is empty for a child. The server checks
+whole answer unchanged and `--csv` one row for each node. For a flow that was never published, `flows metrics get`
+adds "No data: the flow was never published." over the numbers and `flows metrics list` adds it under the table for
+that flow (`note: "never_published"` in `--json`; on stderr with `--csv`). Read
+`values` first for the keys and values that `--filter key=value` takes. `--based-on` is required on every `get` command, and `--date-type` on `flows metrics get` and `paywalls metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. A paywall and a paywall placement need a date range (the server refuses a `get` without one). The paywall answers have 21 metrics and no `level` on a node: the root is the `Total` row, its children are in `items`, and the CSV `level` cell is empty for a child. The server checks
 every value and answers a wrong one with the valid ones (exit 4).
 
 `ab-tests metrics` reads the results of A/B tests: weight, revenue, P2BB (the chance, in percent, that an arm is the best by revenue per viewer; 0 on every arm means it is not computed), the 99 % range per 1,000 viewers and, for a flow test with two arms, the p-value. `--type` is the stored type of the test. `list` prints a Total line for each test; `get` and `total` print none. Read the leader in `total`, not in a period of `get`. A paywall test needs the date range and `--date-type` on `get`.

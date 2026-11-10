@@ -8,6 +8,7 @@ import {
     versionDate,
     versionPublication,
 } from '../../../src/sdk/adapty/flow-versions.js';
+import { FLOW_READ_LIMIT, isNeverPublished } from '../../../src/sdk/adapty/flows.js';
 import { createAdapty } from '../../../src/sdk/adapty/index.js';
 import { createFakeClock, createScriptedFetch } from '../../../src/sdk/core/testing.js';
 import { rejection } from '../../helpers/rejection.js';
@@ -69,6 +70,12 @@ describe('flow version rules', () => {
         expect(restoreRequest({ expectedUpdatedAt: 42 }))
             .to.deep.equal({ expected_updated_at: 42, replace_draft: true });
     });
+
+    it('isNeverPublished: only an explicit null; an older server that omits the field says nothing', () => {
+        expect(isNeverPublished({ id: 'f', name: 'F', published_flow_version_id: null })).to.equal(true);
+        expect(isNeverPublished({ id: 'f', name: 'F', published_flow_version_id: 'v' })).to.equal(false);
+        expect(isNeverPublished({ id: 'f', name: 'F' })).to.equal(false);
+    });
 });
 
 describe('adapty.flows.versions and adapty.flows.duplicate', () => {
@@ -99,6 +106,50 @@ describe('adapty.flows.versions and adapty.flows.duplicate', () => {
 
         expect(page.data).to.deep.equal([]);
         expect(calls.map(call => call.method)).to.deep.equal(['GET', 'GET']);
+    });
+
+    it('neverPublished reads every flow with never more than FLOW_READ_LIMIT reads in flight', async () => {
+        const ids = Array.from({ length: 12 }, (_, index) => `f${index}`);
+        let inFlight = 0;
+        let most = 0;
+        const read: string[] = [];
+
+        const fetch = async (input: Request | string | URL): Promise<Response> => {
+            const url = String(input instanceof Request ? input.url : input);
+            const id = url.split('/').at(-2) ?? '';
+
+            inFlight += 1;
+            most = Math.max(most, inFlight);
+            await new Promise(resolve => setImmediate(resolve));
+            inFlight -= 1;
+            read.push(id);
+
+            // f3 fails: its row only loses the note
+            return id === 'f3'
+                ? new Response('{}', { status: 404 })
+                : Response.json({ id, name: id, published_flow_version_id: id === 'f7' || id === 'f3' ? null : 'v' });
+        };
+
+        const adapty = createAdapty({ baseUrl: BASE, clock: createFakeClock(), fetch, token: 't' });
+        const unpublished = await adapty.flows.neverPublished('a', ids);
+
+        expect(FLOW_READ_LIMIT).to.equal(5);
+        expect(most).to.equal(FLOW_READ_LIMIT);
+        expect([...read].sort()).to.deep.equal([...ids].sort());
+        expect([...unpublished]).to.deep.equal(['f7']);
+    });
+
+    it('neverPublished: a never-published flow is in, a published one and one that cannot be read are not', async () => {
+        const { calls, flows } = setup([
+            { body: { id: 'f1', name: 'A', published_flow_version_id: null } },
+            { body: { id: 'f2', name: 'B', published_flow_version_id: 'v' } },
+            { status: 404 },
+        ]);
+
+        const unpublished = await flows.neverPublished('a', ['f1', 'f2', 'f3']);
+
+        expect([...unpublished]).to.deep.equal(['f1']);
+        expect(calls.map(call => call.url)).to.deep.equal(['f1', 'f2', 'f3'].map(id => `${BASE}/apps/a/flows/${id}/`));
     });
 
     it('preview gives the version id and its link only', async () => {

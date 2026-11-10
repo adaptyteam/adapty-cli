@@ -12,6 +12,9 @@ import type { Flow, FlowVersionDetail, FlowVersionRow, Paginated } from '../../s
 /** The text of the dashboard history panel before the first publish. */
 export const EMPTY_HISTORY = 'History will appear after the first publish.';
 
+/** Over the metrics of a flow that has no live version: the zeros are not results. */
+export const NEVER_PUBLISHED = 'No data: the flow was never published.';
+
 const NO_MATCH = 'No versions match the search.';
 const HEADER = ['Title', 'State', 'Date', 'Version ID', 'Publish'];
 const MARKS = { failed: 'Publish failed', publishing: 'Publishing…' } as const;
@@ -95,5 +98,9 @@ export const restoredLine = (versionTitle: string, draft: Pick<FlowVersionRow, '
 
 export const renamedLine = (row: Pick<FlowVersionRow, 'flow_version_id' | 'title'>): string =>
     `Version ${row.flow_version_id} is now '${row.title}'.`;
+
+/** One line under the table for each never-published flow of a `flows metrics list`. */
+export const neverPublishedLines = (flowIds: readonly string[]): string[] =>
+    flowIds.map(flowId => `${flowId}: ${NEVER_PUBLISHED}`);
 
 export const duplicatedLine = (flow: Pick<Flow, 'id' | 'name'>): string => `New flow '${flow.name}' (${flow.id}), not published.`;

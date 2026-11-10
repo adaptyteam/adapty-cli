@@ -195,6 +195,12 @@ adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type paywall --dat
   the server's 400 (exit 4).
 - **Not yours.** A flow, paywall or placement of another app answers 404 (exit 4), also inside a `list`.
 - **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
+- **Never published.** A flow whose `published_flow_version_id` is `null` (`flows get`) has no data: `flows metrics get`
+  and `flows metrics list` keep the numbers (zeros) and add "No data: the flow was never published." (`note:
+  "never_published"` on the answer or on the row of that flow in `--json`; on stderr with `--csv`). A flow that cannot
+  be read gets no note.
+  The revenue of one flow is `analytics chart --chart revenue --filter flow_id=<flow_id>`; a flow with no purchases
+  gives 0 for the period.
 
 ## Flow screen funnel
 

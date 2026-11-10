@@ -6,12 +6,11 @@ import { PassThrough } from 'node:stream';
 import { run } from '@oclif/core';
 import { captureOutput } from '@oclif/test';
 import { expect } from 'chai';
+import * as sinon from 'sinon';
 
 import FlowsVersionsList from '../../src/cli/commands/flows/versions/list.js';
 import { exitCode } from '../../src/cli/errors.js';
 import { mockFetch, mockFetchSteps, requestOf, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
-
-import type * as sinon from 'sinon';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const BASE = 'https://api-admin.adapty.io/api/v1/developer';
@@ -92,6 +91,18 @@ const detail = (fields: Record<string, unknown> = {}) => ({
     remote_configs: [],
     ...fields,
 });
+
+/** Answers by the path of the request, whatever the order the calls go in. A path with no route is a 404. */
+const routeFetch = (routes: Record<string, { body: unknown; status?: number }>): sinon.SinonStub =>
+    sinon.stub(globalThis, 'fetch').callsFake((input: Request | string | URL) => {
+        const url = input instanceof Request ? input.url : input;
+        const route = routes[new URL(url).pathname.replace('/api/v1/developer', '')];
+
+        return Promise.resolve(new Response(JSON.stringify(route?.body ?? {}), {
+            headers: { 'content-type': 'application/json' },
+            status: route === undefined ? 404 : route.status ?? 200,
+        }));
+    });
 
 const methods = (stub: sinon.SinonStub): string[] =>
     stub.getCalls().map(call => (call.args[1] as { method: string }).method);
@@ -507,6 +518,96 @@ describe('flows versions', () => {
 
             expect(error?.oclif?.exit).to.equal(exitCode.usage);
             expect(methods(fetchStub)).to.deep.equal([]);
+        });
+    });
+
+    describe('flows metrics of a never-published flow', () => {
+        const tree = { data: { purchases: 0, revenue: 0, title: null, trials: 0, views: 0 } };
+        const get = `flows metrics get ${FLOW} ${APP} --date-type purchase_date --based-on placement`;
+        const neverPublished = { body: { id: FLOW, name: 'Onboarding', published_flow_version_id: null } };
+        const metricsRoute = { [`${PATH}/metrics/`]: { body: tree } };
+
+        it('get keeps the numbers of the API and adds the note', async () => {
+            fetchStub = routeFetch({ ...metricsRoute, [`${PATH}/`]: neverPublished });
+
+            const { stdout } = await runCommand(get);
+
+            expect(stdout.split('\n')[0]).to.equal('No data: the flow was never published.');
+            expect(stdout).to.contain('Total');
+        });
+
+        it('get --json has note never_published beside the numbers', async () => {
+            fetchStub = routeFetch({ ...metricsRoute, [`${PATH}/`]: neverPublished });
+
+            const { stdout } = await runCommand(`${get} --json`);
+
+            expect(JSON.parse(stdout)).to.deep.equal({ ...tree, note: 'never_published' });
+        });
+
+        it('get --csv writes the note to stderr and only the CSV to stdout', async () => {
+            fetchStub = routeFetch({ ...metricsRoute, [`${PATH}/`]: neverPublished });
+
+            const { stderr, stdout } = await runCommand(`${get} --csv`);
+
+            expect(stderr).to.contain('No data: the flow was never published.');
+            expect(stdout).not.to.contain('No data');
+            expect(stdout.split('\n')[0]).to.equal('path,level,title,purchases,revenue,trials,views');
+        });
+
+        it('get of a published flow, or of a flow that cannot be read, has the numbers and no note', async () => {
+            for (const flowRoute of [{ body: { id: FLOW, name: 'Onboarding', published_flow_version_id: LIVE } }, { body: {}, status: 500 }]) {
+                fetchStub = routeFetch({ ...metricsRoute, [`${PATH}/`]: flowRoute });
+
+                const { error, stdout } = await runCommand(`${get} --json`);
+
+                expect(error).to.equal(undefined);
+                expect(JSON.parse(stdout)).to.deep.equal(tree);
+                restoreFetch(fetchStub);
+                fetchStub = undefined;
+            }
+        });
+
+        describe('list', () => {
+            const rowOf = (flowId: string) => ({ flow_id: flowId, purchases: 0, revenue: 0, trials: 0, views: 0 });
+            const rows = { data: [rowOf(FLOW), rowOf(NEW_FLOW)] };
+            const list = `flows metrics list ${APP} --ids ${FLOW},${NEW_FLOW}`;
+
+            const routes = {
+                [`/apps/${TEST_APP_ID}/flows/metrics/`]: { body: rows },
+                [`${PATH}/`]: neverPublished,
+                [`/apps/${TEST_APP_ID}/flows/${NEW_FLOW}/`]: { body: {}, status: 500 },
+            };
+
+            it('notes the row of a never-published flow, and not a row whose flow cannot be read', async () => {
+                fetchStub = routeFetch(routes);
+
+                const { stdout } = await runCommand(list);
+
+                expect(stdout.trim().split('\n').at(-1)).to.equal(`${FLOW}: No data: the flow was never published.`);
+                expect(stdout).not.to.contain(`${NEW_FLOW}: No data`);
+            });
+
+            it('--json has note never_published on that row only', async () => {
+                fetchStub = routeFetch(routes);
+
+                const { stdout } = await runCommand(`${list} --json`);
+
+                expect(JSON.parse(stdout)).to.deep.equal({ data: [{ ...rowOf(FLOW), note: 'never_published' }, rowOf(NEW_FLOW)] });
+            });
+
+            it('--csv keeps stdout a CSV and writes the note to stderr', async () => {
+                fetchStub = routeFetch(routes);
+
+                const { stderr, stdout } = await runCommand(`${list} --csv`);
+
+                expect(stdout.trim().split('\n')).to.deep.equal([
+                    'flow_id,purchases,revenue,trials,views',
+                    `${FLOW},0,0,0,0`,
+                    `${NEW_FLOW},0,0,0,0`,
+                ]);
+
+                expect(stderr).to.contain(`${FLOW}: No data: the flow was never published.`);
+            });
         });
     });
 });

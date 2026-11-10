@@ -55,6 +55,7 @@ export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
 export { findDraft, hasPublishedHistory, versionDate, versionPublication } from './flow-versions.js';
+export { isNeverPublished } from './flows.js';
 export type {
     AbMetricsNode,
     AbTestDetail,
@@ -117,6 +118,7 @@ export type { PaywallsApi } from './paywalls.js';
 export type {
     FilterValueNode,
     FilterValues,
+    FlowMetricsRow,
     FlowMetricsRows,
     Metrics,
     MetricsInput,
