@@ -156,10 +156,22 @@ describe('adapty.products', () => {
         });
 
         expect(body(calls[0])).to.deep.equal({
+            family_sharable: false,
             group_id: '12',
             screenshot: 'data:image/png;base64,AAAA',
             store_product_id: 'premium',
         });
+    });
+
+    it('pushes to the App Store with Family Sharing on only when asked', async () => {
+        const { calls, products } = setup([{ body: stored() }, { body: stored() }]);
+        const input = { screenshot: 'data:image/png;base64,AAAA', store: 'app_store', storeProductId: 'premium' } as const;
+
+        await products.push('a1', 'p1', { ...input, familySharable: true });
+        await products.push('a1', 'p1', { ...input, familySharable: false });
+
+        expect(body(calls[0])).to.have.property('family_sharable', true);
+        expect(body(calls[1])).to.have.property('family_sharable', false);
     });
 
     const badPushes = [
@@ -171,6 +183,8 @@ describe('adapty.products', () => {
         },
         { input: { groupId: '1', store: 'play_store', storeProductId: 'x' }, name: 'a group on Google Play' },
         { input: { screenshot: 'data:image/png;base64,AA', store: 'play_store', storeProductId: 'x' }, name: 'a screenshot on Google Play' },
+        { input: { familySharable: true, store: 'play_store', storeProductId: 'x' }, name: 'Family Sharing on Google Play' },
+        { input: { familySharable: false, store: 'play_store', storeProductId: 'x' }, name: 'Family Sharing off on Google Play' },
     ] as const;
 
     for (const { input, name } of badPushes) {

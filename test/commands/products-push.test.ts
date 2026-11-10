@@ -104,8 +104,64 @@ describe('products push', () => {
         await runCommand(`products push ${BASE} --store app_store --store-product-id premium --group-id 12 --screenshot ${join(dir, 'review.png')} --yes`);
         await runCommand(`products push ${BASE} --store app_store --store-product-id premium --screenshot ${join(dir, 'review.JPG')} --yes`);
 
-        expect(sentBody(fetchStub)).to.deep.equal({ group_id: '12', screenshot: 'data:image/png;base64,AQID', store_product_id: 'premium' });
-        expect(JSON.parse(requestOf(fetchStub, 1).body ?? '')).to.deep.equal({ screenshot: 'data:image/jpeg;base64,BAUG', store_product_id: 'premium' });
+        expect(sentBody(fetchStub)).to.deep.equal({
+            family_sharable: false,
+            group_id: '12',
+            screenshot: 'data:image/png;base64,AQID',
+            store_product_id: 'premium',
+        });
+
+        expect(JSON.parse(requestOf(fetchStub, 1).body ?? '')).to.deep.equal({
+            family_sharable: false,
+            screenshot: 'data:image/jpeg;base64,BAUG',
+            store_product_id: 'premium',
+        });
+    });
+
+    it('sends Family Sharing on with --family-sharable', async () => {
+        const dir = tempDir();
+        writeFileSync(join(dir, 'review.png'), Buffer.from([1, 2, 3]));
+        fetchStub = mockFetch([PRODUCT]);
+
+        await runCommand(`products push ${BASE} --store app_store --store-product-id premium --screenshot ${join(dir, 'review.png')} --family-sharable --yes`);
+
+        expect(sentBody(fetchStub)).to.have.property('family_sharable', true);
+    });
+
+    it('refuses --family-sharable for Google Play, before any request', async () => {
+        fetchStub = mockFetch([PRODUCT]);
+
+        const { error } = await runCommand(`products push ${BASE} --store play_store --store-product-id p --android-base-plan-id m --family-sharable --yes`);
+
+        expect(error?.oclif?.exit).to.equal(exitCode.usage);
+        expect(error?.message).to.contain('--family-sharable: is an App Store field');
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    for (const { flag, says } of [
+        { flag: '', says: 'Family Sharing: off.' },
+        { flag: ' --family-sharable', says: 'Family Sharing: on. Apple does not let you turn it off later.' },
+    ]) {
+        it(`asks first and says "${says}"`, async () => {
+            const dir = tempDir();
+            writeFileSync(join(dir, 'review.png'), Buffer.from([1]));
+            fetchStub = mockFetch([PRODUCT]);
+
+            const { error } = await runCommand(`products push ${BASE} --store app_store --store-product-id premium --screenshot ${join(dir, 'review.png')}${flag}`);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.confirmRequired);
+            expect(error?.message).to.contain(says);
+            expect(fetchStub.callCount).to.equal(0);
+        });
+    }
+
+    it('does not mention Family Sharing when it asks about Google Play', async () => {
+        fetchStub = mockFetch([PRODUCT]);
+
+        const { error } = await runCommand(`products push ${BASE} --store play_store --store-product-id premium --android-base-plan-id monthly`);
+
+        expect(error?.oclif?.exit).to.equal(exitCode.confirmRequired);
+        expect(error?.message).not.to.contain('Family Sharing');
     });
 
     it('refuses a screenshot that is not a PNG or JPEG file, and one that is not there, before any request', async () => {
@@ -206,6 +262,21 @@ describe('products push', () => {
 
         expect(error?.oclif?.exit).to.equal(exitCode.api);
         expect(error).to.have.property('code', 'missing_store_credentials');
+    });
+
+    it('exits 4 with the server error code when the product is a consumable and Family Sharing is asked', async () => {
+        const dir = tempDir();
+        writeFileSync(join(dir, 'review.png'), Buffer.from([1]));
+
+        fetchStub = mockFetchFailure(
+            { error_code: 'family_sharing_not_available', errors: [], status_code: 400 },
+            { status: 400 },
+        );
+
+        const { error } = await runCommand(`products push ${BASE} --store app_store --store-product-id coins --screenshot ${join(dir, 'review.png')} --family-sharable --yes`);
+
+        expect(error?.oclif?.exit).to.equal(exitCode.api);
+        expect(error).to.have.property('code', 'family_sharing_not_available');
     });
 
     it('--json prints the product as the server sent it', async () => {
