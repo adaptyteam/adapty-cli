@@ -54,6 +54,7 @@ export { productPeriods, productStores } from './products/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
+export { findDraft, hasPublishedHistory, versionDate, versionPublication } from './flow-versions.js';
 export type {
     AbMetricsNode,
     AbTestDetail,
@@ -103,7 +104,15 @@ export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } f
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowFunnelAnswer, FlowFunnelScreen, FlowFunnelStep } from './flow-funnel.js';
-export type { FlowsApi } from './flows.js';
+export type { Flow, FlowsApi } from './flows.js';
+export type {
+    FlowVersionDetail,
+    FlowVersionPreview,
+    FlowVersionRow,
+    FlowVersionState,
+    ListFlowVersionsParams,
+    RestoreFlowVersionInput,
+} from './flow-versions.js';
 export type { PaywallsApi } from './paywalls.js';
 export type {
     FilterValueNode,

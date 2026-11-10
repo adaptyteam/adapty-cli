@@ -198,6 +198,39 @@ A freshly created flow has no config until the first `flows config update`; `flo
 until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of
 overwriting a concurrent dashboard edit.
 
+#### Flow version history
+
+The versions of a flow, as the version history of the flow builder shows them: the draft, the live version and the
+versions before them.
+
+```sh
+adapty flows versions list FLOW_ID --app UUID [--search TEXT]
+adapty flows versions get FLOW_ID VERSION_ID --app UUID [--output FILE] [--yes]
+adapty flows versions preview FLOW_ID VERSION_ID --app UUID
+adapty flows versions rename FLOW_ID VERSION_ID --app UUID --name "Black Friday"
+adapty flows versions restore FLOW_ID VERSION_ID --app UUID [--yes --expected-updated-at MS]
+adapty flows duplicate FLOW_ID --app UUID [--version VERSION_ID]
+```
+
+`list` shows every version in one answer (no pages): the title, the state (`draft`, `live` or `previous`), the date
+and the id of each version, newest first; a draft that publishes or failed to publish is marked. The date of the draft is its creation, the date of a
+published version its publish. Before the first publish it says "History will appear after the first publish." and
+shows the draft under that text. `--search` keeps the versions whose title has the text (an unnamed version is
+"Version N").
+`get` shows one version and nothing changes; `--json` prints its content (the configs, every layout, the remote
+configs and the paywalls) and `--output` writes it to a file. `preview` prints the link that opens the version on a
+test device. `rename --name ""` gives the version its "Version N" title again.
+
+`restore` makes a version the draft again, and never publishes. With no draft it makes a new one and asks nothing.
+When the flow has a draft, the restore replaces it, so the CLI asks first and names the draft, its last change and
+who made it; `--yes` answers yes and then needs `--expected-updated-at` (the `updated_at` of the draft in
+`flows versions list --json`): the restore fails when somebody changed the draft after that. With `--json` or no
+terminal and no `--yes` it exits 6 and prints the `--yes --expected-updated-at` to re-run with. To keep the draft,
+duplicate it to a new flow first. `duplicate` makes a new flow "<name>_copy" with one unpublished draft: the
+content of `--version`, else of the current version. In the dashboard, "Duplicate as draft" is `restore` and
+"Duplicate as new flow" or "Duplicate flow" is `duplicate`. An archived flow can be listed and viewed only; restore
+it from the archive in the dashboard first.
+
 #### Flow, paywall and placement metrics
 
 The numbers of the dashboard metrics page of a flow, a paywall and a flow or paywall placement (read-only).
@@ -249,7 +282,7 @@ adapty flows funnel get FLOW_ID --app UUID --date-from 2026-09-01 --date-to 2026
 `get` prints a summary (entered, completed, drop rate, revenue), then a row for each step and, under a step with more
 than one screen, a row for each of its screens; `—` is a value that does not apply (it is not 0). `--json` prints the
 whole answer unchanged and `--csv` the CSV that the dashboard downloads, as the server writes it. Without
-`--flow-version-id` the funnel is the one of the published version; the CLI lists no versions. `--date-from`,
+`--flow-version-id` the funnel is the one of the published version; `flows versions list` gives the version IDs. `--date-from`,
 `--date-to` and `--date-type` are required; there are no defaults. Read `values` first for the keys and values that
 `--filter key=value` takes. A flow with no published version, an unknown flow and a version of another flow answer
 with the route's text (exit 4).

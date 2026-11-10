@@ -1,15 +1,27 @@
 import { assertValid } from '../core/validation.js';
 
 import { toFlowFunnelRequest } from './flow-funnel.js';
+import { flowVersions } from './flow-versions.js';
 import { timezoneHeaders, toMetricsRequest, validateMetricsInput } from './metrics.js';
 
 import type { FlowFunnelAnswer, FlowFunnelInput } from './flow-funnel.js';
 import type { FilterValues, FlowMetricsRows, MetricsInput, MetricsTree } from './metrics.js';
 import type { Http } from '../core/http/index.js';
 
+/** A flow as the developer API gives it. */
+export type Flow = {
+    id: string;
+    name: string;
+    /** Null when the flow was never published. */
+    published_flow_version_id?: null | string;
+    status?: string;
+    updated_at?: string;
+};
+
 /**
- * The flows of an app. Only the metrics and the screen funnel are here: the other flow operations
- * still live in the old stack and move here when the topic is ported.
+ * The flows of an app. The read of one flow, the duplicate, the version history, the metrics and the
+ * screen funnel are here: the other flow operations still live in the old stack and move here when
+ * the topic is ported.
  *
  * Metrics and the funnel are reads, though `get` is a POST: the body only describes the question.
  * Like the other analytics queries (`attribution report`) it is never retried: it is heavy, and a
@@ -18,6 +30,17 @@ import type { Http } from '../core/http/index.js';
  * `flow-funnel.ts`.
  */
 export const flows = (http: Http) => ({
+    /**
+     * A new flow, "<name>_copy", with one unpublished draft: the content of the given version, else
+     * of the current one (the draft, else the live version). The source flow does not change.
+     */
+    duplicate: (appId: string, flowId: string, versionId?: string) =>
+        http.post<Flow>(`/apps/${appId}/flows/${flowId}/copy`, versionId === undefined ? {} : { flow_version_id: versionId }),
+
+    get: (appId: string, flowId: string) => http.get<Flow>(`/apps/${appId}/flows/${flowId}`),
+
+    versions: flowVersions(http, (appId, flowId) => `/apps/${appId}/flows/${flowId}`),
+
     funnel: {
         /** The dashboard's CSV of the same funnel, as text: the server writes it, the CLI adds nothing. */
         csv: (appId: string, flowId: string, input: FlowFunnelInput): Promise<string> =>
