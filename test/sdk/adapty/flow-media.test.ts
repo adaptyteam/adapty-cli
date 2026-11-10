@@ -8,6 +8,12 @@ import {
     validateVideoUpload,
     VIDEO_MAX_BYTES,
 } from '../../../src/sdk/adapty/flow-media.js';
+import { createAdapty } from '../../../src/sdk/adapty/index.js';
+import { ValidationError } from '../../../src/sdk/core/errors.js';
+import { rejection } from '../../helpers/rejection.js';
+
+const BASE = 'https://api.example.com/v1';
+const APP = '550e8400-e29b-41d4-a716-446655440000';
 
 const GIF_HEAD = new TextEncoder().encode('GIF89a');
 const PNG_HEAD = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
@@ -79,5 +85,60 @@ describe('flow media rules', () => {
                 expect(messages(validateVideoUpload({ head, name, size }))).to.deep.equal(expected);
             });
         }
+    });
+});
+
+describe('adapty.flows.media.uploadVideo', () => {
+    type Sent = { body: unknown; method: string | undefined; url: string };
+
+    const setup = (status: number, body: unknown) => {
+        const sent: Sent[] = [];
+
+        const fetch: typeof globalThis.fetch = (input, init) => {
+            const url = input instanceof Request ? input.url : input.toString();
+
+            sent.push({ body: init?.body, method: init?.method, url });
+
+            return Promise.resolve(new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' }, status }));
+        };
+
+        return { media: createAdapty({ baseUrl: BASE, fetch, token: 't' }).flows.media, sent };
+    };
+
+    const VIDEO = { height: 1920, preview_base64: 'x', preview_url: 'https://cdn/p.jpg', video_url: 'https://cdn/v/master.m3u8', width: 1080 };
+
+    it('posts the file as the multipart field file to the video route and returns the answer', async () => {
+        const { media, sent } = setup(201, VIDEO);
+
+        const result = await media.uploadVideo(APP, { content: MP4_HEAD, name: 'intro.mp4' });
+
+        expect(result).to.deep.equal(VIDEO);
+        expect(sent).to.have.length(1);
+        expect(sent[0]?.method).to.equal('POST');
+        expect(sent[0]?.url).to.equal(`${BASE}/apps/${APP}/flows/media/videos/`);
+        expect(sent[0]?.body).to.be.instanceOf(FormData);
+
+        const file = (sent[0]?.body as FormData).get('file') as File;
+
+        expect(file.name).to.equal('intro.mp4');
+        expect(file.type).to.equal('video/mp4');
+    });
+
+    it('refuses a GIF named .mp4 and sends nothing', async () => {
+        const { media, sent } = setup(201, VIDEO);
+
+        const error = await rejection(media.uploadVideo(APP, { content: GIF_HEAD, name: 'x.mp4' }));
+
+        expect(error).to.be.instanceOf(ValidationError);
+        expect((error as ValidationError).message).to.equal('GIF is not supported.');
+        expect(sent).to.have.length(0);
+    });
+
+    it('does not retry a failed upload', async () => {
+        const { media, sent } = setup(503, {});
+
+        await rejection(media.uploadVideo(APP, { content: MP4_HEAD, name: 'intro.webm' }));
+
+        expect(sent).to.have.length(1);
     });
 });
