@@ -79,6 +79,15 @@ describe('flows media upload', () => {
         });
     }
 
+    it('the flows media topic in flows --help names both upload commands', async () => {
+        const { stdout } = await runCommand('flows --help');
+        const topic = stdout.slice(stdout.indexOf('flows media'), stdout.indexOf('flows metrics')).replaceAll(/\s+/g, ' ');
+
+        expect(topic).to.include('images (flows media upload)');
+        expect(topic).to.include('videos (flows media upload-video)');
+        expect(topic).to.not.match(/\d/);
+    });
+
     it('--help names flows media upload-video and lists no GIF and no HEIC', async () => {
         const { stdout } = await runCommand('flows media upload --help');
 
