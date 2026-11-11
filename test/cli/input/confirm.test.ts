@@ -3,7 +3,7 @@ import { PassThrough } from 'node:stream';
 import { expect } from 'chai';
 
 import { exitCode } from '../../../src/cli/errors.js';
-import { confirmAction } from '../../../src/cli/input/confirm.js';
+import { canAsk, confirmAction } from '../../../src/cli/input/confirm.js';
 import { rejection } from '../../helpers/rejection.js';
 
 import type { CliError } from '../../../src/cli/errors.js';
@@ -35,6 +35,14 @@ const confirm = (
         streams,
         yes: options.yes ?? false,
     });
+
+describe('canAsk', () => {
+    it('needs an interactive command and a terminal on stdin', () => {
+        expect(canAsk({ interactive: true, streams: terminal(true) })).to.equal(true);
+        expect(canAsk({ interactive: true, streams: terminal(false) })).to.equal(false);
+        expect(canAsk({ interactive: false, streams: terminal(true) })).to.equal(false);
+    });
+});
 
 describe('confirmAction', () => {
     it('goes on with --yes, and asks nothing', async () => {

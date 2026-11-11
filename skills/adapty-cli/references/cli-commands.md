@@ -195,6 +195,12 @@ adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type paywall --dat
   the server's 400 (exit 4).
 - **Not yours.** A flow, paywall or placement of another app answers 404 (exit 4), also inside a `list`.
 - **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
+- **Never published.** A flow whose `published_flow_version_id` is `null` (`flows get`) has no data: `flows metrics get`
+  and `flows metrics list` keep the numbers (zeros) and add "No data: the flow was never published." (`note:
+  "never_published"` on the answer or on the row of that flow in `--json`; on stderr with `--csv`). A flow that cannot
+  be read gets no note.
+  The revenue of one flow is `analytics chart --chart revenue --filter flow_id=<flow_id>`; a flow with no purchases
+  gives 0 for the period.
 
 ## Flow screen funnel
 
@@ -222,9 +228,55 @@ adapty flows funnel get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-t
   `profile_install_date` counts the profiles installed in the period. Without `--date-type`, `--date-from` or
   `--date-to` the CLI exits 2 and sends no request. `--timezone` (an IANA name) sets the time zone of the days.
 - **Version.** Without `--flow-version-id` the answer is the published version, and says which (`version`,
-  `flow_version_id`). The CLI lists no versions.
+  `flow_version_id`). `flows versions list` gives the version IDs.
 - **Errors.** A flow with no published version (and no `--flow-version-id`) is a 400; an unknown flow, a flow of
   another app and a version of another flow are a 404. Each exits 4 with the route's text.
+
+## Flow version history
+
+The versions of a flow, as the version history of the flow builder shows them: the draft (the current version while
+it is not published), the live version and the versions before them (`previous`). A flow has one draft or none.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `flows versions list <flow_id>` | `--app`; optional `--search` (part of a title, any case; an unnamed version is "Version N") |
+| `flows versions get <flow_id> <version_id>` | `--app`; optional `--output <file>` (writes the version as JSON; an existing file only with a yes or `--yes`) |
+| `flows versions preview <flow_id> <version_id>` | `--app`; prints the link that opens the version on a test device |
+| `flows versions rename <flow_id> <version_id>` | `--app`, `--name` (`""` gives the "Version N" title again) |
+| `flows versions restore <flow_id> <version_id>` | `--app`; when the flow has a draft: a yes at the terminal, or `--yes` with `--expected-updated-at` |
+| `flows duplicate <flow_id>` | `--app`; optional `--version <version_id>` (the current version when omitted) |
+
+```sh
+adapty flows versions list FLOW_UUID --app APP_UUID --json
+adapty flows versions get FLOW_UUID VERSION_UUID --app APP_UUID --output version.json
+adapty flows versions restore FLOW_UUID VERSION_UUID --app APP_UUID --yes --expected-updated-at 1794219300000
+adapty flows duplicate FLOW_UUID --app APP_UUID --version VERSION_UUID
+```
+
+- **Rows.** `list` gives every version in one answer (no pages), newest first: `title`, `state` (`draft`, `live`, `previous`), `publication_status`,
+  `published_at`, `created_at`, `updated_at` (milliseconds: the token of a restore), `last_edited_by`. The table
+  dates the draft by `created_at` and a live or previous version by `published_at`, else `created_at`; only the
+  draft is marked "Publishing…" or "Publish failed". Before the first publish the table says "History will appear
+  after the first publish." with the draft under it; `--json` gives the rows as they are.
+- **View.** `get` changes nothing. `--json` and `--output` have the whole version: the configs, every layout, the
+  remote configs, the paywalls and `preview_url`.
+- **Restore.** It never publishes: the publish stays the user's decision. With no draft it makes a new draft and asks
+  nothing. With a draft it replaces the draft (the same id and name, the content of the version), so it asks first,
+  naming the draft, its last change and its editor. Ask the user before you pass `--yes`, and offer `flows duplicate`
+  of the draft first: a replaced draft does not come back. With `--yes` and a draft, `--expected-updated-at` is
+  required (exit 6 without it): take the `updated_at` of the draft row of `list --json`. With `--json` or no terminal
+  and no `--yes` it exits 6 `confirm_required`, sends nothing, and the message gives the
+  `--yes --expected-updated-at <ms>` to re-run with. A version that is not in the list is sent with nothing to ask:
+  the server answers `flow_version_not_found`.
+- **Duplicate.** A new flow "<name>_copy" with one unpublished draft; the source flow does not change. It works
+  while the source publishes.
+- **Dashboard words.** "Duplicate as draft" is `restore`; "Duplicate as new flow" and "Duplicate flow" are
+  `duplicate`.
+- **Errors** (exit 4, the server text, then the next step): `flow_config_conflict` (somebody changed the draft:
+  list the versions again and retry), `flow_publishing` (wait until the publish ends), `flow_archived` (restore the
+  flow from the archive in the dashboard first; list and view still work), `flow_draft_exists`,
+  `flow_version_already_draft`, `flow_version_products_deleted`, `flow_version_not_found`, `flow_not_found`. In
+  `--json` the error has `error_code` and, for the first three, `hint`.
 
 ## Segments
 

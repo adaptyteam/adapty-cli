@@ -30,6 +30,14 @@ const isYes = (answer: string): boolean => /^y(es)?$/i.test(answer.trim());
 const isTerminal = (stream: NodeJS.ReadableStream): boolean => (stream as { isTTY?: boolean }).isTTY === true;
 
 /**
+ * Whether a person can answer a question: the command is interactive (stdout is a terminal, no
+ * --json) and stdin is a terminal too. A command that must refuse in its own words when nobody can
+ * answer asks this first, so it and `confirmAction` never disagree.
+ */
+export const canAsk = ({ interactive, streams }: Pick<ConfirmOptions, 'interactive' | 'streams'>): boolean =>
+    interactive && isTerminal(streams?.input ?? process.stdin);
+
+/**
  * The one confirmation of an action that cannot be undone. Returns when the action may go on and
  * throws when it may not, so a command writes one line before its request:
  *
@@ -44,12 +52,11 @@ export const confirmAction = async ({ effect, interactive, signal, streams, yes 
         return;
     }
 
-    const input = streams?.input ?? process.stdin;
-
-    if (!interactive || !isTerminal(input)) {
+    if (!canAsk({ interactive, streams })) {
         throw new CliError(`${effect}\n\nRe-run with --yes to do it.`, exitCode.confirmRequired, 'confirm_required');
     }
 
+    const input = streams?.input ?? process.stdin;
     const output = streams?.output ?? process.stderr;
 
     output.write(`${effect}\n`);

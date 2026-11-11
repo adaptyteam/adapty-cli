@@ -40,7 +40,10 @@ src/
                      # media/ (upload — multipart image upload, returns CDN url to reference in a config);
                      # metrics/ (list, get, values — the dashboard metrics page; implementation in src/cli/commands/flows/metrics);
                      # funnel/ (get, values — the screen funnel of one flow version, --csv is the dashboard CSV from the server;
-                     # implementation in src/cli/commands/flows/funnel)
+                     # implementation in src/cli/commands/flows/funnel);
+                     # versions/ (list, get, preview, rename, restore — the version history; restore asks before it
+                     # replaces a draft, --yes needs --expected-updated-at); duplicate (a copy as a new flow);
+                     # implementation in src/cli/commands/flows/versions and src/cli/commands/flows/duplicate.ts
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
