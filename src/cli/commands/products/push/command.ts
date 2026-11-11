@@ -10,7 +10,17 @@ import { productIdArg } from '../../../input/product.js';
 
 import { readImageDataUri } from './lib/image.js';
 
-import type { Product, PushProductInput } from '../../../../sdk/adapty/index.js';
+import type { Product, ProductStore, PushProductInput } from '../../../../sdk/adapty/index.js';
+
+const familySharingNote = (store: ProductStore, familySharable: boolean | undefined): string => {
+    if (store !== 'app_store') {
+        return '';
+    }
+
+    return familySharable === true
+        ? ' Family Sharing: on. Apple does not let you turn it off later.'
+        : ' Family Sharing: off.';
+};
 
 export default class ProductsPush extends AdaptyCommand {
     static override args = { ...productIdArg };
@@ -19,10 +29,12 @@ export default class ProductsPush extends AdaptyCommand {
         = 'Push an existing product to App Store Connect or Google Play: it creates the store product in the real store '
             + 'account. The product needs a USD price (`--price-usd` of `products create` or `products update`) and the store credentials of the '
             + 'app. The push is synchronous. App Store errors after Apple has created the product are not reported: '
-            + 'read `products get` and look at store_status. It asks first.';
+            + 'read `products get` and look at store_status. On the App Store, Family Sharing stays off unless '
+            + '`--family-sharable` is given; Apple does not let you turn it off later. It asks first.';
 
     static override examples = [
         '<%= config.bin %> products push 660e8400-... --app 550e8400-... --store app_store --store-product-id premium_monthly --group-id 1234 --screenshot review.png',
+        '<%= config.bin %> products push 660e8400-... --app 550e8400-... --store app_store --store-product-id premium_lifetime --screenshot review.png --family-sharable',
         '<%= config.bin %> products push 660e8400-... --app 550e8400-... --store play_store --store-product-id premium --android-base-plan-id monthly --yes',
     ];
 
@@ -30,6 +42,10 @@ export default class ProductsPush extends AdaptyCommand {
         ...appIdFlag,
         ...yesFlag,
         'android-base-plan-id': Flags.string({ description: 'Google Play base plan ID (subscriptions only)', helpGroup: 'GOOGLE PLAY' }),
+        'family-sharable': Flags.boolean({
+            description: 'Turn on Family Sharing for the App Store product (off when not given). Apple does not let you turn it off later. Not for consumables',
+            helpGroup: 'APP STORE',
+        }),
         'group-id': Flags.string({ description: 'Subscription group ID, see `product-groups list` (subscriptions only)', helpGroup: 'APP STORE' }),
         'screenshot': Flags.string({ description: 'Review screenshot, required for the App Store push: a PNG or JPEG file of an App Store device size', helpGroup: 'APP STORE' }),
         'store': Flags.option({ description: 'Store to push to', options: productStores, required: true })(),
@@ -40,6 +56,7 @@ export default class ProductsPush extends AdaptyCommand {
         const { args, flags } = await this.parse(ProductsPush);
 
         const flagInput: PushProductInput = {
+            familySharable: flags['family-sharable'] ? true : undefined,
             groupId: flags['group-id'],
             androidBasePlanId: flags['android-base-plan-id'],
             screenshot: flags.screenshot,
@@ -57,7 +74,7 @@ export default class ProductsPush extends AdaptyCommand {
 
         await confirmAction({
             effect: `Pushes product ${args.product_id} to ${flags.store} as "${flags['store-product-id']}": `
-                + 'it creates the product in the real store account.',
+                + `it creates the product in the real store account.${familySharingNote(flags.store, flags['family-sharable'])}`,
             interactive: this.interactive,
             signal: this.signal,
             yes: flags.yes,

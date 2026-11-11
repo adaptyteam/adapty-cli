@@ -82,7 +82,7 @@ the product already exists in that store.
 
 ```sh
 adapty products push PRODUCT_ID --app UUID --store play_store --store-product-id ID --android-base-plan-id ID
-adapty products push PRODUCT_ID --app UUID --store app_store --store-product-id ID --group-id ID --screenshot review.png
+adapty products push PRODUCT_ID --app UUID --store app_store --store-product-id ID --group-id ID --screenshot review.png [--family-sharable]
 adapty product-groups list --app UUID --store app_store|play_store [--page N] [--page-size N]
 adapty product-groups create --app UUID --store app_store --name "Premium"
 adapty product-prices list --app UUID --product UUID [--csv]
@@ -93,7 +93,9 @@ adapty product-prices set --app UUID --product UUID --country DE --app-store-pri
 `products push` creates the product in the real store account, needs the USD price of the product (`--price-usd` of
 `products create` or `products update`) and the store credentials of the app, and asks first (`--yes`; exit 6 without a terminal). App Store errors
 after Apple has created the product are not reported by the push: read `products get` and look at `store_status`.
-`--screenshot` is a PNG or JPEG file and is required for the App Store push. `product-groups create` is for the App Store; Google Play subscriptions are made
+`--screenshot` is a PNG or JPEG file and is required for the App Store push. Family Sharing of an App Store product
+stays off unless `--family-sharable` is given; Apple does not let you turn it off later, and consumables do not have it
+(400 `family_sharing_not_available`). `product-groups create` is for the App Store; Google Play subscriptions are made
 in the Google Play Console and `list --store play_store` shows them.
 `product-prices list --csv` prints the columns of the dashboard price download, and `set --file` takes that CSV back.
 `set` previews first (the store rounding), saves the rounded prices and asks before the save. A preview with errors saves
