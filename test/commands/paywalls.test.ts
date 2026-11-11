@@ -35,8 +35,9 @@ const PRODUCTS = [
 const DEPRECATION_WARNING = 'The --product-id flag is deprecated: it sets products with no offer and no billing plan. '
     + 'Use --products with a JSON list of {product_id, offer_id, fallback_offer_id, billing_plan_id, flow_product_id}.';
 
-// oclif wraps a warning at the terminal width and starts each line with a marker
-const unwrap = (text: string): string => text.replaceAll(/\s*›\s+/g, ' ');
+// oclif wraps a warning at the terminal width and starts each line with a marker: `›`, and `»` on Windows,
+// where the lines also end in \r\n. Without the markers and with one space between words, it reads as written.
+const unwrap = (text: string): string => text.replaceAll(/[›»]/g, '').replaceAll(/\s+/g, ' ');
 
 const REMOTE_CONFIGS = [{ data: '{"cta":"Buy"}', locale: 'en' }, { data: '{"cta":"Acheter"}', locale: 'fr' }];
 
