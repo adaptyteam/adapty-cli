@@ -52,9 +52,9 @@ Bundle into 2-3 AskUserQuestion calls:
 > Bundle ID: [suggest from detected config files]
 > Platforms: 1. iOS only / 2. Android only / 3. Both
 >
-> Products: 1. Monthly (`monthly`) / 2. Annual (`annual`) / 3. Monthly + Annual / 4. Weekly (`weekly`) / 5. Lifetime (`lifetime`) / 6. Custom
+> Products: 1. Monthly (`monthly`) / 2. Annual (`annual`) / 3. Monthly + Annual / 4. Weekly (`weekly`) / 5. Lifetime (`lifetime`) / 6. Consumable, e.g. a coin pack (`consumable`) / 7. Non-subscription, a non-renewing purchase (`nonsubscriptions`) / 8. Custom
 >
-> Valid `--period` values: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`, `lifetime`. Do NOT use `month`, `year`, `yearly`, or any other aliases — use these exact API values.
+> Valid `--period` values: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`, `lifetime`, `consumable`, `nonsubscriptions`. The last three are one-time purchases, the other six are subscriptions. Do NOT use `month`, `year`, `yearly`, or any other aliases — use these exact API values.
 > Product name prefix: [suggest based on app name, e.g. "Premium"]
 
 After this answer, you have enough to generate store product IDs. Pre-fill them using the convention `<bundle_id>.<prefix>.<period>` and include in the next question.
@@ -63,7 +63,7 @@ After this answer, you have enough to generate store product IDs. Pre-fill them 
 > **Store product IDs** — these MUST match the IDs you create (or will create) in App Store Connect / Google Play Console.
 > Confirm or edit the suggested IDs:
 > - iOS: `com.example.app.premium.monthly` / `com.example.app.premium.annual`
-> - Android product ID: `premium_monthly` / base plan: `monthly-base` (if Android)
+> - Android product ID: `premium_monthly` / base plan: `monthly-base` (if Android, for a subscription period only)
 >
 > If your iOS and Android IDs differ, enter them separately (e.g. "iOS: com.app.monthly, Android: monthly_sub / base plan: monthly-bp").
 > If you haven't created store products yet, these suggestions work — just use the same IDs when you set them up in App Store Connect / Google Play Console later.
@@ -81,7 +81,7 @@ After collecting all answers, confirm the plan with the user in a summary table,
 Execution order (each step uses output from previous):
 1. `adapty auth login` (if not already authenticated, check with `adapty auth whoami`)
 2. `adapty apps create --title "..." --platform ... --apple-bundle-id/--google-bundle-id ...` → save output: `id` (use as `--app`), `sdk_key` (use in SDK), plus the default access level `id` and `sdk_id` printed after creation
-3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions (non-lifetime) require `--android-base-plan-id`. Web products bind Stripe/Paddle instead: `--stripe-product-id`+`--stripe-price-id` or `--paddle-product-id`+`--paddle-price-id` (each pair required together).
+3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions require `--android-base-plan-id`; a one-time period (`lifetime`, `consumable`, `nonsubscriptions`) takes no base plan. Web products bind Stripe/Paddle instead: `--stripe-product-id`+`--stripe-price-id` or `--paddle-product-id`+`--paddle-price-id` (each pair required together).
 4. `adapty paywalls create --app <APP_ID> --title "..." --product-id <ID1> --product-id <ID2> ...` → save paywall ID
 5. For each placement: `adapty placements create --app <APP_ID> --title "..." --developer-id ... --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'`
    - `--paywall-id <PAYWALL_ID>` is still accepted as legacy shorthand but emits a stderr deprecation warning. Prefer `--audiences` for the canonical default-audience shape.
@@ -128,12 +128,12 @@ Custom paywall quickstarts:
 - React Native: `https://adapty.io/docs/react-native-quickstart-manual.md`
 
 **Option 2: Apple side** — print checklist:
-- Create subscription products in App Store Connect with IDs: `<list ios_product_ids>`
+- Create the products in App Store Connect (subscriptions for a subscription period; an in-app purchase for a one-time period: Consumable for `consumable`, Non-Consumable for `lifetime` and `nonsubscriptions`) with IDs: `<list ios_product_ids>`
 - Adapty Dashboard → App Store Connect: upload In-App Purchase Key (.p8), enter Key ID, Issuer ID, Bundle ID, App Apple ID → `https://adapty.io/docs/app-store-connection-configuration.md`
 - App Store Connect → Server Notifications V2: set URL from Adapty Dashboard → `https://adapty.io/docs/enable-app-store-server-notifications.md`
 
 **Option 3: Google side** — print checklist:
-- Create subscription products in Google Play Console with IDs: `<list android_product_ids>`, base plans: `<list base_plan_ids>`
+- Create the products in Google Play Console (subscriptions with base plans for a subscription period; a one-time product with no base plan for a one-time period) with IDs: `<list android_product_ids>`, base plans: `<list base_plan_ids>`
 - Adapty Dashboard → Google Play: upload service account JSON key, enter Package Name → `https://adapty.io/docs/google-play-store-connection-configuration.md`
 - Google Play Console → RTDN: configure Pub/Sub topic from Adapty Dashboard → `https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md`
 

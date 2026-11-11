@@ -1,6 +1,6 @@
 import { Flags } from '@oclif/core';
 
-import { productPeriods } from '../../../sdk/adapty/index.js';
+import { createPeriods, oneTimePeriods } from '../../../sdk/adapty/index.js';
 import { validateCreateProduct } from '../../../sdk/adapty/products/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
@@ -20,17 +20,18 @@ export default class ProductsCreate extends AdaptyCommand {
     static override examples = [
         '<%= config.bin %> products create --app UUID --title "Monthly" --access-level-id UUID --period monthly --price-usd 9.99',
         '<%= config.bin %> products create --app UUID --title "Monthly" --access-level-id UUID --period monthly --ios-product-id com.example.monthly',
+        '<%= config.bin %> products create --app UUID --title "100 coins" --access-level-id UUID --period consumable --ios-product-id com.example.coins100 --android-product-id com.example.coins100',
     ];
 
     static override flags = {
         ...appIdFlag,
         'title': Flags.string({ description: 'Product title', required: true }),
-        'period': Flags.option({ description: 'Subscription period', options: productPeriods, required: true })(),
+        'period': Flags.option({ description: `Subscription period, or a one-time purchase (${oneTimePeriods.join(', ')})`, options: createPeriods, required: true })(),
         'access-level-id': Flags.string({ description: 'Access level ID (UUID)', required: true }),
         'price-usd': amountFlag({ description: 'USD price; a push to the stores needs it' }),
         'ios-product-id': Flags.string({ description: 'iOS product ID', helpGroup: 'STORE BINDINGS' }),
         'android-product-id': Flags.string({ description: 'Android product ID', helpGroup: 'STORE BINDINGS' }),
-        'android-base-plan-id': Flags.string({ description: 'Android base plan ID', helpGroup: 'STORE BINDINGS' }),
+        'android-base-plan-id': Flags.string({ description: 'Android base plan ID; for a subscription period only', helpGroup: 'STORE BINDINGS' }),
         'stripe-product-id': Flags.string({ description: 'Stripe product ID (requires --stripe-price-id)', helpGroup: 'STORE BINDINGS' }),
         'stripe-price-id': Flags.string({ description: 'Stripe price ID (requires --stripe-product-id)', helpGroup: 'STORE BINDINGS' }),
         'paddle-product-id': Flags.string({ description: 'Paddle product ID (requires --paddle-price-id)', helpGroup: 'STORE BINDINGS' }),

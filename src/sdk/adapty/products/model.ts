@@ -3,8 +3,18 @@
 export const productStores = ['app_store', 'play_store'] as const;
 export type ProductStore = (typeof productStores)[number];
 
-export const productPeriods = ['weekly', 'monthly', 'two_months', 'trimonthly', 'semiannual', 'annual', 'lifetime'] as const;
+/** Every period the Developer API returns for a product. */
+export const productPeriods = [
+    'weekly', 'monthly', 'two_months', 'trimonthly', 'semiannual', 'annual', 'lifetime', 'consumable', 'nonsubscriptions', 'uncategorised',
+] as const;
 export type ProductPeriod = (typeof productPeriods)[number];
+
+/** The periods a create accepts: the dashboard refuses `uncategorised` on save. */
+export type CreatePeriod = Exclude<ProductPeriod, 'uncategorised'>;
+export const createPeriods = productPeriods.filter((period): period is CreatePeriod => period !== 'uncategorised');
+
+/** The periods that are a one-time purchase, not a subscription: no Google Play base plan. */
+export const oneTimePeriods = ['lifetime', 'consumable', 'nonsubscriptions'] as const satisfies readonly CreatePeriod[];
 
 export type VendorProduct = {
     base_plan_id: null | string;
