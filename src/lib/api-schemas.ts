@@ -75,16 +75,44 @@ export type ProductDTO = {
     vendor_products: Record<string, VendorProductDTO>;
 };
 
-export type PaywallDTO = {
+/** A product on a paywall, with the offer and the billing plan it is sold under. */
+export type PaywallProductDTO = {
+    billing_plan_id: null | string;
+    fallback_offer_id: null | string;
+    flow_product_id: null | string;
+    offer_id: null | string;
+    product_id: string;
+};
+
+/** One item of a paywall list: the list answer has no remote configs. */
+export type PaywallSummaryDTO = {
     id: string;
-    product_ids: string[];
+    products: PaywallProductDTO[];
     title: string;
 };
 
-export type PaywallWriteRequestDTO = {
-    product_ids?: string[];
-    title: string;
+export type PaywallRemoteConfigDTO = {
+    /** A JSON string. */
+    data: string;
+    locale: string;
 };
+
+export type PaywallDTO = {
+    builder_screenshot_id: null | number;
+    id: string;
+    products: PaywallProductDTO[];
+    remote_configs: PaywallRemoteConfigDTO[];
+    screenshot_id: null | number;
+    title: string;
+    use_paywall_builder_v4: boolean;
+    web_purchase_url: null | string;
+};
+
+/** The update body: every field is required, and `null` is a value where the type says so. */
+export type PaywallWriteRequestDTO = Omit<PaywallDTO, 'id'>;
+
+/** The create body: the fields after `products` are optional, and the API fills in `false`, `null` and `[]`. */
+export type PaywallCreateRequestDTO = Partial<PaywallWriteRequestDTO> & Pick<PaywallWriteRequestDTO, 'products' | 'title'>;
 
 /** Flow lifecycle status. Values come from the server-side `FlowStatus` enum (e.g. draft, dirty, published). */
 export type FlowStatus = string;
@@ -129,7 +157,7 @@ export type FlowConfigWriteRequestDTO = {
     config: Record<string, unknown>;
     /** Optimistic lock: the `updated_at` from a prior config read. Omit for last-write-wins. */
     expected_updated_at?: null | number;
-    remote_configs?: FlowRemoteConfigDTO[];
+    remote_configs: FlowRemoteConfigDTO[];
 };
 
 export type FlowConfigValidateRequestDTO = {

@@ -5,7 +5,7 @@ import { createAuthenticatedClient } from '../../lib/client-from-config.js';
 import { paginationFlags, paginationParams } from '../../lib/flags.js';
 import { printList } from '../../lib/output.js';
 
-import type { PaywallDTO } from '../../lib/api-schemas.js';
+import type { PaywallSummaryDTO } from '../../lib/api-schemas.js';
 import type { PaginatedResponse } from '../../lib/flags.js';
 
 export default class PaywallsList extends Command {
@@ -17,11 +17,11 @@ export default class PaywallsList extends Command {
         ...paginationFlags,
     };
 
-    async run(): Promise<PaginatedResponse<PaywallDTO>> {
+    async run(): Promise<PaginatedResponse<PaywallSummaryDTO>> {
         const { flags } = await this.parse(PaywallsList);
         const client = await createAuthenticatedClient(this.config);
 
-        const result = await client.get<PaginatedResponse<PaywallDTO>>(
+        const result = await client.get<PaginatedResponse<PaywallSummaryDTO>>(
             `/apps/${flags.app}/paywalls`,
             paginationParams(flags),
         );
