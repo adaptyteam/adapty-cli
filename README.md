@@ -122,9 +122,19 @@ in between, and refuses to clear the last store side. Introductory offers are re
 ```sh
 adapty paywalls list --app UUID [--page N] [--page-size N]
 adapty paywalls get --app UUID PAYWALL_ID
-adapty paywalls create --app UUID --title "Name" --product-id UUID1 [--product-id UUID2]
-adapty paywalls update --app UUID PAYWALL_ID [flags]
+adapty paywalls create --app UUID --title "Name" --products JSON [--remote-configs JSON] [--use-paywall-builder-v4] [--screenshot-id ID|null] [--builder-screenshot-id ID|null] [--web-purchase-url URL|null]
+adapty paywalls update --app UUID PAYWALL_ID (--file PATH|- | --title "Name" --products JSON --remote-configs JSON (--use-paywall-builder-v4 | --no-use-paywall-builder-v4) --screenshot-id ID|null --builder-screenshot-id ID|null --web-purchase-url URL|null)
 ```
+
+`paywalls get` and `paywalls list` print the products with their offers and billing plans, and `get` prints the remote
+configs and the other fields that `update` writes. `--products` takes the list that `get` printed:
+`[{"product_id": "UUID", "offer_id": null, "fallback_offer_id": null, "billing_plan_id": null, "flow_product_id": null}]`.
+`--product-id UUID` (repeatable) is deprecated: it sets products with no offer and no billing plan, and it cannot be
+combined with `--products`. `update` replaces the whole paywall:
+every field is required, and a missing one is refused, not reset. Send the file that `get --json` printed with `--file`
+(`adapty paywalls get ... --json > paywall.json`, edit it, then `adapty paywalls update ... --file paywall.json`), or give
+one flag for each field; `--file` and the field flags cannot be mixed. `null` clears a field that can be null. A write
+replaces the whole remote config list: `[]` deletes all.
 
 ### Placements
 
@@ -191,8 +201,13 @@ adapty flows list --app UUID [--page N] [--page-size N]
 adapty flows get --app UUID FLOW_ID
 adapty flows create --app UUID --name "Name"
 adapty flows config get --app UUID FLOW_ID
-adapty flows config update --app UUID FLOW_ID (--config JSON | --config-file PATH|-) [--remote-configs JSON] [--expected-updated-at MS]
+adapty flows config update --app UUID FLOW_ID (--file PATH|- | (--config JSON | --config-file PATH|-) --remote-configs JSON) [--expected-updated-at MS]
 ```
+
+`flows config update` writes the config and the remote configs together, and both are required: a write replaces the
+whole remote config list, `[]` deletes all. Send the file that `flows config get --json` printed with `--file` (it takes
+`config` and `remote_configs` and ignores the other keys), or give `--config` or `--config-file` and `--remote-configs`;
+`--file` cannot be mixed with them.
 
 A freshly created flow has no config until the first `flows config update`; `flows config get` returns 404
 until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of
