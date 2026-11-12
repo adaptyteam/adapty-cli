@@ -593,7 +593,11 @@ describe('flows metrics and placements metrics', () => {
 
             await runCommand(`flows metrics list --app ${TEST_APP_ID} --ids ${FLOW_ID},${OTHER_FLOW_ID}`);
 
-            expect(callOf(fetchStub, 1).url.searchParams.get('filter[flow_id]')).to.equal(`${FLOW_ID},${OTHER_FLOW_ID}`);
+            // Each run also reads its flows: the metrics GET of the second run is the last one to that path
+            const stub = fetchStub;
+            const listCalls = stub.getCalls().map((_, index) => callOf(stub, index)).filter(item => url(item).endsWith('/flows/metrics/'));
+
+            expect(listCalls.at(-1)?.url.searchParams.get('filter[flow_id]')).to.equal(`${FLOW_ID},${OTHER_FLOW_ID}`);
         });
 
         it('prints one line for each id, and --csv one row for each id with its 27 metrics', async () => {
@@ -766,7 +770,9 @@ describe('flows metrics and placements metrics', () => {
             }
 
             const stub = fetchStub;
-            const sent = pairs.map((_, index) => (callOf(stub, index).body as { filters: unknown }).filters);
+            // Each run also reads the flow (is it published?): only the metrics POSTs carry the filters
+            const posts = stub.getCalls().map((_, index) => callOf(stub, index)).filter(call => call.method === 'POST');
+            const sent = posts.map(call => (call.body as { filters: unknown }).filters);
 
             expect(sent).to.deep.equal(pairs.map(([key, value]) => ({ [key]: [value] })));
         });

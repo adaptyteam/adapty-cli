@@ -2,6 +2,7 @@ import { Errors } from '@oclif/core';
 
 import { isSdkError } from '../sdk/core/errors.js';
 
+import { hintJson, withHint } from './errors/hints.js';
 import { wizardDiagnostics, wizardErrorMessage } from './errors/wizard.js';
 
 import type { WizardDiagnostics } from './errors/wizard.js';
@@ -30,6 +31,8 @@ export type ErrorJson = WizardDiagnostics & {
     code?: string | undefined;
     error_code?: string | undefined;
     errors?: unknown;
+    /** What to do next, for an API error code that has a known next step. */
+    hint?: string | undefined;
     message: string;
     /**
      * The server's wait in whole seconds: Retry-After rounded up, else the Wizard envelope's own field,
@@ -190,8 +193,9 @@ export const toCliError = (error: unknown): Error => {
             // A permission denial is an auth failure; retain the server's explanation and diagnostics.
             const exit = error.status === 403 ? exitCode.auth : exitCode.api;
 
-            return cliError(wizardErrorMessage(error.message, diagnostics), exit, code, {
+            return cliError(withHint(wizardErrorMessage(error.message, diagnostics), code), exit, code, {
                 ...diagnostics,
+                ...hintJson(code),
                 code: jsonCode,
                 error_code: jsonCode,
                 errors: fields,

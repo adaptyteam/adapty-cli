@@ -1,8 +1,8 @@
-import { readFile } from 'node:fs/promises';
-
 import { Args, Command, Flags } from '@oclif/core';
 
+import { usageError } from '../../../cli/errors.js';
 import { appIdFlag } from '../../../cli/input/app.js';
+import { parseJson, readBodyFile, readJsonFile } from '../../../cli/input/json.js';
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
 import { isValidUuid } from '../../../lib/flags.js';
 import { printResponse } from '../../../lib/output.js';
@@ -14,29 +14,38 @@ export default class FlowsConfigUpdate extends Command {
         flow_id: Args.string({ description: 'Flow ID (UUID)', required: true }),
     };
 
-    static override description = 'Write the flow builder config (creates the first version, or edits/forks the current one)';
+    static override description
+        = 'Write the flow builder config and its remote configs (creates the first version, or edits/forks the current one). '
+            + 'Both are required, and a write replaces the whole remote config list: [] deletes all. '
+            + 'Send the output of `flows config get --json` with --file, or give --config (or --config-file) and --remote-configs.';
+
     static override enableJsonFlag = true;
     static override examples = [
-        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config-file config.json',
-        'cat config.json | <%= config.bin %> flows config update --app UUID FLOW_UUID --config-file -',
-        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config \'{"screens":[],"locales":[]}\' --expected-updated-at 1755001800000',
+        '<%= config.bin %> flows config get --app UUID FLOW_UUID --json > flow.json',
+        '<%= config.bin %> flows config update --app UUID FLOW_UUID --file flow.json',
+        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config-file config.json --remote-configs \'[]\'',
+        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config \'{"screens":[],"locales":[]}\' --remote-configs \'[]\' --expected-updated-at 1755001800000',
     ];
 
     static override flags = {
         ...appIdFlag,
         'config': Flags.string({
             description: 'Builder config as a JSON string',
-            exactlyOne: ['config', 'config-file'],
+            exclusive: ['config-file', 'file'],
         }),
         'config-file': Flags.string({
             description: 'JSON file with the builder config, or - to read stdin',
-            exactlyOne: ['config', 'config-file'],
+            exclusive: ['config', 'file'],
         }),
         'expected-updated-at': Flags.integer({
             description: 'Optimistic lock: the `updated_at` from a prior config read. Omit for last-write-wins.',
         }),
+        'file': Flags.string({
+            description: 'JSON file with `config` and `remote_configs` (the output of `flows config get --json`), or - to read stdin. Other keys are ignored.',
+            exclusive: ['config', 'config-file', 'remote-configs'],
+        }),
         'remote-configs': Flags.string({
-            description: 'JSON array of remote config entries: [{locale, data}]',
+            description: 'JSON array of remote config entries: [{locale, data}]. [] deletes all.',
         }),
     };
 
@@ -47,13 +56,7 @@ export default class FlowsConfigUpdate extends Command {
             this.error('Invalid flow ID format.', { exit: 2 });
         }
 
-        const config = await this.readConfig(flags);
-
-        const body: FlowConfigWriteRequestDTO = { config };
-
-        if (flags['remote-configs'] !== undefined) {
-            body.remote_configs = this.parseJson<FlowRemoteConfigDTO[]>(flags['remote-configs'], '--remote-configs');
-        }
+        const body = await this.readBody(flags);
 
         if (flags['expected-updated-at'] !== undefined) {
             body.expected_updated_at = flags['expected-updated-at'];
@@ -68,46 +71,52 @@ export default class FlowsConfigUpdate extends Command {
         return result;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- FIXME if you see this
-    private parseJson<T>(raw: string, label: string): T {
-        try {
-            return JSON.parse(raw) as T;
-        } catch (error) {
-            this.error(`Invalid ${label} JSON: ${error instanceof Error ? error.message : String(error)}`, { exit: 2 });
+    private async readBody(flags: {
+        'config'?: string | undefined;
+        'config-file'?: string | undefined;
+        'file'?: string | undefined;
+        'remote-configs'?: string | undefined;
+    }): Promise<FlowConfigWriteRequestDTO> {
+        if (flags.file !== undefined) {
+            const envelope = await readBodyFile(flags.file);
+            const absent = ['config', 'remote_configs'].filter(key => !(key in envelope));
+
+            if (absent.length > 0) {
+                throw usageError(`Missing keys in ${flags.file}: ${absent.join(', ')}. The file needs both config and remote_configs.`);
+            }
+
+            return {
+                config: envelope.config as Record<string, unknown>,
+                remote_configs: envelope.remote_configs as FlowRemoteConfigDTO[],
+            };
         }
+
+        const config = await this.readConfig(flags);
+        const remoteConfigs = flags['remote-configs'];
+
+        const missing = [
+            ...(config === undefined ? ['--config or --config-file'] : []),
+            ...(remoteConfigs === undefined ? ['--remote-configs'] : []),
+        ];
+
+        if (config === undefined || remoteConfigs === undefined) {
+            throw usageError(
+                `Missing flags: ${missing.join(', ')}. Give both, or send the whole body with --file PATH|-.`,
+            );
+        }
+
+        return {
+            config: config as Record<string, unknown>,
+            remote_configs: parseJson(remoteConfigs, '--remote-configs') as FlowRemoteConfigDTO[],
+        };
     }
 
-    private async readConfig(
-        flags: { 'config'?: string | undefined; 'config-file'?: string | undefined },
-    ): Promise<Record<string, unknown>> {
+    /** The config the flags gave, or undefined when neither flag was given. */
+    private async readConfig(flags: { 'config'?: string | undefined; 'config-file'?: string | undefined }): Promise<unknown> {
         if (flags.config !== undefined) {
-            return this.parseJson<Record<string, unknown>>(flags.config, '--config');
+            return parseJson(flags.config, '--config');
         }
 
-        const path = flags['config-file'];
-
-        if (path === undefined) {
-            this.error('Provide --config or --config-file.', { exit: 2 });
-        }
-
-        let raw: string;
-
-        try {
-            raw = path === '-' ? await this.readStdin() : await readFile(path, 'utf8');
-        } catch {
-            this.error(`Could not read ${path}.`, { exit: 2 });
-        }
-
-        return this.parseJson<Record<string, unknown>>(raw, path);
-    }
-
-    private async readStdin(): Promise<string> {
-        const chunks: Buffer[] = [];
-
-        for await (const chunk of process.stdin) {
-            chunks.push(chunk as Buffer);
-        }
-
-        return Buffer.concat(chunks).toString('utf8');
+        return flags['config-file'] === undefined ? undefined : readJsonFile(flags['config-file']);
     }
 }

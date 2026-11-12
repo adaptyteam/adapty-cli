@@ -41,13 +41,13 @@ All commands support `--json` for machine-readable output.
 
 | Command                          | Required flags                                                                 |
 |----------------------------------|--------------------------------------------------------------------------------|
-| `products push <product_id>`     | `--app`, `--store` (`app_store` / `play_store`), `--store-product-id`. App Store: `--screenshot <png or jpeg file>` (required) and, for subscriptions, `--group-id`. Google Play subscriptions: `--android-base-plan-id` |
+| `products push <product_id>`     | `--app`, `--store` (`app_store` / `play_store`), `--store-product-id`. App Store: `--screenshot <png or jpeg file>` (required), for subscriptions `--group-id`, and optional `--family-sharable`. Google Play subscriptions: `--android-base-plan-id` |
 | `product-groups list`            | `--app`, `--store`; optional `--page`, `--page-size`                           |
 | `product-groups create`          | `--app`, `--store`, `--name`                                                   |
 | `product-prices list`            | `--app`, `--product`; `--csv` prints the columns of the dashboard price download |
 | `product-prices set`             | `--app`, `--product`, and `--file <csv>` or `--country <code>` with `--app-store-price` and/or `--play-store-price` (optional `--app-store-currency`, `--play-store-currency`); `--dry-run`, `--wait` (`--timeout`), `--apply-to-existing-subscribers`, `--yes` |
 
-`products push` creates the product in the real store account and asks first: `--yes`, else exit 6 without a terminal. It needs the USD price of the product (`--price-usd` of `products create` or `products update`) and the store credentials of the app (400 `missing_store_credentials`). App Store errors after Apple has created the product are not reported: read `products get` and look at `store_status`. `product-groups create` works for the App Store only (Google Play: 400 `product_group_create_not_supported`); a name that exists is refused by the server (409 `subscription_group_already_exists`, exit 4); the answer has the name only, read the new group's id from `product-groups list`. `product-prices set` always previews first and saves the rounded prices of the preview. Row errors of the preview (`invalid_region_code`, `invalid_price`, `missing_currency`, a missing store credential, ...) exit 4 and save nothing; a preview with no difference prints "No price changes detected" and exits 0; a refused save has the code `product_prices_store_validation_error`. `--wait` polls the store sync within the `--timeout` budget: exit 0 when all saved rows are `synced`; 4 `price_sync_failed` when one is `failed` or `subscribers_migration_failed`; 4 `price_sync_unknown` when a saved row is missing from the list or has any other status (read `product-prices list`); exit 0 with `timed_out: true` when the budget ends with rows still pending. Every failure after the save (also a network error, exit 5, or Ctrl+C, exit 130, during the wait) has `saved: true` and `saved_rows` in the error JSON: do not save again, read `product-prices list`. A `--file` error of the CLI check names the line of the file; a row error of the preview counts the rows sent, which skips the header, blank lines and rows without a requested price. The store task runs about a minute after the save, so a shorter budget cannot see the sync. `--wait` with `--dry-run` exits 2. A product of another app answers 404 `adapty_product_does_not_exist`.
+`products push` creates the product in the real store account and asks first: `--yes`, else exit 6 without a terminal. It needs the USD price of the product (`--price-usd` of `products create` or `products update`) and the store credentials of the app (400 `missing_store_credentials`). App Store errors after Apple has created the product are not reported: read `products get` and look at `store_status`. Family Sharing of an App Store product is off unless `--family-sharable` is given; Apple does not let you turn it off later, consumables do not have it (400 `family_sharing_not_available`), and the flag exits 2 with `--store play_store`. `product-groups create` works for the App Store only (Google Play: 400 `product_group_create_not_supported`); a name that exists is refused by the server (409 `subscription_group_already_exists`, exit 4); the answer has the name only, read the new group's id from `product-groups list`. `product-prices set` always previews first and saves the rounded prices of the preview. Row errors of the preview (`invalid_region_code`, `invalid_price`, `missing_currency`, a missing store credential, ...) exit 4 and save nothing; a preview with no difference prints "No price changes detected" and exits 0; a refused save has the code `product_prices_store_validation_error`. `--wait` polls the store sync within the `--timeout` budget: exit 0 when all saved rows are `synced`; 4 `price_sync_failed` when one is `failed` or `subscribers_migration_failed`; 4 `price_sync_unknown` when a saved row is missing from the list or has any other status (read `product-prices list`); exit 0 with `timed_out: true` when the budget ends with rows still pending. Every failure after the save (also a network error, exit 5, or Ctrl+C, exit 130, during the wait) has `saved: true` and `saved_rows` in the error JSON: do not save again, read `product-prices list`. A `--file` error of the CLI check names the line of the file; a row error of the preview counts the rows sent, which skips the header, blank lines and rows without a requested price. The store task runs about a minute after the save, so a shorter budget cannot see the sync. `--wait` with `--dry-run` exits 2. A product of another app answers 404 `adapty_product_does_not_exist`.
 
 ## Product offers
 
@@ -66,8 +66,8 @@ All commands support `--json` for machine-readable output.
 |-------------------------------------|---------------------------------|
 | `paywalls list`                      | `--app`                         |
 | `paywalls get <paywall_id>`          | `--app`                         |
-| `paywalls create`                    | `--app`, `--title`, `--product-id` (repeatable) |
-| `paywalls update <paywall_id>`       | `--app`, `--title`, `--product-id` (repeatable) |
+| `paywalls create`                    | `--app`, `--title`, exactly one of `--products` (JSON list `[{"product_id": ...}]`, with optional `offer_id`, `fallback_offer_id`, `billing_plan_id`) and the deprecated `--product-id` (repeatable; no offer, no billing plan); optional `--remote-configs`, `--use-paywall-builder-v4`, `--screenshot-id`, `--builder-screenshot-id`, `--web-purchase-url` (`null` clears) |
+| `paywalls update <paywall_id>`       | `--app`, then either `--file <path\|->` (the body of `paywalls get --json`) or every field flag: `--title`, `--products` (or the deprecated `--product-id`), `--remote-configs`, `--use-paywall-builder-v4`/`--no-use-paywall-builder-v4`, `--screenshot-id`, `--builder-screenshot-id`, `--web-purchase-url`. A missing field is refused (exit 2), never reset; `--file` and a field flag cannot be mixed; a write replaces the whole remote config list |
 | `paywalls placements <paywall_id>`   | `--app` — lists placements that currently use this paywall (slim summary; no `audiences`) |
 
 ## A/B tests
@@ -195,6 +195,12 @@ adapty placements metrics get PLACEMENT_UUID --app APP_UUID --type paywall --dat
   the server's 400 (exit 4).
 - **Not yours.** A flow, paywall or placement of another app answers 404 (exit 4), also inside a `list`.
 - **Time zone.** `get` takes `--timezone` (an IANA name such as `Europe/Berlin`) for the period points.
+- **Never published.** A flow whose `published_flow_version_id` is `null` (`flows get`) has no data: `flows metrics get`
+  and `flows metrics list` keep the numbers (zeros) and add "No data: the flow was never published." (`note:
+  "never_published"` on the answer or on the row of that flow in `--json`; on stderr with `--csv`). A flow that cannot
+  be read gets no note.
+  The revenue of one flow is `analytics chart --chart revenue --filter flow_id=<flow_id>`; a flow with no purchases
+  gives 0 for the period.
 
 ## Flow screen funnel
 
@@ -222,9 +228,55 @@ adapty flows funnel get FLOW_UUID --app APP_UUID --date-from 2026-09-01 --date-t
   `profile_install_date` counts the profiles installed in the period. Without `--date-type`, `--date-from` or
   `--date-to` the CLI exits 2 and sends no request. `--timezone` (an IANA name) sets the time zone of the days.
 - **Version.** Without `--flow-version-id` the answer is the published version, and says which (`version`,
-  `flow_version_id`). The CLI lists no versions.
+  `flow_version_id`). `flows versions list` gives the version IDs.
 - **Errors.** A flow with no published version (and no `--flow-version-id`) is a 400; an unknown flow, a flow of
   another app and a version of another flow are a 404. Each exits 4 with the route's text.
+
+## Flow version history
+
+The versions of a flow, as the version history of the flow builder shows them: the draft (the current version while
+it is not published), the live version and the versions before them (`previous`). A flow has one draft or none.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `flows versions list <flow_id>` | `--app`; optional `--search` (part of a title, any case; an unnamed version is "Version N") |
+| `flows versions get <flow_id> <version_id>` | `--app`; optional `--output <file>` (writes the version as JSON; an existing file only with a yes or `--yes`) |
+| `flows versions preview <flow_id> <version_id>` | `--app`; prints the link that opens the version on a test device |
+| `flows versions rename <flow_id> <version_id>` | `--app`, `--name` (`""` gives the "Version N" title again) |
+| `flows versions restore <flow_id> <version_id>` | `--app`; when the flow has a draft: a yes at the terminal, or `--yes` with `--expected-updated-at` |
+| `flows duplicate <flow_id>` | `--app`; optional `--version <version_id>` (the current version when omitted) |
+
+```sh
+adapty flows versions list FLOW_UUID --app APP_UUID --json
+adapty flows versions get FLOW_UUID VERSION_UUID --app APP_UUID --output version.json
+adapty flows versions restore FLOW_UUID VERSION_UUID --app APP_UUID --yes --expected-updated-at 1794219300000
+adapty flows duplicate FLOW_UUID --app APP_UUID --version VERSION_UUID
+```
+
+- **Rows.** `list` gives every version in one answer (no pages), newest first: `title`, `state` (`draft`, `live`, `previous`), `publication_status`,
+  `published_at`, `created_at`, `updated_at` (milliseconds: the token of a restore), `last_edited_by`. The table
+  dates the draft by `created_at` and a live or previous version by `published_at`, else `created_at`; only the
+  draft is marked "Publishing…" or "Publish failed". Before the first publish the table says "History will appear
+  after the first publish." with the draft under it; `--json` gives the rows as they are.
+- **View.** `get` changes nothing. `--json` and `--output` have the whole version: the configs, every layout, the
+  remote configs, the paywalls and `preview_url`.
+- **Restore.** It never publishes: the publish stays the user's decision. With no draft it makes a new draft and asks
+  nothing. With a draft it replaces the draft (the same id and name, the content of the version), so it asks first,
+  naming the draft, its last change and its editor. Ask the user before you pass `--yes`, and offer `flows duplicate`
+  of the draft first: a replaced draft does not come back. With `--yes` and a draft, `--expected-updated-at` is
+  required (exit 6 without it): take the `updated_at` of the draft row of `list --json`. With `--json` or no terminal
+  and no `--yes` it exits 6 `confirm_required`, sends nothing, and the message gives the
+  `--yes --expected-updated-at <ms>` to re-run with. A version that is not in the list is sent with nothing to ask:
+  the server answers `flow_version_not_found`.
+- **Duplicate.** A new flow "<name>_copy" with one unpublished draft; the source flow does not change. It works
+  while the source publishes.
+- **Dashboard words.** "Duplicate as draft" is `restore`; "Duplicate as new flow" and "Duplicate flow" are
+  `duplicate`.
+- **Errors** (exit 4, the server text, then the next step): `flow_config_conflict` (somebody changed the draft:
+  list the versions again and retry), `flow_publishing` (wait until the publish ends), `flow_archived` (restore the
+  flow from the archive in the dashboard first; list and view still work), `flow_draft_exists`,
+  `flow_version_already_draft`, `flow_version_products_deleted`, `flow_version_not_found`, `flow_not_found`. In
+  `--json` the error has `error_code` and, for the first three, `hint`.
 
 ## Segments
 

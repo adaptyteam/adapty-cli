@@ -82,7 +82,7 @@ the product already exists in that store.
 
 ```sh
 adapty products push PRODUCT_ID --app UUID --store play_store --store-product-id ID --android-base-plan-id ID
-adapty products push PRODUCT_ID --app UUID --store app_store --store-product-id ID --group-id ID --screenshot review.png
+adapty products push PRODUCT_ID --app UUID --store app_store --store-product-id ID --group-id ID --screenshot review.png [--family-sharable]
 adapty product-groups list --app UUID --store app_store|play_store [--page N] [--page-size N]
 adapty product-groups create --app UUID --store app_store --name "Premium"
 adapty product-prices list --app UUID --product UUID [--csv]
@@ -93,7 +93,9 @@ adapty product-prices set --app UUID --product UUID --country DE --app-store-pri
 `products push` creates the product in the real store account, needs the USD price of the product (`--price-usd` of
 `products create` or `products update`) and the store credentials of the app, and asks first (`--yes`; exit 6 without a terminal). App Store errors
 after Apple has created the product are not reported by the push: read `products get` and look at `store_status`.
-`--screenshot` is a PNG or JPEG file and is required for the App Store push. `product-groups create` is for the App Store; Google Play subscriptions are made
+`--screenshot` is a PNG or JPEG file and is required for the App Store push. Family Sharing of an App Store product
+stays off unless `--family-sharable` is given; Apple does not let you turn it off later, and consumables do not have it
+(400 `family_sharing_not_available`). `product-groups create` is for the App Store; Google Play subscriptions are made
 in the Google Play Console and `list --store play_store` shows them.
 `product-prices list --csv` prints the columns of the dashboard price download, and `set --file` takes that CSV back.
 `set` previews first (the store rounding), saves the rounded prices and asks before the save. A preview with errors saves
@@ -122,9 +124,19 @@ in between, and refuses to clear the last store side. Introductory offers are re
 ```sh
 adapty paywalls list --app UUID [--page N] [--page-size N]
 adapty paywalls get --app UUID PAYWALL_ID
-adapty paywalls create --app UUID --title "Name" --product-id UUID1 [--product-id UUID2]
-adapty paywalls update --app UUID PAYWALL_ID [flags]
+adapty paywalls create --app UUID --title "Name" --products JSON [--remote-configs JSON] [--use-paywall-builder-v4] [--screenshot-id ID|null] [--builder-screenshot-id ID|null] [--web-purchase-url URL|null]
+adapty paywalls update --app UUID PAYWALL_ID (--file PATH|- | --title "Name" --products JSON --remote-configs JSON (--use-paywall-builder-v4 | --no-use-paywall-builder-v4) --screenshot-id ID|null --builder-screenshot-id ID|null --web-purchase-url URL|null)
 ```
+
+`paywalls get` and `paywalls list` print the products with their offers and billing plans, and `get` prints the remote
+configs and the other fields that `update` writes. `--products` takes the list that `get` printed:
+`[{"product_id": "UUID", "offer_id": null, "fallback_offer_id": null, "billing_plan_id": null, "flow_product_id": null}]`.
+`--product-id UUID` (repeatable) is deprecated: it sets products with no offer and no billing plan, and it cannot be
+combined with `--products`. `update` replaces the whole paywall:
+every field is required, and a missing one is refused, not reset. Send the file that `get --json` printed with `--file`
+(`adapty paywalls get ... --json > paywall.json`, edit it, then `adapty paywalls update ... --file paywall.json`), or give
+one flag for each field; `--file` and the field flags cannot be mixed. `null` clears a field that can be null. A write
+replaces the whole remote config list: `[]` deletes all.
 
 ### Placements
 
@@ -191,12 +203,50 @@ adapty flows list --app UUID [--page N] [--page-size N]
 adapty flows get --app UUID FLOW_ID
 adapty flows create --app UUID --name "Name"
 adapty flows config get --app UUID FLOW_ID
-adapty flows config update --app UUID FLOW_ID (--config JSON | --config-file PATH|-) [--remote-configs JSON] [--expected-updated-at MS]
+adapty flows config update --app UUID FLOW_ID (--file PATH|- | (--config JSON | --config-file PATH|-) --remote-configs JSON) [--expected-updated-at MS]
 ```
+
+`flows config update` writes the config and the remote configs together, and both are required: a write replaces the
+whole remote config list, `[]` deletes all. Send the file that `flows config get --json` printed with `--file` (it takes
+`config` and `remote_configs` and ignores the other keys), or give `--config` or `--config-file` and `--remote-configs`;
+`--file` cannot be mixed with them.
 
 A freshly created flow has no config until the first `flows config update`; `flows config get` returns 404
 until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of
 overwriting a concurrent dashboard edit.
+
+#### Flow version history
+
+The versions of a flow, as the version history of the flow builder shows them: the draft, the live version and the
+versions before them.
+
+```sh
+adapty flows versions list FLOW_ID --app UUID [--search TEXT]
+adapty flows versions get FLOW_ID VERSION_ID --app UUID [--output FILE] [--yes]
+adapty flows versions preview FLOW_ID VERSION_ID --app UUID
+adapty flows versions rename FLOW_ID VERSION_ID --app UUID --name "Black Friday"
+adapty flows versions restore FLOW_ID VERSION_ID --app UUID [--yes --expected-updated-at MS]
+adapty flows duplicate FLOW_ID --app UUID [--version VERSION_ID]
+```
+
+`list` shows every version in one answer (no pages): the title, the state (`draft`, `live` or `previous`), the date
+and the id of each version, newest first; a draft that publishes or failed to publish is marked. The date of the draft is its creation, the date of a
+published version its publish. Before the first publish it says "History will appear after the first publish." and
+shows the draft under that text. `--search` keeps the versions whose title has the text (an unnamed version is
+"Version N").
+`get` shows one version and nothing changes; `--json` prints its content (the configs, every layout, the remote
+configs and the paywalls) and `--output` writes it to a file. `preview` prints the link that opens the version on a
+test device. `rename --name ""` gives the version its "Version N" title again.
+
+`restore` makes a version the draft again, and never publishes. With no draft it makes a new one and asks nothing.
+When the flow has a draft, the restore replaces it, so the CLI asks first and names the draft, its last change and
+who made it; `--yes` answers yes and then needs `--expected-updated-at` (the `updated_at` of the draft in
+`flows versions list --json`): the restore fails when somebody changed the draft after that. With `--json` or no
+terminal and no `--yes` it exits 6 and prints the `--yes --expected-updated-at` to re-run with. To keep the draft,
+duplicate it to a new flow first. `duplicate` makes a new flow "<name>_copy" with one unpublished draft: the
+content of `--version`, else of the current version. In the dashboard, "Duplicate as draft" is `restore` and
+"Duplicate as new flow" or "Duplicate flow" is `duplicate`. An archived flow can be listed and viewed only; restore
+it from the archive in the dashboard first.
 
 #### Flow, paywall and placement metrics
 
@@ -228,8 +278,10 @@ adapty placements metrics get PLACEMENT_ID --app UUID --type paywall \
 ```
 
 `get` prints a `Total` line and the first level of the tree under it (`--depth N` for more); `--json` prints the
-whole answer unchanged and `--csv` one row for each node. Read `values` first for the keys and values that
-`--filter key=value` takes. `--based-on` is required on every `get` command, and `--date-type` on `flows metrics get` and `paywalls metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. A paywall and a paywall placement need a date range (the server refuses a `get` without one). The paywall answers have 21 metrics and no `level` on a node: the root is the `Total` row, its children are in `items`, and the CSV `level` cell is empty for a child. The server checks
+whole answer unchanged and `--csv` one row for each node. For a flow that was never published, `flows metrics get`
+adds "No data: the flow was never published." over the numbers and `flows metrics list` adds it under the table for
+that flow (`note: "never_published"` in `--json`; on stderr with `--csv`). Read
+`values` first for the keys and values that `--filter key=value` takes. `--based-on` is required on every `get` command, and `--date-type` on `flows metrics get` and `paywalls metrics get`; there are no defaults. A flow placement takes the date range and `--date-type` only together (neither: lifetime); the server refuses one without the other. A paywall and a paywall placement need a date range (the server refuses a `get` without one). The paywall answers have 21 metrics and no `level` on a node: the root is the `Total` row, its children are in `items`, and the CSV `level` cell is empty for a child. The server checks
 every value and answers a wrong one with the valid ones (exit 4).
 
 `ab-tests metrics` reads the results of A/B tests: weight, revenue, P2BB (the chance, in percent, that an arm is the best by revenue per viewer; 0 on every arm means it is not computed), the 99 % range per 1,000 viewers and, for a flow test with two arms, the p-value. `--type` is the stored type of the test. `list` prints a Total line for each test; `get` and `total` print none. Read the leader in `total`, not in a period of `get`. A paywall test needs the date range and `--date-type` on `get`.
@@ -249,7 +301,7 @@ adapty flows funnel get FLOW_ID --app UUID --date-from 2026-09-01 --date-to 2026
 `get` prints a summary (entered, completed, drop rate, revenue), then a row for each step and, under a step with more
 than one screen, a row for each of its screens; `—` is a value that does not apply (it is not 0). `--json` prints the
 whole answer unchanged and `--csv` the CSV that the dashboard downloads, as the server writes it. Without
-`--flow-version-id` the funnel is the one of the published version; the CLI lists no versions. `--date-from`,
+`--flow-version-id` the funnel is the one of the published version; `flows versions list` gives the version IDs. `--date-from`,
 `--date-to` and `--date-type` are required; there are no defaults. Read `values` first for the keys and values that
 `--filter key=value` takes. A flow with no published version, an unknown flow and a version of another flow answer
 with the route's text (exit 4).

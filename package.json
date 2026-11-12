@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.19.0",
+  "version": "0.22.0",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -119,6 +119,9 @@
       },
       "flows:metrics": {
         "description": "Metrics of flows: lifetime rows, the metrics tree of one flow and its filter values"
+      },
+      "flows:versions": {
+        "description": "The version history of a flow: list, view, name and restore versions, and open one on a test device"
       },
       "paywalls:metrics": {
         "description": "Metrics of paywalls: lifetime rows, the metrics tree of one paywall and its filter values"
