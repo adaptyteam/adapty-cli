@@ -207,9 +207,15 @@ adapty flows config update --app UUID FLOW_ID (--file PATH|- | (--config JSON | 
 ```
 
 `flows config update` writes the config and the remote configs together, and both are required: a write replaces the
-whole remote config list, `[]` deletes all. Send the file that `flows config get --json` printed with `--file` (it takes
-`config` and `remote_configs` and ignores the other keys), or give `--config` or `--config-file` and `--remote-configs`;
-`--file` cannot be mixed with them.
+whole remote config list. To keep it, send the stored list back; `[]` deletes all, so use it only on a flow that has
+none. Send the file that `flows config get --json` printed with `--file` (it takes `config` and `remote_configs` and
+ignores the other keys), or give `--config` or `--config-file` and `--remote-configs`; `--file` cannot be mixed with
+them:
+
+```bash
+adapty flows config get --app UUID FLOW_ID --json > flow.json
+adapty flows config update --app UUID FLOW_ID --config-file config.json --remote-configs "$(jq -c .remote_configs flow.json)"
+```
 
 A freshly created flow has no config until the first `flows config update`; `flows config get` returns 404
 until then. Pass `--expected-updated-at` (the `updated_at` from a prior `config get`) to fail instead of

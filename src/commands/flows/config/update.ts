@@ -9,6 +9,9 @@ import { printResponse } from '../../../lib/output.js';
 
 import type { FlowConfigDTO, FlowConfigWriteRequestDTO, FlowRemoteConfigDTO } from '../../../lib/api-schemas.js';
 
+const KEEP_REMOTE_CONFIGS_HINT
+    = 'To keep the stored remote configs, pass `remote_configs` from `flows config get --json`; [] deletes them all.';
+
 export default class FlowsConfigUpdate extends Command {
     static override args = {
         flow_id: Args.string({ description: 'Flow ID (UUID)', required: true }),
@@ -16,15 +19,15 @@ export default class FlowsConfigUpdate extends Command {
 
     static override description
         = 'Write the flow builder config and its remote configs (creates the first version, or edits/forks the current one). '
-            + 'Both are required, and a write replaces the whole remote config list: [] deletes all. '
+            + 'Both are required, and a write replaces the whole remote config list: to keep it, send the stored one back; [] deletes all. '
             + 'Send the output of `flows config get --json` with --file, or give --config (or --config-file) and --remote-configs.';
 
     static override enableJsonFlag = true;
     static override examples = [
         '<%= config.bin %> flows config get --app UUID FLOW_UUID --json > flow.json',
         '<%= config.bin %> flows config update --app UUID FLOW_UUID --file flow.json',
-        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config-file config.json --remote-configs \'[]\'',
-        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config \'{"screens":[],"locales":[]}\' --remote-configs \'[]\' --expected-updated-at 1755001800000',
+        '<%= config.bin %> flows config update --app UUID FLOW_UUID --config-file config.json --remote-configs "$(jq -c .remote_configs flow.json)" --expected-updated-at "$(jq .updated_at flow.json)"',
+        '<%= config.bin %> flows config update --app UUID NEW_FLOW_UUID --config-file config.json --remote-configs \'[]\'',
     ];
 
     static override flags = {
@@ -45,7 +48,7 @@ export default class FlowsConfigUpdate extends Command {
             exclusive: ['config', 'config-file', 'remote-configs'],
         }),
         'remote-configs': Flags.string({
-            description: 'JSON array of remote config entries: [{locale, data}]. [] deletes all.',
+            description: 'JSON array of remote config entries: [{locale, data}]. Replaces the stored list: pass `remote_configs` from `flows config get --json` to keep it; [] deletes all.',
         }),
     };
 
@@ -82,7 +85,10 @@ export default class FlowsConfigUpdate extends Command {
             const absent = ['config', 'remote_configs'].filter(key => !(key in envelope));
 
             if (absent.length > 0) {
-                throw usageError(`Missing keys in ${flags.file}: ${absent.join(', ')}. The file needs both config and remote_configs.`);
+                throw usageError(
+                    `Missing keys in ${flags.file}: ${absent.join(', ')}. The file needs both config and remote_configs.`
+                    + (absent.includes('remote_configs') ? ` ${KEEP_REMOTE_CONFIGS_HINT}` : ''),
+                );
             }
 
             return {
@@ -101,7 +107,8 @@ export default class FlowsConfigUpdate extends Command {
 
         if (config === undefined || remoteConfigs === undefined) {
             throw usageError(
-                `Missing flags: ${missing.join(', ')}. Give both, or send the whole body with --file PATH|-.`,
+                `Missing flags: ${missing.join(', ')}. Give both, or send the whole body with --file PATH|-.`
+                + (remoteConfigs === undefined ? ` ${KEEP_REMOTE_CONFIGS_HINT}` : ''),
             );
         }
 
