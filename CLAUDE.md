@@ -37,7 +37,9 @@ src/
                      # preview — local config → render URL, opens on a TTY, prints bare URL when piped;
                      # capture is the caller's job, the CLI only builds the URL;
                      # validate — advisory publishability check, always 200, exits non-zero when invalid);
-                     # media/ (upload — multipart image upload, returns CDN url to reference in a config);
+                     # media/ (upload — multipart image upload, returns CDN url to reference in a config;
+                     # upload-video — mp4 or webm, returns the video and preview URLs; implementation in
+                     # src/cli/commands/flows/media/upload-video.ts, rules in src/sdk/adapty/flow-media.ts);
                      # metrics/ (list, get, values — the dashboard metrics page; implementation in src/cli/commands/flows/metrics);
                      # funnel/ (get, values — the screen funnel of one flow version, --csv is the dashboard CSV from the server;
                      # implementation in src/cli/commands/flows/funnel);

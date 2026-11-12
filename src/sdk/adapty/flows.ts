@@ -1,10 +1,12 @@
 import { assertValid } from '../core/validation.js';
 
 import { toFlowFunnelRequest } from './flow-funnel.js';
+import { MEDIA_HEAD_BYTES, mediaExtension, validateVideoUpload, videoMimeTypes } from './flow-media.js';
 import { flowVersions } from './flow-versions.js';
 import { timezoneHeaders, toMetricsRequest, validateMetricsInput } from './metrics.js';
 
 import type { FlowFunnelAnswer, FlowFunnelInput } from './flow-funnel.js';
+import type { FlowVideo, FlowVideoUpload } from './flow-media.js';
 import type { FilterValues, FlowMetricsRows, MetricsInput, MetricsTree } from './metrics.js';
 import type { Http } from '../core/http/index.js';
 
@@ -61,6 +63,9 @@ const settleLimited = async <T, R>(
  * 429 (the routes are rate limited per app) leaves the server's `Retry-After` on the error for the
  * caller. What a metrics `get` takes lives in `metrics.ts`, what a funnel `get` takes in
  * `flow-funnel.ts`.
+ *
+ * A media upload is a POST of one multipart field, `file`, and is never retried: a video upload
+ * transcodes the file in the request. What it takes lives in `flow-media.ts`.
  */
 export const flows = (http: Http) => ({
     /**
@@ -106,6 +111,21 @@ export const flows = (http: Http) => ({
 
         values: (appId: string, flowId: string) =>
             http.get<FilterValues>(`/apps/${appId}/flows/${flowId}/screen-funnel/values`),
+    },
+
+    media: {
+        uploadVideo: async (appId: string, file: FlowVideoUpload): Promise<FlowVideo> => {
+            const head = file.content.subarray(0, MEDIA_HEAD_BYTES);
+
+            assertValid(validateVideoUpload({ head, name: file.name, size: file.content.byteLength }));
+
+            const form = new FormData();
+            const type = videoMimeTypes[mediaExtension(file.name)];
+
+            form.append('file', new Blob([new Uint8Array(file.content)], { type }), file.name);
+
+            return http.post<FlowVideo>(`/apps/${appId}/flows/media/videos`, form, { idempotent: false });
+        },
     },
 
     metrics: {

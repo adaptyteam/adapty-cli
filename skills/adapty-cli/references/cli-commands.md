@@ -441,6 +441,22 @@ adapty migrations steps -m mig_7x2 --json | jq '.steps'
 adapty migrations show RESOURCE -m mig_7x2 --json | jq '.result'
 ```
 
+## Flow media
+
+Upload a file for the flow builder and reference the returned URL from a flow config.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `flows media upload <file>` | `--app`; an image: PNG, JPEG, WEBP or SVG. Prints `id`, `name` and `url` (`--json` adds `preview_base64`). GIF, HEIC and video files are refused before a send (exit 2) |
+| `flows media upload-video <file>` | `--app`; a video: mp4 or webm. Prints `video_url` (the HLS playlist, for `videoUrl`), `preview_url` (for `previewUrl`), `width` and `height` (`--json` adds `preview_base64`). A GIF, another extension or a file above the size cap is refused before a send (exit 2); the server checks the duration and the resolution and its text names the limit (exit 4) |
+
+```sh
+adapty flows media upload ./hero.png --app APP_UUID
+adapty flows media upload-video ./intro.mp4 --app APP_UUID --json
+```
+
+- **Video value.** In a flow config a video is `{videoUrl, previewUrl, width, height}`, from `video_url`, `preview_url`, `width` and `height`.
+
 ## Feedback
 
 | Command    | Flags |

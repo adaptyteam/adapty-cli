@@ -1,30 +1,26 @@
 import { readFile } from 'node:fs/promises';
-import { basename, extname } from 'node:path';
+import { basename } from 'node:path';
 
 import { Args, Command } from '@oclif/core';
 
+import { CliError, exitCode } from '../../../cli/errors.js';
 import { appIdFlag } from '../../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
 import { printResponse } from '../../../lib/output.js';
+import { imageMimeType, validateImageUpload } from '../../../sdk/adapty/flow-media.js';
 
 import type { MediaDTO } from '../../../lib/api-schemas.js';
-
-const IMAGE_MIME_TYPES: Record<string, string> = {
-    '.gif': 'image/gif',
-    '.heic': 'image/heic',
-    '.jpeg': 'image/jpeg',
-    '.jpg': 'image/jpeg',
-    '.png': 'image/png',
-    '.svg': 'image/svg+xml',
-    '.webp': 'image/webp',
-};
 
 export default class FlowsMediaUpload extends Command {
     static override args = {
         file: Args.string({ description: 'Path to the image file to upload', required: true }),
     };
 
-    static override description = 'Upload an image as a flow builder asset; prints the CDN URL to reference from a flow config';
+    static override description = [
+        'Upload an image as a flow builder asset (PNG, JPEG, WEBP or SVG); prints the CDN URL to reference from a flow config.',
+        'A video has its own command: flows media upload-video.',
+    ].join('\n');
+
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> flows media upload --app UUID ./onboarding-hero.png'];
     static override flags = {
@@ -43,7 +39,15 @@ export default class FlowsMediaUpload extends Command {
         }
 
         const name = basename(args.file);
-        const type = IMAGE_MIME_TYPES[extname(name).toLowerCase()] ?? 'application/octet-stream';
+        // The rules live in the sdk: no GIF (by name or content), no video, no HEIC.
+        const issues = validateImageUpload({ head: content, name });
+
+        if (issues.length > 0) {
+            // A CliError, not this.error(): under --json oclif serializes it with its text and exit code.
+            throw new CliError(issues.map(issue => issue.message).join('\n'), exitCode.usage);
+        }
+
+        const type = imageMimeType(name);
 
         const form = new FormData();
         form.append('file', new Blob([new Uint8Array(content)], { type }), name);
