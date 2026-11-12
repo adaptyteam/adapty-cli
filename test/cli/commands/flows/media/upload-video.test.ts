@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
 
-import { NO_VIDEO_ROUTE_MESSAGE } from '../../../../../src/cli/commands/flows/media/upload-video.js';
 import { exitCode } from '../../../../../src/cli/errors.js';
 import { VIDEO_MAX_BYTES } from '../../../../../src/sdk/adapty/flow-media.js';
 import { mockFetch, mockFetchFailure, restoreFetch, TEST_APP_ID } from '../../../../helpers/mock-fetch.js';
@@ -141,17 +140,6 @@ describe('flows media upload-video', () => {
         });
     });
 
-    it('says that the backend has no video upload yet when the route answers 404', async () => {
-        fetchStub = mockFetchFailure({ detail: 'Not found.' }, { status: 404 });
-        const path = await file('intro.mp4', MP4);
-
-        const { error } = await runCommand(`flows media upload-video ${path} --app ${TEST_APP_ID}`);
-
-        expect(error?.message).to.equal(NO_VIDEO_ROUTE_MESSAGE);
-        expect(error?.message).to.match(/no video upload yet/);
-        expect(error?.oclif?.exit).to.equal(exitCode.api);
-    });
-
     it('shows the server refusal of a duration or a size in pixels', async () => {
         const refusal = { error_code: 'base_error', errors: { non_field_errors: ['Video duration should not exceed 30 seconds'] }, status_code: 400 };
         fetchStub = mockFetchFailure(refusal, { status: 400 });
@@ -187,15 +175,14 @@ describe('flows media upload-video', () => {
             });
         }
 
-        it('a 404 of the video route', async () => {
+        it('a 404 of the video route is the generic API error', async () => {
             fetchStub = mockFetchFailure({ detail: 'Not found.' }, { status: 404 });
             const path = await file('intro.mp4', MP4);
 
             const { stdout } = await runCommand(`flows media upload-video ${path} --app ${TEST_APP_ID} --json`);
-            const json = JSON.parse(stdout) as { error: { code: string; message: string; status: number } };
+            const json = JSON.parse(stdout) as { error: { code: string; status: number } };
 
-            expect(json.error.message).to.equal(NO_VIDEO_ROUTE_MESSAGE);
-            expect(json.error.code).to.equal('video_upload_unavailable');
+            expect(json.error.code).to.equal('http_404');
             expect(json.error.status).to.equal(404);
             expect(process.exitCode).to.equal(exitCode.api);
         });

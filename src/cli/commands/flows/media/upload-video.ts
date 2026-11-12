@@ -4,7 +4,6 @@ import { basename } from 'node:path';
 import { Args } from '@oclif/core';
 
 import { MEDIA_HEAD_BYTES, validateVideoUpload } from '../../../../sdk/adapty/flow-media.js';
-import { isSdkError } from '../../../../sdk/core/errors.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../../base/adapty/index.js';
 import { CliError, exitCode } from '../../../errors.js';
@@ -12,9 +11,6 @@ import { appIdFlag } from '../../../input/app.js';
 import { renderRecord } from '../../../views/record.js';
 
 import type { FlowVideo } from '../../../../sdk/adapty/flow-media.js';
-
-/** An older backend has no video route: it answers 404 to the path itself. */
-export const NO_VIDEO_ROUTE_MESSAGE = 'This Adapty backend has no video upload yet: the video route answered 404.';
 
 type Head = { head: Uint8Array; size: number };
 
@@ -35,8 +31,6 @@ const readHead = async (path: string): Promise<Head> => {
 
 const cannotRead = (path: string, cause: unknown): CliError =>
     new CliError(`Cannot read file: ${path}`, exitCode.usage, undefined, { cause });
-
-const isMissingRoute = (error: unknown): boolean => isSdkError(error) && error.kind === 'api' && error.status === 404;
 
 /** `preview_base64` is a long data blob with no value in a human view; --json still returns it. */
 const renderVideo = (video: FlowVideo): string => {
@@ -77,18 +71,7 @@ export default class FlowsMediaUploadVideo extends AdaptyCommand {
             throw cannotRead(args.file, error);
         });
 
-        const upload = this.adapty.flows.media.uploadVideo(flags.app, { content, name });
-
-        const video = await upload.catch((error: unknown) => {
-            if (isMissingRoute(error)) {
-                throw new CliError(NO_VIDEO_ROUTE_MESSAGE, exitCode.api, 'video_upload_unavailable', {
-                    cause: error,
-                    json: { status: 404, status_code: 404 },
-                });
-            }
-
-            throw error;
-        });
+        const video = await this.adapty.flows.media.uploadVideo(flags.app, { content, name });
 
         this.render(video, renderVideo);
 

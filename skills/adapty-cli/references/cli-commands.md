@@ -456,7 +456,6 @@ adapty flows media upload-video ./intro.mp4 --app APP_UUID --json
 ```
 
 - **Video value.** In a flow config a video is `{videoUrl, previewUrl, width, height}`, from `video_url`, `preview_url`, `width` and `height`.
-- **Old backend.** When the backend has no video route, `upload-video` says so (exit 4).
 
 ## Feedback
 
