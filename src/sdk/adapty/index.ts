@@ -9,6 +9,7 @@ import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
 import { feedback } from './feedback/index.js';
 import { flows } from './flows.js';
+import { hypotheses } from './hypotheses/index.js';
 import { migrations } from './migrations/index.js';
 import { paywalls } from './paywalls.js';
 import { placements } from './placements.js';
@@ -24,6 +25,7 @@ import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { FlowsApi } from './flows.js';
+import type { HypothesesApi } from './hypotheses/index.js';
 import type { MigrationApi } from './migrations/index.js';
 import type { PaywallsApi } from './paywalls.js';
 import type { PlacementsApi } from './placements.js';
@@ -56,6 +58,16 @@ export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
 export { findDraft, hasPublishedHistory, versionDate, versionPublication } from './flow-versions.js';
 export { isNeverPublished } from './flows.js';
+export {
+    dashboardOnlyActions,
+    hypothesisOrders,
+    hypothesisPhases,
+    hypothesisResults,
+    hypothesisStates,
+    validateAccept,
+    validateCreate,
+    withHypothesisIds,
+} from './hypotheses/index.js';
 export type {
     AbMetricsNode,
     AbTestDetail,
@@ -114,6 +126,25 @@ export type {
     ListFlowVersionsParams,
     RestoreFlowVersionInput,
 } from './flow-versions.js';
+export type {
+    AcceptHypothesisInput,
+    BareHypothesisAction,
+    CreatedHypotheses,
+    CreatedHypothesis,
+    CreateHypothesesInput,
+    HypothesesApi,
+    Hypothesis,
+    HypothesisCreateBody,
+    HypothesisOrder,
+    HypothesisPhase,
+    HypothesisPlacementSummary,
+    HypothesisResult,
+    HypothesisRows,
+    HypothesisState,
+    HypothesisSummary,
+    ListHypothesesParams,
+    ProductFill,
+} from './hypotheses/index.js';
 export type { PaywallsApi } from './paywalls.js';
 export type {
     FilterValueNode,
@@ -209,6 +240,7 @@ export type Adapty = {
     auth: AuthApi;
     feedback: FeedbackApi;
     flows: FlowsApi;
+    hypotheses: HypothesesApi;
     migrations: MigrationApi;
     paywalls: PaywallsApi;
     placements: PlacementsApi;
@@ -266,6 +298,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         auth: auth(http),
         feedback: feedback(http),
         flows: flows(http),
+        hypotheses: hypotheses(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.
         migrations: migrations(wizard, options.clock ?? systemClock),

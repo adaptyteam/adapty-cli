@@ -50,6 +50,9 @@ src/
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
     segments/        # list, get
+    hypotheses/      # list, get, summary, by-ab-test, create (from a JSON file, always the batch route, client-minted
+                     # hypothesis_id), accept, link, resolve, reresolve, unaccept, dismiss, restore, unlink — the backlog
+                     # of changes per placement; implementation in src/cli/commands/hypotheses
     skills/          # install — the Adapty skills into the coding agents on PATH, through each agent's own
                      # plugin or skills command. Implementation in src/cli/commands/skills
     access-levels/   # list, get, create, update

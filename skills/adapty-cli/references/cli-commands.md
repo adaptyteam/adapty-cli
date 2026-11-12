@@ -108,6 +108,47 @@ adapty ab-tests metrics get TEST_UUID --app APP_UUID --type paywall --date-from 
 
 **A started test** — only a draft starts. `stop` makes the test completed. `archive` refuses a live test. `replace` needs a live test and gives a new test id.
 
+## Hypotheses
+
+The backlog of changes proposed per placement. A hypothesis is proposed, then accepted, tested in an A/B test and resolved won, lost or inconclusive; or dismissed.
+
+| Command | Required flags |
+|---|---|
+| `hypotheses list` | `--app`; optional `--state`, `--phase`, `--placement`, `--type`, `--flow`, `--variant-flow`, `--segment`, `--parent` (each may repeat, any value matches), `--order-by` |
+| `hypotheses get <hypothesis_id>` | `--app` |
+| `hypotheses summary` | `--app`; open hypotheses (proposed and accepted) per placement, by phase |
+| `hypotheses by-ab-test <ab_test_id>` | `--app`; `hypothesis_not_found` when the test is linked to none |
+| `hypotheses create` | `--app`, `--file PATH\|-` (one create body, an array, or `{"hypotheses": [...]}`, one placement); optional `--force` |
+| `hypotheses accept <hypothesis_id>` | `--app`; optional `--variant-flow`, `--placement-audience` (required for an audience hypothesis), `--product HYPOTHESIS_PRODUCT_ID=PRODUCT_ID` (repeatable) |
+| `hypotheses link <hypothesis_id>` | `--app`, `--ab-test` |
+| `hypotheses resolve <hypothesis_id>` | `--app`, `--result won\|lost\|inconclusive` |
+| `hypotheses reresolve <hypothesis_id>` | `--app`, `--result`; only over a verdict an A/B test gave |
+| `hypotheses unaccept\|dismiss\|restore\|unlink <hypothesis_id>` | `--app` |
+
+**Allowed actions** — every hypothesis carries `allowed_actions`, the actions the server accepts for it now. Read it before an action; another one fails with `hypothesis_state_conflict` (exit 4). `reorder` is the dashboard's and has no command.
+
+**Create** — the body is the server's, in snake_case; it refuses a key it does not know:
+
+```json
+{
+  "placement_id": "PLACEMENT_UUID",
+  "subject": { "type": "flow", "flow_id": "FLOW_UUID" },
+  "type": "adapty:flow_design",
+  "title": "Plans before the trial screen",
+  "rationale": "Most users leave before they see a price",
+  "action": "Move the plans screen in front of the trial screen",
+  "expected": { "metric": "arpu", "low_pct": 4, "high_pct": 12 }
+}
+```
+
+`placement_id`, `subject`, `type` and `title` are required. `subject` is `{"type": "flow", "flow_id"}`, `{"type": "flow_screen", "flow_id", "flow_screen_id"}` or `{"type": "audience", "segment_id"}`; the flow must be published and served on the placement. `type` is `namespace:name`: the `adapty` namespace is a closed list (`adapty:flow_design` for a flow or a screen, `adapty:audience_split` for an audience; a refused type answers with the allowed ones), any other namespace is your own. Optional: `hypothesis_id`, `rationale`, `action`, `metrics_impact`, `examples`, `media_url`, `expected` (`metric`, `low_pct` and `high_pct` together, `evidence_text`), `products` (a `flow_screen` hypothesis only), `parent_hypothesis_id`, `force`.
+
+An item without `hypothesis_id` gets a new one, printed to stderr: keep it, because a resend of the same payload with the same id returns the stored row (status 200) instead of creating a second one, and a different payload under that id is `hypothesis_payload_conflict`. An open hypothesis proposing the same change is `hypothesis_duplicate` unless `--force`. All items are created together or not at all.
+
+**From hypothesis to A/B test** — accept the flow hypothesis, create the test with `ab-tests create` (two arms: the current flow and the variant, on the same placement), then `hypotheses link --ab-test`. When the test stops with a winner, the hypothesis is resolved won or lost; `reresolve` overrides that verdict. Stopping without a winner leaves it accepted in phase `ended`, for `resolve`.
+
+**Disabled** — until hypotheses are enabled on the server, every command fails with `hypotheses_disabled` (exit 4).
+
 ## Placements
 
 | Command                           | Required flags                                    |

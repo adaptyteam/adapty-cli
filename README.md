@@ -178,6 +178,55 @@ placement and audience again. A completed or archived test cannot change.
 
 `placements list` and `placements get` show the placement `type` (`paywall`, `flow` or `onboarding`; `--json` has `null` for a placement without one, the table leaves it out).
 
+### Hypotheses
+
+The backlog of changes proposed per placement: a hypothesis is proposed, accepted, tested in an A/B test and resolved.
+
+```sh
+adapty hypotheses list --app UUID [--state S]... [--phase P]... [--placement UUID]... [--type NS:NAME]... [--flow UUID]...
+                       [--variant-flow UUID]... [--segment UUID]... [--parent UUID]...
+                       [--order-by position|created_at|-created_at|-resolved_at] [--page N] [--page-size N]
+adapty hypotheses get --app UUID HYPOTHESIS_ID
+adapty hypotheses summary --app UUID                            # open hypotheses per placement, by phase
+adapty hypotheses by-ab-test --app UUID AB_TEST_ID
+adapty hypotheses create --app UUID --file PATH|- [--force]
+adapty hypotheses accept --app UUID HYPOTHESIS_ID [--variant-flow UUID] [--placement-audience UUID]
+                         [--product HYPOTHESIS_PRODUCT_ID=PRODUCT_ID]...
+adapty hypotheses link --app UUID HYPOTHESIS_ID --ab-test UUID
+adapty hypotheses resolve|reresolve --app UUID HYPOTHESIS_ID --result won|lost|inconclusive
+adapty hypotheses unaccept|dismiss|restore|unlink --app UUID HYPOTHESIS_ID
+```
+
+Every hypothesis carries `allowed_actions`, the actions the server accepts for it now; the human output prints them
+right after the title (`none` included) and leaves out `reorder`, which only the dashboard does. A filter that repeats matches any of its
+values.
+
+A create body:
+
+```json
+{
+  "placement_id": "PLACEMENT_UUID",
+  "subject": { "type": "flow", "flow_id": "FLOW_UUID" },
+  "type": "adapty:flow_design",
+  "title": "Plans before the trial screen",
+  "rationale": "Most users leave before they see a price",
+  "action": "Move the plans screen in front of the trial screen",
+  "expected": { "metric": "arpu", "low_pct": 4, "high_pct": 12 }
+}
+```
+
+`placement_id`, `subject`, `type` and `title` are required. `subject` is `{"type": "flow", "flow_id"}`, `{"type": "flow_screen", "flow_id", "flow_screen_id"}` or `{"type": "audience", "segment_id"}`; the flow must be published and served on the placement. `type` is `namespace:name`: the `adapty` namespace is a closed list (`adapty:flow_design` for a flow or a screen, `adapty:audience_split` for an audience; a refused type answers with the allowed ones), any other namespace is your own. Optional: `hypothesis_id`, `rationale`, `action`, `metrics_impact`, `examples`, `media_url`, `expected` (`metric`, `low_pct` and `high_pct` together, `evidence_text`), `products` (a `flow_screen` hypothesis only), `parent_hypothesis_id`, `force`.
+
+`create` takes one create body, an array of them, or `{"hypotheses": [...]}`, all on one placement, created
+together or not at all; `--json` prints `{data: [{hypothesis_id, status, data}]}`, where status 201 is created now and
+200 is a hypothesis the server already had under that id with the same payload. An item without `hypothesis_id` gets a
+new one, printed to stderr: resend the same payload with that id and the server returns the stored row instead of a
+second one. An open hypothesis that proposes the same change is refused (`hypothesis_duplicate`) unless `--force` is
+given. To test a flow hypothesis, accept it, create the A/B test with `ab-tests create` (two arms: the current flow and
+the variant), then `hypotheses link`; when the test stops with a winner the hypothesis is resolved won or lost, and
+`reresolve` overrides that verdict. Until hypotheses are enabled on the server, every command fails with
+`hypotheses_disabled`.
+
 ### Segments
 
 ```sh

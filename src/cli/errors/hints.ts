@@ -7,6 +7,9 @@ const HINTS: Readonly<Record<string, string>> = {
     flow_archived: 'The flow is archived. Restore it from the archive in the dashboard first.',
     flow_config_conflict: 'List the versions again and retry.',
     flow_publishing: 'Wait until the publish ends.',
+    hypothesis_duplicate: 'Pass --force to create it anyway.',
+    hypothesis_payload_conflict: 'Leave hypothesis_id out to create a new hypothesis, or resend the payload stored under it.',
+    hypothesis_state_conflict: 'Run `adapty hypotheses get` to see the actions it allows now.',
 };
 
 const hintFor = (code: string | undefined): string | undefined => (code === undefined ? undefined : HINTS[code]);

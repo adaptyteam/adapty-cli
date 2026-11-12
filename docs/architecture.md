@@ -55,7 +55,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -93,6 +93,11 @@ and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port
 server replaces the whole offer, so `validateMergedProductOffer` checks the merge after the read and
 before the write. `products` does the same for its update, and `product-prices` previews before it saves: the CLI
 decides on the preview (`decideSave`) and saves the rows of the preview answer.
+
+`hypotheses/` is the apps shape. Every write is sent as idempotent, so it is retried like a read: a create is keyed by
+its client-minted `hypothesis_id` (`withHypothesisIds` mints the missing ones, and the caller keeps them), and a
+transition the row has already made answers 200 unchanged. `create` always posts to the batch route, so each item
+answers with its own 201 or 200.
 
 `flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now (`flows` also holds `funnel`, below): the other operations of
 these entities still live in the old stack and move into the resource when their topic is ported. What the three
@@ -171,7 +176,7 @@ text or JSON.
   app id UUID as a positional and as `--app` (`appIdArg`, `appIdFlag` in `input/app.ts`),
   pagination (`input/pagination.ts`), the migration id, the product and offer ids (`input/product.ts`,
   `input/offer.ts`) on the UUID parser of `input/uuid.ts`, the A/B test arms, audience and stop flags
-  (`input/ab-tests.ts`), the `--yes` flag with the one confirmation of an action that cannot be undone
+  (`input/ab-tests.ts`), the hypothesis id, list filters, accept flags and create file (`input/hypotheses.ts`), the `--yes` flag with the one confirmation of an action that cannot be undone
   (`input/confirm.ts`) and the one-answer prompt it stands on (`input/prompt.ts`); and the one place flag
   names meet sdk field names. Legacy commands take `--app` from `input/app.ts` too. What attribution and analytics share:
   the date parser and the day-range flag factory that takes the time-zone text (`input/period.ts`), and
@@ -327,7 +332,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows versions`, `migrations`,
+most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows versions`, `hypotheses`, `migrations`,
 `paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`
 and `skills`.
 
