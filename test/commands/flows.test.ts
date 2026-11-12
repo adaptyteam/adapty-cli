@@ -358,7 +358,8 @@ describe('flows', () => {
             expect(result.error?.oclif?.exit).to.equal(exitCode.usage);
 
             expect(result.error?.message).to.equal(
-                'Missing flags: --remote-configs. Give both, or send the whole body with --file PATH|-.',
+                'Missing flags: --remote-configs. Give both, or send the whole body with --file PATH|-.'
+                + ' To keep the stored remote configs, pass `remote_configs` from `flows config get --json`; [] deletes them all.',
             );
 
             expect(fetchStub.callCount).to.equal(0);
@@ -371,7 +372,8 @@ describe('flows', () => {
 
             expect(result.error?.message).to.equal(
                 'Missing flags: --config or --config-file, --remote-configs. '
-                + 'Give both, or send the whole body with --file PATH|-.',
+                + 'Give both, or send the whole body with --file PATH|-.'
+                + ' To keep the stored remote configs, pass `remote_configs` from `flows config get --json`; [] deletes them all.',
             );
 
             expect(fetchStub.callCount).to.equal(0);
@@ -390,13 +392,31 @@ describe('flows', () => {
             expect(first.error?.oclif?.exit).to.equal(exitCode.usage);
 
             expect(first.error?.message).to.equal(
-                `Missing keys in ${noRemote}: remote_configs. The file needs both config and remote_configs.`,
+                `Missing keys in ${noRemote}: remote_configs. The file needs both config and remote_configs.`
+                + ' To keep the stored remote configs, pass `remote_configs` from `flows config get --json`; [] deletes them all.',
             );
 
             expect(second.error?.oclif?.exit).to.equal(exitCode.usage);
 
             expect(second.error?.message).to.equal(
-                `Missing keys in ${noConfig}: config, remote_configs. The file needs both config and remote_configs.`,
+                `Missing keys in ${noConfig}: config, remote_configs. The file needs both config and remote_configs.`
+                + ' To keep the stored remote configs, pass `remote_configs` from `flows config get --json`; [] deletes them all.',
+            );
+
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        it('--file without config but with remote_configs names only config, with no remote config hint', async () => {
+            const file = join(dir, 'no-config-only.json');
+
+            await writeFile(file, JSON.stringify({ remote_configs: [] }));
+
+            const result = await runCommand(`flows config update ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --file ${file}`);
+
+            expect(result.error?.oclif?.exit).to.equal(exitCode.usage);
+
+            expect(result.error?.message).to.equal(
+                `Missing keys in ${file}: config. The file needs both config and remote_configs.`,
             );
 
             expect(fetchStub.callCount).to.equal(0);
