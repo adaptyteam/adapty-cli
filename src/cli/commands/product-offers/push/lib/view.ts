@@ -1,6 +1,6 @@
 import { table } from '../../../../views/table.js';
 
-import type { OfferPushIssue, OfferPushPreview, OfferPushStoreResult, PushOfferBody } from '../../../../../sdk/adapty/index.js';
+import type { OfferPushIssue, OfferPushPreview, OfferPushStoreResult, PushOfferInput } from '../../../../../sdk/adapty/index.js';
 
 const NO_VALUE = '—';
 
@@ -16,14 +16,16 @@ export const renderIssues = (issues: readonly OfferPushIssue[]): string =>
  * What a region without a price pays: a free offer is free, a Google Play discount is a share of the base price.
  * Both used to print as "—", so a 50% discount read as a free one.
  */
-export const pricelessLabel = (body: Pick<PushOfferBody, 'google' | 'payment_mode'>): string => {
+export const pricelessLabel = (body: PushOfferInput['body']): string => {
     if (body.payment_mode === 'free_trial') {
         return 'free';
     }
 
-    const percent = body.google?.discount_percent;
+    // A --file body is any JSON the server validates, so its fields are read with care.
+    const google: unknown = body.google;
+    const percent = typeof google === 'object' && google !== null ? (google as { discount_percent?: unknown }).discount_percent : undefined;
 
-    return percent === undefined ? NO_VALUE : `-${percent}%`;
+    return typeof percent === 'number' ? `-${percent}%` : NO_VALUE;
 };
 
 /** The offer the push would make, region by region, then what stops it and what to know. */

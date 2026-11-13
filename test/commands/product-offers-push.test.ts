@@ -100,6 +100,15 @@ describe('product-offers push', () => {
         expect(stdout).to.contain('DE           EUR         -50%                9.49     yes');
     });
 
+    it('reads the discount of a --file body, which is any JSON', async () => {
+        fetchStub = mockFetch([PREVIEW]);
+        const body = { google: { discount_percent: 30 }, offer_type: 'promotional', payment_mode: 'pay_as_you_go', period: 'one_month', store_offer_id: 'half', title: 'Half' };
+
+        const { stdout } = await runCommand(`product-offers push ${BASE} --store play_store --file ${writeJson(body)} --dry-run`);
+
+        expect(stdout).to.contain('DE           EUR         -30%                9.49     yes');
+    });
+
     it('prints the preview table, the errors and the warnings', async () => {
         fetchStub = mockFetch([PREVIEW]);
 
