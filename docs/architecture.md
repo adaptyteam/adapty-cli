@@ -91,7 +91,9 @@ and `resource.ts` holds only what the resource *is* — the `DeviceAuthApi` port
 
 `product-offers/` is the apps shape too, except that `update` reads the stored offer first: the
 server replaces the whole offer, so `validateMergedProductOffer` checks the merge after the read and
-before the write. `products` does the same for its update, and `product-prices` previews before it saves: the CLI
+before the write. `push.ts` holds the push into the store: its body is the server's snake_case shape (it is also
+what `--file` carries, passed on as written), `previewPush` may be retried because it writes nothing, `push` never is,
+and `pushUntilDone` repeats the idempotent push while regions come back `deadline_exceeded`. `products` does the same for its update, and `product-prices` previews before it saves: the CLI
 decides on the preview (`decideSave`) and saves the rows of the preview answer.
 
 `flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now (`flows` also holds `funnel`, below): the other operations of
@@ -296,7 +298,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
 | 5 | network — the server was never reached |
-| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file) |
+| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-offers push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
 ### The `--json` contract

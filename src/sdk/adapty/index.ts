@@ -48,7 +48,18 @@ export {
     validateRetention,
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
-export { offerTypes } from './product-offers/index.js';
+export {
+    DEADLINE_EXCEEDED,
+    googleEligibilities,
+    offerPeriods,
+    offerPriorities,
+    offerTypes,
+    paymentModes,
+    plannedRegions,
+    priceRoundings,
+    pushOfferTypes,
+    unfinishedRegions,
+} from './product-offers/index.js';
 export { decideSave, isFailed, isPending, isSynced, storePrices, storesWritten } from './product-prices/index.js';
 export { productPeriods, productStores } from './products/index.js';
 export { developerErrorParser } from './errors.js';
@@ -150,9 +161,16 @@ export type {
 } from './migrations/index.js';
 export type {
     CreateProductOfferInput,
+    OfferPushIssue,
+    OfferPushPreview,
+    OfferPushPreviewRegion,
+    OfferPushResult,
+    OfferPushStoreResult,
     OfferType,
     ProductOffer,
     ProductOffersApi,
+    PushOfferBody,
+    PushOfferInput,
     StoreOffer,
     UpdateProductOfferInput,
 } from './product-offers/index.js';
@@ -272,7 +290,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         paywalls: paywalls(http),
         placements: placements(http),
         productGroups: productGroups(http),
-        productOffers: productOffers(http),
+        productOffers: productOffers(http, options.clock ?? systemClock),
         productPrices: productPrices(http, options.clock ?? systemClock),
         products: products(http),
     };

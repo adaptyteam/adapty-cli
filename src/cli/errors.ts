@@ -28,12 +28,18 @@ export const exitCode = {
 
 /** HTTP status is separate from the process exit code. Snake_case fields preserve the old JSON contract. */
 export type ErrorJson = WizardDiagnostics & {
+    /** `product-offers push`: how many pushes answered before the failure. */
+    attempts?: number | undefined;
     code?: string | undefined;
     error_code?: string | undefined;
     errors?: unknown;
     /** What to do next, for an API error code that has a known next step. */
     hint?: string | undefined;
     message: string;
+    /** `product-offers push`: the Adapty offer of the last push that answered (null when it made none). */
+    offer?: unknown;
+    /** `product-offers push`: a push answered, so the store may already hold the offer in some regions. */
+    pushed?: boolean | undefined;
     /**
      * The server's wait in whole seconds: Retry-After rounded up, else the Wizard envelope's own field,
      * which says null for no wait. Absent when the server said nothing.
@@ -46,6 +52,10 @@ export type ErrorJson = WizardDiagnostics & {
     sync?: unknown;
     status?: number | undefined;
     status_code?: number | undefined;
+    /** `product-offers push`: the store answer of the last push that answered. */
+    store_result?: unknown;
+    /** The --timeout budget ran out before the work was done. */
+    timed_out?: boolean | undefined;
 };
 
 export type CliErrorOptions = {
