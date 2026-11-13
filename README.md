@@ -113,11 +113,22 @@ adapty product-offers list --app UUID --product UUID
 adapty product-offers get OFFER_ID --app UUID
 adapty product-offers create --app UUID --product UUID --title "Spring" --type promotional|win_back [--ios-offer-id ID] [--android-offer-id ID]
 adapty product-offers update OFFER_ID --app UUID [--title ...] [--type ...] [--ios-offer-id ID | --clear-ios-offer-id] [--android-offer-id ID | --clear-android-offer-id]
+adapty product-offers push --app UUID --product UUID --store app_store|play_store (--file body.json | --title ... --type introductory|promotional|win_back --mode free_trial|pay_as_you_go|pay_up_front --period one_week ... [--periods N] [--store-offer-id ID] [--price 4.99 [--currency USD] [--round nearest]] [--region-price DE=4.99] [--regions US,DE] [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD] [--priority high|normal] [--offer OFFER_ID] [win-back and Google Play flags]) [--dry-run] [--no-wait] [--timeout 5m]
 ```
 
 `list` returns every offer on one page. `create` needs at least one store offer id; `win_back` is App Store only.
 `update` reads the offer and writes it back whole: it keeps every field you leave out, overwrites a dashboard edit made
 in between, and refuses to clear the last store side. Introductory offers are read-only. Offers are deleted in the dashboard.
+
+`create` only links an offer that already exists in the store; `push` creates it in the real App Store Connect or Google
+Play account and links it. `push` always previews first (the price of each region, whether the store already has the
+offer there); a preview with errors pushes nothing and exits 4 (`offer_push_rejected`), and `--dry-run` stops after the
+preview. It asks before the push (exit 6 `confirm_required` when nobody can answer). The push is idempotent: regions the
+store already has are skipped and the Adapty offer is reused. An App Store introductory offer is created region by region,
+and the regions the store did not finish in time (`deadline_exceeded`) are pushed again until none is left or `--timeout`
+passes (`--no-wait` pushes once). Regions left behind exit 4 with `offer_push_incomplete` (run the same command again)
+or `offer_push_failed`, and the error JSON says `pushed: true`. `--file` takes the whole API body as JSON and goes with no
+body flag. `--offer` adds the store offer to an existing Adapty offer, e.g. the other store of the same offer.
 
 ### Paywalls
 

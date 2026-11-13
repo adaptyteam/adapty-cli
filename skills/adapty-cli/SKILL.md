@@ -156,6 +156,7 @@ Key notes:
 - All commands support `--json`
 - Use `--title` for apps, products, product offers, paywalls, placements and access levels; `migrations create` uses `--name`
 - Use `--apple-bundle-id` / `--google-bundle-id` (not ios/android)
+- `products push` and `product-offers push` write to the user's real App Store Connect or Google Play account. For an offer, follow the order in [Product offers](references/cli-commands.md#product-offers): audit, preview with `--dry-run`, ask the user, push, verify. Pass `--yes` only after the user said yes; never pass it on your own
 
 ### Migrations
 
