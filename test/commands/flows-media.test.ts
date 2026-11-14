@@ -56,8 +56,9 @@ describe('flows media upload', () => {
     const LIGHT = { ...IMAGE, size: 655_360, warnings: [] };
     const HEAVY = { ...IMAGE, size: 1_572_864, warnings: [HEAVY_WARNING] };
     const imageLines = ['Image uploaded!', 'ID: 42', 'Name: hero.png', `URL: ${IMAGE.url}`];
-    // The warning text without the wrap of oclif: its line breaks and its ` ›` margin.
-    const unwrap = (stderr: string): string => stderr.replaceAll(/\s*\n\s*›?\s*/g, ' ');
+    // The warning text without the wrap of oclif: its line breaks, its indentation and its margin
+    // mark, ` ›` on most platforms and ` »` on Windows.
+    const unwrap = (stderr: string): string => stderr.replaceAll(/[»›]/g, ' ').replaceAll(/\s+/g, ' ');
 
     it('a light image prints its size and no warning', async () => {
         restoreFetch(fetchStub);
