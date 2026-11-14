@@ -7,7 +7,7 @@ import { CliError, exitCode } from '../../../cli/errors.js';
 import { appIdFlag } from '../../../cli/input/app.js';
 import { createAuthenticatedClient } from '../../../lib/client-from-config.js';
 import { printResponse } from '../../../lib/output.js';
-import { imageMimeType, validateImageUpload } from '../../../sdk/adapty/flow-media.js';
+import { formatMediaSize, imageMimeType, validateImageUpload } from '../../../sdk/adapty/flow-media.js';
 
 import type { MediaDTO } from '../../../lib/api-schemas.js';
 
@@ -58,6 +58,16 @@ export default class FlowsMediaUpload extends Command {
         this.log('Image uploaded!');
         // `preview_base64` is a long data blob with no value in human output; --json still returns it in full.
         printResponse({ id: result.id, name: result.name, url: result.url }, this.log.bind(this));
+
+        // An older server sends no `size` and no `warnings`: no Size line and no warning then.
+        if (typeof result.size === 'number') {
+            this.log(`Size: ${formatMediaSize(result.size)}`);
+        }
+
+        // this.warn() prints nothing under --json; the warnings stay in the returned body.
+        for (const warning of result.warnings ?? []) {
+            this.warn(`${warning.title}. ${warning.message}`);
+        }
 
         return result;
     }

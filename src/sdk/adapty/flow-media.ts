@@ -113,6 +113,22 @@ export const validateVideoUpload = (file: MediaFile): Issue[] => {
     return [];
 };
 
+const KIB = 1024;
+const MIB = 1024 * 1024;
+
+/**
+ * The weight of a file as a person reads it, in the words of the server and the dashboard: under
+ * 1 MiB whole kilobytes (at least 1), else megabytes with one decimal and no trailing `.0`; a half
+ * rounds up. `1310720` is `1.3 MB`, `2560` is `3 KB`.
+ */
+export const formatMediaSize = (bytes: number): string => {
+    if (bytes < MIB) {
+        return `${Math.max(1, Math.round(bytes / KIB))} KB`;
+    }
+
+    return `${Math.round((bytes * 10) / MIB) / 10} MB`;
+};
+
 /** The content type an image is sent with; the server reads the extension, not this. */
 export const imageMimeType = (name: string): string => imageMimeTypes[mediaExtension(name)] ?? 'application/octet-stream';
 

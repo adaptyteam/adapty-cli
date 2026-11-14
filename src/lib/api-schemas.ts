@@ -183,8 +183,18 @@ export type MediaDTO = {
     name: string;
     /** Base64-encoded preview thumbnail; absent when no preview was generated. */
     preview_base64?: null | string;
+    /** The bytes of the stored file; absent on a server that does not send it. */
+    size?: number;
     /** CDN URL to reference from a flow config. */
     url: string;
+    /** Advice on an accepted upload, such as a heavy image; absent on a server that does not send it. */
+    warnings?: MediaWarningDTO[];
+};
+
+export type MediaWarningDTO = {
+    code: string;
+    message: string;
+    title: string;
 };
 
 export type SegmentDTO = {

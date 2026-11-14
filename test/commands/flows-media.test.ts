@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
 
-import { mockFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
+import { mockFetch, mockFetchFailure, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 import type * as sinon from 'sinon';
 
@@ -45,6 +45,83 @@ describe('flows media upload', () => {
         expect(error).to.equal(undefined);
         expect(fetchStub.callCount).to.equal(1);
         expect(stdout).to.equal(['Image uploaded!', 'ID: 42', 'Name: hero.png', `URL: ${IMAGE.url}`, ''].join('\n'));
+    });
+
+    const HEAVY_WARNING = {
+        code: 'heavy_image',
+        message: 'Large images slow the first load. Upload a smaller file.',
+        title: 'Large image — 1.5 MB',
+    };
+
+    const LIGHT = { ...IMAGE, size: 655_360, warnings: [] };
+    const HEAVY = { ...IMAGE, size: 1_572_864, warnings: [HEAVY_WARNING] };
+    const imageLines = ['Image uploaded!', 'ID: 42', 'Name: hero.png', `URL: ${IMAGE.url}`];
+    // The warning text without the wrap of oclif: its line breaks and its ` ›` margin.
+    const unwrap = (stderr: string): string => stderr.replaceAll(/\s*\n\s*›?\s*/g, ' ');
+
+    it('a light image prints its size and no warning', async () => {
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([LIGHT]);
+
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stdout).to.equal([...imageLines, 'Size: 640 KB', ''].join('\n'));
+        expect(stderr).to.equal('');
+    });
+
+    it('a heavy image prints its size and one warning line, exit 0', async () => {
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([HEAVY]);
+
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stdout).to.equal([...imageLines, 'Size: 1.5 MB', ''].join('\n'));
+
+        // oclif wraps a warning to the terminal width; the line is one warning, whatever the wrap.
+        expect(stderr.match(/Warning:/g)).to.have.length(1);
+        expect(unwrap(stderr)).to.include('Large image — 1.5 MB. Large images slow the first load. Upload a smaller file.');
+    });
+
+    it('--json returns the whole server body with size and warnings, and no warning line', async () => {
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([HEAVY]);
+        const path = join(dir, 'hero.png');
+        await writeFile(path, PNG);
+
+        const { error, stderr, stdout } = await runCommand(`flows media upload ${path} --app ${TEST_APP_ID} --json`);
+
+        expect(error).to.equal(undefined);
+        expect(JSON.parse(stdout)).to.deep.equal(HEAVY);
+        expect(stderr).to.equal('');
+        expect(process.exitCode).to.equal(undefined);
+    });
+
+    it('an older server without size and warnings: no Size line, no warning, exit 0', async () => {
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stdout).to.equal([...imageLines, ''].join('\n'));
+        expect(stderr).to.equal('');
+    });
+
+    it('a server refusal keeps the error and exit 1, with no Size line and no warning', async () => {
+        restoreFetch(fetchStub);
+
+        fetchStub = mockFetchFailure(
+            { error_code: 'media_file_too_large', errors: { file: ['File size must not exceed 20 MiB.'] }, status_code: 413 },
+            { status: 413 },
+        );
+
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error?.message).to.equal('file: File size must not exceed 20 MiB.');
+        // oclif exits 1 for an error that carries no exit code of its own.
+        expect(error?.oclif?.exit ?? 1).to.equal(1);
+        expect(stdout).to.not.include('Size:');
+        expect(stdout).to.not.include('Image uploaded!');
+        expect(stderr).to.not.include('Large image');
     });
 
     const refusals: { content: Buffer; message: string; name: string }[] = [
