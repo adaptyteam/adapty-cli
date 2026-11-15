@@ -64,9 +64,12 @@ export default class FlowsMediaUpload extends Command {
             this.log(`Size: ${formatMediaSize(result.size)}`);
         }
 
-        // this.warn() prints nothing under --json; the warnings stay in the returned body.
-        for (const warning of result.warnings ?? []) {
-            this.warn(`${warning.title}. ${warning.message}`);
+        // One line per warning, written directly: this.warn() wraps at the terminal width and adds a
+        // margin. Under --json the warnings stay in the returned body and nothing more is printed.
+        if (!this.jsonEnabled()) {
+            for (const warning of result.warnings ?? []) {
+                process.stderr.write(`Warning: ${warning.title}. ${warning.message}\n`);
+            }
         }
 
         return result;

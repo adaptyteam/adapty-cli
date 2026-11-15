@@ -56,9 +56,6 @@ describe('flows media upload', () => {
     const LIGHT = { ...IMAGE, size: 655_360, warnings: [] };
     const HEAVY = { ...IMAGE, size: 1_572_864, warnings: [HEAVY_WARNING] };
     const imageLines = ['Image uploaded!', 'ID: 42', 'Name: hero.png', `URL: ${IMAGE.url}`];
-    // The warning text without the wrap of oclif: its line breaks, its indentation and its margin
-    // mark, ` ›` on most platforms and ` »` on Windows.
-    const unwrap = (stderr: string): string => stderr.replaceAll(/[»›]/g, ' ').replaceAll(/\s+/g, ' ');
 
     it('a light image prints its size and no warning', async () => {
         restoreFetch(fetchStub);
@@ -80,9 +77,18 @@ describe('flows media upload', () => {
         expect(error).to.equal(undefined);
         expect(stdout).to.equal([...imageLines, 'Size: 1.5 MB', ''].join('\n'));
 
-        // oclif wraps a warning to the terminal width; the line is one warning, whatever the wrap.
-        expect(stderr.match(/Warning:/g)).to.have.length(1);
-        expect(unwrap(stderr)).to.include('Large image — 1.5 MB. Large images slow the first load. Upload a smaller file.');
+        expect(stderr).to.equal('Warning: Large image — 1.5 MB. Large images slow the first load. Upload a smaller file.\n');
+    });
+
+    it('a long warning stays one line, with no wrap and no margin', async () => {
+        const message = `${'Large images slow the first load. '.repeat(6)}Upload a smaller file.`;
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([{ ...HEAVY, warnings: [{ ...HEAVY_WARNING, message }] }]);
+
+        const { error, stderr } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stderr).to.equal(`Warning: Large image — 1.5 MB. ${message}\n`);
     });
 
     it('--json returns the whole server body with size and warnings, and no warning line', async () => {
