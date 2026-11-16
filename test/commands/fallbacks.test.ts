@@ -19,8 +19,8 @@ const FILE = await readFile(FIXTURE_PATH);
 
 const GET = ['fallbacks', 'get', '--app', TEST_APP_ID, '--platform', 'ios', '--sdk-version', '4.1.0'];
 
-// eslint-disable-next-line no-control-regex -- the escape that starts an ANSI color sequence
-const ANSI = /\u001B\[/;
+/** ESC then `[`: the start of an ANSI color sequence. */
+const ANSI = new RegExp(`${String.fromCodePoint(0x1B)}\\[`);
 
 const JSON_TYPE = { 'content-type': 'application/json' };
 

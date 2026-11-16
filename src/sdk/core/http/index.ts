@@ -1,5 +1,5 @@
 /**
- * The transport as a module: one door out. An eslint zone fences off the internals (client,
+ * The transport as a module: one door out. An eslint zone fences off the internals (body, client,
  * policies, retry, url), so they can be rearranged without touching products.
  */
 export { createHttp } from './client.js';
