@@ -108,6 +108,69 @@ adapty ab-tests metrics get TEST_UUID --app APP_UUID --type paywall --date-from 
 
 **A started test** — only a draft starts. `stop` makes the test completed. `archive` refuses a live test. `replace` needs a live test and gives a new test id.
 
+## Hypotheses
+
+The backlog of changes proposed per placement. A hypothesis is proposed, then accepted, tested in an A/B test and resolved won, lost or inconclusive; or dismissed.
+
+| Command | Required flags |
+|---|---|
+| `hypotheses list` | `--app`; optional `--state`, `--phase`, `--placement`, `--type`, `--flow`, `--variant-flow`, `--segment`, `--parent` (each may repeat, any value matches), `--order-by` |
+| `hypotheses get <hypothesis_id>` | `--app` |
+| `hypotheses summary` | `--app`; open hypotheses (proposed and accepted) per placement, by phase |
+| `hypotheses by-ab-test <ab_test_id>` | `--app`; an empty list when the test is linked to none, `ab_test_not_found` for an unknown test |
+| `hypotheses create` | `--app`, `--file PATH\|-` (one create body, an array, or `{"hypotheses": [...]}`, one placement); optional `--force` |
+| `hypotheses accept <hypothesis_id>` | `--app`; optional `--variant-flow`, `--placement-audience` (required for an audience hypothesis; with `--variant-flow` for a flow hypothesis shipped without a test), `--product HYPOTHESIS_PRODUCT_ID=PRODUCT_ID` (repeatable) |
+| `hypotheses link <hypothesis_id>` | `--app`, `--ab-test` |
+| `hypotheses resolve <hypothesis_id>` | `--app`, `--result won\|lost\|inconclusive`; asks first, `--yes` when piped or `--json` |
+| `hypotheses reresolve <hypothesis_id>` | `--app`, `--result`; only over a verdict an A/B test gave; asks first, `--yes` when piped or `--json` |
+| `hypotheses dismiss <hypothesis_id>` | `--app`; optional `--reason`, kept as `dismiss_reason` until `restore` |
+| `hypotheses unaccept\|restore\|unlink <hypothesis_id>` | `--app` |
+
+**Allowed actions** — every hypothesis carries `allowed_actions`, the actions the server accepts for it now. Read it before an action. An action whose end state the row already has returns the row unchanged, exit 0: `accept` again with the same arguments, `unaccept` or `restore` on a proposed row, `unlink` on an accepted row with no test, `dismiss` on a dismissed row without `--reason` or with the stored one (another reason is a `hypothesis_state_conflict`). Only an action that would change the row and is not in `allowed_actions` fails with `hypothesis_state_conflict` (exit 4); its message lists the actions the row allows. On a legacy row, any action but `dismiss` and `restore` fails with `hypothesis_is_legacy`. `reorder` is the dashboard's and has no command.
+
+**Create** — the body is the server's, in snake_case; it refuses a key it does not know:
+
+```json
+{
+  "placement_id": "PLACEMENT_UUID",
+  "subject": { "type": "flow", "flow_id": "FLOW_UUID" },
+  "type": "adapty:flow_design",
+  "title": "Plans before the trial screen",
+  "rationale": "Most users leave before they see a price",
+  "action": "Move the plans screen in front of the trial screen",
+  "expected": { "metric": "arpu", "low_pct": 4, "high_pct": 12 }
+}
+```
+
+`placement_id`, `subject`, `type` and `title` are required. `subject` is `{"type": "flow", "flow_id"}`, `{"type": "flow_screen", "flow_id", "flow_screen_id"}` (both may add `flow_version_id` to pin the version) or `{"type": "audience", "segment_id"}`; the flow must be published and served on the placement, and `flow_screen_id` is a screen id from `adapty flows config get`. `type` is `namespace:name` in lowercase: the `adapty` namespace is a closed list (`adapty:flow_design` for a flow or a screen, `adapty:audience_split` for an audience, product changes of a screen such as `adapty:price_change`, which need `products`; a refused type answers with the allowed ones), any other namespace is your own. Optional:
+
+- `hypothesis_id`: a UUID; the CLI makes one when it is missing.
+- `rationale`, `action`, `media_url`: strings.
+- `metrics_impact`: an array of `arpu`, `cr_to_purchase`, `ltv`, `cr_to_paid`, `cr_to_trial`, `refund_rate`, `day_1_retention`, each at most once.
+- `examples`: an array of strings.
+- `expected`: `{metric, low_pct, high_pct, evidence_text}`. `metric` takes the values of `metrics_impact`; `metric`, `low_pct` and `high_pct` come together or not at all, and `low_pct` is not above `high_pct`.
+- `products` (a `flow_screen` hypothesis only): items `{duration_type, product_id, originated_from_product_id, trial_duration, country, store_product_id}`, only `duration_type` required; `store_product_id` only on a trial or price change type, or your own namespace. `duration_type` is `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`, `lifetime`, `consumable`, `nonsubscriptions` or `uncategorised`; `trial_duration` is in days.
+- `parent_hypothesis_id`: the hypothesis this one follows up; it must be won, lost, inconclusive or applied.
+- `force`: as `--force`, for this item.
+
+An item without `hypothesis_id` gets a new one, printed to stderr before the request: if the answer is lost, put it into the body as `hypothesis_id` and resend; the same payload under the same id returns the stored row (status 200) instead of creating a second one, and a different payload under that id is `hypothesis_payload_conflict`. `--json` prints `{data: [{hypothesis_id, status, data}]}`, status 201 created now, 200 already stored. An error names an item from 1 (`item 2, title: ...`), or no item for a file of one; `errors` in `--json` keeps the server keys, which count from 0 (`hypotheses.1.title`). A position inside an item still counts from 0 (`item 2, products.0.duration_type`). An open hypothesis (proposed or accepted) with the same placement, subject and type is refused (`hypothesis_duplicate`) unless `--force` is given; with `--force`, a rerun of a body without `hypothesis_id` creates one more copy. All items are created together or not at all.
+
+**After create** — A hypothesis cannot be edited after create: dismiss it and create a new one. The variant flow is set when a proposed hypothesis is accepted (`--variant-flow`); left out, the first A/B test linked sets it from its arms. To change it, `unaccept` and accept again: a test linked later must compare the flow with that variant. `restore` brings a dismissed hypothesis back as proposed, without its earlier accept, variant or dismiss reason. `resolve` and `reresolve` give a verdict that no command changes afterwards, so they ask first; pass `--yes` when the output is piped or `--json` is used (without it they exit 6 and send nothing).
+
+**Terms**
+
+- **State and phase**: the state is what was decided (`proposed`, `accepted`, `dismissed`, `won`, `lost`, `inconclusive`). The phase is the same, except that an accepted hypothesis follows its A/B test (`test_draft`, `testing`, `ended`) or is `applied`: accepted with `--placement-audience`, the change already live without a test.
+- **Need attention**: an A/B test still in draft, a product the store rejected or wants action on, or a suggested result to confirm. The default order (`position`) lists these first.
+- **Legacy**: a hypothesis about a paywall, from before flows; only `dismiss` and `restore` apply.
+- **Projected**: a hypothesis of another placement, listed under `--placement` because that placement serves its flow.
+- **Stale**: an open flow hypothesis whose flow changed since it was written (`stale`), was deleted, has no published version or left the placement.
+- **Suggested result**: the verdict the winner points to when the test had already stopped with a winner before it was linked (a test that stops with a winner while linked resolves the hypothesis itself); `resolve` confirms it.
+- **Judged by**: who gave the verdict, the A/B test or the user.
+
+**From hypothesis to A/B test** — accept the flow hypothesis, create the test with `ab-tests create` (on the same placement, its arms the current flow and the variant), then `hypotheses link --ab-test`. When the test stops with a winner, the hypothesis is resolved won or lost; `reresolve` overrides that verdict. Stopping without a winner leaves it accepted in phase `ended`, for `resolve`. A flow hypothesis already shipped without a test is accepted with `--variant-flow` and `--placement-audience`: the audience shows that flow and has exactly the hypothesis segment, or is the All users audience when the hypothesis has none; the hypothesis is `applied`, never linked to a test, and resolved by the user. `--placement-audience` takes the `placement_audience_id` of an audience in `adapty placements get`.
+
+**Disabled** — when hypotheses are not enabled for the account, every command fails with `hypotheses_disabled` (exit 4).
+
 ## Placements
 
 | Command                           | Required flags                                    |
