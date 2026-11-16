@@ -2,7 +2,7 @@
 # a PR that changes only unowned files needs no approval.
 
 # Maintainers own everything by default: shared code, build, CI, release, docs.
-*                                           @mlnchk @gshteynardt
+*                                           @mlnchk @gshteynardt @kenaku
 
 # Anything named asa or attribution, at any depth: no owner.
 asa/
