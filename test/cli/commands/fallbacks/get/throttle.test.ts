@@ -19,6 +19,7 @@ describe('fallbacks get: explainThrottle', () => {
         const cli = error as CliError;
         expect(cli.exitCode).to.equal(4);
         expect(cli.json.retry_after_seconds).to.equal(120);
+        expect(cli.message).to.include('30 fallback downloads per hour for each app, shared by all tokens of the app.');
         expect(cli.message).to.include('This command does not retry.');
         expect(cli.message).to.include('Wait at least 120 seconds');
     });

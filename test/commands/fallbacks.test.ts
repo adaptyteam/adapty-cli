@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,6 +21,9 @@ const GET = ['fallbacks', 'get', '--app', TEST_APP_ID, '--platform', 'ios', '--s
 
 /** ESC then `[`: the start of an ANSI color sequence. */
 const ANSI = new RegExp(`${String.fromCodePoint(0x1B)}\\[`);
+
+/** POSIX modes only: Windows has no unwritable directory by chmod, and root writes anywhere. */
+const posix = process.platform === 'win32' || process.getuid?.() === 0 ? it.skip : it;
 
 const JSON_TYPE = { 'content-type': 'application/json' };
 
@@ -129,6 +132,35 @@ const runPiped = (args: string[], body = 'file') => spawnSync(process.execPath, 
     timeout: 60_000,
 });
 
+/** Like runPiped, but the reader closes stdout after the first chunk, as `| head -c 10` does. */
+type Exit = { status: null | number; stderr: string };
+
+const runIntoClosedPipe = (args: string[]): Promise<Exit> => new Promise((done) => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', SCRIPT], {
+        cwd: ROOT,
+        env: {
+            ...process.env,
+            ADAPTY_TOKEN: 'piped-token',
+            FALLBACK_TEST_ARGS: JSON.stringify(args),
+            FALLBACK_TEST_BODY: '200mb',
+            FALLBACK_TEST_FIXTURE: FIXTURE_PATH,
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stderr = '';
+
+    child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+    });
+
+    child.stdout.once('data', () => child.stdout.destroy());
+
+    child.on('close', (status) => {
+        done({ status, stderr });
+    });
+});
+
 /** A body that records whether it was cancelled, and never ends unless it is. */
 const watchedBody = (head: string) => {
     const state = { cancelled: false };
@@ -215,6 +247,25 @@ describe('fallbacks get', () => {
             expect(result.stderr.toString()).to.contain('"code": "network_error"');
         });
 
+        it('stops the download with exit 5 and a short message, not a stack trace, when stdout is closed', async () => {
+            const { status, stderr } = await runIntoClosedPipe(GET);
+
+            expect(status, stderr).to.equal(exitCode.network);
+            expect(stderr).to.contain('stdout was closed before the whole file was written (EPIPE)');
+            expect(stderr).to.not.match(/\n\s+at /);
+        });
+
+        it('exits 4 for a body cut after an inner }, after the bytes that went out', async () => {
+            const cut = '{"meta": {"version": 11}, "data": {"p": {}}';
+            fetchStub = mockFetchSteps([{ body: cut }]);
+
+            const { error, stdout } = await runCommand(GET);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.api);
+            expect(error?.code).to.equal('fallback_invalid_response');
+            expect(stdout).to.equal(cut);
+        });
+
         it('exits 4 with fallback_invalid_response for a body that is not shaped {...}', async () => {
             fetchStub = mockFetchSteps([{ body: '  <html>maintenance</html>' }]);
 
@@ -278,16 +329,14 @@ describe('fallbacks get', () => {
             expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         });
 
-        it('keeps the old file and creates no directory when the server cannot be reached', async () => {
+        it('keeps the old file when the server cannot be reached', async () => {
             fetchStub = sinon.stub(globalThis, 'fetch').rejects(new TypeError('fetch failed'));
             const path = join(dir, 'ios_fallback.json');
             await writeFile(path, 'old');
 
             const { error } = await runCommand([...GET, '--output', path]);
-            const missing = await runCommand([...GET, '--output', join(dir, 'new', 'ios.json')]);
 
             expect(error?.oclif?.exit).to.equal(exitCode.network);
-            expect(missing.error?.oclif?.exit).to.equal(exitCode.network);
             expect(await readFile(path, 'utf8')).to.equal('old');
             expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         });
@@ -299,6 +348,7 @@ describe('fallbacks get', () => {
             for (const step of [
                 { body: FILE, headers: { 'content-type': 'text/html' } },
                 { body: '{"truncated": ' },
+                { body: '{"meta": {"version": 11}, "data": {"p": {}}' },
                 { body: '' },
             ]) {
                 fetchStub = mockFetchSteps([step]);
@@ -316,7 +366,7 @@ describe('fallbacks get', () => {
             expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         });
 
-        it('exits 1 with the errno when the file cannot be written', async () => {
+        it('exits 1 with the errno before any request when the path cannot be written', async () => {
             fetchStub = mockFetchSteps([{ body: FILE }]);
             // A file where a parent directory should be
             await writeFile(join(dir, 'blocker'), 'x');
@@ -326,7 +376,23 @@ describe('fallbacks get', () => {
             expect(error?.oclif?.exit).to.equal(1);
             expect(error?.code).to.equal('fallback_write_failed');
             expect(error?.message).to.match(/\((ENOTDIR|EEXIST)\)/);
-            expect(fetchStub.callCount).to.equal(1);
+            expect(fetchStub.callCount).to.equal(0);
+        });
+
+        posix('exits 1 with EACCES before any request when the directory is not writable', async () => {
+            fetchStub = mockFetchSteps([{ body: FILE }]);
+            const locked = join(dir, 'locked');
+            await mkdir(locked, { mode: 0o500 });
+
+            try {
+                const { error } = await runCommand([...GET, '--output', join(locked, 'ios.json')]);
+
+                expect(error?.code).to.equal('fallback_write_failed');
+                expect(error?.message).to.contain('(EACCES)');
+                expect(fetchStub.callCount).to.equal(0);
+            } finally {
+                await chmod(locked, 0o700);
+            }
         });
 
         it('keeps memory flat: a 200 MB body streams through with a peak RSS far below its size', () => {
@@ -399,6 +465,7 @@ describe('fallbacks get', () => {
             const human = await runCommand([...GET, '--output', path]);
 
             expect(human.error?.oclif?.exit).to.equal(exitCode.api);
+            expect(human.error?.message).to.contain('30 fallback downloads per hour for each app');
             expect(human.error?.message).to.contain('does not retry');
             expect(human.error?.message).to.contain('Wait at least 120 seconds');
             restoreFetch(fetchStub);
@@ -565,6 +632,17 @@ describe('fallbacks get', () => {
             process.exitCode = 0;
 
             expect((JSON.parse(stdout) as { error: { code: string } }).error.code).to.equal('not_found');
+        });
+
+        it('exits 5 with a text about the build when the server sends no headers in time', async () => {
+            const timeout = Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' });
+            fetchStub = sinon.stub(globalThis, 'fetch').rejects(new TypeError('fetch failed', { cause: timeout }));
+
+            const { error } = await runCommand(GET);
+
+            expect(error?.oclif?.exit).to.equal(exitCode.network);
+            expect(error?.message).to.contain('The server did not answer in 300 s. It builds the file before it answers');
+            expect(fetchStub.callCount).to.equal(1);
         });
 
         it('exits 5 when the API cannot be reached', async () => {

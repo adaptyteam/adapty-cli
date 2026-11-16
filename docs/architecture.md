@@ -315,8 +315,8 @@ quietly changing what users parse.
 
 One exception: `fallbacks get` without `--output` writes the server's document to stdout itself and
 `run()` returns `undefined`, so oclif prints nothing after it. The document is up to hundreds of
-megabytes and the SDK needs it byte for byte, so it is streamed, never parsed into a value `run()`
-could return. For the same reason the command overrides `logJson()`, which sends its `--json` error
+megabytes and the SDK needs the server's bytes unchanged, so it is streamed, never parsed into a value
+`run()` could return. For the same reason the command overrides `logJson()`, which sends its `--json` error
 object to stderr. Both halves, the streaming and the error, are plain functions in
 `cli/output/file-to-stdout.ts`, for any command whose stdout is a file.
 

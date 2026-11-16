@@ -1,5 +1,7 @@
 import { once } from 'node:events';
 
+import { CliError, errorCode, exitCode } from '../errors.js';
+
 /**
  * For a command whose stdout *is* a file, so that `> file` captures that file and nothing else. The
  * command still extends its product's base class: output style cuts across products, so it lives
@@ -20,18 +22,44 @@ export const flagPassed = (argv: readonly string[], name: string): boolean => {
 const asBuffer = (chunk: Uint8Array): Buffer => Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
 
 /**
+ * The reader of stdout went away (`| head -c 10`): exit 5, as for a download that broke halfway on
+ * stdout. Not a crash with a stack trace, and the download stops rather than run on into a dead pipe.
+ */
+const stdoutClosed = (cause: unknown): CliError => new CliError(
+    `stdout was closed before the whole file was written${errorCode(cause) === undefined ? '' : ` (${errorCode(cause)})`}; the download was stopped.`,
+    exitCode.network,
+    'stdout_closed',
+    { cause },
+);
+
+/**
  * Writes the chunks to stdout as they arrive, unchanged, and waits for `drain` whenever the pipe is
- * full, so memory stays flat whatever the size of the file.
+ * full, so memory stays flat whatever the size of the file. An error of stdout (EPIPE) ends the loop,
+ * which cancels the source, and becomes `stdoutClosed`; the listener stays, for any later write error.
  */
 export const streamToStdout = async (
     chunks: AsyncIterable<Uint8Array>,
     stdout: NodeJS.WritableStream = process.stdout,
 ): Promise<void> => {
+    const failure: { error?: unknown } = {};
+
+    const onError = (error: unknown): void => {
+        failure.error ??= error;
+    };
+
+    stdout.on('error', onError);
+
     for await (const chunk of chunks) {
         if (!stdout.write(asBuffer(chunk))) {
-            await once(stdout, 'drain');
+            await once(stdout, 'drain').catch(onError);
+        }
+
+        if ('error' in failure) {
+            throw stdoutClosed(failure.error);
         }
     }
+
+    stdout.off('error', onError);
 };
 
 /**

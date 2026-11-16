@@ -10,7 +10,8 @@ import { flagPassed, streamToStdout, writeJsonToStderr } from '../../../output/f
 import { renderWritten } from './lib/render.js';
 import { checkContentType, checkShape } from './lib/shape.js';
 import { explainThrottle } from './lib/throttle.js';
-import { writeFileAtomic } from './lib/write.js';
+import { explainHeadersTimeout } from './lib/timeout.js';
+import { prepareDestination, writeFileAtomic } from './lib/write.js';
 
 import type { FallbackPlatform } from '../../../../sdk/adapty/index.js';
 
@@ -35,41 +36,54 @@ type Written = {
 export default class FallbacksGet extends AdaptyCommand {
     static override summary = 'Download the fallback file to bundle in your app';
     static override description = [
-        'One file per store covers every placement of the app. The SDK reads it when the Adapty backend is unreachable, '
-        + 'so fetch a fresh one before every release build.',
+        'One file per store covers every placement of the app: the same file as the dashboard download. The SDK reads '
+        + 'it when the Adapty backend is unreachable, so fetch a fresh one in each release build.',
         'The server picks the file format from --sdk-version, and the SDK accepts only the one format it was built for: '
         + 'it rejects any other file at startup. Pass the Adapty SDK version the app is built with; for Flutter, React '
-        + 'Native and Unity, the Adapty plugin version. The latest mappings:',
+        + 'Native and Unity, the Adapty plugin version. The CLI keeps no version list: the server picks the format. '
+        + 'The formats today:',
         [
             '  --sdk-version          file format (meta.version)',
-            '  4.1.0 and later        11',
-            '  4.0.x                  10',
-            '  3.12.x and later 3.x   9',
+            '  below 3.0              5',
+            '  3.0.x – 3.3.x          6',
+            '  3.4.x – 3.7.x          7',
             '  3.8.x – 3.11.x         8',
+            '  3.12.x and later 3.x   9',
+            '  4.0.x                  10',
+            '  4.1.x – 4.3.x          11',
+            '  4.4.0 and later        12',
         ].join('\n'),
+        'Paywall placements are in every format. Flow placements are only in the files for SDK 4.0 and later '
+        + '(formats 10, 11 and 12).',
+        'The server allows 30 downloads per hour for each app, shared by all tokens of the app; after that it answers '
+        + '429. Run the command in a release build, not on each commit. A CI job gives the token in the ADAPTY_TOKEN '
+        + 'environment variable.',
         'The command sends exactly one request and never retries: the server builds the file for every request, and '
         + 'a retry after a failure starts that build again. A CI job that wants a retry should wait at least the '
-        + 'Retry-After the server sent (retry_after_seconds in the --json error) before it runs the command again.',
-        'Without --output, stdout is the server\'s file byte for byte, in human mode and with --json alike; nothing else '
-        + 'is printed there, and every error, the --json error object included, goes to stderr. A plain `> file` '
-        + 'truncates the file before the request, and a download that breaks halfway leaves a partial one, so redirect '
-        + 'to a temp file and move it on success, or use --output. With --output, the file is written atomically after '
+        + 'Retry-After the server sent (retry_after_seconds in the --json error) before it runs the command again. The '
+        + 'server builds the whole file before it answers; if no answer comes in 300 s, the command stops with exit 5.',
+        'With --output, the path is checked before the request (missing parent directories are created, and the '
+        + 'directory must be writable), so a bad path does not use up a download. The file is written atomically after '
         + 'a complete download and the old file stays on any failure; --json returns a summary {path, platform, '
         + 'sdk_version, bytes} instead of the file.',
-        'An answer that is not shaped like the file (not application/json, or not {...}) is refused with '
-        + 'fallback_invalid_response. Exit codes: 2 bad input, 3 no token or access refused, 4 any other API error '
-        + '(5xx, 429) or a refused answer, 5 the server was not reached or the download broke, 1 the file could not be '
-        + 'written.',
+        'Without --output, stdout is the server\'s bytes unchanged, in human mode and with --json alike; nothing else '
+        + 'is printed there, and every error, the --json error object included, goes to stderr. A shell redirect '
+        + '(`> file`) truncates the file before the request, and a download that breaks halfway leaves a partial one; '
+        + 'Windows PowerShell 5.1 also re-encodes redirected output. Prefer --output.',
+        'An answer that is not the file (not application/json, or not one whole JSON object: it starts with { and '
+        + 'ends with its matching }) is refused with fallback_invalid_response. Exit codes: 2 bad input, 3 no token or '
+        + 'access refused, 4 any other API error (5xx, 429) or a refused answer, 5 the server was not reached or did '
+        + 'not answer in 300 s, the download broke, or stdout was closed, 1 the file could not be written.',
     ].join('\n\n');
 
     static override examples = [
         {
-            description: 'Write to a temp file and move it only on success:',
-            command: '<%= config.bin %> fallbacks get --app 550e8400-e29b-41d4-a716-446655440000 --platform ios --sdk-version 4.1.0 > ios_fallback.json.tmp && mv ios_fallback.json.tmp ios_fallback.json',
+            description: 'Write the file; a failed download keeps the old file:',
+            command: '<%= config.bin %> fallbacks get --app 550e8400-e29b-41d4-a716-446655440000 --platform ios --sdk-version 4.1.0 --output ios_fallback.json',
         },
         {
-            description: 'Write the file directly; a failed download keeps the old file:',
-            command: '<%= config.bin %> fallbacks get --app 550e8400-e29b-41d4-a716-446655440000 --platform android --sdk-version 4.1.0 --output android_fallback.json',
+            description: 'In a POSIX shell, write the file to stdout:',
+            command: '<%= config.bin %> fallbacks get --app 550e8400-e29b-41d4-a716-446655440000 --platform android --sdk-version 4.1.0 > android_fallback.json',
         },
     ];
 
@@ -107,23 +121,29 @@ export default class FallbacksGet extends AdaptyCommand {
     async run(): Promise<undefined | Written> {
         const { flags } = await this.parse(FallbacksGet);
         const input = { platform: apiPlatform[flags.platform], sdkVersion: flags['sdk-version'] };
+        const path = flags.output === undefined ? undefined : resolve(flags.output);
+        // The token check comes before any change on disk
+        const { fallbacks } = this.adapty;
+
+        // A bad path fails here, before the request uses one of the app's hourly downloads
+        if (path !== undefined) {
+            await prepareDestination(path);
+        }
 
         // One request, never retried (see the sdk resource); a 429 says when to ask again.
-        const response = await this.adapty.fallbacks.get(flags.app, input).catch((error: unknown) => {
-            throw explainThrottle(error);
+        const response = await fallbacks.get(flags.app, input).catch((error: unknown) => {
+            throw explainHeadersTimeout(explainThrottle(error));
         });
 
         // Before a byte goes anywhere: a refused answer touches neither stdout nor the destination
         await checkContentType(response);
 
-        if (flags.output === undefined) {
+        if (path === undefined) {
             await streamToStdout(checkShape(response.body));
 
             // undefined, so oclif prints no result under --json: the file on stdout is the result
             return undefined;
         }
-
-        const path = resolve(flags.output);
 
         // The request has succeeded by now; the destination is touched only by the final rename of a
         // complete file, so any failure from here on keeps the old one.

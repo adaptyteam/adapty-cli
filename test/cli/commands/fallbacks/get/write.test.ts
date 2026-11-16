@@ -5,7 +5,7 @@ import { Readable } from 'node:stream';
 
 import { expect } from 'chai';
 
-import { writeFileAtomic } from '../../../../../src/cli/commands/fallbacks/get/lib/write.js';
+import { prepareDestination, writeFileAtomic } from '../../../../../src/cli/commands/fallbacks/get/lib/write.js';
 import { CliError } from '../../../../../src/cli/errors.js';
 import { rejection } from '../../../../helpers/rejection.js';
 
@@ -84,5 +84,24 @@ describe('fallbacks get: writeFileAtomic', () => {
         expect((error as CliError).message).to.match(/\((EISDIR|ENOTEMPTY|EEXIST|EPERM)\)/);
         expect(await readdir(dir)).to.deep.equal(['ios_fallback.json']);
         expect(await readFile(join(path, 'keep'), 'utf8')).to.equal('old');
+    });
+
+    describe('prepareDestination', () => {
+        it('creates the missing parent directories, and leaves no file', async () => {
+            await prepareDestination(join(dir, 'a', 'b', 'ios_fallback.json'));
+
+            expect(await readdir(join(dir, 'a', 'b'))).to.deep.equal([]);
+        });
+
+        it('fails with fallback_write_failed and the errno when a file is in the way', async () => {
+            await writeFile(join(dir, 'blocker'), 'x');
+
+            const error = await rejection(prepareDestination(join(dir, 'blocker', 'ios.json')));
+
+            expect(error).to.be.instanceOf(CliError);
+            expect((error as CliError).exitCode).to.equal(1);
+            expect((error as CliError).code).to.equal('fallback_write_failed');
+            expect((error as CliError).message).to.match(/\((ENOTDIR|EEXIST)\)/);
+        });
     });
 });

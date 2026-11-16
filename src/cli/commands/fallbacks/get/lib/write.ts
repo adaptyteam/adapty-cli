@@ -22,6 +22,22 @@ const writeError = (path: string, cause: unknown): CliError => {
 };
 
 /**
+ * Before the request: the parent directories exist and the directory takes a write, so a bad path
+ * fails here and does not use up one of the app's hourly downloads. Not a promise that the write will
+ * succeed (a full disk shows only then), but it catches the path mistakes.
+ */
+export const prepareDestination = async (path: string): Promise<void> => {
+    const dir = dirname(path);
+
+    try {
+        await fs.mkdir(dir, { recursive: true });
+        await fs.access(dir, fs.constants.W_OK);
+    } catch (error) {
+        throw writeError(path, error);
+    }
+};
+
+/**
  * Stream `source` to `path` so that a reader sees the old file or the new one, never half of one: a
  * temp file in the same directory, then a rename onto the destination. On any failure the temp file
  * goes and the destination stays as it was. 0o644: the file is an app asset, not a secret.
