@@ -23,7 +23,7 @@ const GET = ['fallbacks', 'get', '--app', TEST_APP_ID, '--platform', 'ios', '--s
 const ANSI = new RegExp(`${String.fromCodePoint(0x1B)}\\[`);
 
 /** POSIX modes only: Windows has no unwritable directory by chmod, and root writes anywhere. */
-const posix = process.platform === 'win32' || process.getuid?.() === 0 ? it.skip : it;
+const POSIX_MODES = process.platform !== 'win32' && process.getuid?.() !== 0;
 
 const JSON_TYPE = { 'content-type': 'application/json' };
 
@@ -379,21 +379,23 @@ describe('fallbacks get', () => {
             expect(fetchStub.callCount).to.equal(0);
         });
 
-        posix('exits 1 with EACCES before any request when the directory is not writable', async () => {
-            fetchStub = mockFetchSteps([{ body: FILE }]);
-            const locked = join(dir, 'locked');
-            await mkdir(locked, { mode: 0o500 });
+        if (POSIX_MODES) {
+            it('exits 1 with EACCES before any request when the directory is not writable', async () => {
+                fetchStub = mockFetchSteps([{ body: FILE }]);
+                const locked = join(dir, 'locked');
+                await mkdir(locked, { mode: 0o500 });
 
-            try {
-                const { error } = await runCommand([...GET, '--output', join(locked, 'ios.json')]);
+                try {
+                    const { error } = await runCommand([...GET, '--output', join(locked, 'ios.json')]);
 
-                expect(error?.code).to.equal('fallback_write_failed');
-                expect(error?.message).to.contain('(EACCES)');
-                expect(fetchStub.callCount).to.equal(0);
-            } finally {
-                await chmod(locked, 0o700);
-            }
-        });
+                    expect(error?.code).to.equal('fallback_write_failed');
+                    expect(error?.message).to.contain('(EACCES)');
+                    expect(fetchStub.callCount).to.equal(0);
+                } finally {
+                    await chmod(locked, 0o700);
+                }
+            });
+        }
 
         it('keeps memory flat: a 200 MB body streams through with a peak RSS far below its size', () => {
             const path = join(dir, 'big.json');
