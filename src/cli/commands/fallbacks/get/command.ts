@@ -9,7 +9,6 @@ import { flagPassed, streamToStdout, writeJsonToStderr } from '../../../output/f
 
 import { renderWritten } from './lib/render.js';
 import { checkContentType, checkShape } from './lib/shape.js';
-import { explainThrottle } from './lib/throttle.js';
 import { explainHeadersTimeout } from './lib/timeout.js';
 import { prepareDestination, writeFileAtomic } from './lib/write.js';
 
@@ -132,9 +131,9 @@ export default class FallbacksGet extends AdaptyCommand {
             await prepareDestination(path);
         }
 
-        // One request, never retried (see the sdk resource); a 429 says when to ask again.
+        // One request, never retried (see the sdk resource); a 429 carries retry_after_seconds.
         const response = await fallbacks.get(flags.app, input).catch((error: unknown) => {
-            throw explainHeadersTimeout(explainThrottle(error));
+            throw explainHeadersTimeout(error);
         });
 
         // Before a byte goes anywhere: a refused answer touches neither stdout nor the destination

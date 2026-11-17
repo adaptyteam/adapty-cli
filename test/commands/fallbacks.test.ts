@@ -409,7 +409,7 @@ describe('fallbacks get', () => {
             });
         }
 
-        it('turns a 429 into exit 4 that says when to try again, with retry_after_seconds under --json', async () => {
+        it('turns a 429 into exit 4, with retry_after_seconds under --json', async () => {
             const throttled = (): Step => ({ ...apiError('throttled', 429), headers: { 'retry-after': '120' } });
             const path = join(dir, 'ios_fallback.json');
             await writeFile(path, 'old');
@@ -418,9 +418,6 @@ describe('fallbacks get', () => {
             const human = await runCommand([...GET, '--output', path]);
 
             expect(human.error?.oclif?.exit).to.equal(exitCode.api);
-            expect(human.error?.message).to.contain('30 fallback downloads per hour for each app');
-            expect(human.error?.message).to.contain('does not retry');
-            expect(human.error?.message).to.contain('Wait at least 120 seconds');
             restoreFetch(fetchStub);
 
             // Without --output the --json error is on stderr, with it on stdout: both carry the wait
