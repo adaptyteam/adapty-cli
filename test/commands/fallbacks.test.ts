@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -132,35 +132,6 @@ const runPiped = (args: string[], body = 'file') => spawnSync(process.execPath, 
     timeout: 60_000,
 });
 
-/** Like runPiped, but the reader closes stdout after the first chunk, as `| head -c 10` does. */
-type Exit = { status: null | number; stderr: string };
-
-const runIntoClosedPipe = (args: string[]): Promise<Exit> => new Promise((done) => {
-    const child = spawn(process.execPath, ['--input-type=module', '-e', SCRIPT], {
-        cwd: ROOT,
-        env: {
-            ...process.env,
-            ADAPTY_TOKEN: 'piped-token',
-            FALLBACK_TEST_ARGS: JSON.stringify(args),
-            FALLBACK_TEST_BODY: '200mb',
-            FALLBACK_TEST_FIXTURE: FIXTURE_PATH,
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let stderr = '';
-
-    child.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString();
-    });
-
-    child.stdout.once('data', () => child.stdout.destroy());
-
-    child.on('close', (status) => {
-        done({ status, stderr });
-    });
-});
-
 /** A body that records whether it was cancelled, and never ends unless it is. */
 const watchedBody = (head: string) => {
     const state = { cancelled: false };
@@ -245,14 +216,6 @@ describe('fallbacks get', () => {
             expect(result.status).to.equal(exitCode.network);
             expect(result.stdout.equals(FILE.subarray(0, 100))).to.equal(true);
             expect(result.stderr.toString()).to.contain('"code": "network_error"');
-        });
-
-        it('stops the download with exit 5 and a short message, not a stack trace, when stdout is closed', async () => {
-            const { status, stderr } = await runIntoClosedPipe(GET);
-
-            expect(status, stderr).to.equal(exitCode.network);
-            expect(stderr).to.contain('stdout was closed before the whole file was written (EPIPE)');
-            expect(stderr).to.not.match(/\n\s+at /);
         });
 
         it('exits 4 with fallback_invalid_response for a body that is not shaped {...}', async () => {

@@ -75,7 +75,7 @@ export default class FallbacksGet extends AdaptyCommand {
         + 'breaks during the download exits 5. To check the whole file in CI, run a JSON parser on it, for example '
         + '`jq empty ios_fallback.json`. Exit codes: 2 bad input, 3 no token or '
         + 'access refused, 4 any other API error (5xx, 429) or a refused answer, 5 the server was not reached or did '
-        + 'not answer in 300 s, the download broke, or stdout was closed, 1 the file could not be written.',
+        + 'not answer in 300 s, or the download broke, 1 the file could not be written.',
     ].join('\n\n');
 
     static override examples = [

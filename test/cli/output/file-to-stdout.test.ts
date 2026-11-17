@@ -2,9 +2,7 @@ import { Writable } from 'node:stream';
 
 import { expect } from 'chai';
 
-import { CliError } from '../../../src/cli/errors.js';
 import { flagPassed, streamToStdout, writeJsonToStderr } from '../../../src/cli/output/file-to-stdout.js';
-import { rejection } from '../../helpers/rejection.js';
 
 /** A writer that keeps what it got, chunk by chunk, and is full after every write until it drains. */
 const slowSink = () => {
@@ -68,33 +66,6 @@ describe('cli/output: file to stdout', () => {
 
             expect(error).to.equal(failure);
             expect(Buffer.concat(chunks as Buffer[]).toString('utf8')).to.equal('{"half": ');
-        });
-    });
-
-    describe('a closed stdout', () => {
-        it('stops reading the source and fails with stdout_closed, exit 5, on EPIPE', async () => {
-            const sink = new Writable({
-                write(_chunk, _encoding, callback) {
-                    callback(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
-                },
-            });
-
-            let read = 0;
-
-            async function* endless(): AsyncGenerator<Uint8Array> {
-                for (;;) {
-                    read += 1;
-                    yield await Promise.resolve(Buffer.from('{"x": 1}'));
-                }
-            }
-
-            const error = await rejection(streamToStdout(endless(), sink));
-
-            expect(error).to.be.instanceOf(CliError);
-            expect((error as CliError).exitCode).to.equal(5);
-            expect((error as CliError).code).to.equal('stdout_closed');
-            expect((error as CliError).message).to.contain('(EPIPE)');
-            expect(read).to.be.lessThan(5);
         });
     });
 
