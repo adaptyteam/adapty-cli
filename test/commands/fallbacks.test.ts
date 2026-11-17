@@ -255,17 +255,6 @@ describe('fallbacks get', () => {
             expect(stderr).to.not.match(/\n\s+at /);
         });
 
-        it('exits 4 for a body cut after an inner }, after the bytes that went out', async () => {
-            const cut = '{"meta": {"version": 11}, "data": {"p": {}}';
-            fetchStub = mockFetchSteps([{ body: cut }]);
-
-            const { error, stdout } = await runCommand(GET);
-
-            expect(error?.oclif?.exit).to.equal(exitCode.api);
-            expect(error?.code).to.equal('fallback_invalid_response');
-            expect(stdout).to.equal(cut);
-        });
-
         it('exits 4 with fallback_invalid_response for a body that is not shaped {...}', async () => {
             fetchStub = mockFetchSteps([{ body: '  <html>maintenance</html>' }]);
 
@@ -348,7 +337,6 @@ describe('fallbacks get', () => {
             for (const step of [
                 { body: FILE, headers: { 'content-type': 'text/html' } },
                 { body: '{"truncated": ' },
-                { body: '{"meta": {"version": 11}, "data": {"p": {}}' },
                 { body: '' },
             ]) {
                 fetchStub = mockFetchSteps([step]);

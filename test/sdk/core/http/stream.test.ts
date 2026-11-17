@@ -76,16 +76,6 @@ describe('createHttp: stream', () => {
         expect(await rejection(http.stream('/files'))).to.be.instanceOf(AuthRequiredError);
     });
 
-    it('retries until the headers arrive, then hands the body over', async () => {
-        const { calls, clock, http } = setup([{ body: {}, status: 503 }, { raw: '{}' }]);
-
-        const { body } = await http.stream('/files');
-
-        expect((await readAll(body)).toString('utf8')).to.equal('{}');
-        expect(calls).to.have.lengthOf(2);
-        expect(clock.sleeps).to.deep.equal([500]);
-    });
-
     it('does not retry a body that breaks after it was handed over, and says it was the network', async () => {
         const { calls, http } = setup([{ raw: breaking('{"a"') }, { raw: '{}' }]);
 
@@ -98,7 +88,7 @@ describe('createHttp: stream', () => {
         expect(calls).to.have.lengthOf(1);
     });
 
-    it('sends exactly one request with retry: false, whatever the failure', async () => {
+    it('sends exactly one request, whatever the failure', async () => {
         const failures: Script = [
             { body: {}, status: 502 },
             { body: {}, headers: { 'retry-after': '30' }, status: 429 },
@@ -108,7 +98,7 @@ describe('createHttp: stream', () => {
         for (const failure of failures) {
             const { calls, clock, http } = setup([failure, { raw: '{}' }]);
 
-            const error = await rejection(http.stream('/files', { retry: false }));
+            const error = await rejection(http.stream('/files'));
 
             expect(error).to.be.instanceOf(failure instanceof Error ? NetworkError : ApiError);
             expect(calls).to.have.lengthOf(1);

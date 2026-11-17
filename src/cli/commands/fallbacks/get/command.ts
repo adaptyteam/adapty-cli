@@ -70,8 +70,10 @@ export default class FallbacksGet extends AdaptyCommand {
         + 'is printed there, and every error, the --json error object included, goes to stderr. A shell redirect '
         + '(`> file`) truncates the file before the request, and a download that breaks halfway leaves a partial one; '
         + 'Windows PowerShell 5.1 also re-encodes redirected output. Prefer --output.',
-        'An answer that is not the file (not application/json, or not one whole JSON object: it starts with { and '
-        + 'ends with its matching }) is refused with fallback_invalid_response. Exit codes: 2 bad input, 3 no token or '
+        'The command does not parse the file: a large one is hundreds of MB. It refuses an answer that is not '
+        + 'application/json or does not start with { and end with } (fallback_invalid_response), and a connection that '
+        + 'breaks during the download exits 5. To check the whole file in CI, run a JSON parser on it, for example '
+        + '`jq empty ios_fallback.json`. Exit codes: 2 bad input, 3 no token or '
         + 'access refused, 4 any other API error (5xx, 429) or a refused answer, 5 the server was not reached or did '
         + 'not answer in 300 s, the download broke, or stdout was closed, 1 the file could not be written.',
     ].join('\n\n');

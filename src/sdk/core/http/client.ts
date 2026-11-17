@@ -34,14 +34,8 @@ export type StreamedResponse = {
     headers: Headers;
 };
 
-type StreamRequest = Omit<BodylessOptions, 'idempotent'> & {
-    /**
-     * A stream is a GET, so it is retried up to the headers by default; never after them, because a
-     * body handed over is the caller's to read. `false` sends exactly one request, for an answer so
-     * expensive to build that a retry costs the server more than the failure did.
-     */
-    retry?: false | undefined;
-};
+/** A stream sends exactly one request, never retried: a body too large to parse is costly to build. */
+type StreamRequest = Omit<BodylessOptions, 'idempotent'>;
 
 export type Http = {
     delete<T>(path: string, options?: BodylessOptions): Promise<T>;
@@ -162,17 +156,12 @@ export const createHttp = (options: HttpOptions): Http => {
         return retried(() => send<T>(method, path, req), req);
     };
 
-    const stream = (path: string, req: StreamRequest = {}): Promise<StreamedResponse> => {
+    const stream = async (path: string, req: StreamRequest = {}): Promise<StreamedResponse> => {
+        const response = await open('GET', path, req);
         const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
         const signal = combineSignals(options.signal, req.signal);
 
-        const attempt = async (): Promise<StreamedResponse> => {
-            const response = await open('GET', path, req);
-
-            return { body: guardBody(response.body, url, signal), headers: response.headers };
-        };
-
-        return req.retry === false ? attempt() : retried(attempt, req);
+        return { body: guardBody(response.body, url, signal), headers: response.headers };
     };
 
     return {

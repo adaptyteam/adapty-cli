@@ -20,7 +20,6 @@ export type FallbackInput = {
 export const fallbacks = (http: Http) => ({
     get: (appId: string, input: FallbackInput) => http.stream(`/apps/${appId}/fallbacks`, {
         query: { platform: input.platform, sdk_version: input.sdkVersion },
-        retry: false,
     }),
 });
 

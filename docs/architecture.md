@@ -39,7 +39,7 @@ Everything here would be the same for any HTTP API.
 - `http/` — the transport: base URL, bearer token, JSON both ways, responses mapped to sdk errors,
   retry for idempotent requests. Error parsing (`policies.ts`) and the retry rule are parameters,
   because services word rejections differently. `Http.stream()` hands a 2xx body over unread, for
-  answers too large to parse; `retry: false` turns its retry off for one call.
+  answers too large to parse; it sends exactly one request, never retried.
 - `errors.ts` — the error taxonomy. Every error has a stable `kind` and carries no user-facing text
   and no exit code; assigning both is the adapter's job.
 - `session.ts` — `SessionStore` is a port; `createFileSessionStore(dir)` is the file implementation.
