@@ -58,8 +58,6 @@ export const streamToStdout = async (
             throw stdoutClosed(failure.error);
         }
     }
-
-    stdout.off('error', onError);
 };
 
 /**
