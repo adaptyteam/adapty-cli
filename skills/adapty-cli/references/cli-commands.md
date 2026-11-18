@@ -64,11 +64,13 @@ All commands support `--json` for machine-readable output.
 
 | Command                              | Required flags                  |
 |-------------------------------------|---------------------------------|
-| `paywalls list`                      | `--app`                         |
+| `paywalls list`                      | `--app`; optional `--kind custom\|legacy_builder` (only paywalls of that kind) |
 | `paywalls get <paywall_id>`          | `--app`                         |
 | `paywalls create`                    | `--app`, `--title`, exactly one of `--products` (JSON list `[{"product_id": ...}]`, with optional `offer_id`, `fallback_offer_id`, `billing_plan_id`) and the deprecated `--product-id` (repeatable; no offer, no billing plan); optional `--remote-configs`, `--use-paywall-builder-v4`, `--screenshot-id`, `--builder-screenshot-id`, `--web-purchase-url` (`null` clears) |
 | `paywalls update <paywall_id>`       | `--app`, then either `--file <path\|->` (the body of `paywalls get --json`) or every field flag: `--title`, `--products` (or the deprecated `--product-id`), `--remote-configs`, `--use-paywall-builder-v4`/`--no-use-paywall-builder-v4`, `--screenshot-id`, `--builder-screenshot-id`, `--web-purchase-url`. A missing field is refused (exit 2), never reset; `--file` and a field flag cannot be mixed; a write replaces the whole remote config list |
 | `paywalls placements <paywall_id>`   | `--app` — lists placements that currently use this paywall (slim summary; no `audiences`) |
+
+**`paywalls list` and `paywalls get` show the read-only `kind`**: `custom` when the paywall uses no legacy Paywall Builder, `legacy_builder` when it is set to use one. `kind` follows the builder setting, not a saved layout, and names no builder version. The server checks the `--kind` value and answers a wrong one with the valid ones. `update --file` sends `kind` as it is in the file and the server ignores it; an update sets the older builder flag to false, so a paywall with only the older builder flag shows `kind: custom` after it. Use `paywalls placements` for the placements that use a paywall now, and `paywalls metrics get` for its traffic in a period.
 
 ## A/B tests
 
