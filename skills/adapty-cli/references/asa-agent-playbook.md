@@ -162,6 +162,9 @@ cohort at those windows, `--order-by-day` ranks by one of them:
 ```sh
 adapty asa metrics --entity campaign --date-from ... --date-to ... --metric roas --by-days 7 --by-days 30 --order-by gross_roas --order-by-day 30
 ```
+A window past `meta.max_valid_day` is `null` (the cohort has not lived that long): report it as not reached, never as 0
+or a plateau. Read `meta.warnings` (`aggregated_across_countries`, `search_match_excluded`) and `meta.units`
+(e.g. `gross_roas` = `percent`) before quoting numbers.
 
 **"How many active campaigns do I have?"** — one call, read `meta.pagination.count`:
 ```sh
@@ -172,6 +175,16 @@ adapty asa campaigns list --status ENABLED --page-size 1 --json
 for a yes:
 ```sh
 adapty asa search-terms list --campaign CAMPAIGN_UUID --date-from ... --date-to ...
+```
+`--overlap-only` keeps Search Match / Max Conversions terms already covered by a live EXACT keyword of the same app in a
+campaign covering the term country and not blocked by a negative; rows carry `is_negated`, `exact_keyword_overlap`,
+`campaign_external_id`, `ad_group_external_id`.
+
+**"Which keywords are live / duplicated?"** — `--live-only` is ACTIVE with ad group and campaign ENABLED; duplicates is
+one call per app (max 500 groups, `truncated: true` when capped):
+```sh
+adapty asa keywords list --app APP_UUID --live-only --page-size 1000
+adapty asa keywords duplicates --app APP_UUID
 ```
 
 **"Raise/lower bids, pause things" (any mutation)** — read the target first if you don't have its

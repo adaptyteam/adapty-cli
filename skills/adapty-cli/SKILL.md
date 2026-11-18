@@ -174,7 +174,7 @@ The server supplies the available flows, action IDs and input schemas.
 ## Apple Ads
 
 The `adapty asa` commands ship in this CLI and are listed in the `asa` section of `references/cli-commands.md`;
-`asa metrics` is the Apple-reported side of the attribution crosswalk. The agent guidance for managing Apple Ads
+`asa metrics` is the Apple-reported side of the attribution crosswalk. Money flags use the campaign group currency unless `--currency` is given. The agent guidance for managing Apple Ads
 campaigns (write rules, playbooks, and vertical guides) lives in the `apple-ads` skill at
 [adaptyteam/apple-ads-cli](https://github.com/adaptyteam/apple-ads-cli). Reads (`asa whoami`, any `list`,
 `asa metrics`) are safe to run directly; open `apple-ads` before any `asa` write, because writes spend real money

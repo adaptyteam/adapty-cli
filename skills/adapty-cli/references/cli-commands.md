@@ -616,12 +616,13 @@ The rules for writing to a live ad account, and the campaign playbooks, live in 
 | `asa ad-groups list` / `get <id>`    | metadata only, like campaigns; numbers come from `asa metrics`              |
 | `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today). `--automated` = the automated group for Max Conversions: no `--start-time`, no `--status PAUSED`, `--default-bid` optional |
 | `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
-| `asa keywords list`                  | metadata only; **filter by `--ad-group`** — the heaviest read, own budget (30/min, 2 concurrent, 60s cap) |
+| `asa keywords list`                  | metadata only; **filter by `--ad-group`** — the heaviest read, own budget (30/min, 2 concurrent, 60s cap); `--live-only` keeps ACTIVE keywords whose ad group and campaign are ENABLED and nothing deleted; rows carry `effective_status`, `countries` and the parent statuses |
+| `asa keywords duplicates`            | `--app`; same text, country and level across ad groups / campaigns; groups with `instances` (campaign, ad group, bid); at most 500 groups, `truncated: true` when capped |
 | `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |
 | `asa keywords update <id> [<id>...]` | one change applied to every id; `--text` only for a single keyword           |
 | `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows; `--campaign-level-only` keeps only those |
 | `asa negative-keywords add`          | exactly one of `--ad-group` / `--campaign`; `--all-ad-groups` needs `--campaign` |
-| `asa search-terms list`              | period flags; filter by `--ad-group` / `--campaign` to build the keyword pipeline |
+| `asa search-terms list`              | period flags; filter by `--ad-group` / `--campaign` to build the keyword pipeline; `--overlap-only` keeps Search Match / Max Conversions terms that match a live EXACT keyword of the same app in a campaign covering the term country and are not blocked by a negative; rows carry `is_negated`, `exact_keyword_overlap`, `campaign_external_id`, `ad_group_external_id` |
 | `asa change-history list`            | read live from Apple (proxied from the Apple Ads Platform API; 6 months of history, default last 7 days, at most 14 days per call); required `--campaign-group` (one organization per call, loop over `asa orgs list` for several); default entity types are the campaign domain, `Org` / `AdAccount` cannot be mixed with them; Apple-id filters `--campaign` / `--ad-group` / `--entity-id` / `--user` / `--txn`, enums `--entity-type` / `--event-type` / `--user-type`; `--fields` gives flat field-level rows (page size 10; a larger `--page-size` is refused; a page may expand into at most 20 lookups); `modified_by` is an Apple user id, not an email |
 | `asa change-history get <detail_id>` | field-level before/after for one `detail_id` of the list; required `--campaign-group` is the `campaign_group_id` of the list row |
 | `asa ads list` / `get <id>`          | `serving_state_reasons` explains a non-running ad; list has no `--app` filter |
@@ -635,7 +636,7 @@ The rules for writing to a live ad account, and the campaign playbooks, live in 
 | `asa automations update <id>`        | `--stop` / `--start` / `--name` / `--file`; the file must not carry `internal_id`; the same action flags as `create` — passing one reads the rule, rebuilds `actions[0].params` and writes the whole `actions` list back (two calls, overwrites a concurrent dashboard edit), which is also how a rule with the wrong `params` shape is repaired |
 | `asa automations run <id>`           | queued, prints a run ID; `--dry-run` evaluates without touching Apple        |
 | `asa automations runs <id>`          | past runs, including dry runs                                               |
-| `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day`; one server-sorted row per entity — top-N is one call |
+| `asa metrics`                        | `--entity`, `--date-from`, `--date-to`; `--metric` repeatable, `--group-by`, `--order-by`, `--by-days` (max 16), `--order-by-day`; one server-sorted row per entity — top-N is one call; `meta.units` gives the unit per metric, `meta.warnings` the caveats; cohort windows past `meta.max_valid_day` are `null` |
 | `asa metrics overview`               | same, plus `--period-unit` (day/week/month/quarter/year); account totals + per-period series in one call |
 | `asa competitors summary`            | `--app-ids` (1–5 Apple App Store IDs, comma-separated); last full month, all countries, no period/country flags; slow on a cold cache |
 
@@ -681,7 +682,7 @@ Before running any of these:
   recipes in `asa-agent-playbook.md`.
 - **`--page-size` goes up to 1000 on asa commands** — one big page always beats a pagination loop, and
   `meta.pagination.count` answers "how many" without reading the rows.
-- **Money flags take a bare amount** (`--daily-budget 50`); `--currency` defaults to USD.
+- **Money flags take a bare amount** (`--daily-budget 50`); `--currency` is optional: omitted, the CLI uses the currency of the campaign group (extra reads of the entity and `asa orgs list`; `keywords update` needs all groups to share one currency), and the server rejects a mismatch with 422 `cli_currency_mismatch`.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 
 ## Analytics (`analytics` topic)
