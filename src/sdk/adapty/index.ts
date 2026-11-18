@@ -18,6 +18,7 @@ import { productGroups } from './product-groups/index.js';
 import { productOffers } from './product-offers/index.js';
 import { productPrices } from './product-prices/index.js';
 import { products } from './products/index.js';
+import { refundSaver } from './refund-saver/index.js';
 import { retentionMessaging } from './retention-messaging/index.js';
 
 import type { AbTestsApi } from './ab-tests/index.js';
@@ -36,6 +37,7 @@ import type { ProductGroupsApi } from './product-groups/index.js';
 import type { ProductOffersApi } from './product-offers/index.js';
 import type { ProductPricesApi } from './product-prices/index.js';
 import type { ProductsApi } from './products/index.js';
+import type { RefundSaverApi } from './refund-saver/index.js';
 import type { RetentionMessagingApi } from './retention-messaging/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
@@ -57,6 +59,7 @@ export { platforms } from './apps/index.js';
 export { offerTypes } from './product-offers/index.js';
 export { decideSave, isFailed, isPending, isSynced, storePrices, storesWritten } from './product-prices/index.js';
 export { productPeriods, productStores } from './products/index.js';
+export { appStorePreferences, customPreferences, playStorePreferences, refundStores } from './refund-saver/index.js';
 export { developerErrorParser } from './errors.js';
 export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
@@ -199,6 +202,19 @@ export type {
     PushProductInput,
     UpdateProductInput,
 } from './products/index.js';
+export type {
+    RefundMetrics,
+    RefundPeriodInput,
+    RefundRequest,
+    RefundSaverPreferences,
+    RefundSaverProfileSettings,
+    RefundSaverReadiness,
+    RefundSaverState,
+    RefundSaverStores,
+    RefundSaverSwitch,
+    UpdateProfileSettingsInput,
+    UpdateRefundSaverInput,
+} from './refund-saver/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
 export type { PlacementsApi } from './placements.js';
 
@@ -241,6 +257,7 @@ export type Adapty = {
     productOffers: ProductOffersApi;
     productPrices: ProductPricesApi;
     products: ProductsApi;
+    refundSaver: RefundSaverApi;
     retentionMessaging: RetentionMessagingApi;
 };
 
@@ -303,6 +320,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         productOffers: productOffers(http),
         productPrices: productPrices(http, options.clock ?? systemClock),
         products: products(http),
+        refundSaver: refundSaver(http),
         retentionMessaging: retentionMessaging(http),
     };
 };

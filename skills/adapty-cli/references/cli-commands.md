@@ -737,6 +737,44 @@ Before running any of these:
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` is optional: omitted, the CLI uses the currency of the campaign group (extra reads of the entity and `asa orgs list`; `keywords update` needs all groups to share one currency), and the server rejects a mismatch with 422 `cli_currency_mismatch`.
 - Anything owned by another company reads as missing, so a 404 means "not yours, or not there".
 
+## Refund Saver (`refund-saver` topic)
+
+Refund Saver of one app: the switch, the refund preference of each store, store readiness, the settings of one
+profile, the handled refund requests and the metrics. Every command takes `--app`. Refund Saver is a paid
+add-on. The account owner manages it in Billing in the Adapty dashboard, not with the CLI. The full agent guide is `docs/agent/refund-saver.md`
+in the adapty-cli repository.
+
+| Command                                     | Required flags / notes                                                  |
+|---------------------------------------------|-------------------------------------------------------------------------|
+| `refund-saver get`                          | `--app`; `enabled` and the preference of each store                     |
+| `refund-saver on`                           | `--app`; turns it on in both stores; can be refused with 409 (exit 4); prints the server note (`billing_note`) |
+| `refund-saver off`                          | `--app`; turns it off in both stores; `billing_note` is null; does not cancel the Refund Saver add-on |
+| `refund-saver update`                       | `--app`; at least one of `--app-store-preference`, `--needs-consent`/`--no-needs-consent`, `--play-store-preference` |
+| `refund-saver readiness`                    | `--app`; each store ready or not, and the setup it misses               |
+| `refund-saver profile get <profile_id>`     | `--app`; `custom_preference` and `consent` of one profile               |
+| `refund-saver profile update <profile_id>`  | `--app`; at least one of `--custom-preference`, `--consent`/`--no-consent` |
+| `refund-saver requests`                     | `--app`, `--date-from`, `--date-to`; optional `--store`, `--page`, `--page-size`; newest first |
+| `refund-saver metrics`                      | `--app`, `--date-from`, `--date-to`; optional `--store`                 |
+
+```sh
+adapty refund-saver on --app APP_UUID --json
+adapty refund-saver requests --app APP_UUID --date-from 2026-10-01 --date-to 2026-10-31 --store app_store --json
+```
+
+- **Refusals of `on`**: the API can refuse `on` with 409 (exit 4). A refusal changes nothing; read `error.code` in
+  `--json`: `refund_saver_addon_inactive` (the Refund Saver add-on is not active for this account; ask the account
+  owner to turn it on in Billing in the Adapty dashboard, then retry), `refund_saver_apple_credentials_invalid` (the
+  Apple credentials of this account do not work; fix them in App settings in the Adapty dashboard, then retry),
+  `refund_saver_addon_unavailable` (Refund Saver cannot be turned on for this account; do not retry, contact Adapty
+  support).
+- **Edit rights**: `on`, `off`, `update` and `profile update` need edit rights in the company that owns the app. An
+  account that can view the app but not change it gets 403 `edit_rights_required` (exit 3) and nothing changes; do
+  not retry until a company owner or admin grants edit rights.
+- **`billing_note`**: `on` answers with a note (`billing_note` in `--json`); the CLI prints it. `off`: `billing_note`
+  is null.
+- **Dates** are UTC days on the date the request was handled; a reversed range is an empty answer.
+- **Profile ID** is the Adapty profile ID (UUID), not the customer user ID.
+
 ## Analytics (`analytics` topic)
 
 The analytics of one app as the Adapty dashboard shows them, from the Developer API with the same token. Read-only;

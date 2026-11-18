@@ -56,7 +56,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`, `refundSaver`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -371,7 +371,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
 most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows versions`, `hypotheses`, `migrations`,
-`paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`
+`paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`, `refund-saver`
 and `skills`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file

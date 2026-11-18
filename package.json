@@ -138,6 +138,12 @@
       "fallbacks": {
         "description": "Download fallback files to bundle in your app"
       },
+      "refund-saver": {
+        "description": "Refund Saver: turn it on or off, the refund preferences, store readiness, profile settings, the refund requests and the metrics"
+      },
+      "refund-saver:profile": {
+        "description": "The Refund Saver settings of one profile: its custom preference and its consent"
+      },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"
       },

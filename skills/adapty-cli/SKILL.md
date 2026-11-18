@@ -1,6 +1,6 @@
 ---
 name: adapty-cli
-description: Use when setting up or managing Adapty in-app subscriptions, paywalls, placements, or migrations via CLI, when reading an app's analytics (revenue, MRR, conversions, funnel, retention, LTV, cohorts) with `adapty analytics`, or when reading Attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`.
+description: Use when setting up or managing Adapty in-app subscriptions, paywalls, placements, or migrations via CLI, when reading an app's analytics (revenue, MRR, conversions, funnel, retention, LTV, cohorts) with `adapty analytics`, when reading Attribution analytics (spend, installs, ROAS, cohort revenue, predictions) with `adapty attribution`, or when managing Refund Saver (the switch, store refund preferences, readiness, requests, metrics) with `adapty refund-saver`.
 ---
 
 # Adapty CLI Skill
@@ -202,6 +202,16 @@ Cross-network attribution analytics (spend, installs, revenue, ROAS, cohort valu
 Attribution dashboard shows them) live in the read-only `adapty attribution` topic. See the `attribution` section of
 `references/cli-commands.md`. Discover before querying: `adapty attribution metrics`, then `dimensions`, then
 `values`, then `report`. A `null` value means not computable, never zero.
+
+---
+
+## Refund Saver
+
+Refund Saver of one app (the switch, the refund preference of each store, store readiness, the settings of one
+profile, the handled refund requests and the metrics) lives in the `adapty refund-saver` topic; every command takes
+`--app`. See the `refund-saver` section of `references/cli-commands.md`. It is a paid add-on that the account owner
+manages in Billing in the Adapty dashboard, not with the CLI. The API can refuse `on` with 409: read `error.code` in
+`--json`. `on`, `off`, `update` and `profile update` need edit rights in the company that owns the app.
 
 ---
 
