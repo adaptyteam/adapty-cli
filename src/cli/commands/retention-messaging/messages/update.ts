@@ -36,6 +36,9 @@ export default class RetentionMessagingMessagesUpdate extends AdaptyCommand {
         + 'is refused before anything is sent. Then it asks (--yes; exit 6 when nobody can answer), reads the message, merges '
         + 'the change and sends the full message once. An object to remove or change that the message does not have is refused '
         + 'after the read, with nothing sent. If the answer is lost, the result is unknown: read the message, do not repeat.',
+        'Each update, also of the name only, sends the message to Apple review, and an inactive message starts to show again '
+        + 'after Apple approves it. If someone edits the message in the dashboard at the same time, a change made between the '
+        + 'read and the write of this update can be lost.',
     ].join('\n\n');
 
     static override examples = [

@@ -1,8 +1,10 @@
+import { deflateSync, inflateSync } from 'node:zlib';
+
 import { expect } from 'chai';
 
 import { exitCode } from '../../src/cli/errors.js';
 import { restoreFetch } from '../helpers/mock-fetch.js';
-import { encodePng, opaquePng } from '../helpers/png.js';
+import { encodePng, opaquePng, withBadCrc, withIdat } from '../helpers/png.js';
 import {
     APP,
     BASE,
@@ -225,6 +227,13 @@ describe('retention-messaging', () => {
             { file: () => iconWith({ bitDepth: 16, colorType: 6 }, [1, 2, 3, 65_535], [1, 2, 3, 0x7f_ff]), id: 'RGBA 16 bit with transparency', rule: 'must have no transparency' },
             { file: () => iconWith({ ...rgba, interlaced: true }, [9, 9, 9, 255], [9, 9, 9, 10]), id: 'Adam7 with transparency', rule: 'must have no transparency' },
             { file: () => new TextEncoder().encode('GIF89a not a png'), id: 'not a PNG', rule: 'must be a PNG' },
+            { file: () => withIdat(opaquePng(ICON, ICON), data => data.subarray(0, data.length / 2)), id: 'RGB with a cut zlib stream', rule: 'must be a PNG' },
+            { file: () => withBadCrc(opaquePng(ICON, ICON)), id: 'RGB with a wrong CRC', rule: 'must be a PNG' },
+            {
+                file: () => withIdat(opaquePng(ICON, ICON), data => deflateSync(inflateSync(data).subarray(0, -100))),
+                id: 'RGB with short scanlines',
+                rule: 'must be a PNG',
+            },
             { file: () => new Uint8Array(10 * 1024 * 1024 + 1), id: 'larger than 10 MB', rule: 'must be at most 10 MB' },
             { file: () => iconWith(rgba, [9, 9, 9, 255], [200, 9, 9, 255]), id: 'opaque RGBA, every alpha 255' },
         ];
@@ -280,8 +289,18 @@ describe('retention-messaging', () => {
                 args: async () => ['messages', 'create', '--mode', 'sandbox', '--file', await files.write('m.json', MESSAGE_FILE), '--yes'],
                 exit: index === 0 ? exitCode.network : exitCode.api,
                 id: `create, ${index === 0 ? 'network error' : '503'}`,
-                texts: ['The result is unknown', 'Do not repeat the create', `messages list --app ${APP} --mode sandbox --search "Winter"`, 'messages get'],
+                texts: ['The result is unknown', 'Do not repeat the create', `messages list --app ${APP} --mode sandbox --search 'Winter'`, 'messages get'],
             })),
+            {
+                answers: ['network'],
+                args: async () => ['messages', 'create', '--mode', 'sandbox', '--yes', '--file', await files.write('m.json', JSON.stringify({
+                    ...JSON.parse(MESSAGE_FILE) as object,
+                    name: 'It\'s "$(date)"',
+                }))],
+                exit: exitCode.network,
+                id: 'create, a name with quotes and $( ) is one shell word',
+                texts: [`--search 'It'\\''s "$(date)"'`],
+            },
             ...(['network', { body: {}, status: 503 }] as const).map((failure, index) => ({
                 answers: [{ body: { data: defaultMessage() } }, failure],
                 args: () => Promise.resolve(['messages', 'update', MESSAGE, '--title', 'New', '--yes']),

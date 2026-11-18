@@ -17,6 +17,9 @@ import { ASK_THE_USER, renderWritten } from '../../../views/retention-messaging.
 
 import type { CreateMessageFile, RetentionMessageAnswer } from '../../../../sdk/adapty/retention-messaging/index.js';
 
+/** A POSIX shell word that is the text exactly: single quotes, and each single quote as '\''. Nothing in it expands. */
+const shellWord = (text: string): string => `'${text.replaceAll('\'', '\'\\\'\'')}'`;
+
 const effectOf = (name: string, mode: string): string => `Create retention message "${name}" in ${mode}. Its texts and images `
     + 'go to Apple for review; after Apple approves it and it is active, Apple can show it to subscribers on the cancel screen.';
 
@@ -73,7 +76,7 @@ export default class RetentionMessagingMessagesCreate extends AdaptyCommand {
         const answer = await messages.create(flags.app, flags.mode, plan).catch((error: unknown) => {
             throw withUnknownResult(error, 'Do not repeat the create: it can make a second message and send it to Apple review '
                 + `again. Find the candidates: run \`adapty retention-messaging messages list --app ${flags.app} --mode ${flags.mode} `
-                + `--search "${name}"\` on every page, read each with \`messages get\` and show them to the user.`);
+                + `--search ${shellWord(name)}\` on every page, read each with \`messages get\` and show them to the user.`);
         });
 
         this.render(answer, renderWritten('Message created!'));

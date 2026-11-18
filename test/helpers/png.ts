@@ -148,3 +148,25 @@ export const encodePng = (spec: PngSpec): Uint8Array => {
 /** An opaque RGB picture of the given size. */
 export const opaquePng = (width: number, height: number): Uint8Array =>
     encodePng({ bitDepth: 8, colorType: 2, height, pixel: (x, y) => [x & 0xff, y & 0xff, 128], width });
+
+/** The offset of the first `IDAT` chunk: its length field. */
+const idatAt = (png: Uint8Array): number => Buffer.from(png).indexOf('IDAT') - 4;
+
+/** The same PNG with the data of its one `IDAT` chunk replaced, and a correct CRC: a damaged pixel stream. */
+export const withIdat = (png: Uint8Array, transform: (data: Buffer) => Uint8Array): Uint8Array => {
+    const bytes = Buffer.from(png);
+    const at = idatAt(png);
+    const end = at + 12 + bytes.readUInt32BE(at);
+
+    return Buffer.concat([bytes.subarray(0, at), chunk('IDAT', transform(bytes.subarray(at + 8, end - 4))), bytes.subarray(end)]);
+};
+
+/** The same PNG with a wrong CRC on its `IDAT` chunk. */
+export const withBadCrc = (png: Uint8Array): Uint8Array => {
+    const bytes = Buffer.from(png);
+    const crcAt = idatAt(png) + 8 + bytes.readUInt32BE(idatAt(png));
+
+    bytes[crcAt] = (bytes[crcAt] ?? 0) ^ 0xff;
+
+    return bytes;
+};

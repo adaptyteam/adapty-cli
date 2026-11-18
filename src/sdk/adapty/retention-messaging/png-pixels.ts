@@ -118,11 +118,9 @@ const unfilter = (filter: number, row: Uint8Array, previous: Uint8Array, bpp: nu
 
 /** True or false, or undefined when the pixel data cannot be read: then the file is not a valid PNG. */
 export const hasTransparentPixel = (png: Png): boolean | undefined => {
+    // Undefined for an image that cannot be transparent: its pixel data is still read in full, so a
+    // damaged stream or a short scanline is found here and not by the server after the upload.
     const test = pixelTest(png);
-
-    if (test === undefined) {
-        return false;
-    }
 
     const bitsPerPixel = (CHANNELS[png.colorType] ?? 1) * png.bitDepth;
     const bpp = Math.max(1, Math.ceil(bitsPerPixel / 8));
@@ -152,7 +150,7 @@ export const hasTransparentPixel = (png: Png): boolean | undefined => {
                 return undefined;
             }
 
-            for (let pixel = 0; pixel < width; pixel++) {
+            for (let pixel = 0; test !== undefined && pixel < width; pixel++) {
                 if (test(row, pixel)) {
                     return true;
                 }

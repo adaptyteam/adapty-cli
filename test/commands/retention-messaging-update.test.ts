@@ -154,6 +154,7 @@ describe('retention-messaging messages update', () => {
                 id: 'text of a new bullet point for a removed locale',
                 text: 'bullet_points[0].texts has a text for de-DE, which remove_localizations removes',
             },
+            { change: { constructor: 'x' }, id: 'a key of the change file that is a name of an object method', text: 'constructor is not a key of the change file' },
         ];
 
         for (const row of rows) {
@@ -171,6 +172,11 @@ describe('retention-messaging messages update', () => {
     describe('refused after the read', () => {
         const twoLocales = defaultMessage({ localizations: (defaultMessage().localizations as unknown[]).slice(0, 2) });
         const { localizations: _dropped, ...noLocalizations } = defaultMessage();
+        const base = defaultMessage();
+        const [first, second] = base.bullet_points as Record<string, unknown>[];
+        const { text: _text, ...bulletNoText } = second ?? {};
+        const promo = promoMessage();
+        const [product] = promo.products as Record<string, unknown>[];
 
         type Row = { change?: object; extra?: string[]; icon?: boolean; id: string; message?: unknown; text: string };
 
@@ -189,6 +195,24 @@ describe('retention-messaging messages update', () => {
                 change: { localizations: [{ body: 'Testo', bullet_texts: { b1: 'Uno' }, locale: 'it-IT', title: 'Titolo' }] },
                 id: 'a new locale with no text for a kept bullet point',
                 text: 'localization it-IT has no text for bullet point b2',
+            },
+            {
+                extra: ['--name', 'New', '--yes'],
+                id: 'the read has an image with no alt_text',
+                message: { ...base, image: { file_name: 'header.png', url: 'https://cdn/header.png' } },
+                text: 'the message as read has no image.alt_text',
+            },
+            {
+                extra: ['--name', 'New', '--yes'],
+                id: 'the read has a bullet point with no text',
+                message: { ...base, bullet_points: [first, bulletNoText] },
+                text: 'the message as read has no bullet_points[1].text',
+            },
+            {
+                extra: ['--name', 'New', '--yes'],
+                id: 'the read has an association with no type',
+                message: { ...promo, products: [{ ...product, association: { id: 'o1', store_id: 'promo.half', title: 'Half price' } }] },
+                text: 'the message as read has no products[0].association.type',
             },
             { extra: ['--title', 'New', '--yes'], id: 'the read has no localizations', message: noLocalizations, text: 'the message as read has no localizations' },
             {

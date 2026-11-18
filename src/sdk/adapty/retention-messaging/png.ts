@@ -29,9 +29,30 @@ export type Png = {
 
 type Chunk = { data: Uint8Array; type: string };
 
+/** The CRC table (32 bits) of the PNG specification: each chunk ends with the CRC of its type and data. */
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
+    let value = index;
+
+    for (let bit = 0; bit < 8; bit++) {
+        value = (value & 1) === 1 ? 0xed_b8_83_20 ^ (value >>> 1) : value >>> 1;
+    }
+
+    return value;
+});
+
+const crc32 = (bytes: Uint8Array): number => {
+    let crc = 0xff_ff_ff_ff;
+
+    for (const byte of bytes) {
+        crc = (CRC_TABLE[(crc ^ byte) & 0xff] ?? 0) ^ (crc >>> 8);
+    }
+
+    return (crc ^ 0xff_ff_ff_ff) >>> 0;
+};
+
 const hasSignature = (bytes: Uint8Array): boolean => SIGNATURE.every((byte, index) => bytes[index] === byte);
 
-/** The chunks up to `IEND`, or undefined when a chunk runs past the end of the file. */
+/** The chunks up to `IEND`, or undefined when a chunk runs past the end of the file or its CRC is wrong. */
 const chunksOf = (bytes: Uint8Array): Chunk[] | undefined => {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const chunks: Chunk[] = [];
@@ -41,7 +62,7 @@ const chunksOf = (bytes: Uint8Array): Chunk[] | undefined => {
         const start = offset + 8;
         const end = start + length;
 
-        if (end + 4 > bytes.length) {
+        if (end + 4 > bytes.length || crc32(bytes.subarray(offset + 4, end)) !== view.getUint32(end)) {
             return undefined;
         }
 

@@ -2,6 +2,7 @@ import { assertValid } from '../../core/validation.js';
 
 import { savedBulletIds } from './change.js';
 import { validateRetentionImage } from './image.js';
+import { readIssues } from './read.js';
 
 import type { BulletChange, MessageChange } from './change.js';
 import type { ImageFile, MessageWritePlan, RetentionBulletPoint, RetentionMessage } from './model.js';
@@ -18,9 +19,6 @@ export type UpdateMessageImages = {
     icons: ReadonlyMap<string, ImageFile>;
     image?: ImageFile | undefined;
 };
-
-/** The fields the full body is built from. One that the read lacks is not taken as empty. */
-const BODY_FIELDS = ['name', 'title', 'body', 'products', 'bullet_points', 'localizations', 'image'] as const;
 
 /** The image rules of every file of an update, before the question and before any request. */
 export const validateUpdateImages = (images: UpdateMessageImages): Issue[] => [
@@ -206,11 +204,7 @@ export const planUpdate = (
     change: MessageChange,
     images: UpdateMessageImages,
 ): MessageWritePlan => {
-    const record = message as Partial<Record<string, unknown>>;
-
-    assertValid(BODY_FIELDS.filter(field => record[field] === undefined).map(field => ({
-        message: `the message as read has no ${field}, so the full body cannot be built: nothing was sent`,
-    })));
+    assertValid(readIssues(message));
 
     assertValid(targetIssues(message, change));
 

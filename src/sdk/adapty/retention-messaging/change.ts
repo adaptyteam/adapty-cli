@@ -70,13 +70,17 @@ const object = (fields: Readonly<Record<string, Rule>>, required: readonly strin
         return issue(where === '' ? 'the change' : where, 'must be a JSON object');
     }
 
-    const unknown = Object.keys(value).filter(key => !(key in fields));
-    const missing = required.filter(key => !(key in value));
+    // Own keys only: a name such as `constructor` is an unknown key, never a method of the schema
+    const known = (key: string): boolean => Object.hasOwn(fields, key);
+    const unknown = Object.keys(value).filter(key => !known(key));
+    const missing = required.filter(key => !Object.hasOwn(value, key));
 
     return [
         ...unknown.flatMap(key => issue(at(where, key), 'is not a key of the change file')),
         ...missing.flatMap(key => issue(at(where, key), 'is required')),
-        ...Object.entries(value).flatMap(([key, entry]) => fields[key]?.(entry, at(where, key)) ?? []),
+        ...Object.entries(value)
+            .filter(([key]) => known(key))
+            .flatMap(([key, entry]) => fields[key]?.(entry, at(where, key)) ?? []),
     ];
 };
 

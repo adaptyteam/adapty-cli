@@ -28,7 +28,7 @@ export const messageIdArg = {
 export const productIdArg = {
     product_id: Args.string({
         description: 'Product ID (UUID), the id of a product in `adapty retention-messaging products suggest`',
-        parse: uuidParser('Invalid product ID format. Run `adapty retention-messaging products suggest --app <app>` to find it.'),
+        parse: uuidParser('Invalid product ID format. Run `adapty retention-messaging products suggest --app <app> --mode <sandbox|production> --type <default|promo>` to find it.'),
         required: true,
     }),
 };
