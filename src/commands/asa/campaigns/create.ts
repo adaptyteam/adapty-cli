@@ -1,6 +1,6 @@
 import { Command, Flags } from '@oclif/core';
 
-import { asaWrite, createAsaClient, noteReplay } from '../../../lib/asa-client.js';
+import { asaWrite, createAsaClient, noteReplay, resolveCurrency } from '../../../lib/asa-client.js';
 import {
     currencyFlag,
     idempotencyFlags,
@@ -67,6 +67,12 @@ export default class AsaCampaignsCreate extends Command {
             this.error((error as Error).message, { exit: 2 });
         }
 
+        const client = await createAsaClient(this);
+
+        const currency = await resolveCurrency(client, flags.currency, [flags['daily-budget'], flags['target-cpa']], {
+            campaignGroup: flags.org,
+        });
+
         const body = {
             ad_channel_type: flags['ad-channel-type'],
             adam_id: flags['adam-id'],
@@ -74,17 +80,15 @@ export default class AsaCampaignsCreate extends Command {
             billing_event: flags['billing-event'],
             campaign_group_id: flags.org,
             countries_or_regions: flags.country,
-            daily_budget_amount: money(flags['daily-budget'], flags.currency),
+            daily_budget_amount: money(flags['daily-budget'], currency),
             loc_invoice_details: invoice,
             name: flags.name,
             status: flags.status,
             supply_sources: flags['supply-source'],
-            target_cpa: money(flags['target-cpa'], flags.currency),
+            target_cpa: money(flags['target-cpa'], currency),
         };
 
         await confirmMutation(this, { body, method: 'POST', path: '/campaigns/', summary: `Create campaign ${flags.name}` }, flags.yes);
-
-        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaCampaignMutationDTO>(client, 'post', '/campaigns', {
             body,

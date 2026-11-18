@@ -1,4 +1,4 @@
-import { Command } from '@oclif/core';
+import { Command, Flags } from '@oclif/core';
 
 import { createAsaClient } from '../../../lib/asa-client.js';
 import { adGroupScopeFlags, asaPaginationFlags, scopeParams, statusFilter } from '../../../lib/asa-flags.js';
@@ -14,9 +14,17 @@ export default class AsaKeywordsList extends Command {
     static override examples = [
         '<%= config.bin %> asa keywords list',
         '<%= config.bin %> asa keywords list --ad-group AD_GROUP_UUID --status ACTIVE',
+        '<%= config.bin %> asa keywords list --app APP_UUID --live-only',
     ];
 
-    static override flags = { ...asaPaginationFlags, ...adGroupScopeFlags, ...statusFilter(['ACTIVE', 'PAUSED']) };
+    static override flags = {
+        ...asaPaginationFlags,
+        ...adGroupScopeFlags,
+        ...statusFilter(['ACTIVE', 'PAUSED']),
+        'live-only': Flags.boolean({
+            description: 'Only keywords that can serve: ACTIVE, with their ad group and campaign ENABLED and nothing deleted',
+        }),
+    };
 
     async run(): Promise<PaginatedResponse<AsaKeywordDTO>> {
         const { flags } = await this.parse(AsaKeywordsList);

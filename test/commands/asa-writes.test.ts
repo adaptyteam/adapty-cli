@@ -58,7 +58,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK]);
 
         await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name "Winter push" --adam-id 123456 --country US --country GB --daily-budget 50`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name "Winter push" --adam-id 123456 --country US --country GB --daily-budget 50`,
         );
 
         assertFetch({
@@ -84,7 +84,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK]);
 
         const { stderr } = await runCommand(
-            `asa campaigns create --json --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50`,
+            `asa campaigns create --currency USD --json --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50`,
         );
 
         expect(stderr).to.contain('--yes');
@@ -96,7 +96,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK]);
 
         const { error } = await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50usd`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50usd`,
         );
 
         expect(error?.message).to.contain('plain numbers');
@@ -107,7 +107,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK, CAMPAIGN_OK]);
 
         const created = await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --budget 980`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --budget 980`,
         );
 
         expect(created.error?.message).to.contain('--budget');
@@ -121,7 +121,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK, CAMPAIGN_OK]);
 
         await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --target-cpa 3.50 --bidding-strategy MAX_CONVERSIONS`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --target-cpa 3.50 --bidding-strategy MAX_CONVERSIONS`,
         );
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
@@ -131,7 +131,7 @@ describe('asa writes', () => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
         expect(created.bidding_strategy).to.equal('MAX_CONVERSIONS');
 
-        await runCommand(`asa campaigns update --yes ${TEST_RESOURCE_ID} --target-cpa 2`);
+        await runCommand(`asa campaigns update --currency USD --yes ${TEST_RESOURCE_ID} --target-cpa 2`);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
         const updated = JSON.parse(fetchStub.getCall(1).args[1].body as string);
         expect(updated).to.deep.equal({ target_cpa: { amount: '2', currency: 'USD' } });
@@ -155,8 +155,8 @@ describe('asa writes', () => {
 
     it('ad-groups create and update carry only their own fields', async () => {
         fetchStub = mockFetch([AD_GROUP_OK, AD_GROUP_OK]);
-        await runCommand(`asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name "Brand terms" --default-bid 1.20`);
-        await runCommand(`asa ad-groups update --yes ${TEST_RESOURCE_ID} --default-bid 1.50`);
+        await runCommand(`asa ad-groups create --currency USD --yes --campaign ${TEST_RESOURCE_ID} --name "Brand terms" --default-bid 1.20`);
+        await runCommand(`asa ad-groups update --currency USD --yes ${TEST_RESOURCE_ID} --default-bid 1.50`);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
         const createBody = JSON.parse(fetchStub.getCall(0).args[1].body as string);
 
@@ -174,7 +174,7 @@ describe('asa writes', () => {
 
     it('ad-groups create supplies what Apple demands: a pricing model and a start time', async () => {
         fetchStub = mockFetch([AD_GROUP_OK, AD_GROUP_OK]);
-        await runCommand(`asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG --default-bid 1`);
+        await runCommand(`asa ad-groups create --currency USD --yes --campaign ${TEST_RESOURCE_ID} --name AG --default-bid 1`);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
         const defaults = JSON.parse(fetchStub.getCall(0).args[1].body as string);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
@@ -185,7 +185,7 @@ describe('asa writes', () => {
         expect(defaults.end_time).to.equal(undefined);
 
         await runCommand(
-            `asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG --default-bid 1 --pricing-model CPM --start-time 2026-09-01 --end-time 2026-09-30`,
+            `asa ad-groups create --currency USD --yes --campaign ${TEST_RESOURCE_ID} --name AG --default-bid 1 --pricing-model CPM --start-time 2026-09-01 --end-time 2026-09-30`,
         );
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
@@ -210,7 +210,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([AD_GROUP_OK]);
 
         const { error } = await runCommand(
-            `asa ad-groups create --yes --campaign ${TEST_RESOURCE_ID} --name AG --default-bid 1 --start-time 01.09.2026`,
+            `asa ad-groups create --currency USD --yes --campaign ${TEST_RESOURCE_ID} --name AG --default-bid 1 --start-time 01.09.2026`,
         );
 
         expect(error?.message).to.contain('YYYY-MM-DD');
@@ -255,7 +255,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK, CAMPAIGN_OK, CAMPAIGN_OK]);
 
         await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 ${INVOICE_FLAGS}`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 ${INVOICE_FLAGS}`,
         );
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
@@ -263,7 +263,7 @@ describe('asa writes', () => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
         expect(created.loc_invoice_details).to.deep.equal(INVOICE_BODY);
 
-        await runCommand(`asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50`);
+        await runCommand(`asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50`);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
         const plain = JSON.parse(fetchStub.getCall(1).args[1].body as string);
         expect(plain).to.not.have.property('loc_invoice_details');
@@ -278,7 +278,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([CAMPAIGN_OK]);
 
         const { error } = await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --invoice-advertiser Acme --invoice-order-number PO-42 --invoice-contact-name Jane`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --invoice-advertiser Acme --invoice-order-number PO-42 --invoice-contact-name Jane`,
         );
 
         expect(error?.message).to.contain('--invoice-contact-email');
@@ -296,7 +296,7 @@ describe('asa writes', () => {
         ]);
 
         const created = await runCommand(
-            `asa campaigns create --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --bidding-strategy MAX_CONVERSIONS`,
+            `asa campaigns create --currency USD --yes --org ${TEST_APP_ID} --name x --adam-id 1 --country US --daily-budget 50 --bidding-strategy MAX_CONVERSIONS`,
         );
 
         expect(unwrap(created.stderr)).to.contain(
@@ -326,7 +326,7 @@ describe('asa writes', () => {
         fetchStub = mockFetch([KEYWORDS_OK]);
 
         const { stdout } = await runCommand(
-            `asa keywords add --yes --ad-group ${TEST_RESOURCE_ID} --text "running shoes" --text "trail shoes" --bid 1.20 --match-type EXACT`,
+            `asa keywords add --currency USD --yes --ad-group ${TEST_RESOURCE_ID} --text "running shoes" --text "trail shoes" --bid 1.20 --match-type EXACT`,
         );
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- FIXME if you see this
@@ -594,7 +594,7 @@ describe('asa writes', () => {
             'asa metrics --entity campaign --date-from 2026-08-01 --date-to 2026-08-31 --metric roas --by-days 30 --by-days 90',
         );
 
-        expect(stdout).to.contain('past day 39');
+        expect(stdout).to.contain('has not reached yet are null');
     });
 
     it('metrics stays quiet when every requested window has been reached', async () => {
@@ -606,7 +606,7 @@ describe('asa writes', () => {
             'asa metrics --entity campaign --date-from 2026-01-01 --date-to 2026-01-31 --metric roas --by-days 30 --by-days 90',
         );
 
-        expect(stdout).to.not.contain('past day');
+        expect(stdout).to.not.contain('has not reached yet');
     });
 
     it('metrics overview caps the renewal windows client-side', async () => {
