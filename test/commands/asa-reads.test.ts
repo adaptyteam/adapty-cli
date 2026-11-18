@@ -241,7 +241,7 @@ describe('asa reads', () => {
         expect(fetchStub.callCount).to.equal(1);
     });
 
-    it('keeps the retry notice out of the stream when --json is asked for', async () => {
+    it('keeps the retry notice on stderr under --json, with stdout still parseable', async () => {
         fetchStub = sinon.stub(globalThis, 'fetch');
 
         fetchStub.onFirstCall().resolves(
@@ -257,7 +257,7 @@ describe('asa reads', () => {
 
         const { error, stderr, stdout } = await runCommand('asa campaigns list --json');
         expect(error).to.equal(undefined);
-        expect(stderr).to.not.contain('Rate limited');
+        expect(stderr).to.contain('Rate limited (cli_rate_limit_exceeded)');
         expect(fetchStub.callCount).to.equal(2);
 
         expect(() => {

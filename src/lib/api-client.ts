@@ -22,7 +22,6 @@ export type ApiClientOptions = {
     baseUrl?: string;
     defaultBaseUrl?: string;
     errorFormat?: ApiErrorFormat;
-    quiet?: boolean;
     token?: null | string;
     urlEnvVar?: string;
     userAgent?: string;
@@ -38,7 +37,6 @@ const NO_RETRIES: RetryState = { network: false, refused: false };
 export class ApiClient {
     private baseUrl: string;
     private errorFormat: ApiErrorFormat;
-    private quiet: boolean;
     private token: null | string;
     private userAgent: string;
 
@@ -52,7 +50,6 @@ export class ApiClient {
         }
 
         this.errorFormat = opts.errorFormat ?? 'developer';
-        this.quiet = opts.quiet ?? false;
         this.token = opts.token ?? null;
         this.userAgent = opts.userAgent ?? 'adapty-cli';
     }
@@ -197,11 +194,8 @@ export class ApiClient {
 
             if (!retried.refused && this.isRetryableRefusal(error)) {
                 const seconds = error.retryAfterSeconds ?? 0;
-
-                if (!this.quiet) {
-                    const reason = error.statusCode === 429 ? 'Rate limited' : 'Temporarily unavailable';
-                    process.stderr.write(`${reason} (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`);
-                }
+                const reason = error.statusCode === 429 ? 'Rate limited' : 'Temporarily unavailable';
+                process.stderr.write(`${reason} (${error.errorCode}); waiting ${seconds}s per Retry-After, then retrying once.\n`);
 
                 await new Promise((resolve) => {
                     setTimeout(resolve, seconds * 1000);
