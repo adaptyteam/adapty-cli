@@ -536,6 +536,21 @@ Sends a report to Adapty on how the task went: tell the user when you send one, 
 personal data. No `--app`, so put ids into `--message`. The CLI won't send a report containing something that
 looks like an API key, a bearer token, a JWT or an email address; it exits 2 and names the flag to fix.
 
+## Version
+
+| Command   | Flags |
+|-----------|-------|
+| `version` | none; no token needed |
+
+Prints the installed version (the `adapty --version` line), then asks the public npm registry for the latest
+version of `adapty`, with a 3 s time limit. `--json` gives exactly `installed` (string), `latest` (string, or
+`null` when the registry did not answer or gave no valid version) and `update_available` (true when `latest` is
+newer by semver; false when `latest` is `null`). Always exit 0. On a newer version the human output adds
+`A new version of adapty is available: <latest>. Update: npm i -g adapty@latest`; when it could not check (no
+answer in time, a failed request, or no valid version in the answer), it prints
+`Could not check for a newer version.` on stderr (human output only; stderr stays empty with `--json`). A CLI older than this command has no `version`
+command: `adapty version --json` exits 2 with empty stdout.
+
 ## Preview
 
 | Command                                    | Required flags |
