@@ -9,12 +9,14 @@ const MANIFEST = fileURLToPath(new URL('../oclif.manifest.json', import.meta.url
 
 const ATTRIBUTION_DOC = fileURLToPath(new URL('../docs/agent/attribution.md', import.meta.url));
 const ANALYTICS_DOC = fileURLToPath(new URL('../docs/agent/analytics.md', import.meta.url));
+const REFUND_SAVER_DOC = fileURLToPath(new URL('../docs/agent/refund-saver.md', import.meta.url));
 
 const INVENTORY_DOCS = [
     fileURLToPath(new URL('../docs/agent/asa-management.md', import.meta.url)),
     fileURLToPath(new URL('../docs/agent/asa-metrics.md', import.meta.url)),
     ATTRIBUTION_DOC,
     ANALYTICS_DOC,
+    REFUND_SAVER_DOC,
 ];
 
 const SETUP_DOC = fileURLToPath(new URL('../docs/agent/skills/adapty-cli-setup/SKILL.md', import.meta.url));
@@ -27,17 +29,17 @@ const EXAMPLE_DOCS = [
 ];
 
 /** The topics whose commands the agent docs must cover. */
-const TOPICS = ['analytics', 'asa', 'attribution'];
+const TOPICS = ['analytics', 'asa', 'attribution', 'refund-saver'];
 const TOPIC_PATTERN = TOPICS.join('|');
 
 /**
  * Topics whose inventory row must name every flag, not only the required ones. `asa` rows keep the
  * original rule (required flags only).
  */
-const FULL_FLAG_TOPICS = new Set(['analytics', 'attribution']);
+const FULL_FLAG_TOPICS = new Set(['analytics', 'attribution', 'refund-saver']);
 
 /** Topics the skill reference must list command by command, with every written flag real. */
-const REFERENCE_TOPICS = ['analytics', 'attribution'];
+const REFERENCE_TOPICS = ['analytics', 'attribution', 'refund-saver'];
 
 /** Flags every command inherits; an inventory row does not repeat them. */
 const GLOBAL_FLAGS = new Set(['json']);
@@ -331,6 +333,6 @@ if (errors.length > 0) {
 const countTopic = topic => [...commands.keys()].filter(id => topicOf(id) === topic).length;
 
 console.log(
-    `Agent docs match ${countTopic('asa')} executable Apple Ads commands, ${countTopic('attribution')} attribution commands `
-    + `and ${countTopic('analytics')} analytics commands in oclif.manifest.json.`,
+    `Agent docs match ${countTopic('asa')} executable Apple Ads commands, ${countTopic('attribution')} attribution commands, `
+    + `${countTopic('analytics')} analytics commands and ${countTopic('refund-saver')} Refund Saver commands in oclif.manifest.json.`,
 );
