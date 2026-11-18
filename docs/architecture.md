@@ -100,6 +100,15 @@ its client-minted `hypothesis_id` (`withHypothesisIds` mints the missing ones, a
 transition the row has already made answers 200 unchanged. `create` always posts to the batch route, so each item
 answers with its own 201 or 200.
 
+`retention-messaging/` is the apps shape, cut by operation: `create.ts` (the create file, whose bullet points name their
+icon by `image_path`), `change.ts` and `conflicts.ts` (the change of an update and the rules that need no read),
+`update.ts` (the merge onto the message as read, and the rules after the read), `form.ts` (the multipart form: each icon
+part gets the next index and its bullet point that `image_index`), and `image.ts` with `png.ts` and `png-pixels.ts` (the
+image rules on its own PNG reader over `node:zlib`, no decoder dependency). The server replaces the whole message, so the
+command reads it and sends it back merged; the create and the update are never retried, and a lost answer says so.
+`realtime-url configure`, `messages create`, `messages update` and `messages set-status` ask first (exit 6 when nobody
+can answer).
+
 `flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now (`flows` also holds `funnel`, below): the other operations of
 these entities still live in the old stack and move into the resource when their topic is ported. What the three
 share sits beside them, like `pagination.ts`: `metrics.ts` has the input shape, the request body (only the keys the
