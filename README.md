@@ -406,6 +406,35 @@ adapty fallbacks get --app "$ADAPTY_APP_ID" --platform ios --sdk-version 4.1.0 -
 
 Run `adapty fallbacks get --help` for which `--sdk-version` to pass, what goes to stdout, and how failures are handled.
 
+### Refund Saver
+
+```sh
+adapty refund-saver get --app UUID
+adapty refund-saver on --app UUID
+adapty refund-saver off --app UUID
+adapty refund-saver update --app UUID [--app-store-preference VALUE] [--needs-consent | --no-needs-consent] [--play-store-preference VALUE]
+adapty refund-saver readiness --app UUID
+adapty refund-saver profile get --app UUID PROFILE_ID
+adapty refund-saver profile update --app UUID PROFILE_ID [--custom-preference VALUE] [--consent | --no-consent]
+adapty refund-saver requests --app UUID --date-from YYYY-MM-DD --date-to YYYY-MM-DD [--store app_store|play_store] [--page N] [--page-size N]
+adapty refund-saver metrics --app UUID --date-from YYYY-MM-DD --date-to YYYY-MM-DD [--store app_store|play_store]
+```
+
+Refund Saver is a paid add-on. The account owner manages it in Billing in the Adapty dashboard, not with the CLI.
+The API can refuse `on` with 409 (exit 4). A refusal changes nothing; read `error.code` in `--json`:
+
+- `refund_saver_addon_inactive`: the Refund Saver add-on is not active for this account; ask the account owner to
+  turn it on in Billing in the Adapty dashboard, then retry.
+- `refund_saver_addon_apple_credentials`: the App Store credentials of this app do not work; fix them in App
+  settings in the Adapty dashboard, then retry.
+- `refund_saver_addon_unavailable`: Refund Saver cannot be turned on for this account now; do not retry, contact
+  Adapty support.
+
+The answer can carry a note from the server (`billing_note` in `--json`; `null` when there is none); the CLI prints
+it. Turning Refund Saver off does not cancel the Refund Saver add-on. The account owner manages it in Billing in the
+Adapty dashboard. `readiness` names the store credentials that a store misses. The dates of `requests` and `metrics`
+are UTC days.
+
 ### Migrations
 
 Manage migrations into Adapty: catalog, transactions and store events. The server provides the
