@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.23.1",
+  "version": "0.25.1",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -131,6 +131,12 @@
       },
       "segments": {
         "description": "List segments"
+      },
+      "hypotheses": {
+        "description": "The hypotheses backlog: changes proposed per placement, accepted, tested in an A/B test and resolved"
+      },
+      "fallbacks": {
+        "description": "Download fallback files to bundle in your app"
       },
       "migrations": {
         "description": "Manage migrations: catalog, transactions and store events"

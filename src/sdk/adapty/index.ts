@@ -7,8 +7,10 @@ import { analytics } from './analytics/index.js';
 import { apps } from './apps/index.js';
 import { auth } from './auth/index.js';
 import { developerErrorParser } from './errors.js';
+import { fallbacks } from './fallbacks.js';
 import { feedback } from './feedback/index.js';
 import { flows } from './flows.js';
+import { hypotheses } from './hypotheses/index.js';
 import { migrations } from './migrations/index.js';
 import { paywalls } from './paywalls.js';
 import { placements } from './placements.js';
@@ -22,8 +24,10 @@ import type { AccessLevelsApi } from './access-levels.js';
 import type { AnalyticsApi } from './analytics/index.js';
 import type { AppsApi } from './apps/index.js';
 import type { AuthApi } from './auth/index.js';
+import type { FallbacksApi } from './fallbacks.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { FlowsApi } from './flows.js';
+import type { HypothesesApi } from './hypotheses/index.js';
 import type { MigrationApi } from './migrations/index.js';
 import type { PaywallsApi } from './paywalls.js';
 import type { PlacementsApi } from './placements.js';
@@ -56,6 +60,10 @@ export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
 export { findDraft, hasPublishedHistory, versionDate, versionPublication } from './flow-versions.js';
 export { isNeverPublished } from './flows.js';
+export {
+    dashboardOnlyActions,
+    withHypothesisIds,
+} from './hypotheses/index.js';
 export type {
     AbMetricsNode,
     AbTestDetail,
@@ -103,6 +111,7 @@ export type {
 } from './analytics/index.js';
 export type { AppDetail, AppsApi, AppSummary, CreateAppInput, UpdateAppInput } from './apps/index.js';
 export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
+export type { FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowFunnelAnswer, FlowFunnelScreen, FlowFunnelStep } from './flow-funnel.js';
 export type { Flow, FlowsApi } from './flows.js';
@@ -114,6 +123,18 @@ export type {
     ListFlowVersionsParams,
     RestoreFlowVersionInput,
 } from './flow-versions.js';
+export type {
+    AcceptHypothesisInput,
+    CreatedHypotheses,
+    CreateHypothesesInput,
+    HypothesesApi,
+    Hypothesis,
+    HypothesisCreateBody,
+    HypothesisRows,
+    HypothesisSummary,
+    ListHypothesesParams,
+    ProductFill,
+} from './hypotheses/index.js';
 export type { PaywallsApi } from './paywalls.js';
 export type {
     FilterValueNode,
@@ -207,8 +228,10 @@ export type Adapty = {
     analytics: AnalyticsApi;
     apps: AppsApi;
     auth: AuthApi;
+    fallbacks: FallbacksApi;
     feedback: FeedbackApi;
     flows: FlowsApi;
+    hypotheses: HypothesesApi;
     migrations: MigrationApi;
     paywalls: PaywallsApi;
     placements: PlacementsApi;
@@ -264,8 +287,10 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         analytics: analytics(http),
         apps: apps(http),
         auth: auth(http),
+        fallbacks: fallbacks(http),
         feedback: feedback(http),
         flows: flows(http),
+        hypotheses: hypotheses(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.
         migrations: migrations(wizard, options.clock ?? systemClock),

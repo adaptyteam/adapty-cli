@@ -1,6 +1,7 @@
 import { systemClock } from '../clock.js';
-import { ApiError, AuthRequiredError, CancelledError, isAbortError, NetworkError } from '../errors.js';
+import { ApiError, AuthRequiredError } from '../errors.js';
 
+import { guardBody, readPayload, transportError } from './body.js';
 import { defaultErrorParser, defaultShouldRetry } from './policies.js';
 import { defaultRetryPolicy, retry } from './retry.js';
 import { buildUrl } from './url.js';
@@ -26,6 +27,16 @@ export type RequestOptions = {
 
 type BodylessOptions = Omit<RequestOptions, 'body'>;
 
+/** A 2xx answer whose body nobody has read: the caller decides where the bytes go. */
+export type StreamedResponse = {
+    /** Errors while reading arrive as sdk errors: NetworkError, or CancelledError on abort. */
+    body: ReadableStream<Uint8Array>;
+    headers: Headers;
+};
+
+/** A stream sends exactly one request, never retried: a body too large to parse is costly to build. */
+type StreamRequest = Omit<BodylessOptions, 'idempotent'>;
+
 export type Http = {
     delete<T>(path: string, options?: BodylessOptions): Promise<T>;
     get<T>(path: string, options?: BodylessOptions): Promise<T>;
@@ -33,6 +44,8 @@ export type Http = {
     post<T>(path: string, body?: unknown, options?: BodylessOptions): Promise<T>;
     put<T>(path: string, body?: unknown, options?: BodylessOptions): Promise<T>;
     request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>;
+    /** A GET whose body is handed over unread, for answers too large to hold in memory. */
+    stream(path: string, options?: StreamRequest): Promise<StreamedResponse>;
 };
 
 export type HttpOptions = {
@@ -53,7 +66,8 @@ export type HttpOptions = {
 
 /**
  * The transport: base URL, bearer token, JSON both ways, responses mapped to sdk errors,
- * retry for idempotent requests. It knows nothing about resources or about the CLI.
+ * retry for idempotent requests. It knows nothing about resources or about the CLI. `stream()` is
+ * the one exception to "JSON both ways": a 2xx body goes to the caller as bytes.
  */
 export const createHttp = (options: HttpOptions): Http => {
     const fetchImpl = options.fetch ?? globalThis.fetch;
@@ -63,7 +77,8 @@ export const createHttp = (options: HttpOptions): Http => {
     const parseError = options.parseError ?? defaultErrorParser;
     const trailingSlash = options.trailingSlash ?? true;
 
-    const send = async <T>(method: HttpMethod, path: string, req: RequestOptions): Promise<T> => {
+    /** Sends the request and maps a non-2xx answer to an sdk error; a 2xx body stays unread. */
+    const open = async (method: HttpMethod, path: string, req: RequestOptions): Promise<Response> => {
         const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
         const signal = combineSignals(options.signal, req.signal);
         const headers = new Headers({ accept: 'application/json', ...options.headers, ...req.headers });
@@ -90,32 +105,16 @@ export const createHttp = (options: HttpOptions): Http => {
         try {
             response = await fetchImpl(url, init);
         } catch (error) {
-            if (signal?.aborted === true || isAbortError(error)) {
-                throw new CancelledError();
-            }
-
-            throw new NetworkError(url, error);
+            throw transportError(url, signal, error);
         }
 
         req.onResponse?.(response.headers);
 
-        // fetch resolves at the headers; reading the body can still fail or be cancelled.
-        // Keep the caller's onResponse callback outside this network-error conversion.
-        let payload: unknown;
-
-        try {
-            payload = await readBody(response);
-        } catch (error) {
-            if (signal?.aborted === true || isAbortError(error)) {
-                throw new CancelledError();
-            }
-
-            throw new NetworkError(url, error);
-        }
-
         if (response.ok) {
-            return payload as T;
+            return response;
         }
+
+        const payload = await readPayload(response, url, signal);
 
         if (response.status === 401) {
             throw new AuthRequiredError('rejected');
@@ -132,6 +131,21 @@ export const createHttp = (options: HttpOptions): Http => {
         });
     };
 
+    const send = async <T>(method: HttpMethod, path: string, req: RequestOptions): Promise<T> => {
+        const response = await open(method, path, req);
+        const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
+
+        return await readPayload(response, url, combineSignals(options.signal, req.signal)) as T;
+    };
+
+    const retried = <T>(attempt: () => Promise<T>, req: RequestOptions): Promise<T> => retry(attempt, {
+        clock,
+        onRetry: options.onRetry,
+        policy,
+        shouldRetry,
+        signal: combineSignals(options.signal, req.signal),
+    });
+
     const request = <T>(method: HttpMethod, path: string, req: RequestOptions = {}): Promise<T> => {
         const idempotent = req.idempotent ?? method === 'GET';
 
@@ -139,17 +153,20 @@ export const createHttp = (options: HttpOptions): Http => {
             return send<T>(method, path, req);
         }
 
-        return retry(() => send<T>(method, path, req), {
-            clock,
-            onRetry: options.onRetry,
-            policy,
-            shouldRetry,
-            signal: combineSignals(options.signal, req.signal),
-        });
+        return retried(() => send<T>(method, path, req), req);
+    };
+
+    const stream = async (path: string, req: StreamRequest = {}): Promise<StreamedResponse> => {
+        const response = await open('GET', path, req);
+        const url = buildUrl(options.baseUrl, path, req.query, trailingSlash);
+        const signal = combineSignals(options.signal, req.signal);
+
+        return { body: guardBody(response.body, url, signal), headers: response.headers };
     };
 
     return {
         request,
+        stream,
         delete: <T>(path: string, req?: BodylessOptions) => request<T>('DELETE', path, req),
         get: <T>(path: string, req?: BodylessOptions) => request<T>('GET', path, req),
         patch: <T>(path: string, body?: unknown, req?: BodylessOptions) => request<T>('PATCH', path, { ...req, body }),
@@ -166,24 +183,6 @@ const combineSignals = (...signals: (AbortSignal | undefined)[]): AbortSignal | 
     }
 
     return AbortSignal.any(present);
-};
-
-const readBody = async (response: Response): Promise<unknown> => {
-    if (response.status === 204) {
-        return undefined;
-    }
-
-    const text = await response.text();
-
-    if (text.length === 0) {
-        return undefined;
-    }
-
-    try {
-        return JSON.parse(text) as unknown;
-    } catch {
-        return text;
-    }
 };
 
 const parseRetryAfter = (header: null | string, clock: Clock): number | undefined => {
