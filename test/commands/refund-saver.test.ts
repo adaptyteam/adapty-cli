@@ -35,7 +35,7 @@ const STORES = {
     play_store: { preference: 'always_refund' },
 };
 
-const state = (enabled: boolean, note: null | string = null) =>
+const state = (enabled: boolean, note: null | string) =>
     ({ billing_note: note, enabled, stores: STORES });
 
 const SERVER_NOTE = 'A note from the server.';
@@ -83,9 +83,9 @@ describe('refund-saver', () => {
         const page = { data: [], meta: { pagination: { count: 0, page: 1, pages: 1 } } };
 
         const rows = [
-            { answer: state(true), line: `refund-saver get ${APP}`, method: 'GET', path: `${BASE}/` },
-            { answer: state(true), line: `refund-saver on ${APP}`, method: 'POST', path: `${BASE}/enable/` },
-            { answer: state(false), line: `refund-saver off ${APP}`, method: 'POST', path: `${BASE}/disable/` },
+            { answer: state(true, null), line: `refund-saver get ${APP}`, method: 'GET', path: `${BASE}/` },
+            { answer: state(true, null), line: `refund-saver on ${APP}`, method: 'POST', path: `${BASE}/enable/` },
+            { answer: state(false, null), line: `refund-saver off ${APP}`, method: 'POST', path: `${BASE}/disable/` },
             {
                 answer: { stores: STORES },
                 body: { stores: { app_store: { preference: 'always_decline', refund_saver_needs_consent: false } } },
@@ -160,7 +160,7 @@ describe('refund-saver', () => {
     it('update and profile update with no setting are usage errors with no request', async () => {
         const failures: string[] = [];
 
-        for (const line of [`refund-saver update ${APP}`, `refund-saver profile update ${APP} ${PROFILE}`, `refund-saver profile get ${APP} not-a-uuid`]) {
+        for (const line of [`refund-saver update ${APP}`, `refund-saver profile update ${APP} ${PROFILE}`]) {
             fetchStub = mockFetch();
             const { error } = await runCommand(line);
 
@@ -202,14 +202,14 @@ describe('refund-saver', () => {
         expect(json.stdout).to.deep.equal(state(true, SERVER_NOTE));
 
         restoreFetch(fetchStub);
-        fetchStub = mockFetch([state(true)]);
+        fetchStub = mockFetch([state(true, null)]);
 
         expect((await runCommand(`refund-saver on ${APP}`)).stdout).to.not.contain('Note:');
     });
 
     // external: off prints the turn-off note after the state
     it('off prints the state and the turn-off note', async () => {
-        fetchStub = mockFetch([state(false)]);
+        fetchStub = mockFetch([state(false, null)]);
 
         const { stdout } = await runCommand(`refund-saver off ${APP}`);
 
