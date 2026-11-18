@@ -12,8 +12,11 @@ const isObject = (value: unknown): value is Fields => typeof value === 'object' 
 
 const isText = (value: unknown): boolean => typeof value === 'string';
 
-/** `text` a string, `nullable` a string or null (the key must be there), `list` an array. */
-type Kind = 'list' | 'nullable' | 'text';
+/**
+ * `text` a string, `nullable` a string or null (the key must be there), `list` an array, `object` a JSON
+ * object, `nullableObject` a JSON object or null. A value of another type is as good as missing.
+ */
+type Kind = 'list' | 'nullable' | 'nullableObject' | 'object' | 'text';
 
 const fits = (value: unknown, kind: Kind): boolean => {
     switch (kind) {
@@ -23,6 +26,14 @@ const fits = (value: unknown, kind: Kind): boolean => {
 
         case 'nullable': {
             return value === null || isText(value);
+        }
+
+        case 'nullableObject': {
+            return value === null || isObject(value);
+        }
+
+        case 'object': {
+            return isObject(value);
         }
 
         case 'text': {
@@ -63,16 +74,24 @@ const localizationGaps = (localization: unknown, where: string, bullets: number)
 
 /** The issues of a read that cannot be sent back whole; empty when every field is there. */
 export const readIssues = (message: unknown): Issue[] => {
-    const top = missing(message, 'message', { body: 'text', bullet_points: 'list', localizations: 'list', name: 'text', products: 'list', title: 'text' });
+    const top = missing(message, 'message', {
+        body: 'text',
+        bullet_points: 'list',
+        image: 'nullableObject',
+        localizations: 'list',
+        name: 'text',
+        products: 'list',
+        title: 'text',
+    });
+
     const record: Fields = isObject(message) ? message : {};
     const image = record.image;
     const bullets = listOf(record.bullet_points);
 
     const gaps = [
         ...top,
-        ...(Object.hasOwn(record, 'image') ? [] : ['message.image']),
         ...(isObject(image) ? missing(image, 'message.image', { alt_text: 'nullable' }) : []),
-        ...bullets.flatMap((bullet, index) => missing(bullet, `message.bullet_points[${index}]`, { alt_text: 'nullable', bullet_id: 'text', text: 'text' })),
+        ...bullets.flatMap((bullet, index) => missing(bullet, `message.bullet_points[${index}]`, { alt_text: 'nullable', bullet_id: 'text', image: 'object', text: 'text' })),
         ...listOf(record.localizations).flatMap((item, index) => localizationGaps(item, `message.localizations[${index}]`, bullets.length)),
         ...listOf(record.products).flatMap((product, index) => productGaps(product, `message.products[${index}]`)),
     ];

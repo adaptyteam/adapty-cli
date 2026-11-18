@@ -281,7 +281,14 @@ describe('retention-messaging', () => {
 
     // external: a lost answer of a create or an update is never sent again, and says what to do instead
     describe('a lost answer to a write', () => {
-        type Row = { answers: Answer[]; args: () => Promise<string[]>; exit: number; id: string; texts: string[] };
+        type Row = {
+            answers: Answer[];
+            args: () => Promise<string[]>;
+            exit: number;
+            id: string;
+            name?: string;
+            texts: string[];
+        };
 
         const rows: Row[] = [
             ...(['network', { body: {}, status: 503 }] as const).map((failure, index) => ({
@@ -289,7 +296,8 @@ describe('retention-messaging', () => {
                 args: async () => ['messages', 'create', '--mode', 'sandbox', '--file', await files.write('m.json', MESSAGE_FILE), '--yes'],
                 exit: index === 0 ? exitCode.network : exitCode.api,
                 id: `create, ${index === 0 ? 'network error' : '503'}`,
-                texts: ['The result is unknown', 'Do not repeat the create', `messages list --app ${APP} --mode sandbox --search 'Winter'`, 'messages get'],
+                name: 'Winter',
+                texts: ['The result is unknown', 'Do not repeat the create', `messages list --app ${APP} --mode sandbox --search <name>`, '\nMessage name: Winter'],
             })),
             {
                 answers: ['network'],
@@ -298,8 +306,9 @@ describe('retention-messaging', () => {
                     name: 'It\'s "$(date)"',
                 }))],
                 exit: exitCode.network,
-                id: 'create, a name with quotes and $( ) is one shell word',
-                texts: [`--search 'It'\\''s "$(date)"'`],
+                id: 'create, a name with quotes and $( ) is only on its own line',
+                name: 'It\'s "$(date)"',
+                texts: ['--search <name>`', '\nMessage name: It\'s "$(date)"'],
             },
             ...(['network', { body: {}, status: 503 }] as const).map((failure, index) => ({
                 answers: [{ body: { data: defaultMessage() } }, failure],
@@ -321,6 +330,13 @@ describe('retention-messaging', () => {
 
                 for (const text of row.texts) {
                     expect(error?.message, text).to.contain(text);
+                }
+
+                if (row.name !== undefined) {
+                    const lines = (error?.message ?? '').split('\n').filter(line => line.includes(row.name ?? ''));
+
+                    expect(lines, 'the name only on its own line').to.deep.equal([`Message name: ${row.name}`]);
+                    expect((error as unknown as { json: Record<string, unknown> }).json.message_name, 'message_name').to.equal(row.name);
                 }
             });
         }

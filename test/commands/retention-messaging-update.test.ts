@@ -202,6 +202,12 @@ describe('retention-messaging messages update', () => {
                 message: { ...base, image: { file_name: 'header.png', url: 'https://cdn/header.png' } },
                 text: 'the message as read has no image.alt_text',
             },
+            ...([[], 'x'] as const).map(image => ({
+                extra: ['--name', 'New', '--yes'],
+                id: `the read has image ${JSON.stringify(image)}, neither null nor an object`,
+                message: { ...base, image },
+                text: 'the message as read has no image,',
+            })),
             {
                 extra: ['--name', 'New', '--yes'],
                 id: 'the read has a bullet point with no text',
