@@ -16,7 +16,6 @@ export const ASA_API_URL_ENV_VAR = 'ADAPTY_ASA_API_URL';
 
 export type AsaCommandContext = {
     config: Config;
-    jsonEnabled: () => boolean;
 };
 
 export async function createAsaClient(command: AsaCommandContext): Promise<ApiClient> {
@@ -30,7 +29,6 @@ export async function createAsaClient(command: AsaCommandContext): Promise<ApiCl
     return new ApiClient({
         defaultBaseUrl: ASA_API_URL,
         errorFormat: 'asa',
-        quiet: command.jsonEnabled(),
         token,
         urlEnvVar: ASA_API_URL_ENV_VAR,
         userAgent: buildUserAgent(config),
