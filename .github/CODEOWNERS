@@ -13,6 +13,7 @@ attribution-*
 attribution.*
 
 # Shared skills
+/skills/adapty-cli/SKILL.md
 /skills/adapty-cli/references/cli-commands.md
 
 # Shared docs and the legacy allowlist: every topic command adds its lines here.
