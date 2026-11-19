@@ -122,7 +122,7 @@ in between, and refuses to clear the last store side. Introductory offers are re
 ### Paywalls
 
 ```sh
-adapty paywalls list --app UUID [--page N] [--page-size N]
+adapty paywalls list --app UUID [--kind custom|legacy_builder] [--page N] [--page-size N]
 adapty paywalls get --app UUID PAYWALL_ID
 adapty paywalls create --app UUID --title "Name" --products JSON [--remote-configs JSON] [--use-paywall-builder-v4] [--screenshot-id ID|null] [--builder-screenshot-id ID|null] [--web-purchase-url URL|null]
 adapty paywalls update --app UUID PAYWALL_ID (--file PATH|- | --title "Name" --products JSON --remote-configs JSON (--use-paywall-builder-v4 | --no-use-paywall-builder-v4) --screenshot-id ID|null --builder-screenshot-id ID|null --web-purchase-url URL|null)
@@ -137,6 +137,13 @@ every field is required, and a missing one is refused, not reset. Send the file 
 (`adapty paywalls get ... --json > paywall.json`, edit it, then `adapty paywalls update ... --file paywall.json`), or give
 one flag for each field; `--file` and the field flags cannot be mixed. `null` clears a field that can be null. A write
 replaces the whole remote config list: `[]` deletes all.
+
+`paywalls list` and `paywalls get` show the read-only `kind` of each paywall: `custom` when it uses no legacy Paywall
+Builder, `legacy_builder` when it is set to use one. `kind` follows the builder setting, not a saved layout, and names
+no builder version. `--kind` lists only the paywalls of one kind; the server checks the value and answers a wrong one
+with the valid ones. `update` ignores `kind` in `--file`, and it sets the older builder flag to false, so a
+paywall with only the older builder flag shows `kind: custom` after an update. `paywalls placements` gives the
+placements that use a paywall now, and `paywalls metrics get` its traffic in a period.
 
 ### Placements
 
@@ -568,6 +575,41 @@ When several agents are found, the command asks which to install into; with no o
 `npx skills add adaptyteam/adapty-skills --all --global`, which covers the other agents. Restart an agent to
 load the skills. Exit **1** means an install failed.
 
+### Retention Messaging
+
+Apple Retention Messaging: the message that Apple shows on the App Store cancel screen, with its setup and metrics.
+
+```sh
+adapty retention-messaging setup-status --app UUID
+adapty retention-messaging realtime-url get --app UUID
+adapty retention-messaging realtime-url configure --app UUID --mode sandbox|production [--replace-other-url] [--yes]
+adapty retention-messaging performance-test start --app UUID
+adapty retention-messaging messages list --app UUID --mode sandbox|production [--search TEXT] [--type default|promo]
+                                         [--state in_review|live|rejected|inactive] [--ordering FIELD] [--page N] [--page-size N]
+adapty retention-messaging messages get MESSAGE_ID --app UUID
+adapty retention-messaging messages create --app UUID --mode sandbox|production --file PATH|- [--image PNG] [--yes]
+adapty retention-messaging messages update MESSAGE_ID --app UUID [--name ...] [--title ...] [--body ...] [--alt-text ...]
+                                           [--image PNG | --remove-image] [--file PATH|-] [--yes]
+adapty retention-messaging messages set-status MESSAGE_ID --app UUID --action activate|deactivate [--yes]
+adapty retention-messaging products suggest --app UUID --mode sandbox|production --type default|promo [--message-id ID]
+adapty retention-messaging promo-offers suggest PRODUCT_ID --app UUID
+adapty retention-messaging plan-switches suggest PRODUCT_ID --app UUID
+```
+
+The setup status works for any app; the realtime URL and the performance test need the App Store key and the Apple
+access; Apple shows a message after the access, the URL and its own approval. `realtime-url configure`, `messages create`,
+`messages update` and `messages set-status` ask in both modes: in a terminal `Apply? [y/N]`, with `--json`, a pipe or no
+terminal exit 6 unless `--yes`. When Apple has the realtime URL of another server, `configure` warns that it replaces it:
+with no terminal it exits 6 also with `--yes`, unless `--replace-other-url` is given. `messages list` and `messages get`
+ask Apple for review results as the dashboard does, so they can start to show an approved message.
+
+`create` takes the message as a JSON file; a bullet point names its icon by `image_path`, relative to the file. `update`
+takes field flags and a change file with only what changes (`localizations` by `locale`, `bullet_points` by `bullet_id`,
+`products` by `store_id`, and `remove_localizations`, `remove_bullet_points`, `remove_products`, `remove_image`), reads the
+message and sends it back whole. A conflict in the input, or an object that the message does not have, exits 2 with nothing
+sent. Images are checked before anything is sent: a PNG with no transparency, of the size Apple requires. A create or an
+update is never sent twice: when its answer is lost (exit 5, or 4 on a 5xx) the result is unknown; read before you act.
+
 ### Feedback
 
 A short report to Adapty on how a task with the CLI or an Adapty skill went. Leave out secrets and personal
@@ -582,6 +624,24 @@ adapty feedback --sentiment negative --message "flows config update rejected a v
 `--sentiment` is `positive`, `neutral` or `negative`. `--feature` takes letters, digits, `.`, `_` and `-`;
 Adapty records `unknown` when it is left out. The CLI won't send a report containing something that looks like
 an API key, a bearer token, a JWT or an email address; it exits 2 and names the flag to fix.
+
+### Version
+
+Print the installed version, and see whether a newer one is out. The command asks the public npm registry
+(`registry.npmjs.org`) for the latest version of `adapty`; it does not use your npm settings, keeps no cache and
+sends nothing to Adapty. No other command asks the registry.
+
+```sh
+adapty version
+adapty version --json
+```
+
+The first line is the same as `adapty --version`. When npm has a newer version, a second line says so:
+`A new version of adapty is available: <latest>. Update: npm i -g adapty@latest`. When the registry does not
+answer in 3 seconds, the request fails, or the answer has no valid version, the human output prints
+`Could not check for a newer version.` on stderr; `--json` prints nothing on stderr. The exit code is 0 in all
+these cases. `--json` gives `{"installed": "...", "latest": "..." | null, "update_available": true | false}`;
+`latest` is `null` when the registry could not say.
 
 ### Apple Search Ads
 
@@ -604,6 +664,7 @@ adapty asa campaigns list --app APP_UUID --status PAUSED
 adapty asa ad-groups list --campaign CAMPAIGN_UUID
 adapty asa keywords list --ad-group AD_GROUP_UUID --status ACTIVE
 adapty asa keywords list --ad-group AD_GROUP_UUID --ad-group OTHER_UUID   # repeatable
+adapty asa keywords list --app APP_UUID --live-only                    # ACTIVE, ad group and campaign ENABLED
 adapty asa creatives list --app APP_UUID
 ```
 
@@ -684,7 +745,8 @@ reported with their sheet, row and column.
 Keywords are always applied as a batch, at most 100 per call, and a partial rejection is reported per item:
 
 ```sh
-adapty asa keywords list
+adapty asa keywords list [--live-only]
+adapty asa keywords duplicates --app APP_UUID [--country US ...] [--ignore-match-type]  # same keyword in several ad groups / campaigns; max 500 groups
 adapty asa keywords recommend --adam-id 1668337467 --type brand|generic|competitor [--country US...]
 adapty asa keywords add --ad-group UUID --text "running shoes" --text "trail shoes" [--bid 1.20] [--match-type EXACT]
 adapty asa keywords add --ad-group UUID --from-file keywords.txt
@@ -694,7 +756,7 @@ adapty asa negative-keywords list
 adapty asa negative-keywords add --ad-group UUID --text free
 adapty asa negative-keywords add --campaign UUID [--all-ad-groups] --text free
 
-adapty asa search-terms list [--date-from ... --date-to ...]
+adapty asa search-terms list [--date-from ... --date-to ...] [--overlap-only]
 
 adapty asa change-history list --campaign-group UUID [--date-from ... --date-to ...] [--entity-type Campaign --event-type UPDATE]
 adapty asa change-history list --campaign-group UUID --fields                    # flat rows: field, old values, new values (page size 10)
@@ -860,6 +922,9 @@ adapty asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 
 adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90
 adapty asa metrics overview --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 [--period-unit week]
 ```
+
+Money amounts take the currency of the campaign group; `--currency` is only needed to override it (the server rejects a mismatch).
+Cohort windows past `meta.max_valid_day` come back `null` (blank cells in the table); `meta.units` and `meta.warnings` are printed under the table.
 
 There is no `ltv` metric: lifetime value is a cohort metric read at a renewal window, so `--by-days` is how you
 ask for day-7 or day-90 values — on either route, up to 16 windows per call. `--order-by-day` ranks the rows by

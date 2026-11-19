@@ -54,10 +54,15 @@ src/
     hypotheses/      # list, get, summary, by-ab-test, create (from a JSON file, always the batch route, client-minted
                      # hypothesis_id), accept, link, resolve, reresolve, unaccept, dismiss, restore, unlink — the backlog
                      # of changes per placement; implementation in src/cli/commands/hypotheses
+    retention-messaging/ # setup-status, realtime-url (get, configure — asks; another server's URL needs
+                     # --replace-other-url with no terminal), performance-test start, messages (list, get, create, update,
+                     # set-status — create, update and set-status ask in both modes), products|promo-offers|plan-switches
+                     # suggest; Apple Retention Messaging. Implementation in src/cli/commands/retention-messaging, rules
+                     # (PNG checks, the merge of an update, the multipart form) in src/sdk/adapty/retention-messaging
     skills/          # install — the Adapty skills into the coding agents on PATH, through each agent's own
                      # plugin or skills command. Implementation in src/cli/commands/skills
     access-levels/   # list, get, create, update
-    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
+    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend, duplicates),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
                      # competitors, change-history
   lib/

@@ -31,8 +31,10 @@ figure; the currency itself comes from asa orgs list. Rate budgets and the break
 company: read the current ones with asa whoami rather than assuming a default. meta.pagination.count is
 the full entity count behind the filters, so take inventory from there instead of counting the rows on a
 page. meta.max_valid_day says how many days the youngest cohort in the window has lived — any --by-days
-window above it repeats the last real figure because that time has not passed yet, so treat those as
-unreached rather than as a plateau.
+window above it comes back null (a blank cell in the table) because that time has not passed yet, so treat
+those as unreached rather than as zero. meta.units maps each metric to its unit (e.g. percent for ROAS)
+and meta.warnings lists caveats such as countries aggregated together or Search Match excluded; read both
+before quoting a number.
 
 --metric is required and every metric named is computed over the whole entity set, so ask for the
 columns you actually read. subscribers and paid_subscribers (and arppu / arpas, which derive from them)
@@ -109,10 +111,19 @@ to make any call fast, since cost follows the number of entities aggregated, not
         const horizon = result.meta?.max_valid_day;
 
         if (horizon !== undefined && flags['by-days']?.some(day => day > horizon)) {
-            this.log(
-                `\nCohort windows past day ${horizon} have not been reached by this date range yet; they repeat the last `
-                + 'figure actually observed rather than projecting it.',
-            );
+            this.log('\nCohort windows a cohort has not reached yet are null (blank cells); each period is cut at its own age.');
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- FIXME if you see this
+        const units = Object.entries(result.meta?.units ?? {}).filter(([, unit]) => unit !== null);
+
+        if (units.length > 0) {
+            this.log(`Units: ${units.map(([metric, unit]) => `${metric}=${unit}`).join(', ')}`);
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- FIXME if you see this
+        for (const warning of result.meta?.warnings ?? []) {
+            this.warn(warning.message);
         }
 
         return result;

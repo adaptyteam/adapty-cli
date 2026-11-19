@@ -12,7 +12,13 @@ export default class PaywallsGet extends Command {
         paywall_id: Args.string({ description: 'Paywall ID (UUID)', required: true }),
     };
 
-    static override description = 'Get paywall details';
+    static override summary = 'Get paywall details';
+    static override description = [
+        'Each paywall has a read-only `kind`: `custom` when it uses no legacy Paywall Builder, `legacy_builder` when it is set to use one.',
+        '`kind` follows the builder setting, not a saved layout, and names no builder version.',
+        '`paywalls placements` gives the placements that use a paywall now; `paywalls metrics get` gives its traffic in a period, by paywall ID and date.',
+    ].join('\n');
+
     static override enableJsonFlag = true;
     static override examples = ['<%= config.bin %> paywalls get --app UUID 550e8400-e29b-41d4-a716-446655440000'];
     static override flags = {

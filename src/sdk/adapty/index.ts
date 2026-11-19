@@ -18,6 +18,7 @@ import { productGroups } from './product-groups/index.js';
 import { productOffers } from './product-offers/index.js';
 import { productPrices } from './product-prices/index.js';
 import { products } from './products/index.js';
+import { retentionMessaging } from './retention-messaging/index.js';
 
 import type { AbTestsApi } from './ab-tests/index.js';
 import type { AccessLevelsApi } from './access-levels.js';
@@ -35,6 +36,7 @@ import type { ProductGroupsApi } from './product-groups/index.js';
 import type { ProductOffersApi } from './product-offers/index.js';
 import type { ProductPricesApi } from './product-prices/index.js';
 import type { ProductsApi } from './products/index.js';
+import type { RetentionMessagingApi } from './retention-messaging/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
@@ -239,6 +241,7 @@ export type Adapty = {
     productOffers: ProductOffersApi;
     productPrices: ProductPricesApi;
     products: ProductsApi;
+    retentionMessaging: RetentionMessagingApi;
 };
 
 /**
@@ -300,5 +303,6 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         productOffers: productOffers(http),
         productPrices: productPrices(http, options.clock ?? systemClock),
         products: products(http),
+        retentionMessaging: retentionMessaging(http),
     };
 };

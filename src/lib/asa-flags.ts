@@ -116,6 +116,8 @@ type ScopeFlags = {
     'app'?: string[] | undefined;
     'campaign'?: string[] | undefined;
     'campaign-group'?: string[] | undefined;
+    'live-only'?: boolean | undefined;
+    'overlap-only'?: boolean | undefined;
     'search'?: string | undefined;
     'status'?: string | undefined;
 };
@@ -126,6 +128,8 @@ export function scopeParams(flags: ScopeFlags): QueryParams {
         app_id: flags.app,
         campaign_group_id: flags['campaign-group'],
         campaign_id: flags.campaign,
+        live_only: flags['live-only'] ? 'true' : undefined,
+        overlap_only: flags['overlap-only'] ? 'true' : undefined,
         search: flags.search,
         status: flags.status,
     };
@@ -187,7 +191,10 @@ export function moneyFlag(description: string, opts: { required?: boolean } = {}
 }
 
 export const currencyFlag = {
-    currency: Flags.string({ default: 'USD', description: 'Currency code for the amounts in this call' }),
+    currency: Flags.string({
+        description:
+      'Currency code for the amounts in this call; omit to use the currency of the campaign group (the server rejects a mismatch)',
+    }),
 };
 
 // Params of the add-as-keyword-to action, shared by `automations create` and `automations update`.

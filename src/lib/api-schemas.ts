@@ -84,9 +84,16 @@ export type PaywallProductDTO = {
     product_id: string;
 };
 
+/**
+ * Read-only: `legacy_builder` when the paywall is set to use a legacy Paywall Builder, else `custom`. It follows the
+ * builder setting, not a saved layout, and names no builder version.
+ */
+export type PaywallKind = 'custom' | 'legacy_builder';
+
 /** One item of a paywall list: the list answer has no remote configs. */
 export type PaywallSummaryDTO = {
     id: string;
+    readonly kind: PaywallKind;
     products: PaywallProductDTO[];
     title: string;
 };
@@ -100,6 +107,7 @@ export type PaywallRemoteConfigDTO = {
 export type PaywallDTO = {
     builder_screenshot_id: null | number;
     id: string;
+    readonly kind: PaywallKind;
     products: PaywallProductDTO[];
     remote_configs: PaywallRemoteConfigDTO[];
     screenshot_id: null | number;
@@ -108,8 +116,11 @@ export type PaywallDTO = {
     web_purchase_url: null | string;
 };
 
-/** The update body: every field is required, and `null` is a value where the type says so. */
-export type PaywallWriteRequestDTO = Omit<PaywallDTO, 'id'>;
+/**
+ * The update body: every field is required, and `null` is a value where the type says so. `kind` is not part of
+ * it; a file from `get --json` still has it, and the server ignores it.
+ */
+export type PaywallWriteRequestDTO = Omit<PaywallDTO, 'id' | 'kind'>;
 
 /** The create body: the fields after `products` are optional, and the API fills in `false`, `null` and `[]`. */
 export type PaywallCreateRequestDTO = Partial<PaywallWriteRequestDTO> & Pick<PaywallWriteRequestDTO, 'products' | 'title'>;

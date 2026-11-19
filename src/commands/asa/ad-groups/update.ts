@@ -1,6 +1,6 @@
 import { Args, Command, Flags } from '@oclif/core';
 
-import { asaWrite, createAsaClient, noteReplay } from '../../../lib/asa-client.js';
+import { asaWrite, createAsaClient, noteReplay, resolveCurrency } from '../../../lib/asa-client.js';
 import { currencyFlag, idempotencyFlags, money, moneyFlag, scheduleFlags, startOfDayUtc } from '../../../lib/asa-flags.js';
 import { confirmFlags, confirmMutation } from '../../../lib/confirm.js';
 import { isValidUuid } from '../../../lib/flags.js';
@@ -39,6 +39,12 @@ export default class AsaAdGroupsUpdate extends Command {
             this.error('Invalid ad group ID format.', { exit: 2 });
         }
 
+        const client = await createAsaClient(this);
+
+        const currency = await resolveCurrency(client, flags.currency, [flags['cpa-goal'], flags['default-bid']], {
+            adGroup: args.ad_group_id,
+        });
+
         const body: Record<string, unknown> = {};
 
         if (flags.name !== undefined) {
@@ -50,11 +56,11 @@ export default class AsaAdGroupsUpdate extends Command {
         }
 
         if (flags['default-bid'] !== undefined) {
-            body.default_bid_amount = money(flags['default-bid'], flags.currency);
+            body.default_bid_amount = money(flags['default-bid'], currency);
         }
 
         if (flags['cpa-goal'] !== undefined) {
-            body.cpa_goal = money(flags['cpa-goal'], flags.currency);
+            body.cpa_goal = money(flags['cpa-goal'], currency);
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- FIXME if you see this
@@ -79,8 +85,6 @@ export default class AsaAdGroupsUpdate extends Command {
             { body, method: 'PUT', path: `/ad-groups/${args.ad_group_id}/`, summary: 'Update ad group' },
             flags.yes,
         );
-
-        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaAdGroupMutationDTO>(client, 'put', `/ad-groups/${args.ad_group_id}`, {
             body,

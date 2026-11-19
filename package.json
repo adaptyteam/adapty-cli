@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.25.1",
+  "version": "0.28.0",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -146,6 +146,27 @@
       },
       "attribution": {
         "description": "Attribution analytics: reports across ad networks, and the metric and dimension catalogs"
+      },
+      "retention-messaging": {
+        "description": "Apple Retention Messaging: the setup, the messages shown on the App Store cancel screen with their metrics, and the suggestions for a message"
+      },
+      "retention-messaging:realtime-url": {
+        "description": "The Adapty realtime URL for Apple: read it, and set it in Apple for one mode"
+      },
+      "retention-messaging:performance-test": {
+        "description": "The Apple performance test of Retention Messaging (sandbox)"
+      },
+      "retention-messaging:messages": {
+        "description": "Retention messages: list with metrics, read, create, update, activate and deactivate"
+      },
+      "retention-messaging:products": {
+        "description": "Products that a retention message can use"
+      },
+      "retention-messaging:promo-offers": {
+        "description": "Promotional offers of a product for a promo retention message"
+      },
+      "retention-messaging:plan-switches": {
+        "description": "Plans to switch to from a product, for a promo retention message"
       },
       "asa": {
         "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"

@@ -1,6 +1,6 @@
 import { Args, Command, Flags } from '@oclif/core';
 
-import { asaWrite, createAsaClient, noteReplay } from '../../../lib/asa-client.js';
+import { asaWrite, createAsaClient, noteReplay, resolveCurrency } from '../../../lib/asa-client.js';
 import {
     currencyFlag,
     idempotencyFlags,
@@ -54,6 +54,12 @@ export default class AsaCampaignsUpdate extends Command {
             this.error('Invalid campaign ID format.', { exit: 2 });
         }
 
+        const client = await createAsaClient(this);
+
+        const currency = await resolveCurrency(client, flags.currency, [flags['daily-budget'], flags['target-cpa']], {
+            campaign: args.campaign_id,
+        });
+
         const body: Record<string, unknown> = {};
 
         if (flags.name !== undefined) {
@@ -69,11 +75,11 @@ export default class AsaCampaignsUpdate extends Command {
         }
 
         if (flags['daily-budget'] !== undefined) {
-            body.daily_budget_amount = money(flags['daily-budget'], flags.currency);
+            body.daily_budget_amount = money(flags['daily-budget'], currency);
         }
 
         if (flags['target-cpa'] !== undefined) {
-            body.target_cpa = money(flags['target-cpa'], flags.currency);
+            body.target_cpa = money(flags['target-cpa'], currency);
         }
 
         if (flags['bidding-strategy'] !== undefined) {
@@ -102,8 +108,6 @@ export default class AsaCampaignsUpdate extends Command {
             { body, method: 'PUT', path: `/campaigns/${args.campaign_id}/`, summary: 'Update campaign' },
             flags.yes,
         );
-
-        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaCampaignMutationDTO>(client, 'put', `/campaigns/${args.campaign_id}`, {
             body,

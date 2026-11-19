@@ -1,6 +1,6 @@
 import { Args, Command, Flags } from '@oclif/core';
 
-import { asaWrite, createAsaClient, noteReplay } from '../../../lib/asa-client.js';
+import { asaWrite, createAsaClient, noteReplay, resolveCurrency } from '../../../lib/asa-client.js';
 import { currencyFlag, idempotencyFlags, money, moneyFlag, reportBulkOutcome } from '../../../lib/asa-flags.js';
 import { confirmFlags, confirmMutation } from '../../../lib/confirm.js';
 import { isValidUuid } from '../../../lib/flags.js';
@@ -41,10 +41,12 @@ export default class AsaKeywordsUpdate extends Command {
             }
         }
 
+        const client = await createAsaClient(this);
+        const currency = await resolveCurrency(client, flags.currency, [flags.bid], { anyGroup: true });
         const change: Record<string, unknown> = {};
 
         if (flags.bid !== undefined) {
-            change.bid_amount = money(flags.bid, flags.currency);
+            change.bid_amount = money(flags.bid, currency);
         }
 
         if (flags.status !== undefined) {
@@ -74,8 +76,6 @@ export default class AsaKeywordsUpdate extends Command {
             { body, method: 'PUT', path: '/keywords/', summary: `Update ${keywordIds.length} keyword(s)` },
             flags.yes,
         );
-
-        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaKeywordMutationDTO>(client, 'put', '/keywords', {
             body,

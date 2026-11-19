@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { Command, Flags } from '@oclif/core';
 
-import { asaWrite, createAsaClient, noteReplay } from '../../../lib/asa-client.js';
+import { asaWrite, createAsaClient, noteReplay, resolveCurrency } from '../../../lib/asa-client.js';
 import { currencyFlag, idempotencyFlags, MAX_BULK_ITEMS, money, moneyFlag, reportBulkOutcome } from '../../../lib/asa-flags.js';
 import { confirmFlags, confirmMutation } from '../../../lib/confirm.js';
 import { isValidUuid } from '../../../lib/flags.js';
@@ -46,10 +46,13 @@ export default class AsaKeywordsAdd extends Command {
             this.error(`A single call takes at most ${MAX_BULK_ITEMS} keywords, got ${texts.length}.`, { exit: 2 });
         }
 
+        const client = await createAsaClient(this);
+        const currency = await resolveCurrency(client, flags.currency, [flags.bid], { adGroup: flags['ad-group'] });
+
         const body = {
             keywords: texts.map(text => ({
                 ad_group_id: flags['ad-group'],
-                bid_amount: money(flags.bid, flags.currency),
+                bid_amount: money(flags.bid, currency),
                 match_type: flags['match-type'],
                 status: flags.status,
                 text,
@@ -61,8 +64,6 @@ export default class AsaKeywordsAdd extends Command {
             { body, method: 'POST', path: '/keywords/', summary: `Add ${texts.length} keyword(s)` },
             flags.yes,
         );
-
-        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaKeywordMutationDTO>(client, 'post', '/keywords', {
             body,
