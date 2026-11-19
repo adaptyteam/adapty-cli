@@ -583,6 +583,24 @@ adapty feedback --sentiment negative --message "flows config update rejected a v
 Adapty records `unknown` when it is left out. The CLI won't send a report containing something that looks like
 an API key, a bearer token, a JWT or an email address; it exits 2 and names the flag to fix.
 
+### Version
+
+Print the installed version, and see whether a newer one is out. The command asks the public npm registry
+(`registry.npmjs.org`) for the latest version of `adapty`; it does not use your npm settings, keeps no cache and
+sends nothing to Adapty. No other command asks the registry.
+
+```sh
+adapty version
+adapty version --json
+```
+
+The first line is the same as `adapty --version`. When npm has a newer version, a second line says so:
+`A new version of adapty is available: <latest>. Update: npm i -g adapty@latest`. When the registry does not
+answer in 3 seconds, the request fails, or the answer has no valid version, the human output prints
+`Could not check for a newer version.` on stderr; `--json` prints nothing on stderr. The exit code is 0 in all
+these cases. `--json` gives `{"installed": "...", "latest": "..." | null, "update_available": true | false}`;
+`latest` is `null` when the registry could not say.
+
 ### Apple Search Ads
 
 Apple Search Ads commands live under `adapty asa` and talk to the ASA service rather than the Developer
