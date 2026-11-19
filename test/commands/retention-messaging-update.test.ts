@@ -155,6 +155,7 @@ describe('retention-messaging messages update', () => {
                 text: 'bullet_points[0].texts has a text for de-DE, which remove_localizations removes',
             },
             { change: { constructor: 'x' }, id: 'a key of the change file that is a name of an object method', text: 'constructor is not a key of the change file' },
+            { change: { remove_image: false }, id: 'remove_image false is no change', text: 'nothing to update' },
         ];
 
         for (const row of rows) {

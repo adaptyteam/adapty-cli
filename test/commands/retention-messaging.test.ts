@@ -110,6 +110,25 @@ describe('retention-messaging', () => {
         }
     });
 
+    // external: a flag out of its range is refused with exit 2 before any request, not with exit 4 from the server
+    describe('flags out of range', () => {
+        const rows: { args: string[]; id: string; text: string }[] = [
+            { args: ['products', 'suggest', '--mode', 'sandbox', '--type', 'default', '--limit', '101'], id: 'suggest --limit 101', text: 'less than or equal to 100' },
+        ];
+
+        for (const row of rows) {
+            it(row.id, async () => {
+                fetchStub = serve([]);
+
+                const { error } = await runCli(['retention-messaging', ...row.args, '--app', APP]);
+
+                expect(error?.oclif?.exit, 'exit').to.equal(exitCode.usage);
+                expect(error?.message).to.contain(row.text);
+                expect(fetchStub.callCount, 'requests').to.equal(0);
+            });
+        }
+    });
+
     // external: with no terminal and no --yes, exit 6 with the effect, and no write is sent
     describe('create, set-status and configure need a yes in both modes', () => {
         const rows: { answers: Answer[]; args: () => Promise<string[]>; effect: string; reads: string[] }[] = [

@@ -34,7 +34,7 @@ export const productIdArg = {
 };
 
 export const suggestFlags = {
-    limit: Flags.integer({ description: 'How many suggestions to return', min: 1 }),
+    limit: Flags.integer({ description: 'How many suggestions to return (max 100)', max: 100, min: 1 }),
     search: Flags.string({ description: 'Only the suggestions that match this text' }),
 };
 

@@ -19,8 +19,11 @@ const both = (changed: readonly string[], removed: readonly string[], noun: stri
     [...new Set(changed.filter(value => removed.includes(value)))]
         .map(value => ({ message: `${noun} ${value} is both in ${keys[0]} and in ${keys[1]}` }));
 
-const isEmpty = (change: MessageChange, image: boolean): boolean =>
-    !image && Object.values(change).every(value => value === undefined || (Array.isArray(value) && value.length === 0));
+/** `remove_image: false` removes nothing, so it is no change either. */
+const isNoChange = (value: unknown): boolean =>
+    value === undefined || value === false || (Array.isArray(value) && value.length === 0);
+
+const isEmpty = (change: MessageChange, image: boolean): boolean => !image && Object.values(change).every(isNoChange);
 
 const newBulletIssues = (change: MessageChange): Issue[] => {
     const removedLocales = change.remove_localizations ?? [];
