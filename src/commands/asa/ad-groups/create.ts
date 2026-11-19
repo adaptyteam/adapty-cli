@@ -1,6 +1,6 @@
 import { Command, Flags } from '@oclif/core';
 
-import { asaWrite, createAsaClient, noteReplay } from '../../../lib/asa-client.js';
+import { asaWrite, createAsaClient, noteReplay, resolveCurrency } from '../../../lib/asa-client.js';
 import {
     currencyFlag,
     idempotencyFlags,
@@ -65,12 +65,18 @@ export default class AsaAdGroupsCreate extends Command {
             this.error('An automated ad group must be ENABLED; pause the campaign instead.', { exit: 2 });
         }
 
+        const client = await createAsaClient(this);
+
+        const currency = await resolveCurrency(client, flags.currency, [flags['cpa-goal'], flags['default-bid']], {
+            campaign: flags.campaign,
+        });
+
         const body = {
             automated_keywords_opt_in: flags.automated ? true : flags['automated-keywords'],
             automated_keywords_required: flags.automated ? true : undefined,
             campaign_id: flags.campaign,
-            cpa_goal: money(flags['cpa-goal'], flags.currency),
-            default_bid_amount: money(flags['default-bid'], flags.currency),
+            cpa_goal: money(flags['cpa-goal'], currency),
+            default_bid_amount: money(flags['default-bid'], currency),
             end_time: startOfDayUtc(flags['end-time']),
             name: flags.name,
             pricing_model: flags['pricing-model'],
@@ -83,8 +89,6 @@ export default class AsaAdGroupsCreate extends Command {
             { body, method: 'POST', path: '/ad-groups/', summary: `Create ad group ${flags.name}` },
             flags.yes,
         );
-
-        const client = await createAsaClient(this);
 
         const { replayed, result } = await asaWrite<AsaAdGroupMutationDTO>(client, 'post', '/ad-groups', {
             body,

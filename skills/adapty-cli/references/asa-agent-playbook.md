@@ -13,7 +13,9 @@ an agent that ignores them gets 429s, then a token cool-down, and then it cannot
     the period and **already sorted** by `--order-by`. Pagination walks entities, not raw data.
   - `asa metrics overview` — **account-level totals** for one entity level + a per-period time series.
 - `asa search-terms list` is the only catalog-style list that still carries metrics and a period.
-- Numbers equal the dashboard: both commands proxy the same v5 layer the dashboard reads.
+- Campaign / ad-group / ad numbers equal the dashboard: both commands proxy the same v5 layer it reads. Keyword-level
+  metrics exclude Search Match / Max Conversions traffic (`meta.warnings` `search_match_excluded`), so they
+  can be lower than the campaign total.
 - Money and ratio values arrive as **strings** (decimal precision), statuses as enums.
 
 ## Iron rules
@@ -86,7 +88,7 @@ the grouped period — use it verbatim on the retry.
 
 `--metric` and `--order-by` take the dashboard's own names. Cohort roots — `revenue`, `arpu`, `arppu`,
 `arpas` (alias `cohort_arpas`), `roas`, `roi` — expand to their `gross_` / `proceeds_` / `net_` variants;
-to *rank* by a cohort metric use the expanded name (e.g. `--order-by gross_roas`). There is **no `ltv`
+to *rank* by a cohort metric use the expanded name (e.g. `--order-by net_roas`). There is **no `ltv`
 metric**: lifetime value = cohort metrics read at renewal windows via `--by-days` (up to 16 per call).
 
 **Apple spend metrics:** `spend`, `local_spend`, `impressions`, `taps`, `ttr`, `avg_cpt`, `avg_cpm`,
@@ -129,13 +131,13 @@ adapty asa metrics overview --entity campaign --date-from 2026-08-04 --date-to 2
 
 **"Best / worst campaign by ROAS (or any metric)?"** — one call, the server ranks:
 ```sh
-adapty asa metrics --entity campaign --date-from ... --date-to ... --order-by gross_roas --page-size 5
-adapty asa metrics --entity campaign --date-from ... --date-to ... --order-by gross_roas --order asc --page-size 5   # worst
+adapty asa metrics --entity campaign --date-from ... --date-to ... --order-by net_roas --page-size 5
+adapty asa metrics --entity campaign --date-from ... --date-to ... --order-by net_roas --order asc --page-size 5   # worst
 ```
 
 **"Top / bottom keywords by spend this week?"** — one call:
 ```sh
-adapty asa metrics --entity keyword --date-from ... --date-to ... --metric spend --metric gross_roas --order-by spend --page-size 10
+adapty asa metrics --entity keyword --date-from ... --date-to ... --metric spend --metric net_roas --order-by spend --page-size 10
 ```
 
 **"Performance by country?"** — one call; every row carries its country breakdown, take the single
@@ -160,8 +162,11 @@ adapty asa metrics --entity keyword --date-from ... --date-to ... --metric spend
 **"What's my D7 / D30 ROAS? Which campaigns hit the D30 target?"** — one call; `--by-days` reads the
 cohort at those windows, `--order-by-day` ranks by one of them:
 ```sh
-adapty asa metrics --entity campaign --date-from ... --date-to ... --metric roas --by-days 7 --by-days 30 --order-by gross_roas --order-by-day 30
+adapty asa metrics --entity campaign --date-from ... --date-to ... --metric roas --by-days 7 --by-days 30 --order-by net_roas --order-by-day 30
 ```
+A window the cohort has not reached is `null`: report it as not reached, never as 0 or a plateau. With a date
+`--group-by` each period row is cut at its own age; without one, `meta.max_valid_day` (the youngest cohort) applies to all rows. Read `meta.warnings` (`aggregated_across_countries`, `search_match_excluded`) and `meta.units`
+(e.g. `net_roas` = `percent`; ROAS 48 means 48%) before quoting numbers.
 
 **"How many active campaigns do I have?"** — one call, read `meta.pagination.count`:
 ```sh
@@ -172,6 +177,16 @@ adapty asa campaigns list --status ENABLED --page-size 1 --json
 for a yes:
 ```sh
 adapty asa search-terms list --campaign CAMPAIGN_UUID --date-from ... --date-to ...
+```
+`--overlap-only` keeps Search Match / Max Conversions terms already covered by a live EXACT keyword of the same app in a
+campaign covering the term country and not blocked by a negative; rows carry `is_negated`, `exact_keyword_overlap`,
+`campaign_external_id`, `ad_group_external_id`.
+
+**"Which keywords are live / duplicated?"** — `--live-only` is ACTIVE with ad group and campaign ENABLED; duplicates is
+one call per app (max 500 groups, `truncated: true` when capped):
+```sh
+adapty asa keywords list --app APP_UUID --live-only --page-size 1000
+adapty asa keywords duplicates --app APP_UUID
 ```
 
 **"Raise/lower bids, pause things" (any mutation)** — read the target first if you don't have its
@@ -251,6 +266,70 @@ adapty asa automations get AUTOMATION_ID --json
 adapty asa automations update AUTOMATION_ID --target-ad-group AD_GROUP_UUID \
   --match-type EXACT --cpt-bid-type search_term_current_cpt
 ```
+
+## Conduct rules (read before analysing or changing an account)
+
+**Interpretation**
+- Claim a Search Match / Max Conversions <-> exact-keyword overlap only from `search-terms list --overlap-only`
+  (rows with `exact_keyword_overlap` and `is_negated`). Anything else is labelled "unverified".
+- Ids: internal UUIDs are for CLI calls only. To join with Apple or dashboard data use the `*_external_id` fields
+  (`campaign_external_id`, `ad_group_external_id`).
+- Units come from `meta.units`: `percent` means ROAS 48 = 48%, `null` means money in the campaign group currency.
+  Money writes resolve that currency themselves; a different one is a 422 `cli_currency_mismatch`.
+
+**Live keywords and duplicates**
+- Keyword `status: ACTIVE` is not live: its ad group or campaign may be paused. Use `keywords list --live-only` or
+  read `effective_status`; only live rows serve.
+- Call a duplicate only among live rows. The backend drops groups whose instances all belong to one CPP A/B test,
+  but a returned group can be mixed. Instances sharing one `cpp_ab_test_id` are variants of that test: never pause
+  or delete them as duplicates; only instances outside the test (or in different tests) are candidates.
+- Keyword text is compared exactly as stored: `Brand` and `brand` are not grouped. Check case variants yourself
+  when it matters. `--country US --country DE` limits the scan; `--ignore-match-type` merges match types.
+- Rerun `asa keywords duplicates --app APP_UUID` after every structural change (SKAG split, moving keywords,
+  reactivation). When it answers `truncated: true`, narrow the scope and rerun.
+
+**Storefronts and Search Match**
+- Read keywords per storefront: add `--group-by country` to keyword recipes and decide per country. Never act on a
+  keyword figure that came with the `aggregated_across_countries` warning.
+- Keyword metrics miss Search Match / Max Conversions traffic. A campaign with €0 at keyword level can still spend:
+  read campaign / ad-group spend, and `search-terms list` for that part.
+
+**Revenue bases**
+- `gross` is before store fee and taxes, `proceeds` is after the store commission, `net` is after store commission
+  and taxes. Judge payback and profitability on net (cohort `net_roas` at a `--by-days` window), not on gross.
+  Use gross only when the question is explicitly about gross.
+
+**Dates and time zones**
+- Take start / stop dates and weekday patterns from daily spend (`asa metrics --group-by day`), not from UTC
+  timestamps. Read `creation_time`, `modification_time` and `time_zone` (the campaign group time zone) from
+  `campaigns list`; never assume UTC.
+
+**Before acting**
+- No pause or bid-down on an immature cohort: wait at least the trial length plus a margin (trial length + 1 day).
+  For subscription apps judge net revenue at a cohort window that covers the trial.
+- Never pause a whole account or all campaigns. Cut caps and bids on the overspenders and ask first.
+- A cleanup sweep (e.g. "free" terms) covers both negatives and positive keywords; confirm with a zero-result list.
+- Before reporting "no data", check scope, dates and `--by-days`. Before saying something is unavailable, check
+  `--help` and `--by-days`: cohort revenue by day exists.
+
+**Analysis hygiene**
+- Benchmarks must be country-matched; check the source's filter first.
+- `adapty_installs` are installs attributed in Adapty (use them against Adapty-funnel benchmarks); `tap_installs`
+  are Apple's tap-attributed installs. Never compare one with the other.
+- Before blaming the product for a rate change, split it into mix shift (traffic moved between keywords or
+  countries) and within-keyword change.
+- Compare markets on cohort net ROAS, not on cost per paid. Rank findings by their share of the gap.
+
+**Product page (CPP) campaigns**
+- A product-page campaign serves custom product pages: its ad groups (or ads) each point at one page variant.
+  In a CPP A/B rotation only one variant serves at a time, so the other variants' ad groups are PAUSED while their
+  keywords stay `ACTIVE`, and the same keyword text repeats across variants by design (same `cpp_ab_test_id`).
+- Read it as one test, not as N campaigns: compare variants at ad-group level on cohort net ROAS (`asa metrics
+  --entity ad-group`), and list the pages with `asa product-pages list`. Do not count paused variants as
+  duplicates, as wasted structure, or as lost spend.
+
+**Report format**
+- Lead with each finding's share of the gap, mark unverified claims explicitly, and state units and currency.
 
 ## What the failed sessions did wrong (do not repeat)
 
