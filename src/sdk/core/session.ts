@@ -24,9 +24,20 @@ export type Session = {
  */
 export type SessionStore = {
     clear(): Promise<void>;
+    /** The session, when the store holds a usable token. */
     load(): Promise<Session | undefined>;
     readonly path: string;
+    /**
+     * What the store holds, read once: the session when its token is usable, and the region either
+     * way, because a token may come from elsewhere while the region still has to come from here.
+     */
+    read(): Promise<StoredRecord | undefined>;
     save(session: Session): Promise<void>;
+};
+
+export type StoredRecord = {
+    region?: string | undefined;
+    session?: Session | undefined;
 };
 
 /**
@@ -47,6 +58,43 @@ type StoredSession = {
 export const createFileSessionStore = (dir: string): SessionStore => {
     const path = join(dir, FILE_NAME);
 
+    const corrupted = (cause?: unknown): StorageError =>
+        new StorageError(`Session file is corrupted: ${path}`, path, cause === undefined ? undefined : { cause });
+
+    const read = async (): Promise<StoredRecord | undefined> => {
+        let raw: string;
+
+        try {
+            raw = await readFile(path, 'utf8');
+        } catch (error) {
+            if (isErrno(error, 'ENOENT')) {
+                return undefined;
+            }
+
+            // No permission, a broken disk: not ours to paper over as "not logged in"
+            throw error;
+        }
+
+        let parsed: unknown;
+
+        try {
+            parsed = JSON.parse(raw) as unknown;
+        } catch (error) {
+            throw corrupted(error);
+        }
+
+        const region = asRecord(parsed)?.region;
+
+        // A missing region is a file of an older version; a region of the wrong shape is damage
+        if (region !== undefined && typeof region !== 'string') {
+            throw corrupted();
+        }
+
+        // An unknown shape is most likely a file from another version: asking for a fresh
+        // login beats failing every command.
+        return { region, session: toSession(parsed) };
+    };
+
     return {
         path,
 
@@ -55,31 +103,12 @@ export const createFileSessionStore = (dir: string): SessionStore => {
         },
 
         load: async () => {
-            let raw: string;
+            const record = await read();
 
-            try {
-                raw = await readFile(path, 'utf8');
-            } catch (error) {
-                if (isErrno(error, 'ENOENT')) {
-                    return undefined;
-                }
-
-                // No permission, a broken disk: not ours to paper over as "not logged in"
-                throw error;
-            }
-
-            let parsed: unknown;
-
-            try {
-                parsed = JSON.parse(raw) as unknown;
-            } catch (error) {
-                throw new StorageError(`Session file is corrupted: ${path}`, path, { cause: error });
-            }
-
-            // An unknown shape is most likely a file from another version: asking for a fresh
-            // login beats failing every command.
-            return toSession(parsed);
+            return record?.session;
         },
+
+        read,
 
         save: async (session) => {
             await mkdir(dir, { recursive: true, mode: 0o700 });

@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { Config } from '@oclif/core';
@@ -35,13 +35,27 @@ export const writeTruncatedSession = async (): Promise<string> => {
     return path;
 };
 
-/** A file that is there but cannot be read as one: a directory in its place, the same on every OS. */
-export const writeUnreadableSession = async (): Promise<string> => {
-    const path = await sessionPath();
+/**
+ * A login file without read permission (EACCES). Where the OS does not enforce the mode for this
+ * user (root, or Windows, where chmod only sets the read-only flag) the file stays readable; there
+ * the row falls back to a directory in place of the file, which fails the same read with EISDIR.
+ * The fallback is named in the result, so a row says which read failure it met.
+ */
+export const writeUnreadableSession = async (): Promise<{ how: 'EACCES' | 'EISDIR'; path: string }> => {
+    const path = await writeSession({ access_token: 'file-token', region: 'eu' });
 
+    await chmod(path, 0o000);
+
+    try {
+        await readFile(path, 'utf8');
+    } catch {
+        return { how: 'EACCES', path };
+    }
+
+    await rm(path, { force: true });
     await mkdir(path, { recursive: true });
 
-    return path;
+    return { how: 'EISDIR', path };
 };
 
 export const urlsOf = (stub: sinon.SinonStub): string[] => stub.getCalls().map(call => String(call.args[0]));

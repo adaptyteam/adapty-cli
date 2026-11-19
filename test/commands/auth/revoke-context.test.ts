@@ -52,20 +52,79 @@ describe('auth revoke migration cleanup', () => {
         expect(await context.load()).to.equal(undefined);
     });
 
-    for (const contextToken of ['env-token', 'stored-token']) {
-        it(`revokes the env token and only clears context matching it (${contextToken})`, async () => {
-            process.env.ADAPTY_TOKEN = 'env-token';
-            await session.save({ token: 'stored-token' });
-            const saved = createMigrationContext({ token: contextToken }, 'mig_saved');
+    /**
+     * Which local files a revoke leaves. The tc_vwn1i8sx rows (admission: external) hold the same
+     * cleanup for an EU session and for a token and region that come from the environment.
+     */
+    type CleanupRow = {
+        contextToken: string;
+        contextKept: boolean;
+        env: Record<string, string>;
+        id: string;
+        sessionKept: boolean;
+        stored?: { region?: string; token: string };
+    };
+
+    const cleanups: CleanupRow[] = [
+        {
+            contextKept: false,
+            contextToken: 'env-token',
+            env: { ADAPTY_TOKEN: 'env-token' },
+            id: 'env-token, context of the env token',
+            sessionKept: true,
+            stored: { token: 'stored-token' },
+        },
+        {
+            contextKept: true,
+            contextToken: 'stored-token',
+            env: { ADAPTY_TOKEN: 'env-token' },
+            id: 'env-token, context of the stored token',
+            sessionKept: true,
+            stored: { token: 'stored-token' },
+        },
+        {
+            contextKept: false,
+            contextToken: 'token-a',
+            env: {},
+            id: 'tc_vwn1i8sx eu-session',
+            sessionKept: false,
+            stored: { region: 'eu', token: 'token-a' },
+        },
+        {
+            contextKept: true,
+            contextToken: 'token-a',
+            env: { ADAPTY_TOKEN: 'token-b' },
+            id: 'tc_vwn1i8sx env-token-other-saved',
+            sessionKept: true,
+            stored: { region: 'eu', token: 'token-a' },
+        },
+        {
+            contextKept: false,
+            contextToken: 'token-b',
+            env: { ADAPTY_REGION: 'eu', ADAPTY_TOKEN: 'token-b' },
+            id: 'tc_vwn1i8sx env-token-matching-migration',
+            sessionKept: false,
+        },
+    ];
+
+    for (const row of cleanups) {
+        it(`revokes the effective token and clears only what matches it (${row.id})`, async () => {
+            Object.assign(process.env, row.env);
+
+            if (row.stored !== undefined) {
+                await session.save(row.stored);
+            }
+
+            const saved = createMigrationContext({ token: row.contextToken }, 'mig_saved');
             await context.save(saved);
             const fetch = mockFetch();
             const { stdout, error } = await runCommand('auth revoke --json');
 
-            expect(error).to.equal(undefined);
-            expect(JSON.parse(stdout)).to.deep.equal({ env_token_set: true, status: 'revoked' });
-            expect(fetch.callCount).to.equal(1);
-            expect(await session.load()).to.deep.equal({ token: 'stored-token' });
-            expect(await context.load()).to.deep.equal(contextToken === 'env-token' ? undefined : saved);
+            expect(error, row.id).to.equal(undefined);
+            expect(JSON.parse(stdout), row.id).to.deep.equal({ env_token_set: row.env.ADAPTY_TOKEN !== undefined, status: 'revoked' });
+            expect(fetch.callCount, row.id).to.equal(1);
+            expect(await session.load(), `${row.id}: session`).to.deep.equal(row.sessionKept ? row.stored : undefined);
+            expect(await context.load(), `${row.id}: context`).to.deep.equal(row.contextKept ? saved : undefined);
         });
     }
 

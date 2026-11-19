@@ -59,6 +59,12 @@ describe('auth commands and the region', () => {
         { env: {}, eu: true, file: fileOf('file-token', 'eu'), id: 'eu-session' },
         { env: { ADAPTY_REGION: 'us' }, eu: true, file: fileOf('file-token', 'eu'), id: 'eu-session-env-us' },
         { env: { ADAPTY_TOKEN: 'env-token' }, eu: true, file: fileOf('file-token', 'eu'), id: 'eu-session-env-token' },
+        {
+            env: { ADAPTY_REGION: 'us', ADAPTY_TOKEN: 'env-token' },
+            eu: true,
+            file: fileOf('file-token', 'eu'),
+            id: 'eu-session-env-token-env-us',
+        },
         { env: { ADAPTY_REGION: 'eu' }, eu: false, file: fileOf('file-token', 'us'), id: 'us-session-env-eu' },
         { env: {}, eu: false, file: fileOf('file-token', undefined), id: 'old-file' },
         { env: {}, eu: false, id: 'no-file' },
@@ -129,53 +135,6 @@ describe('auth commands and the region', () => {
             expect(error, `${row.id}: revoke failed`).to.equal(undefined);
             expect(urlsOf(fetchStub), `${row.id}: requests`).to.deep.equal([`${EU_HOST}/auth/tokens/revoke/`]);
             expect(JSON.parse(requestOf(fetchStub, 0).body ?? '{}'), `${row.id}: revoked token`).to.deep.equal({ token: row.token });
-        });
-    }
-
-    // tc_vwn1i8sx: the cleanup after a revoke is the one it was before regions
-    const cleaned: {
-        env: Env;
-        file?: Record<string, unknown>;
-        id: string;
-        migrationToken: string;
-        sessionKept: boolean;
-        migrationKept: boolean;
-    }[] = [
-        { env: {}, file: fileOf('token-a', 'eu'), id: 'eu-session', migrationKept: false, migrationToken: 'token-a', sessionKept: false },
-        {
-            env: { ADAPTY_TOKEN: 'token-b' },
-            file: fileOf('token-a', 'eu'),
-            id: 'env-token-other-saved',
-            migrationKept: true,
-            migrationToken: 'token-a',
-            sessionKept: true,
-        },
-        {
-            env: { ADAPTY_REGION: 'eu', ADAPTY_TOKEN: 'token-b' },
-            id: 'env-token-matching-migration',
-            migrationKept: false,
-            migrationToken: 'token-b',
-            sessionKept: false,
-        },
-    ];
-
-    for (const row of cleaned) {
-        it(`tc_vwn1i8sx ${row.id}: session ${row.sessionKept ? 'kept' : 'gone'}, migration ${row.migrationKept ? 'kept' : 'gone'}`, async () => {
-            if (row.file !== undefined) {
-                await writeSession(row.file);
-            }
-
-            const before = await readRaw();
-            const migration = createMigrationContext({ token: row.migrationToken }, 'mig_saved');
-
-            await context.save(migration);
-            setEnv(row.env);
-
-            const { error } = await runCommand('auth revoke');
-
-            expect(error, `${row.id}: revoke failed`).to.equal(undefined);
-            expect(await readRaw(), `${row.id}: session file`).to.equal(row.sessionKept ? before : undefined);
-            expect(await context.load(), `${row.id}: migration`).to.deep.equal(row.migrationKept ? migration : undefined);
         });
     }
 });

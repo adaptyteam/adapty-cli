@@ -125,29 +125,49 @@ describe('auth login, region', () => {
         });
     }
 
-    // tc_dq1irj1h: an EU login says where to sign in before the link; a US login prints what it always has
-    const LINK_LINE = 'If the browser doesn\'t open, visit: https://app.adapty.io/cli-auth?region=eu&code=WDJB-MJHT';
+    // tc_dq1irj1h: an EU login says where to sign in before the link; a US login prints what it always has.
+    // The eu-app-url row: ADAPTY_APP_URL moves the link and keeps ?region=eu&code=.
+    const LINK = 'If the browser doesn\'t open, visit: ';
 
     const EU_LINE = 'EU account: open the link in a browser signed in through https://app.adapty.io/eu-login; '
         + 'if you are not signed in there, or are signed in as a US account, sign in there first.';
 
-    for (const region of ['eu', 'us']) {
-        it(`tc_dq1irj1h ${region}: the eu-login line ${region === 'eu' ? 'comes before' : 'is not in'} the output`, async () => {
+    const printedLinks: { appUrl?: string; id: string; link: string; region: string }[] = [
+        { id: 'eu', link: 'https://app.adapty.io/cli-auth?region=eu&code=WDJB-MJHT', region: 'eu' },
+        { id: 'us', link: 'https://app.adapty.io/cli-auth?region=eu&code=WDJB-MJHT', region: 'us' },
+        {
+            appUrl: 'https://dashboard.example.com',
+            id: 'eu-app-url',
+            link: 'https://dashboard.example.com/cli-auth?region=eu&code=WDJB-MJHT',
+            region: 'eu',
+        },
+    ];
+
+    for (const row of printedLinks) {
+        it(`tc_dq1irj1h ${row.id}: the eu-login line ${row.region === 'eu' ? 'comes before' : 'is not in'} the output`, async () => {
             linkOnly();
 
-            const { stdout } = await runCommand(`auth login --region ${region}`);
-            const lines = stdout.split('\n');
-            const link = lines.indexOf(LINK_LINE);
+            if (row.appUrl !== undefined) {
+                process.env.ADAPTY_APP_URL = row.appUrl;
+            }
 
-            expect(link, `${region}: the link is printed as the server gave it`).to.be.greaterThan(-1);
+            try {
+                const { stdout } = await runCommand(`auth login --region ${row.region}`);
+                const lines = stdout.split('\n');
+                const link = lines.indexOf(`${LINK}${row.link}`);
 
-            if (region === 'eu') {
-                const hint = lines.indexOf(EU_LINE);
+                expect(link, `${row.id}: the link ${row.link}`).to.be.greaterThan(-1);
 
-                expect(hint, 'eu: the eu-login line').to.be.greaterThan(-1);
-                expect(hint, 'eu: the eu-login line comes before the link').to.be.lessThan(link);
-            } else {
-                expect(stdout, 'us: no eu-login line').to.not.contain('eu-login');
+                if (row.region === 'eu') {
+                    const hint = lines.indexOf(EU_LINE);
+
+                    expect(hint, `${row.id}: the eu-login line`).to.be.greaterThan(-1);
+                    expect(hint, `${row.id}: the eu-login line comes before the link`).to.be.lessThan(link);
+                } else {
+                    expect(stdout, `${row.id}: no eu-login line`).to.not.contain('eu-login');
+                }
+            } finally {
+                delete process.env.ADAPTY_APP_URL;
             }
         });
     }

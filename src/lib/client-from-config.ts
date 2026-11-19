@@ -1,4 +1,4 @@
-import { regionApiUrl } from '../cli/base/adapty/openSession.js';
+import { regionApiUrl } from '../cli/base/adapty/index.js';
 
 import { ApiClient } from './api-client.js';
 import { resolveLegacySession } from './auth.js';

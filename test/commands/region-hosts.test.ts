@@ -14,6 +14,7 @@ import type * as sinon from 'sinon';
 const SHARED = 'apps list';
 const OLD = `access-levels list --app ${TEST_APP_ID}`;
 const DEV = 'https://dev.example.com/api/v1/developer';
+const FLOW_ID = '770e8400-e29b-41d4-a716-446655440002';
 
 const EU_FILE = { access_token: 'file-token', region: 'eu', user: { name: 'Dev' } };
 
@@ -86,6 +87,11 @@ describe('region of a command', () => {
         { command: OLD, env: { ADAPTY_REGION: 'us' }, file: EU_FILE, host: US_HOST, id: 'old-env-us-over-saved-eu' },
         { command: SHARED, env: { ADAPTY_TOKEN: 'env-token' }, host: US_HOST, id: 'shared-nothing' },
         { command: 'auth whoami', env: {}, file: EU_FILE, host: EU_HOST, id: 'whoami-eu' },
+        // The spec names `flows config get` among the old-stack commands that follow an EU login
+        { command: `flows config get --app ${TEST_APP_ID} ${FLOW_ID}`, env: {}, file: EU_FILE, host: EU_HOST, id: 'old-flows-config-get-eu-session' },
+        // The region of the file counts even when its token does not: the env token stands in for it
+        { command: SHARED, env: { ADAPTY_TOKEN: 'env-token' }, file: { region: 'eu' }, host: EU_HOST, id: 'shared-env-token-region-only-file' },
+        { command: OLD, env: { ADAPTY_TOKEN: 'env-token' }, file: { region: 'eu' }, host: EU_HOST, id: 'old-env-token-region-only-file' },
     ];
 
     for (const row of routed) {
@@ -146,18 +152,46 @@ describe('region of a command', () => {
     });
 
     // tc_jtg07xt5: a damaged file stops the command when the region has to come from it
-    const damaged: { command: string; envToken: boolean; id: string; unreadable: boolean }[] = [
-        { command: SHARED, envToken: false, id: 'shared-truncated', unreadable: false },
-        { command: SHARED, envToken: true, id: 'shared-truncated-env-token', unreadable: false },
-        { command: SHARED, envToken: true, id: 'shared-unreadable-env-token', unreadable: true },
-        { command: OLD, envToken: false, id: 'old-truncated', unreadable: false },
-        { command: OLD, envToken: true, id: 'old-truncated-env-token', unreadable: false },
-        { command: OLD, envToken: true, id: 'old-unreadable-env-token', unreadable: true },
+    type Damage = 'malformed-region' | 'truncated' | 'unreadable';
+
+    const damage = async (kind: Damage): Promise<string> => {
+        switch (kind) {
+            case 'malformed-region': {
+                // A token the file could serve, next to a region of the wrong shape: damage, not "no region"
+                return writeSession({ access_token: 'file-token', region: 42 });
+            }
+
+            case 'truncated': {
+                return writeTruncatedSession();
+            }
+
+            case 'unreadable': {
+                const { how, path } = await writeUnreadableSession();
+
+                // Where the OS enforces the mode for this user, the fixture is the real permission denial
+                if (process.platform !== 'win32' && process.getuid?.() !== 0) {
+                    expect(how, 'unreadable fixture').to.equal('EACCES');
+                }
+
+                return path;
+            }
+        }
+    };
+
+    const damaged: { command: string; damage: Damage; envToken: boolean; id: string }[] = [
+        { command: SHARED, damage: 'truncated', envToken: false, id: 'shared-truncated' },
+        { command: SHARED, damage: 'truncated', envToken: true, id: 'shared-truncated-env-token' },
+        { command: SHARED, damage: 'unreadable', envToken: true, id: 'shared-unreadable-env-token' },
+        { command: SHARED, damage: 'malformed-region', envToken: true, id: 'shared-malformed-region-env-token' },
+        { command: OLD, damage: 'truncated', envToken: false, id: 'old-truncated' },
+        { command: OLD, damage: 'truncated', envToken: true, id: 'old-truncated-env-token' },
+        { command: OLD, damage: 'unreadable', envToken: true, id: 'old-unreadable-env-token' },
+        { command: OLD, damage: 'malformed-region', envToken: true, id: 'old-malformed-region-env-token' },
     ];
 
     for (const row of damaged) {
         it(`tc_jtg07xt5 ${row.id}: exit 3 with the damaged file text, no region words, no request`, async () => {
-            const path = row.unreadable ? await writeUnreadableSession() : await writeTruncatedSession();
+            const path = await damage(row.damage);
 
             if (row.envToken) {
                 process.env.ADAPTY_TOKEN = 'env-token';

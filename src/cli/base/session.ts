@@ -50,7 +50,8 @@ export const loadSession = async (config: Config, region?: Region): Promise<Omit
     const chosenRegion = region ?? regionFromEnv(process.env.ADAPTY_REGION);
 
     // Nothing left to read the file for: the token and the region both come from elsewhere
-    const stored = hasEnvToken && chosenRegion !== undefined ? undefined : await loadStored(store);
+    const stored = hasEnvToken && chosenRegion !== undefined ? undefined : await readStored(store);
+    // The region of the file counts even when its token does not: ADAPTY_TOKEN may stand in for it
     const storedRegion = stored?.region;
     const shared = { region: chosenRegion ?? storedRegion ?? 'us', store, storedRegion };
 
@@ -58,24 +59,42 @@ export const loadSession = async (config: Config, region?: Region): Promise<Omit
         return { ...shared, source: 'env', token: envToken };
     }
 
-    if (stored === undefined) {
+    if (stored?.session === undefined) {
         return { ...shared, source: 'none' };
     }
 
-    return { ...shared, source: 'file', token: stored.token, user: stored.user };
+    return { ...shared, source: 'file', token: stored.session.token, user: stored.session.user };
 };
 
-type StoredSession = Omit<Session, 'region'> & { region?: Region | undefined };
+/**
+ * The region of the saved session for a command that describes it (`auth status`), also when the
+ * command itself took both the token and the region from the environment and so never read the file.
+ * Such a command does not depend on the file, so a damaged one here only means "no saved region".
+ */
+export const savedRegion = async (session: Pick<ResolvedSession, 'store' | 'storedRegion'>): Promise<Region | undefined> => {
+    if (session.storedRegion !== undefined) {
+        return session.storedRegion;
+    }
+
+    try {
+        return (await readStored(session.store))?.region;
+    } catch {
+        return undefined;
+    }
+};
+
+type StoredRecord = { region?: Region | undefined; session?: Session | undefined };
 
 /**
  * The region decides where the token goes, so a file it cannot trust stops the command: unreadable,
- * not JSON, or a region this CLI does not know all say the same "corrupted" as a broken file always has.
+ * not JSON, a region of the wrong shape or one this CLI does not know all say the same "corrupted" as
+ * a broken file always has.
  */
-const loadStored = async (store: SessionStore): Promise<StoredSession | undefined> => {
-    let stored: Session | undefined;
+const readStored = async (store: SessionStore): Promise<StoredRecord | undefined> => {
+    let stored: Awaited<ReturnType<SessionStore['read']>>;
 
     try {
-        stored = await store.load();
+        stored = await store.read();
     } catch (error) {
         throw isSdkError(error) ? error : corrupted(store, error);
     }
@@ -84,10 +103,10 @@ const loadStored = async (store: SessionStore): Promise<StoredSession | undefine
         return undefined;
     }
 
-    const { region } = stored;
+    const { region, session } = stored;
 
     if (region === undefined || isRegion(region)) {
-        return { ...stored, region };
+        return { region, session };
     }
 
     throw corrupted(store);

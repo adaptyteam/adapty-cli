@@ -1,14 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 
 import { EMPTY_LIST_RESPONSE, mockFetch, mockFetchFailure, TEST_APP_ID } from '../helpers/mock-fetch.js';
 import { REGION_WORDS, writeSession } from '../helpers/region.js';
-
-const ROOT = join(import.meta.dirname, '..', '..');
 
 const US_FILE = { access_token: 'file-token', region: 'us', user: { name: 'Dev' } };
 
@@ -33,8 +28,9 @@ const printed = async (command: string): Promise<string> => {
 };
 
 /**
- * Admission: external. A person with a US account reads the help, the README and the output, and
- * the region stays out of all of them: `--region` is hidden and only the agent docs name it.
+ * Admission: external. A person with a US account reads the help and the output, and the region
+ * stays out of both: `--region` is hidden and only the agent docs name it. The README is a
+ * document check, not a test here.
  */
 describe('a US account sees no region', () => {
     afterEach(() => {
@@ -45,7 +41,6 @@ describe('a US account sees no region', () => {
     const rows: Row[] = [
         { id: 'help', read: async () => printed('--help') },
         { id: 'login-help', read: async () => printed('auth login --help') },
-        { id: 'readme', read: async () => readFile(join(ROOT, 'README.md'), 'utf8') },
         {
             id: 'us-login',
             async read() {
