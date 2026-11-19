@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import { regionNotSupported } from '../cli/errors.js';
+
 import { ApiClient } from './api-client.js';
-import { resolveToken } from './auth.js';
+import { resolveLegacySession } from './auth.js';
 import { buildUserAgent } from './client-from-config.js';
 import { AuthRequiredError, NetworkError } from './errors.js';
 
@@ -20,7 +22,12 @@ export type AsaCommandContext = {
 
 export async function createAsaClient(command: AsaCommandContext): Promise<ApiClient> {
     const { config } = command;
-    const token = await resolveToken(config.configDir);
+    const { region, token } = await resolveLegacySession(config);
+
+    // The service has no EU host: an EU token must never reach the US one, whatever the override says
+    if (region === 'eu') {
+        throw regionNotSupported('Apple Search Ads');
+    }
 
     if (!token) {
         throw new AuthRequiredError();
