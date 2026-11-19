@@ -91,6 +91,16 @@ describe('asa report fixes', () => {
         expect(stderr).to.contain('Only the first 0 of 600');
     });
 
+    it('sends countries and ignore_match_type to the duplicates query', async () => {
+        fetchStub = mockFetch([{ app_id: TEST_APP_ID, duplicates: [], mode: 'x', total_affected_keywords: 0, total_duplicate_groups: 0, truncated: false }]);
+
+        await runCommand(`asa keywords duplicates --app ${TEST_APP_ID} --country US --country de --ignore-match-type`);
+
+        const url = new URL(String(fetchStub.getCall(0).args[0]));
+        expect(url.searchParams.getAll('countries')).to.deep.equal(['US', 'DE']);
+        expect(url.searchParams.get('ignore_match_type')).to.equal('true');
+    });
+
     it('prints metrics warnings and units', async () => {
         const meta = { pagination: PAGE.pagination, units: { gross_roas: 'percent', spend: null }, warnings: [{ code: 'search_match_excluded', message: 'Search Match is out' }] };
         fetchStub = mockFetch([{ data: [], meta }]);

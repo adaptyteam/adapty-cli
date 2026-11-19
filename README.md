@@ -686,7 +686,7 @@ Keywords are always applied as a batch, at most 100 per call, and a partial reje
 
 ```sh
 adapty asa keywords list [--live-only]
-adapty asa keywords duplicates --app APP_UUID                         # same keyword in several ad groups / campaigns; max 500 groups
+adapty asa keywords duplicates --app APP_UUID [--country US ...] [--ignore-match-type]  # same keyword in several ad groups / campaigns; max 500 groups
 adapty asa keywords recommend --adam-id 1668337467 --type brand|generic|competitor [--country US...]
 adapty asa keywords add --ad-group UUID --text "running shoes" --text "trail shoes" [--bid 1.20] [--match-type EXACT]
 adapty asa keywords add --ad-group UUID --from-file keywords.txt

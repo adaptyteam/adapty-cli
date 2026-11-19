@@ -617,7 +617,7 @@ The rules for writing to a live ad account, and the campaign playbooks, live in 
 | `asa ad-groups create`               | `--campaign`, `--name`, `--default-bid`; Apple also needs `--pricing-model` (default CPC) and `--start-time` (default today). `--automated` = the automated group for Max Conversions: no `--start-time`, no `--status PAUSED`, `--default-bid` optional |
 | `asa ad-groups update <id>`          | at least one field; the campaign is resolved server-side, never passed      |
 | `asa keywords list`                  | metadata only; **filter by `--ad-group`** — the heaviest read, own budget (30/min, 2 concurrent, 60s cap); `--live-only` keeps ACTIVE keywords whose ad group and campaign are ENABLED and nothing deleted; rows carry `effective_status`, `countries` and the parent statuses |
-| `asa keywords duplicates`            | `--app`; same text, country and level across ad groups / campaigns; groups with `instances` (campaign, ad group, bid); at most 500 groups, `truncated: true` when capped |
+| `asa keywords duplicates`            | `--app`, optional `--country` (repeatable), `--ignore-match-type`; same text, country and level across ad groups / campaigns; groups with `instances` (campaign, ad group, bid); at most 500 groups, `truncated: true` when capped |
 | `asa keywords add`                   | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; max 100 per call |
 | `asa keywords update <id> [<id>...]` | one change applied to every id; `--text` only for a single keyword           |
 | `asa negative-keywords list`         | `ad_group_id` is empty for campaign-level rows; `--campaign-level-only` keeps only those |

@@ -280,8 +280,11 @@ adapty asa automations update AUTOMATION_ID --target-ad-group AD_GROUP_UUID \
 **Live keywords and duplicates**
 - Keyword `status: ACTIVE` is not live: its ad group or campaign may be paused. Use `keywords list --live-only` or
   read `effective_status`; only live rows serve.
-- Call a duplicate only among live rows. Instances sharing one non-null `cpp_ab_test_id` are a CPP rotation set
-  (one variant serves at a time), not duplicates: never pause them as duplicates.
+- Call a duplicate only among live rows. The backend drops groups whose instances all belong to one CPP A/B test,
+  but a returned group can be mixed. Instances sharing one `cpp_ab_test_id` are variants of that test: never pause
+  or delete them as duplicates; only instances outside the test (or in different tests) are candidates.
+- Keyword text is compared exactly as stored: `Brand` and `brand` are not grouped. Check case variants yourself
+  when it matters. `--country US --country DE` limits the scan; `--ignore-match-type` merges match types.
 - Rerun `asa keywords duplicates --app APP_UUID` after every structural change (SKAG split, moving keywords,
   reactivation). When it answers `truncated: true`, narrow the scope and rerun.
 
