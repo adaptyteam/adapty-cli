@@ -22,6 +22,8 @@ export type ApiClientOptions = {
     baseUrl?: string;
     defaultBaseUrl?: string;
     errorFormat?: ApiErrorFormat;
+    /** The host of the region of the command: used when neither `baseUrl` nor the env var says otherwise. */
+    regionBaseUrl?: string;
     token?: null | string;
     urlEnvVar?: string;
     userAgent?: string;
@@ -42,10 +44,11 @@ export class ApiClient {
 
     constructor(opts: ApiClientOptions = {}) {
         const defaultBaseUrl = opts.defaultBaseUrl ?? DEFAULT_API_URL;
-        const envBaseUrl = process.env[opts.urlEnvVar ?? 'ADAPTY_API_URL'];
-        this.baseUrl = (opts.baseUrl ?? envBaseUrl ?? defaultBaseUrl).replace(/\/$/, '');
+        const overrideUrl = opts.baseUrl ?? process.env[opts.urlEnvVar ?? 'ADAPTY_API_URL'];
+        this.baseUrl = (overrideUrl ?? opts.regionBaseUrl ?? defaultBaseUrl).replace(/\/$/, '');
 
-        if (this.baseUrl !== defaultBaseUrl) {
+        // A host that comes from the region is no surprise; only an override is compared with the default
+        if (overrideUrl !== undefined && this.baseUrl !== defaultBaseUrl) {
             process.stderr.write(`Warning: using non-default API URL: ${this.baseUrl}\n`);
         }
 

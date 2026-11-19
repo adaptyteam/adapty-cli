@@ -9,6 +9,11 @@ export type SessionUser = {
 };
 
 export type Session = {
+    /**
+     * The adapter's name for where the account lives. The sdk keeps it as written and checks
+     * nothing: which names exist and what a missing one means is the adapter's knowledge.
+     */
+    region?: string | undefined;
     token: string;
     user?: SessionUser | undefined;
 };
@@ -26,13 +31,15 @@ export type SessionStore = {
 
 /**
  * The file and field names the published CLI already writes. A rename would log every existing
- * user out, so the on-disk contract stays `{ "access_token", "user": { "email", "name" } }`, where
- * only a file written before the server stopped sending the email still has one.
+ * user out, so the on-disk contract stays `{ "access_token", "user": { "email", "name" }, "region" }`,
+ * where only a file written before the server stopped sending the email still has one, and only a
+ * file written by a login that knows regions has `region`. An older reader ignores the field.
  */
 const FILE_NAME = 'config.json';
 
 type StoredSession = {
     access_token: string;
+    region?: string | undefined;
     user?: SessionUser | undefined;
 };
 
@@ -84,9 +91,11 @@ export const createFileSessionStore = (dir: string): SessionStore => {
     };
 };
 
-const toStored = (session: Session): StoredSession => (session.user === undefined
-    ? { access_token: session.token }
-    : { access_token: session.token, user: session.user });
+const toStored = (session: Session): StoredSession => ({
+    access_token: session.token,
+    ...(session.user === undefined ? {} : { user: session.user }),
+    ...(session.region === undefined ? {} : { region: session.region }),
+});
 
 /** Not a full schema check: only the minimum the rest of the code leans on. */
 const toSession = (parsed: unknown): Session | undefined => {
@@ -98,7 +107,11 @@ const toSession = (parsed: unknown): Session | undefined => {
 
     const user = toUser(record.user);
 
-    return user === undefined ? { token: record.access_token } : { token: record.access_token, user };
+    return {
+        token: record.access_token,
+        ...(user === undefined ? {} : { user }),
+        ...(typeof record.region === 'string' ? { region: record.region } : {}),
+    };
 };
 
 const toUser = (value: unknown): SessionUser | undefined => {

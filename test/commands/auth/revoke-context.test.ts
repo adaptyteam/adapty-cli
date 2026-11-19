@@ -130,6 +130,8 @@ describe('auth revoke migration cleanup', () => {
     for (const failed of ['session', 'context']) {
         it(`still cleans the other file after a ${failed} cleanup failure without repeating revoke`, async () => {
             process.env.ADAPTY_TOKEN = 'same-token';
+            // The region comes from the environment, so the broken file is met only by the cleanup
+            process.env.ADAPTY_REGION = 'us';
             await session.save({ token: 'same-token' });
             await context.save(createMigrationContext({ token: 'same-token' }, 'mig_saved'));
             const broken = failed === 'session' ? session : context;

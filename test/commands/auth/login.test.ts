@@ -79,6 +79,7 @@ describe('auth login', () => {
 
         expect(JSON.parse(raw)).to.deep.equal({
             access_token: 'new-token',
+            region: 'us',
             user: { name: 'Test User' },
         });
 

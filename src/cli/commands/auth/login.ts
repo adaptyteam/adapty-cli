@@ -6,17 +6,27 @@ import { systemClock } from '../../../sdk/core/clock.js';
 import { build, openSession } from '../../base/adapty/index.js';
 import { BaseCommand } from '../../base/base-command.js';
 import { exitCode } from '../../errors.js';
+import { regionFlag } from '../../input/region.js';
+
+/**
+ * The confirmation page reads the region from the browser, not from the link: an EU login works
+ * only in a browser that last signed in to the EU dashboard.
+ */
+const EU_BROWSER_HINT = 'EU account: open the link in a browser signed in through https://app.adapty.io/eu-login; '
+    + 'if you are not signed in there, or are signed in as a US account, sign in there first.';
 
 export default class AuthLogin extends BaseCommand {
     static override description = 'Authenticate with Adapty via browser';
     /** The one command that opts out: an interactive flow has no result to serialize. */
     static override enableJsonFlag = false;
     static override examples = ['<%= config.bin %> auth login'];
+    static override flags = { region: regionFlag };
 
     async run(): Promise<void> {
-        await this.parse(AuthLogin);
+        const { flags } = await this.parse(AuthLogin);
 
-        const session = await openSession(this.config);
+        // --region, then ADAPTY_REGION, then the region of the current session, then us
+        const session = await openSession(this.config, flags.region);
 
         if (session.user !== undefined) {
             this.log(`Already authenticated as ${session.user.name}. Re-authenticating...`);
@@ -39,6 +49,11 @@ export default class AuthLogin extends BaseCommand {
                 const link = this.dashboardLink(code.verificationUriComplete ?? code.verificationUri);
 
                 this.log(`\nYour code: ${code.userCode}\n`);
+
+                if (session.region === 'eu') {
+                    this.log(`${EU_BROWSER_HINT}\n`);
+                }
+
                 this.log(`If the browser doesn't open, visit: ${link}\n`);
                 this.openBrowser(link);
                 this.log('Waiting for authorization... (Ctrl+C to cancel)');
@@ -57,7 +72,8 @@ export default class AuthLogin extends BaseCommand {
             signal: this.signal,
         });
 
-        await session.store.save({ token: issued.accessToken, user: issued.user });
+        // The whole session is replaced: a US login over an EU one leaves no EU behind
+        await session.store.save({ region: session.region, token: issued.accessToken, user: issued.user });
 
         this.log(`\nAuthenticated as ${issued.user.name}`);
         this.log(`Session saved to ${session.store.path}`);

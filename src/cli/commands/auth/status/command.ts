@@ -21,6 +21,8 @@ export default class AuthStatus extends BaseCommand {
                     config_path: session.store.path,
                     email: session.user?.email,
                     name: session.user?.name,
+                    // Only an EU session says so: a US one prints what it always has
+                    ...(session.storedRegion === 'eu' ? { region: 'eu' as const } : {}),
                     source: session.source === 'env' ? 'env' : 'file',
                     token_prefix: session.token.slice(0, 8),
                 };

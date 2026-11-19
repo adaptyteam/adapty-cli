@@ -6,7 +6,7 @@ import { Config } from '@oclif/core';
 
 let sessionFile: string;
 let contextFile: string;
-const environmentKeys = ['XDG_CONFIG_HOME', 'ADAPTY_TOKEN', 'ADAPTY_API_URL', 'ADAPTY_MIGRATION'] as const;
+const environmentKeys = ['XDG_CONFIG_HOME', 'ADAPTY_TOKEN', 'ADAPTY_API_URL', 'ADAPTY_MIGRATION', 'ADAPTY_REGION'] as const;
 const originalEnvironment = new Map(environmentKeys.map(key => [key, process.env[key]]));
 
 export const mochaHooks = {
@@ -29,6 +29,7 @@ export const mochaHooks = {
         delete process.env.ADAPTY_TOKEN;
         delete process.env.ADAPTY_API_URL;
         delete process.env.ADAPTY_MIGRATION;
+        delete process.env.ADAPTY_REGION;
         await rm(sessionFile, { force: true });
         await rm(contextFile, { force: true });
     },
