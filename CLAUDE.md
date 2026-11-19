@@ -46,6 +46,13 @@ src/
                      # versions/ (list, get, preview, rename, restore — the version history; restore asks before it
                      # replaces a draft, --yes needs --expected-updated-at); duplicate (a copy as a new flow);
                      # implementation in src/cli/commands/flows/versions and src/cli/commands/flows/duplicate.ts
+                     # publish — refreshes the _meta.fonts copy of a config that names a custom font, saves it
+                     # when it changed, then publishes; implementation in src/cli/commands/flows/publish, the rule
+                     # in src/sdk/adapty/flow-fonts.ts
+    fonts/           # list, get, upload, add, rename, usage; faces/ (update, default, move, replace) — custom fonts
+                     # of an app; upload and add send a package file by file and report each file (exit 4 when one
+                     # was refused). Implementation in src/cli/commands/fonts, the shared steps in
+                     # cli/base/adapty/fonts-command.ts, the resource in src/sdk/adapty/fonts
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations

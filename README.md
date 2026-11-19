@@ -288,7 +288,14 @@ adapty flows get --app UUID FLOW_ID
 adapty flows create --app UUID --name "Name"
 adapty flows config get --app UUID FLOW_ID
 adapty flows config update --app UUID FLOW_ID (--file PATH|- | (--config JSON | --config-file PATH|-) --remote-configs JSON) [--expected-updated-at MS]
+adapty flows publish --app UUID FLOW_ID [--yes]
 ```
+
+`flows publish` starts the publish and returns `publishing`; poll `flows get` for `published` or
+`publication_failed`. When the config names a custom font family, it first reads the app fonts and, if the copy of
+the fonts in the config (`_meta.fonts`) is stale, saves the config with the current fonts (keeping the remote
+configs, with the `updated_at` it read as the lock), as the flow builder does. A failed font read stops before any
+write; a failed save stops before the publish.
 
 `flows config update` writes the config and the remote configs together, and both are required: a write replaces the
 whole remote config list. To keep it, send the stored list back; `[]` deletes all, so use it only on a flow that has
@@ -395,6 +402,39 @@ whole answer unchanged and `--csv` the CSV that the dashboard downloads, as the 
 `--date-to` and `--date-type` are required; there are no defaults. Read `values` first for the keys and values that
 `--filter key=value` takes. A flow with no published version, an unknown flow and a version of another flow answer
 with the route's text (exit 4).
+
+### Fonts
+
+Custom fonts of an app, for flows. A family holds faces; a face is one weight and style of a `.ttf` or `.otf` file.
+
+```sh
+adapty fonts list --app UUID
+adapty fonts get FAMILY_ID --app UUID
+adapty fonts upload FILE... --app UUID [--choice replace|keep]
+adapty fonts add FAMILY_ID FILE... --app UUID [--choice replace|keep]
+adapty fonts rename FAMILY_ID NAME --app UUID
+adapty fonts usage FAMILY_ID --app UUID
+adapty fonts faces update FACE_ID --app UUID [--weight N --italic true|false] [--ios-name NAME] [--android-name NAME]
+adapty fonts faces default FACE_ID --app UUID
+adapty fonts faces move FACE_ID --to FAMILY_ID --app UUID
+adapty fonts faces replace FACE_ID FILE --app UUID [--weight N --italic true|false]
+```
+
+`upload` reads the family name inside each file: the file joins the family of that name (any case) or creates it. A
+static file gives one face, a variable file one face per named instance. `add` puts the faces of a file into the
+family you name, whatever the file says. Both send one file per request and print a report for each file at the end:
+created, added, partly added (with the kept pairs), replaced, kept (skipped) or refused with its code and the next
+step. A file that collides with a stored face (the same weight and italic, or an iOS name another face holds) is
+refused with that face; run it again with `--choice replace` to put the file on that face, or `--choice keep` to skip
+it. Exit 4 when a file was refused (after the whole report), 0 when every file was stored. A network failure (exit 5)
+or an auth failure (exit 3) stops the package; the files after it are reported as not sent.
+
+A face keeps its id when its file is replaced, and its default mark and Android name; the iOS name follows the new
+file. The Android name changes on every face of the same file. A write that leaves a face without an iOS or Android
+name is saved with a warning. A command that changes a family that flows use lists those flows
+(`flows_to_publish` in `--json`): they need `adapty flows publish` to get the change. A flow names a font by family
+(id or name) and weight, as in the builder; publish draws the exact pair, else the nearest weight. The same font
+must be in the app bundle.
 
 ### Access Levels
 
