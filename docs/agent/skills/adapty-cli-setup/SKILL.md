@@ -141,6 +141,8 @@ the dashboard usually means the token is scoped elsewhere.
 - It dies with the shell. A token that works in one command and not the next was never exported, or
   was exported in a different process.
 
+EU account: `adapty auth login --region eu` or `ADAPTY_REGION=eu`; after a damaged login file, log in again with the same region; if you do not know it, ask the user.
+
 `adapty auth login` works in a cloud session — the browser can be anywhere. **Never tell the user
 browser login is unavailable here, and never ask them for a token because the session is remote.**
 A token is something they may volunteer; it is never something you request as a substitute for

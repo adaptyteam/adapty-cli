@@ -15,6 +15,8 @@ All commands support `--json` for machine-readable output.
 | `auth whoami`         | Show authenticated user info      |
 | `auth status`         | Show local auth state             |
 
+EU account: `adapty auth login --region eu` or `ADAPTY_REGION=eu`; after a damaged login file, log in again with the same region; if you do not know it, ask the user.
+
 ## Apps
 
 | Command                | Required flags                                          |
