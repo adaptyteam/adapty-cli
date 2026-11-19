@@ -7,7 +7,7 @@ import { AuthRequiredError, NetworkError } from './errors.js';
 
 import type { QueryParams } from './api-client.js';
 import type { AsaSegmentEntity, AsaSegmentSelection } from './asa-flags.js';
-import type { AsaAdGroupDTO, AsaCampaignDTO, AsaKeywordDTO } from './asa-schemas.js';
+import type { AsaAdGroupDTO, AsaCampaignDTO, AsaCampaignGroupDTO, AsaKeywordDTO } from './asa-schemas.js';
 import type { PaginatedResponse } from './flags.js';
 import type { Config } from '@oclif/core';
 
@@ -124,4 +124,49 @@ export async function fetchAsaSegmentEntities(
 
         return { id: String(keyword.keyword_id), name: keyword.text };
     });
+}
+
+export type CurrencySource
+    = | { adGroup: string }
+        | { anyGroup: true }
+        | { campaign: string }
+        | { campaignGroup: string };
+
+/**
+ * The currency of a write's money amounts: --currency as given, else the one of the entity's campaign group
+ * (keywords have no single read, so a keywords update needs every group to share one currency).
+ */
+export async function resolveCurrency(
+    client: ApiClient,
+    flag: string | undefined,
+    amounts: (string | undefined)[],
+    source: CurrencySource,
+): Promise<string> {
+    if (flag !== undefined || amounts.every(amount => amount === undefined)) {
+        return flag ?? '';
+    }
+
+    let groupId: string | undefined;
+
+    if ('campaign' in source) {
+        groupId = (await client.get<AsaCampaignDTO>(`/campaigns/${source.campaign}`)).campaign_group_id;
+    } else if ('adGroup' in source) {
+        groupId = (await client.get<AsaAdGroupDTO>(`/ad-groups/${source.adGroup}`)).campaign_group_id;
+    } else if ('campaignGroup' in source) {
+        groupId = source.campaignGroup;
+    }
+
+    const { data } = await client.get<PaginatedResponse<AsaCampaignGroupDTO>>('/campaign-groups', { 'page[size]': '1000' });
+    const groups = data.filter(group => groupId === undefined || group.internal_id === groupId);
+    const [first] = groups;
+
+    if (first === undefined) {
+        throw new Error(`Campaign group ${groupId} is not in asa orgs list; pass --currency.`);
+    }
+
+    if (groups.some(group => group.currency !== first.currency)) {
+        throw new Error('Your campaign groups use different currencies; pass --currency.');
+    }
+
+    return first.currency;
 }

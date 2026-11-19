@@ -22,7 +22,7 @@ that field.
 |---|---|---|
 | `asa metrics` | `--entity`, `--date-from`, `--date-to`, `--metric` (repeatable) required; `--app`, `--campaign`, `--ad-group` (repeatable scope filters), `--group-by` (repeatable), `--order` (`asc`/`desc`, default `desc`), `--order-by`, `--by-days` (repeatable, max 16), `--order-by-day`, `--page` (default `1`), `--page-size` (default `100`, max `1000`) optional | One row per entity — `ad`, `ad-group`, `campaign`, or `keyword` — already aggregated over the period and already sorted server-side by `--order-by`. A top-N question is one call, `--order-by X --page-size N`; never paginate and sum yourself, and for a full breakdown take one big page (`--page-size 1000`) instead of looping. `--order` defaults to `desc`; pass `--order asc` for a "worst" question instead of "best." `--group-by` is one of `country`, `day`, `month`, `quarter`, `week`, `year`, and its coarseness sets the date-window cap (see [Date window caps](#date-window-caps)). Account-level totals are one call to `metrics overview` instead. |
 | `asa metrics overview` | `--entity`, `--date-from`, `--date-to` required; `--metric` (repeatable, root names only), `--by-days` (repeatable, max 16), `--period-unit` (`day`/`week`/`month`/`quarter`/`year`, default `day`) optional | Returns one response, not a list — totals for the whole entity level plus a per-period series in the same call, no pagination, no client-side summing. That's the one-call answer to a trend question ("today vs. yesterday," "this week vs. last"). Has no `--group-by` and no `--order`/`--order-by`/`--order-by-day`. Shares the 5-per-minute metrics budget with `metrics` (see [The analytics pool](#the-analytics-pool)). Metric names here are root names only — see [Metric vocabulary](#metric-vocabulary). |
-| `asa search-terms list` | `--date-from` / `--date-to` (default: today); scope with `--ad-group` / `--campaign`; `--page` (default `1`), `--page-size` (default `100`, max `1000`) | The only list command in the `asa` topic that takes period flags — it draws on the same analytics pool as `metrics` (see [The analytics pool](#the-analytics-pool)), not the metadata store the other lists use. The full scope-filter set (`--app`, `--campaign-group`, `--search` included) is in `asa-management.md`. This file covers *reading* search terms; turning what you find into keywords or negative keywords is in `asa-management.md`. |
+| `asa search-terms list` | `--date-from` / `--date-to` (default: today); scope with `--ad-group` / `--campaign`; `--page` (default `1`), `--page-size` (default `100`, max `1000`); optional `--overlap-only` | The only list command in the `asa` topic that takes period flags — it draws on the same analytics pool as `metrics` (see [The analytics pool](#the-analytics-pool)), not the metadata store the other lists use. The full scope-filter set (`--app`, `--campaign-group`, `--search` included) is in `asa-management.md`. `--overlap-only` keeps Search Match / Max Conversions terms that match a live EXACT keyword of the same app in a campaign covering the term's country and not blocked by a negative. Rows carry `is_negated`, `exact_keyword_overlap`, `campaign_external_id` and `ad_group_external_id`. This file covers *reading* search terms; turning what you find into keywords or negative keywords is in `asa-management.md`. |
 | `asa competitors summary` | `--app-ids` (1–5 Apple App Store IDs, comma-separated) | Covers the last full month across every country — there are deliberately no period or country flags. The first call on a cold cache can take tens of seconds. |
 
 ## Date window caps
@@ -129,17 +129,24 @@ adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31
 ### Windows the cohort has not lived through yet
 
 A cohort metric is what has actually been observed so far, not a projection. A window longer
-than the cohort's age therefore repeats the last real figure instead of returning nothing — a
-July cohort read in August reports the same number at day 60, day 90 and day 300 as at day 28.
+than the cohort's age is `null` (blank cells in table mode), not the last real figure. Each
+period row is cut at its own age.
 
-`meta.max_valid_day` in the response is how many days the youngest cohort in the date range
-has lived, counted from `--date-to`. Treat any `--by-days` window above it as not reached:
+With a date `--group-by` (`day`, `week`, `month`, ...) each period row is cut at its own age.
+Without one, `meta.max_valid_day` in the response is how many days the youngest cohort in the
+request has lived, counted from `--date-to`, and it applies to every row. Treat any `--by-days`
+window above the row's age as not reached:
 
-- Do not divide a clipped numerator by a full-window denominator. That understates the result,
-  and by roughly a third in the case that prompted this note.
+- Do not divide a clipped numerator by a full-window denominator.
 - Compare markets only at a window all of them have reached.
-- The CLI prints a warning when a requested window is past `max_valid_day`; in `--json` the
-  number is there to check yourself.
+- When a requested window is past `max_valid_day`, the CLI prints "Cohort windows a cohort has
+  not reached yet are null (blank cells); each period is cut at its own age."
+
+### `meta.units` and `meta.warnings`
+
+`meta.units` maps each metric to its unit: `percent` for ROAS/ROI, `null` when the catalog has
+none (money is in the campaign group currency). `meta.warnings` lists caveats such as
+`aggregated_across_countries` and `search_match_excluded`; table mode prints them to stderr.
 
 ## Money and currency
 

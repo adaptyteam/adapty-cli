@@ -67,6 +67,7 @@ const FROZEN_COMMANDS = [
     'asa/connect.ts',
     'asa/creatives/list.ts',
     'asa/keywords/add.ts',
+    'asa/keywords/duplicates.ts',
     'asa/keywords/list.ts',
     'asa/keywords/recommend.ts',
     'asa/keywords/update.ts',

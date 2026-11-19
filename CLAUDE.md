@@ -57,7 +57,7 @@ src/
     skills/          # install — the Adapty skills into the coding agents on PATH, through each agent's own
                      # plugin or skills command. Implementation in src/cli/commands/skills
     access-levels/   # list, get, create, update
-    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend),
+    asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend, duplicates),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
                      # competitors, change-history
   lib/

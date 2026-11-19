@@ -604,6 +604,7 @@ adapty asa campaigns list --app APP_UUID --status PAUSED
 adapty asa ad-groups list --campaign CAMPAIGN_UUID
 adapty asa keywords list --ad-group AD_GROUP_UUID --status ACTIVE
 adapty asa keywords list --ad-group AD_GROUP_UUID --ad-group OTHER_UUID   # repeatable
+adapty asa keywords list --app APP_UUID --live-only                    # ACTIVE, ad group and campaign ENABLED
 adapty asa creatives list --app APP_UUID
 ```
 
@@ -684,7 +685,8 @@ reported with their sheet, row and column.
 Keywords are always applied as a batch, at most 100 per call, and a partial rejection is reported per item:
 
 ```sh
-adapty asa keywords list
+adapty asa keywords list [--live-only]
+adapty asa keywords duplicates --app APP_UUID [--country US ...] [--ignore-match-type]  # same keyword in several ad groups / campaigns; max 500 groups
 adapty asa keywords recommend --adam-id 1668337467 --type brand|generic|competitor [--country US...]
 adapty asa keywords add --ad-group UUID --text "running shoes" --text "trail shoes" [--bid 1.20] [--match-type EXACT]
 adapty asa keywords add --ad-group UUID --from-file keywords.txt
@@ -694,7 +696,7 @@ adapty asa negative-keywords list
 adapty asa negative-keywords add --ad-group UUID --text free
 adapty asa negative-keywords add --campaign UUID [--all-ad-groups] --text free
 
-adapty asa search-terms list [--date-from ... --date-to ...]
+adapty asa search-terms list [--date-from ... --date-to ...] [--overlap-only]
 
 adapty asa change-history list --campaign-group UUID [--date-from ... --date-to ...] [--entity-type Campaign --event-type UPDATE]
 adapty asa change-history list --campaign-group UUID --fields                    # flat rows: field, old values, new values (page size 10)
@@ -860,6 +862,9 @@ adapty asa metrics --entity keyword --date-from 2026-07-01 --date-to 2026-07-31 
 adapty asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 --metric roas --by-days 7 --by-days 90
 adapty asa metrics overview --entity campaign --date-from 2026-07-01 --date-to 2026-07-31 [--period-unit week]
 ```
+
+Money amounts take the currency of the campaign group; `--currency` is only needed to override it (the server rejects a mismatch).
+Cohort windows past `meta.max_valid_day` come back `null` (blank cells in the table); `meta.units` and `meta.warnings` are printed under the table.
 
 There is no `ltv` metric: lifetime value is a cohort metric read at a renewal window, so `--by-days` is how you
 ask for day-7 or day-90 values — on either route, up to 16 windows per call. `--order-by-day` ranks the rows by

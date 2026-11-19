@@ -38,11 +38,18 @@ export type AsaMetricsDTO = {
     view_redownloads: number;
 };
 
+export type AsaMetricsWarning = {
+    code: 'aggregated_across_countries' | 'search_match_excluded';
+    message: string;
+};
+
 export type AsaMetricsResponse = {
     data: Record<string, unknown>[];
     meta: {
         max_valid_day?: number;
         pagination: { count: number; page: number; pages: number };
+        units?: Record<string, null | string>;
+        warnings?: AsaMetricsWarning[];
     };
 };
 
@@ -105,10 +112,12 @@ export type AsaCampaignDTO = {
     budget_amount: AsaMoney | null;
     campaign_group_id: string;
     campaign_id: number;
+    creation_time: null | string;
     countries_or_regions: string[];
     daily_budget_amount: AsaMoney | null;
     end_time: null | string;
     internal_id: string;
+    modification_time: null | string;
     loc_invoice_details: AsaLocInvoiceDetails | null;
     name: string;
     org_id: number;
@@ -119,6 +128,7 @@ export type AsaCampaignDTO = {
     status: AsaStatus;
     supply_sources: string[];
     target_cpa: AsaMoney | null;
+    time_zone: null | string;
 };
 
 export type AsaAdGroupDTO = {
@@ -128,6 +138,7 @@ export type AsaAdGroupDTO = {
     automated_keywords_required: boolean | null;
     bidding_strategy: null | string;
     campaign_group_id: string;
+    campaign_external_id: number;
     campaign_id: string;
     cpa_goal: AsaMoney | null;
     default_bid_amount: AsaMoney;
@@ -144,12 +155,20 @@ export type AsaAdGroupDTO = {
 };
 
 export type AsaKeywordDTO = {
+    ad_group_external_id: number;
     ad_group_id: string;
+    ad_group_serving_status: null | string;
+    ad_group_status: AsaStatus | null;
     app_id: string;
     bid_amount: AsaMoney;
+    campaign_external_id: number;
     campaign_group_id: string;
     campaign_id: string;
+    campaign_serving_status: null | string;
+    campaign_status: AsaStatus | null;
+    countries: string[];
     creation_time: null | string;
+    effective_status: null | string;
     internal_id: string;
     keyword_id: number;
     match_type: AsaKeywordMatchType;
@@ -158,15 +177,19 @@ export type AsaKeywordDTO = {
 };
 
 export type AsaSearchTermDTO = {
+    ad_group_external_id: null | number;
     ad_group_id: string;
     app_id: string;
+    campaign_external_id: null | number;
     campaign_group_id: string;
     campaign_id: string;
     country_or_region: string;
+    exact_keyword_overlap: boolean;
     impression_midpoint_all: null | string;
     impression_midpoint_first: null | string;
     impression_share_all: null | string;
     impression_share_first: null | string;
+    is_negated: boolean;
     keyword_id: null | string;
     match_type: AsaKeywordMatchType | null;
     metrics: AsaMetricsDTO;
@@ -524,4 +547,39 @@ export type AsaChangeHistoryFieldEventDTO = {
     old_values: string[];
     transaction_id: string;
     user_type: string;
+};
+
+export type AsaKeywordDuplicateInstanceDTO = {
+    bid_amount: AsaMoney;
+    cpp_ab_test_id: null | string;
+    keyword_external_id: number;
+    keyword_internal_id: string;
+    linked_ad_group_external_id: number;
+    linked_ad_group_internal_id: string;
+    linked_ad_group_name: string;
+    linked_campaign_external_id: number;
+    linked_campaign_internal_id: string;
+    linked_campaign_name: string;
+    match_type: AsaKeywordMatchType;
+};
+
+export type AsaKeywordDuplicateGroupDTO = {
+    ad_group_count: number;
+    campaign_count: number;
+    country: string;
+    instances: AsaKeywordDuplicateInstanceDTO[];
+    keyword_count: number;
+    keyword_text: string;
+    level: string;
+    match_type: AsaKeywordMatchType | null;
+    match_types_present: AsaKeywordMatchType[];
+};
+
+export type AsaKeywordDuplicatesDTO = {
+    app_id: string;
+    duplicates: AsaKeywordDuplicateGroupDTO[];
+    mode: string;
+    total_affected_keywords: number;
+    total_duplicate_groups: number;
+    truncated: boolean;
 };
