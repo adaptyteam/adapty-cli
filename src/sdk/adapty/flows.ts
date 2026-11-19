@@ -20,6 +20,31 @@ export type Flow = {
     updated_at?: string;
 };
 
+export type FlowRemoteConfig = {
+    data: string;
+    locale: string;
+};
+
+/** The builder config of a flow, with the remote configs that are written together with it. */
+export type FlowConfig = {
+    config: Record<string, unknown>;
+    publication_error?: null | string;
+    publication_status?: string;
+    remote_configs: FlowRemoteConfig[];
+    status: string;
+    transform_error?: null | string;
+    /** Milliseconds: the token a write sends back as `expected_updated_at`. */
+    updated_at: number;
+};
+
+export type WriteFlowConfigInput = {
+    config: Record<string, unknown>;
+    /** The write fails when the config changed after this read. */
+    expectedUpdatedAt: number;
+    /** A write replaces the whole list: the stored one is sent back to keep it. */
+    remoteConfigs: FlowRemoteConfig[];
+};
+
 /** A flow that has no live version and never had one. An older server that does not send the field says nothing. */
 export const isNeverPublished = (flow: Flow): boolean => flow.published_flow_version_id === null;
 
@@ -54,7 +79,8 @@ const settleLimited = async <T, R>(
 };
 
 /**
- * The flows of an app. The read of one flow, the duplicate, the version history, the metrics and the
+ * The flows of an app. The read of one flow, the config read and write, the publish, the duplicate, the version
+ * history, the metrics and the
  * screen funnel are here: the other flow operations still live in the old stack and move here when
  * the topic is ported.
  *
@@ -68,6 +94,18 @@ const settleLimited = async <T, R>(
  * transcodes the file in the request. What it takes lives in `flow-media.ts`.
  */
 export const flows = (http: Http) => ({
+    config: {
+        /** The server answers 404 until the config is written for the first time. */
+        get: (appId: string, flowId: string) => http.get<FlowConfig>(`/apps/${appId}/flows/${flowId}/config`),
+
+        update: (appId: string, flowId: string, input: WriteFlowConfigInput) =>
+            http.put<FlowConfig>(`/apps/${appId}/flows/${flowId}/config`, {
+                config: input.config,
+                expected_updated_at: input.expectedUpdatedAt,
+                remote_configs: input.remoteConfigs,
+            }, { idempotent: false }),
+    },
+
     /**
      * A new flow, "<name>_copy", with one unpublished draft: the content of the given version, else
      * of the current one (the draft, else the live version). The source flow does not change.
@@ -91,6 +129,9 @@ export const flows = (http: Http) => ({
             return read?.status === 'fulfilled' && isNeverPublished(read.value);
         }));
     },
+
+    /** Starts the publish and answers at once: the flow is `publishing`, the end shows on the flow. */
+    publish: (appId: string, flowId: string) => http.post<Flow>(`/apps/${appId}/flows/${flowId}/publish`, undefined, { idempotent: false }),
 
     versions: flowVersions(http, (appId, flowId) => `/apps/${appId}/flows/${flowId}`),
 
