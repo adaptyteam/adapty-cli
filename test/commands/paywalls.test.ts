@@ -12,6 +12,7 @@ import {
     assertFetch,
     EMPTY_LIST_RESPONSE,
     mockFetch,
+    mockFetchFailure,
     restoreFetch,
     TEST_APP_ID,
     TEST_RESOURCE_ID,
@@ -91,6 +92,49 @@ describe('paywalls', () => {
         const { stdout } = await runCommand(`paywalls list --app ${TEST_APP_ID}`);
 
         expect(stdout).to.contain(`Products:\n  - Offer ID: ${OFFER_ID}\n    Product ID: ${PRODUCT_ID}\n`);
+    });
+
+    // external: the --kind filter that a person or an agent sends, and the kind they read on each row
+    describe('list --kind', () => {
+        const queryOf = (index: number): URLSearchParams =>
+            new URL(fetchStub.getCall(index).args[0] as string).searchParams;
+
+        it('sends filter[kind] only when --kind is given, and shows the kind of each paywall', async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+
+            fetchStub = mockFetch([{
+                ...EMPTY_LIST_RESPONSE,
+                data: [{ id: TEST_RESOURCE_ID, kind: 'legacy_builder', products: PRODUCTS, title: 'Old Paywall' }],
+            }]);
+
+            const { stdout } = await runCommand(`paywalls list --app ${TEST_APP_ID} --kind legacy_builder`);
+
+            expect(queryOf(0).get('filter[kind]'), 'the filter the server gets').to.equal('legacy_builder');
+            expect(stdout, 'the human view').to.contain('Kind: legacy_builder');
+
+            const json = await runCommand(`paywalls list --app ${TEST_APP_ID} --json`);
+
+            expect((JSON.parse(json.stdout) as { data: { kind: string }[] }).data.map(item => item.kind)).to.deep.equal(['legacy_builder']);
+            expect(queryOf(1).has('filter[kind]'), 'no filter without --kind').to.equal(false);
+        });
+
+        it('sends a kind it cannot judge, and the server answer is the error', async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+
+            fetchStub = mockFetchFailure(
+                {
+                    error_code: 'validation_error',
+                    errors: { 'filter[kind]': ['Allowed values: custom, legacy_builder'] },
+                    status_code: 400,
+                },
+                { status: 400 },
+            );
+
+            const { error } = await runCommand(`paywalls list --app ${TEST_APP_ID} --kind wrong`);
+
+            expect(queryOf(0).get('filter[kind]'), 'the CLI sends the value as it is').to.equal('wrong');
+            expect(error?.message).to.contain('Allowed values: custom, legacy_builder');
+        });
     });
 
     it('create sends the --products list as it is', async () => {

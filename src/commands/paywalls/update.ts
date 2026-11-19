@@ -16,9 +16,17 @@ export default class PaywallsUpdate extends Command {
         paywall_id: Args.string({ description: 'Paywall ID (UUID)', required: true }),
     };
 
-    static override description
-        = 'Replace a paywall: every field is required, and a field that is not sent is refused, not reset. '
-            + 'Send the body of `paywalls get --json` with --file, or give one flag for each field.';
+    static override summary = 'Replace a paywall: every field is required, and a field that is not sent is refused, not reset.';
+    static override description = [
+        'Send the body of `paywalls get --json` with --file, or give one flag for each field.',
+        '',
+        'Each paywall has a read-only `kind`: `custom` when it uses no legacy Paywall Builder, `legacy_builder` when it is set to use one.',
+        '`kind` follows the builder setting, not a saved layout, and names no builder version.',
+        '`paywalls placements` gives the placements that use a paywall now; `paywalls metrics get` gives its traffic in a period, by paywall ID and date.',
+        '',
+        'An update cannot set `kind`: the server ignores it in --file.',
+        'An update sets the older builder flag to false, so a paywall with only the older builder flag shows `kind: custom` after an update.',
+    ].join('\n');
 
     static override enableJsonFlag = true;
     static override examples = [
@@ -33,7 +41,7 @@ export default class PaywallsUpdate extends Command {
         ...appIdFlag,
         ...paywallFieldFlags,
         file: Flags.string({
-            description: 'JSON file with the whole body, or - to read stdin. `id` in it is ignored.',
+            description: 'JSON file with the whole body, or - to read stdin. `id` and `kind` in it are ignored.',
             exclusive: FIELD_FLAGS,
         }),
         title: Flags.string({ description: 'Paywall title' }),

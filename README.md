@@ -122,7 +122,7 @@ in between, and refuses to clear the last store side. Introductory offers are re
 ### Paywalls
 
 ```sh
-adapty paywalls list --app UUID [--page N] [--page-size N]
+adapty paywalls list --app UUID [--kind custom|legacy_builder] [--page N] [--page-size N]
 adapty paywalls get --app UUID PAYWALL_ID
 adapty paywalls create --app UUID --title "Name" --products JSON [--remote-configs JSON] [--use-paywall-builder-v4] [--screenshot-id ID|null] [--builder-screenshot-id ID|null] [--web-purchase-url URL|null]
 adapty paywalls update --app UUID PAYWALL_ID (--file PATH|- | --title "Name" --products JSON --remote-configs JSON (--use-paywall-builder-v4 | --no-use-paywall-builder-v4) --screenshot-id ID|null --builder-screenshot-id ID|null --web-purchase-url URL|null)
@@ -137,6 +137,13 @@ every field is required, and a missing one is refused, not reset. Send the file 
 (`adapty paywalls get ... --json > paywall.json`, edit it, then `adapty paywalls update ... --file paywall.json`), or give
 one flag for each field; `--file` and the field flags cannot be mixed. `null` clears a field that can be null. A write
 replaces the whole remote config list: `[]` deletes all.
+
+`paywalls list` and `paywalls get` show the read-only `kind` of each paywall: `custom` when it uses no legacy Paywall
+Builder, `legacy_builder` when it is set to use one. `kind` follows the builder setting, not a saved layout, and names
+no builder version. `--kind` lists only the paywalls of one kind; the server checks the value and answers a wrong one
+with the valid ones. `update` ignores `kind` in `--file`, and it sets the older builder flag to false, so a
+paywall with only the older builder flag shows `kind: custom` after an update. `paywalls placements` gives the
+placements that use a paywall now, and `paywalls metrics get` its traffic in a period.
 
 ### Placements
 
