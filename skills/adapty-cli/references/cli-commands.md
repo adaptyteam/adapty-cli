@@ -528,6 +528,39 @@ adapty flows media upload-video ./intro.mp4 --app APP_UUID --json
 
 - **Video value.** In a flow config a video is `{videoUrl, previewUrl, width, height}`, from `video_url`, `preview_url`, `width` and `height`.
 
+## Retention Messaging
+
+Apple Retention Messaging: the message that Apple shows on the App Store cancel screen. Every command takes `--app`.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `retention-messaging setup-status` | The App Store key, the Apple access, the realtime URL status of each mode and the performance test. Works with no App Store key. The read can save the result of a running performance test |
+| `retention-messaging realtime-url get` | The Adapty URL for Apple, one for both modes |
+| `retention-messaging realtime-url configure` | `--mode sandbox\|production`; asks (`--yes`). Reads the setup status first; when Apple has the URL of another server in that mode it warns: with no terminal it exits 6 also with `--yes`, unless `--replace-other-url` (give it only after a separate yes of the user) |
+| `retention-messaging performance-test start` | Sandbox only; no question. Then read `setup-status` until the test is passed or failed |
+| `retention-messaging messages list` | `--mode`; optional `--search`, `--type default\|promo`, `--state in_review\|live\|rejected\|inactive`, `--ordering`, `--page`, `--page-size`. Six lifetime metrics per message |
+| `retention-messaging messages get <message_id>` | The texts, image, bullet points, products and localizations |
+| `retention-messaging messages create` | `--mode`, `--file` (the message; a bullet point has `image_path`, never `image_index`), optional `--image`; asks in both modes (`--yes`) |
+| `retention-messaging messages update <message_id>` | `--name`, `--title`, `--body`, `--alt-text`, `--image`, `--remove-image`, `--file` (the change); asks (`--yes`) |
+| `retention-messaging messages set-status <message_id>` | `--action activate\|deactivate`; asks in both modes (`--yes`) |
+| `retention-messaging products suggest` | `--mode`, `--type`; optional `--message-id` (the message you edit), `--search`, `--limit` |
+| `retention-messaging promo-offers suggest <product_id>` | Optional `--search`, `--limit` |
+| `retention-messaging plan-switches suggest <product_id>` | Optional `--search`, `--limit`; needs the App Store Connect key |
+
+- **Reads with an effect.** `messages list` and `messages get` ask Apple for review results, as the dashboard does: they can start to show a message that Apple approved. Tell the user before the first read.
+- **Questions.** `realtime-url configure`, `messages create`, `messages update` and `messages set-status` ask in both modes. With no terminal they exit 6 and print what the action does: show it to the user, wait for a clear yes, then re-run with `--yes`.
+- **Images.** Every image is checked before anything is sent: a PNG with no transparency, of the size Apple requires (exit 2 names the file and the rule).
+- **Create file.** The create body of the server; a bullet point has `image_path` (relative to the folder of the file) in place of `image_index`:
+  `{"name": "Winter", "type": "default", "title": "...", "body": "...", "products": [{"store_id": "annual"}], "bullet_points": [{"image_path": "icon.png", "text": "..."}], "localizations": [{"locale": "de-DE", "title": "...", "body": "...", "bullet_points": [{"text": "..."}]}]}`.
+- **Change file.** Only what changes: `name`, `title`, `body`, `alt_text`; `localizations` by `locale` (`title`, `body`, `bullet_texts` by `bullet_id`); `bullet_points` by `bullet_id` (`text`, `alt_text`, `image_path` for a new icon; a new bullet point has no `bullet_id` and needs `image_path`, `text` and `texts` for every localization); `products` by `store_id` (a left-out `association` stays, `null` removes it). Removal only by `remove_localizations`, `remove_bullet_points`, `remove_products`, `remove_image`. The CLI reads the message and sends it back whole: what you do not name stays. A conflict (one object both changed and removed, a field both as a flag and in the file) and an object that the message does not have are refused with exit 2, with nothing sent.
+- **Lost answer.** A create or an update is sent once. If its answer is lost (exit 5, or 4 on a 5xx), the result is unknown: never repeat it. After a create, look for the message by name in `messages list` (every page) and read each candidate; after an update, read the message.
+
+```sh
+adapty retention-messaging setup-status --app APP_UUID
+adapty retention-messaging messages create --app APP_UUID --mode sandbox --file message.json --image header.png --yes
+adapty retention-messaging messages update MESSAGE_UUID --app APP_UUID --file changes.json --yes
+```
+
 ## Feedback
 
 | Command    | Flags |
