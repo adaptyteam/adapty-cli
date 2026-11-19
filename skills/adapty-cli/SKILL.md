@@ -178,7 +178,10 @@ The `adapty asa` commands ship in this CLI and are listed in the `asa` section o
 campaigns (write rules, playbooks, and vertical guides) lives in the `apple-ads` skill at
 [adaptyteam/apple-ads-cli](https://github.com/adaptyteam/apple-ads-cli). Reads (`asa whoami`, any `list`,
 `asa metrics`) are safe to run directly; open `apple-ads` before any `asa` write, because writes spend real money
-and cannot be undone.
+and cannot be undone. Before analysing an account or changing it, read the conduct rules in
+`references/asa-agent-playbook.md`: never pause a whole account, no pause or bid-down on an immature cohort,
+claim a Search Match overlap only from `search-terms list --overlap-only` (else "unverified"), and keyword
+instances sharing one `cpp_ab_test_id` are a CPP rotation set, not duplicates.
 
 ---
 

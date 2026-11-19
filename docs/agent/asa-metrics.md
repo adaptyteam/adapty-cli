@@ -132,8 +132,10 @@ A cohort metric is what has actually been observed so far, not a projection. A w
 than the cohort's age is `null` (blank cells in table mode), not the last real figure. Each
 period row is cut at its own age.
 
-`meta.max_valid_day` in the response is how many days the youngest cohort in the request has
-lived, counted from `--date-to`. Treat any `--by-days` window above it as not reached:
+With a date `--group-by` (`day`, `week`, `month`, ...) each period row is cut at its own age.
+Without one, `meta.max_valid_day` in the response is how many days the youngest cohort in the
+request has lived, counted from `--date-to`, and it applies to every row. Treat any `--by-days`
+window above the row's age as not reached:
 
 - Do not divide a clipped numerator by a full-window denominator.
 - Compare markets only at a window all of them have reached.
