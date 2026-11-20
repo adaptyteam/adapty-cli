@@ -295,8 +295,8 @@ adapty flows publish --app UUID FLOW_ID [--yes]
 `publication_failed`. When the config names a custom font family, it first reads the app fonts and, if the copy of
 the fonts in the config (`_meta.fonts`) is stale, saves the config with the current fonts (keeping the remote
 configs, with the `updated_at` it read as the lock), as the flow builder does; a copy left from a font the config
-no longer names is cleared the same way. A failed font read, or a config answer without the lock, stops before any
-write; a failed save stops before the publish.
+no longer names is cleared the same way. A failed font read, a config answer without the lock, or a font named by
+a name that several families share, stops before any write; a failed save stops before the publish.
 
 `flows config update` writes the config and the remote configs together, and both are required: a write replaces the
 whole remote config list. To keep it, send the stored list back; `[]` deletes all, so use it only on a flow that has
