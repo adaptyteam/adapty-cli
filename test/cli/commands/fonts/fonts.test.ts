@@ -259,7 +259,7 @@ describe('fonts', () => {
                 write: { json: { target_font_family_id: TARGET_ID }, method: 'POST', path: `${facePath}move/` },
             },
             {
-                argv: ({ bold }) => ['fonts', 'faces', 'replace', FACE_ID, bold],
+                argv: ({ bold }) => ['fonts', 'faces', 'replace', FACE_ID, bold, '--yes'],
                 id: 'faces replace',
                 out: [new RegExp(`${FACE_ID} +700 +Brand-Bold-New`)],
                 routes: [listRoute, { answers: [{ body: written([face(400), face(700, { fileId: 8, ios: 'Brand-Bold-New' })]) }], method: 'PUT', path: /\/file\/$/ }, ...usageRoutes()],
@@ -309,6 +309,41 @@ describe('fonts', () => {
 
                 if (row.write.fields !== undefined) {
                     expect(formFields(write?.body), row.id).to.deep.equal(row.write.fields);
+                }
+            });
+        }
+    });
+
+    /**
+     * hard-limit: `fonts faces replace` overwrites a stored file for good, so without --yes and with nobody to
+     * answer it does nothing: exit 6 `confirm_required`, no request at all (the --yes run is the replace row above).
+     */
+    describe('fonts faces replace without --yes and no terminal', () => {
+        const rows: { id: string; json: boolean }[] = [
+            { id: 'human: exit 6, nothing sent', json: false },
+            { id: '--json: exit 6 confirm_required, nothing sent', json: true },
+        ];
+
+        for (const row of rows) {
+            it(row.id, async () => {
+                const sent = use([listRoute, { answers: [{ body: written([face(400), face(700)]) }], method: 'PUT', path: /\/file\/$/ }]);
+                const bold = await fontFile('Brand-Bold.otf');
+                const json = row.json ? ['--json'] : [];
+
+                const { error, stdout } = await runCommand(['fonts', 'faces', 'replace', FACE_ID, bold, '--app', TEST_APP_ID, ...json]);
+                const exit = error?.oclif?.exit ?? process.exitCode;
+                type Failure = { error: { code: string; message: string } };
+
+                const text = row.json ? (JSON.parse(stdout) as Failure).error : error;
+
+                expect(sent, row.id).to.deep.equal([]);
+                expect(exit, row.id).to.equal(exitCode.confirmRequired);
+
+                expect(text?.message, row.id).to.include(`Replace the file of font face ${FACE_ID} with Brand-Bold.otf. `
+                    + 'The old file is not kept and cannot be restored.');
+
+                if (row.json) {
+                    expect((text as { code: string }).code, row.id).to.equal('confirm_required');
                 }
             });
         }
