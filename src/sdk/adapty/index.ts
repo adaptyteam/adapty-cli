@@ -65,7 +65,7 @@ export { validateMetricsInput } from './metrics.js';
 export { findDraft, hasPublishedHistory, versionDate, versionPublication } from './flow-versions.js';
 export { isNeverPublished } from './flows.js';
 export { fontReferences, refreshFlowFonts } from './flow-fonts.js';
-export { fontConflict, uploadChoices, validateUpdateFontFace } from './fonts/index.js';
+export { faceRef, familiesOfFile, fontConflict, uploadChoices, validateUpdateFontFace } from './fonts/index.js';
 export {
     dashboardOnlyActions,
     withHypothesisIds,

@@ -1,6 +1,6 @@
 import { Flags } from '@oclif/core';
 
-import { validateUpdateFontFace } from '../../../../sdk/adapty/index.js';
+import { faceRef, familiesOfFile, validateUpdateFontFace } from '../../../../sdk/adapty/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
 import { FontsCommand } from '../../../base/adapty/index.js';
 import { appIdFlag } from '../../../input/app.js';
@@ -42,13 +42,15 @@ export default class FontsFacesUpdate extends FontsCommand {
         // Before the token: an empty change needs no session
         assertValid(validateUpdateFontFace(input));
 
-        const { family } = await this.adapty.fonts.findFace(flags.app, args.face_id);
-        const ref = { faceId: args.face_id, familyId: family.id };
+        const located = await this.adapty.fonts.findFace(flags.app, args.face_id);
+        const ref = faceRef(located);
         const result = await this.adapty.fonts.faces.update(flags.app, ref, input);
-        const flows = await this.flowsToPublish(flags.app, [result.id]);
+        // An Android name is the file's: every family with a face of that file changed
+        const changed = input.androidName === undefined ? [result.id] : [result.id, ...familiesOfFile(located)];
+        const flows = await this.flowsToPublish(flags.app, changed);
 
-        this.render(result, value => renderChangedFamily(value, flows, flags.app));
+        this.render(result, value => renderChangedFamily(value, flows.flows_to_publish, flags.app));
 
-        return { ...result, flows_to_publish: flows };
+        return { ...result, ...flows };
     }
 }

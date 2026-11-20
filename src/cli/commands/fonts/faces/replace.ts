@@ -1,5 +1,6 @@
 import { Args } from '@oclif/core';
 
+import { faceRef } from '../../../../sdk/adapty/index.js';
 import { FontsCommand } from '../../../base/adapty/index.js';
 import { appIdFlag } from '../../../input/app.js';
 import { faceIdArg, italicValue, pairFlags, readFontFile } from '../../../input/fonts.js';
@@ -30,8 +31,8 @@ export default class FontsFacesReplace extends FontsCommand {
     async run(): Promise<FlowsToPublish & FontFamilyWriteResult> {
         const { args, flags } = await this.parse(FontsFacesReplace);
         const file = await readFontFile(args.file);
-        const { family } = await this.adapty.fonts.findFace(flags.app, args.face_id);
-        const ref = { faceId: args.face_id, familyId: family.id };
+        const located = await this.adapty.fonts.findFace(flags.app, args.face_id);
+        const ref = faceRef(located);
 
         const result = await this.adapty.fonts.faces.replace(flags.app, ref, file, {
             italic: italicValue(flags.italic),
@@ -40,8 +41,8 @@ export default class FontsFacesReplace extends FontsCommand {
 
         const flows = await this.flowsToPublish(flags.app, [result.id]);
 
-        this.render(result, value => renderChangedFamily(value, flows, flags.app));
+        this.render(result, value => renderChangedFamily(value, flows.flows_to_publish, flags.app));
 
-        return { ...result, flows_to_publish: flows };
+        return { ...result, ...flows };
     }
 }

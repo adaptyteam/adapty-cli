@@ -25,8 +25,8 @@ export default class FontsRename extends FontsCommand {
         const family = await this.adapty.fonts.rename(flags.app, args.family_id, args.name);
         const flows = await this.flowsToPublish(flags.app, [family.id]);
 
-        this.render(family, value => renderChangedFamily(value, flows, flags.app));
+        this.render(family, value => renderChangedFamily(value, flows.flows_to_publish, flags.app));
 
-        return { ...family, flows_to_publish: flows };
+        return { ...family, ...flows };
     }
 }

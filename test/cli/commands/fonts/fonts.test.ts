@@ -16,27 +16,71 @@ const FAMILY_ID = '11111111-1111-4111-8111-111111111111';
 const TARGET_ID = '22222222-2222-4222-8222-222222222222';
 const FACE_ID = '33333333-3333-4333-8333-333333333333';
 const FLOW_ID = '44444444-4444-4444-8444-444444444444';
+const OTHER_FACE_ID = '55555555-5555-4555-8555-555555555555';
+const TARGET_FLOW_ID = '66666666-6666-4666-8666-666666666666';
 const FONTS = `/api/v1/developer/apps/${TEST_APP_ID}/media/fonts/`;
+const POST_FONTS = /\/media\/fonts\/$/;
 
-const face = (weight: number, italic = false) => ({
-    family_id: FAMILY_ID,
-    file_format: 'otf',
-    file_id: 7,
-    file_url: 'https://cdn.example.com/brand.otf',
-    font_alias_android: null,
-    font_alias_ios: `Brand-${weight}${italic ? 'i' : ''}`,
-    id: weight === 700 ? FACE_ID : `face-${weight}${italic ? 'i' : ''}`,
-    is_default: weight === 400 && !italic,
-    italic,
-    metadata_status: 'detected',
-    weight,
-});
+type FaceOptions = {
+    familyId?: string;
+    fileId?: number;
+    id?: string;
+    ios?: string;
+    isDefault?: boolean;
+    italic?: boolean;
+};
 
-const FAMILY = { default_face_id: 'face-400', faces: [face(400), face(700), face(400, true)], id: FAMILY_ID, name: 'Brand' };
-const TARGET = { ...FAMILY, faces: [face(700)], id: TARGET_ID, name: 'Inter' };
-const WRITTEN = { ...FAMILY, warnings: [] };
-const USED = { faces: [], family_id: FAMILY_ID, flows: [{ flow_id: FLOW_ID, found_count: 2 }], paywalls: [] };
-const UNUSED = { ...USED, flows: [] };
+const face = (weight: number, options: FaceOptions = {}) => {
+    const italic = options.italic ?? false;
+
+    return {
+        family_id: options.familyId ?? FAMILY_ID,
+        file_format: 'otf',
+        file_id: options.fileId ?? weight,
+        file_url: 'https://cdn.example.com/brand.otf',
+        font_alias_android: null,
+        font_alias_ios: options.ios ?? `Brand-${weight}${italic ? 'i' : ''}`,
+        id: options.id ?? (weight === 700 ? FACE_ID : `face-${weight}${italic ? 'i' : ''}`),
+        is_default: options.isDefault ?? (weight === 400 && !italic),
+        italic,
+        metadata_status: 'detected',
+        weight,
+    };
+};
+
+type Face = ReturnType<typeof face>;
+
+const FAMILY = {
+    default_face_id: 'face-400',
+    faces: [face(400), face(700), face(400, { italic: true })],
+    id: FAMILY_ID,
+    name: 'Brand',
+};
+
+const TARGET = {
+    default_face_id: OTHER_FACE_ID,
+    faces: [face(300, { familyId: TARGET_ID, id: OTHER_FACE_ID })],
+    id: TARGET_ID,
+    name: 'Inter',
+};
+
+/** The family after a write: these faces, and the warnings of a write. */
+const written = (faces: Face[], extra: Record<string, unknown> = {}) => ({ ...FAMILY, faces, warnings: [], ...extra });
+
+const usage = (familyId: string, flowIds: string[]) =>
+    ({ faces: [], family_id: familyId, flows: flowIds.map(flow => ({ flow_id: flow, found_count: 2 })), paywalls: [] });
+
+/** The usage of the named families; any other family is used by no flow. */
+const usageRoutes = (used: Record<string, string[]> = {}): Route[] => [
+    ...Object.entries(used).map(([familyId, flowIds]): Route => ({
+        answers: [{ body: usage(familyId, flowIds) }],
+        method: 'GET',
+        path: new RegExp(`${familyId}/usage/$`),
+    })),
+    { answers: [{ body: usage(FAMILY_ID, []) }], method: 'GET', path: /\/usage\/$/ },
+];
+
+const BOTH_USED = { [FAMILY_ID]: [FLOW_ID], [TARGET_ID]: [TARGET_FLOW_ID] };
 
 const upload = (result: string, faces: unknown[]) => ({
     created_faces: result === 'created' || result === 'added' ? faces : [],
@@ -54,10 +98,8 @@ const refusal = (code: string, message: string, status = 400, extra = {}) => ({
     status,
 });
 
-const OTHER_FACE_ID = '55555555-5555-4555-8555-555555555555';
-
-const collision = (faceId: string, weight: number) =>
-    ({ face_id: faceId, family_id: FAMILY_ID, family_name: 'Brand', font_alias_ios: `Brand-${weight}`, italic: false, weight });
+const collision = (faceId: string, weight: number, family = { id: FAMILY_ID, name: 'Brand' }) =>
+    ({ face_id: faceId, family_id: family.id, family_name: family.name, font_alias_ios: `Brand-${weight}`, italic: false, weight });
 
 /** A 409 of upload and add: every colliding face, the first one also as `conflict`. */
 const collisions = (...faces: ReturnType<typeof collision>[]) =>
@@ -65,8 +107,7 @@ const collisions = (...faces: ReturnType<typeof collision>[]) =>
 
 const TWO = collisions(collision(FACE_ID, 700), collision(OTHER_FACE_ID, 400));
 
-const listRoute: Route = { answers: [{ body: { data: [FAMILY, TARGET] } }], method: 'GET', path: /\/media\/fonts\/$/ };
-const usageRoute = (body: unknown = USED): Route => ({ answers: [{ body }], method: 'GET', path: /\/usage\/$/ });
+const listRoute: Route = { answers: [{ body: { data: [FAMILY, TARGET] } }], method: 'GET', path: POST_FONTS };
 
 const writes = (sent: readonly SentRequest[]): SentRequest[] => sent.filter(request => request.method !== 'GET');
 
@@ -83,6 +124,14 @@ const formFields = (body: unknown): Record<string, string> => {
 
     return fields;
 };
+
+/** The arguments as one command line: runCommand splits a line on spaces outside double quotes. */
+const line = (args: readonly string[]): string => args.map(arg => (arg.includes(' ') ? `"${arg}"` : arg)).join(' ');
+
+const escaped = (text: string): RegExp => new RegExp(text.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`));
+
+type FileResult = Record<string, unknown> & { error_code?: string; message?: string; result: string };
+type PackageJson = { files: FileResult[]; flows_to_publish: unknown };
 
 describe('fonts', () => {
     let dir: string;
@@ -116,76 +165,109 @@ describe('fonts', () => {
     });
 
     /**
-     * external: the success path of each command, as an agent runs it: exit 0, the request it
-     * sends and the line it reads. A change of a family that a flow uses names that flow.
+     * external: the success path of each command, as an agent runs it: exit 0, the request it sends and
+     * what changed in what it prints. A change of a family that flows use names those flows, also of a
+     * second family the change reaches (a move, a file shared by two families).
      */
     describe('each command', () => {
         type Row = {
-            argv: (files: { bold: string }) => string;
-            expectedOut: string[];
+            absent?: RegExp[];
+            argv: (files: { bold: string }) => string[];
             id: string;
+            out: RegExp[];
             routes: Route[];
             write?: { fields?: Record<string, string>; json?: unknown; method: string; path: string };
         };
 
+        const facePath = `${FONTS}${FAMILY_ID}/faces/${FACE_ID}/`;
+        const patchFace = (body: unknown): Route => ({ answers: [{ body }], method: 'PATCH', path: /\/faces\/[\w-]+\/$/ });
+        const movedSibling = face(700, { familyId: TARGET_ID, fileId: 700, id: OTHER_FACE_ID });
+        const sharedFile: Route = { answers: [{ body: { data: [FAMILY, { ...TARGET, faces: [movedSibling] }] } }], method: 'GET', path: POST_FONTS };
+
+        const madeDefault = {
+            default_face_id: FACE_ID,
+            faces: [face(400, { isDefault: false }), face(700, { isDefault: true })],
+        };
+
+        const movedInto = { ...TARGET, faces: [...TARGET.faces, face(700, { familyId: TARGET_ID })] };
+
         const rows: Row[] = [
-            { argv: () => 'fonts list', expectedOut: ['Brand (', '400 italic'], id: 'list', routes: [listRoute] },
+            { argv: () => ['fonts', 'list'], id: 'list', out: [/Brand \(/, /400 italic/], routes: [listRoute] },
             {
-                argv: () => `fonts get ${FAMILY_ID}`,
-                expectedOut: ['Brand ('],
+                argv: () => ['fonts', 'get', FAMILY_ID],
                 id: 'get',
+                out: [escaped(`Brand (${FAMILY_ID})`)],
                 routes: [{ answers: [{ body: FAMILY }], method: 'GET', path: new RegExp(`${FAMILY_ID}/$`) }],
             },
             {
-                argv: ({ bold }) => `fonts upload ${bold}`,
-                expectedOut: ['Brand-Bold.otf: created in Brand', '1 of 1 files done.'],
+                argv: ({ bold }) => ['fonts', 'upload', bold],
                 id: 'upload',
-                routes: [{ answers: [{ body: upload('created', [face(700)]), status: 201 }], method: 'POST', path: /\/media\/fonts\/$/ }],
+                out: [/Brand-Bold\.otf: created in Brand/, /1 of 1 files done\./],
+                routes: [{ answers: [{ body: upload('created', [face(700)]), status: 201 }], method: 'POST', path: POST_FONTS }, ...usageRoutes()],
                 write: { fields: { file: 'Brand-Bold.otf' }, method: 'POST', path: FONTS },
             },
             {
-                argv: ({ bold }) => `fonts add ${FAMILY_ID} ${bold}`,
-                expectedOut: ['Brand-Bold.otf: added in Brand', `  ${FLOW_ID}`],
+                argv: ({ bold }) => ['fonts', 'add', FAMILY_ID, bold],
                 id: 'add',
-                routes: [{ answers: [{ body: upload('added', [face(700)]), status: 201 }], method: 'POST', path: /\/faces\/$/ }, usageRoute()],
+                out: [/Brand-Bold\.otf: added in Brand[^\n]*: new faces 700/, escaped(`  ${FLOW_ID}`)],
+                routes: [
+                    { answers: [{ body: upload('added', [face(700)]), status: 201 }], method: 'POST', path: /\/faces\/$/ },
+                    ...usageRoutes({ [FAMILY_ID]: [FLOW_ID] }),
+                ],
                 write: { fields: { file: 'Brand-Bold.otf' }, method: 'POST', path: `${FONTS}${FAMILY_ID}/faces/` },
             },
             {
-                argv: () => `fonts rename ${FAMILY_ID} Brand`,
-                expectedOut: ['These flows use the changed font and need a publish to get it:', `  ${FLOW_ID}`],
+                argv: () => ['fonts', 'rename', FAMILY_ID, 'Brand Sans'],
                 id: 'rename',
-                routes: [{ answers: [{ body: FAMILY }], method: 'PATCH', path: /fonts\/[\w-]+\/$/ }, usageRoute()],
-                write: { json: { name: 'Brand' }, method: 'PATCH', path: `${FONTS}${FAMILY_ID}/` },
+                out: [escaped(`Brand Sans (${FAMILY_ID})`), /need a publish to get it:/, escaped(`  ${FLOW_ID}`)],
+                routes: [
+                    { answers: [{ body: { ...FAMILY, name: 'Brand Sans' } }], method: 'PATCH', path: /fonts\/[\w-]+\/$/ },
+                    ...usageRoutes({ [FAMILY_ID]: [FLOW_ID] }),
+                ],
+                write: { json: { name: 'Brand Sans' }, method: 'PATCH', path: `${FONTS}${FAMILY_ID}/` },
             },
             {
-                argv: () => `fonts faces update ${FACE_ID} --weight 600 --italic false`,
-                expectedOut: ['Brand ('],
+                argv: () => ['fonts', 'faces', 'update', FACE_ID, '--weight', '600', '--italic', 'false'],
                 id: 'faces update',
-                routes: [listRoute, { answers: [{ body: WRITTEN }], method: 'PATCH', path: /\/faces\/[\w-]+\/$/ }, usageRoute(UNUSED)],
-                write: { json: { italic: false, weight: 600 }, method: 'PATCH', path: `${FONTS}${FAMILY_ID}/faces/${FACE_ID}/` },
+                out: [escaped(`${FACE_ID}  600`)],
+                routes: [listRoute, patchFace(written([face(400), face(600, { id: FACE_ID })])), ...usageRoutes()],
+                write: { json: { italic: false, weight: 600 }, method: 'PATCH', path: facePath },
             },
             {
-                argv: () => `fonts faces default ${FACE_ID}`,
-                expectedOut: ['Brand ('],
+                argv: () => ['fonts', 'faces', 'update', FACE_ID.toUpperCase(), '--android-name', 'brand_bold'],
+                id: 'faces update: a face id in upper case; an Android name reaches every family of the file',
+                out: [escaped(`  ${FLOW_ID}`), escaped(`  ${TARGET_FLOW_ID}`)],
+                routes: [sharedFile, patchFace(written([face(400), face(700)])), ...usageRoutes(BOTH_USED)],
+                write: { json: { font_alias_android: 'brand_bold' }, method: 'PATCH', path: facePath },
+            },
+            {
+                absent: [/face-400 [^\n]*default/],
+                argv: () => ['fonts', 'faces', 'default', FACE_ID],
                 id: 'faces default',
-                routes: [listRoute, { answers: [{ body: WRITTEN }], method: 'PATCH', path: /\/faces\/[\w-]+\/$/ }, usageRoute(UNUSED)],
-                write: { json: { is_default: true }, method: 'PATCH', path: `${FONTS}${FAMILY_ID}/faces/${FACE_ID}/` },
+                out: [new RegExp(`${FACE_ID}[^\\n]*default`)],
+                routes: [listRoute, patchFace(written([], madeDefault)), ...usageRoutes()],
+                write: { json: { is_default: true }, method: 'PATCH', path: facePath },
             },
             {
-                argv: () => `fonts faces move ${FACE_ID} --to ${TARGET_ID}`,
-                expectedOut: ['Inter ('],
-                id: 'faces move',
-                routes: [listRoute, { answers: [{ body: TARGET }], method: 'POST', path: /\/move\/$/ }, usageRoute(UNUSED)],
-                write: { json: { target_font_family_id: TARGET_ID }, method: 'POST', path: `${FONTS}${FAMILY_ID}/faces/${FACE_ID}/move/` },
+                argv: () => ['fonts', 'faces', 'move', FACE_ID, '--to', TARGET_ID],
+                id: 'faces move: the flows of the source and of the target family',
+                out: [escaped(`Inter (${TARGET_ID})`), escaped(`  ${FLOW_ID}`), escaped(`  ${TARGET_FLOW_ID}`)],
+                routes: [listRoute, { answers: [{ body: movedInto }], method: 'POST', path: /\/move\/$/ }, ...usageRoutes(BOTH_USED)],
+                write: { json: { target_font_family_id: TARGET_ID }, method: 'POST', path: `${facePath}move/` },
             },
             {
-                argv: ({ bold }) => `fonts faces replace ${FACE_ID} ${bold}`,
-                expectedOut: ['Brand ('],
+                argv: ({ bold }) => ['fonts', 'faces', 'replace', FACE_ID, bold],
                 id: 'faces replace',
-                routes: [listRoute, { answers: [{ body: WRITTEN }], method: 'PUT', path: /\/file\/$/ }, usageRoute(UNUSED)],
-                write: { fields: { file: 'Brand-Bold.otf' }, method: 'PUT', path: `${FONTS}${FAMILY_ID}/faces/${FACE_ID}/file/` },
+                out: [new RegExp(`${FACE_ID} +700 +Brand-Bold-New`)],
+                routes: [listRoute, { answers: [{ body: written([face(400), face(700, { fileId: 8, ios: 'Brand-Bold-New' })]) }], method: 'PUT', path: /\/file\/$/ }, ...usageRoutes()],
+                write: { fields: { file: 'Brand-Bold.otf' }, method: 'PUT', path: `${facePath}file/` },
             },
-            { argv: () => `fonts usage ${FAMILY_ID}`, expectedOut: [`  ${FLOW_ID}  2 uses`], id: 'usage', routes: [usageRoute()] },
+            {
+                argv: () => ['fonts', 'usage', FAMILY_ID],
+                id: 'usage',
+                out: [escaped(`  ${FLOW_ID}  2 uses`)],
+                routes: usageRoutes({ [FAMILY_ID]: [FLOW_ID] }),
+            },
         ];
 
         for (const row of rows) {
@@ -193,13 +275,17 @@ describe('fonts', () => {
                 const sent = use(row.routes);
                 const bold = await fontFile('Brand-Bold.otf');
 
-                const { error, stdout } = await runCommand(`${row.argv({ bold })} --app ${TEST_APP_ID}`);
+                const { error, stdout } = await runCommand(line([...row.argv({ bold }), '--app', TEST_APP_ID]));
 
                 expect(error, row.id).to.equal(undefined);
                 expect(process.exitCode ?? 0, row.id).to.equal(0);
 
-                for (const line of row.expectedOut) {
-                    expect(stdout, row.id).to.include(line);
+                for (const line of row.out) {
+                    expect(stdout, row.id).to.match(line);
+                }
+
+                for (const line of row.absent ?? []) {
+                    expect(stdout, row.id).not.to.match(line);
                 }
 
                 const [write, ...more] = writes(sent);
@@ -225,102 +311,141 @@ describe('fonts', () => {
         }
     });
 
-    /** external: the per-file report and the exit code an agent acts on after a package. */
+    /**
+     * external: the per-file report and the exit code an agent acts on after a package. A file the server
+     * refuses does not stop the rest; a network or auth failure, and a success answer the CLI cannot read
+     * (the file may be stored), stop it after the report of the files done.
+     */
     describe('a package', () => {
-        const packageRoutes = (): Route[] => [{
-            answers: [
-                { body: upload('created', [face(400)]), status: 201 },
-                { body: upload('added', [face(700)]), status: 201 },
-                { body: upload('added', [face(400, true)]), status: 201 },
-                refusal('corrupted_font_file', 'The font file is corrupted.'),
-                refusal('invalid_font_file', 'Invalid font file. Only .ttf and .otf files are allowed. Upload a .ttf or .otf file.'),
-            ],
-            method: 'POST',
-            path: /\/media\/fonts\/$/,
-        }, usageRoute(UNUSED)];
+        const NAMES = ['Regular.otf', 'Bold.otf', 'Italic.otf', 'broken.otf', 'font.woff2'];
+        const invalid = 'Invalid font file. Only .ttf and .otf files are allowed. Upload a .ttf or .otf file.';
+        const { warnings: _, ...unreadable } = upload('added', [face(700)]);
 
-        const files = async (): Promise<string> =>
-            (await Promise.all(['Regular.otf', 'Bold.otf', 'Italic.otf', 'broken.otf', 'font.woff2'].map(name => fontFile(name)))).join(' ');
+        const MIXED: RouteAnswer[] = [
+            { body: upload('created', [face(400)]), status: 201 },
+            { body: upload('added', [face(700)]), status: 201 },
+            { body: upload('added', [face(400, { italic: true })]), status: 201 },
+            refusal('corrupted_font_file', 'The font file is corrupted.'),
+            refusal('invalid_font_file', invalid),
+        ];
 
-        it('with a refused file reports every file and exits 4 (human)', async () => {
-            const sent = use(packageRoutes());
+        const stopAfterOne = (answer: RouteAnswer): RouteAnswer[] => [{ body: upload('created', [face(400)]), status: 201 }, answer];
 
-            const { stdout } = await runCommand(`fonts upload ${await files()} --app ${TEST_APP_ID}`);
+        const stopped = (code: string): [string, string | undefined][] =>
+            [['created', undefined], ['failed', code], ['not_sent', undefined], ['not_sent', undefined], ['not_sent', undefined]];
 
-            expect(writes(sent)).to.have.length(5);
-            expect(process.exitCode).to.equal(exitCode.api);
-            expect(stdout).to.include('Regular.otf: created in Brand');
-            expect(stdout).to.include('Italic.otf: added in Brand');
-            expect(stdout).to.include('broken.otf: refused — corrupted_font_file: The font file is corrupted.');
-            expect(stdout).to.include('font.woff2: refused — invalid_font_file: Invalid font file. Only .ttf and .otf files are allowed. Upload a .ttf or .otf file.');
-            expect(stdout).to.include('3 of 5 files done, 2 refused.');
-        });
+        type Row = {
+            answers: RouteAnswer[];
+            exit: number;
+            files: number;
+            human?: string[];
+            id: string;
+            message?: string;
+            results?: [string, string | undefined][];
+            writes: number;
+        };
 
-        it('with --json is one parseable result per file, refusals with code and message, exit 4', async () => {
-            use(packageRoutes());
+        const rows: Row[] = [
+            {
+                answers: MIXED,
+                exit: exitCode.api,
+                files: 5,
+                human: [
+                    'Regular.otf: created in Brand',
+                    'Italic.otf: added in Brand',
+                    'broken.otf: refused — corrupted_font_file: The font file is corrupted.',
+                    `font.woff2: refused — invalid_font_file: ${invalid}`,
+                    '3 of 5 files done, 2 refused.',
+                ],
+                id: 'a refused file: every file reported, exit 4 (human)',
+                writes: 5,
+            },
+            {
+                answers: MIXED,
+                exit: exitCode.api,
+                files: 5,
+                id: 'a refused file: one parseable result per file, exit 4 (--json)',
+                results: [
+                    ['created', undefined],
+                    ['added', undefined],
+                    ['added', undefined],
+                    ['refused', 'corrupted_font_file'],
+                    ['refused', 'invalid_font_file'],
+                ],
+                writes: 5,
+            },
+            {
+                answers: MIXED,
+                exit: 0,
+                files: 3,
+                id: 'every file stored: exit 0',
+                results: [['created', undefined], ['added', undefined], ['added', undefined]],
+                writes: 3,
+            },
+            {
+                answers: stopAfterOne({ network: true }),
+                exit: exitCode.network,
+                files: 5,
+                id: 'network: stops, exit 5',
+                results: stopped('network_error'),
+                writes: 2,
+            },
+            {
+                answers: stopAfterOne({ body: { detail: 'Invalid token.' }, status: 401 }),
+                exit: exitCode.auth,
+                files: 5,
+                id: '401: stops, exit 3',
+                results: stopped('auth_required'),
+                writes: 2,
+            },
+            {
+                answers: stopAfterOne({ body: { errors: [{ code: 'permission_denied', detail: 'No access.' }] }, status: 403 }),
+                exit: exitCode.auth,
+                files: 5,
+                id: '403: stops, exit 3',
+                results: stopped('permission_denied'),
+                writes: 2,
+            },
+            {
+                answers: stopAfterOne({ body: unreadable, status: 201 }),
+                exit: exitCode.api,
+                files: 5,
+                id: 'a success without warnings: stops, says the file may be stored, exit 4',
+                message: 'The file may be stored',
+                results: stopped('malformed_response'),
+                writes: 2,
+            },
+        ];
 
-            const { stdout } = await runCommand(`fonts upload ${await files()} --app ${TEST_APP_ID} --json`);
-            type Report = { files: { error_code?: string; result: string }[]; flows_to_publish: unknown };
+        for (const row of rows) {
+            it(row.id, async () => {
+                const sent = use([{ answers: row.answers, method: 'POST', path: POST_FONTS }, ...usageRoutes()]);
+                const paths = await Promise.all(NAMES.slice(0, row.files).map(name => fontFile(name)));
+                const json = row.human === undefined ? ['--json'] : [];
 
-            const report = JSON.parse(stdout) as Report;
+                const { stdout } = await runCommand(['fonts', 'upload', ...paths, '--app', TEST_APP_ID, ...json]);
 
-            expect(report.files.map(file => [file.result, file.error_code])).to.deep.equal([
-                ['created', undefined],
-                ['added', undefined],
-                ['added', undefined],
-                ['refused', 'corrupted_font_file'],
-                ['refused', 'invalid_font_file'],
-            ]);
+                expect(writes(sent), row.id).to.have.length(row.writes);
+                expect(process.exitCode ?? 0, row.id).to.equal(row.exit);
 
-            expect(report.flows_to_publish).to.deep.equal([]);
-            expect(process.exitCode).to.equal(exitCode.api);
-        });
+                for (const line of row.human ?? []) {
+                    expect(stdout, row.id).to.include(line);
+                }
 
-        it('every file stored exits 0', async () => {
-            use(packageRoutes());
+                if (row.results !== undefined) {
+                    const { files } = JSON.parse(stdout) as PackageJson;
 
-            const paths = (await files()).split(' ').slice(0, 3).join(' ');
-            const { error } = await runCommand(`fonts upload ${paths} --app ${TEST_APP_ID}`);
+                    expect(files.map(file => [file.result, file.error_code]), row.id).to.deep.equal(row.results);
 
-            expect(error).to.equal(undefined);
-            expect(process.exitCode ?? 0).to.equal(0);
-        });
-
-        describe('a failure that is not about the file stops the package after the report of the files done', () => {
-            const rows: { answer: RouteAnswer; code: string; exit: number; id: string }[] = [
-                { answer: { network: true }, code: 'network_error', exit: exitCode.network, id: 'network: exit 5' },
-                { answer: { body: { detail: 'Invalid token.' }, status: 401 }, code: 'auth_required', exit: exitCode.auth, id: '401: exit 3' },
-                {
-                    answer: { body: { errors: [{ code: 'permission_denied', detail: 'No access.' }] }, status: 403 },
-                    code: 'permission_denied',
-                    exit: exitCode.auth,
-                    id: '403: exit 3',
-                },
-            ];
-
-            for (const row of rows) {
-                it(row.id, async () => {
-                    const sent = use([{
-                        answers: [{ body: upload('created', [face(400)]), status: 201 }, row.answer],
-                        method: 'POST',
-                        path: /\/media\/fonts\/$/,
-                    }, usageRoute(UNUSED)]);
-
-                    const { stdout } = await runCommand(`fonts upload ${await files()} --app ${TEST_APP_ID} --json`);
-                    const report = JSON.parse(stdout) as { files: { error_code?: string; result: string }[] };
-
-                    expect(report.files.map(file => file.result), row.id)
-                        .to.deep.equal(['created', 'failed', 'not_sent', 'not_sent', 'not_sent']);
-
-                    expect(report.files[1]?.error_code, row.id).to.equal(row.code);
-                    expect(writes(sent), row.id).to.have.length(2);
-                    expect(process.exitCode, row.id).to.equal(row.exit);
-                });
-            }
-        });
+                    if (row.message !== undefined) {
+                        expect(files.find(file => file.result === 'failed')?.message, row.id).to.include(row.message);
+                    }
+                }
+            });
+        }
 
         it('a file that cannot be read stops before any send, exit 2', async () => {
-            const sent = use(packageRoutes());
+            const sent = use([{ answers: MIXED, method: 'POST', path: POST_FONTS }]);
             const missing = join(dir, 'missing.otf');
 
             const { error } = await runCommand(`fonts upload ${await fontFile('Regular.otf')} ${missing} --app ${TEST_APP_ID}`);
@@ -333,32 +458,52 @@ describe('fonts', () => {
 
     /**
      * external: a collision as the agent meets it. The refusal lists every colliding face and names the
-     * --choice that decides it; `--choice replace` sends the file without a choice first and, on a 409 that
-     * lists the collisions, once more with `replace` and every listed face; never a loop.
+     * --choice that decides it, with the file as one shell word; `--choice replace` sends the file without
+     * a choice first and, on a 409 that lists the collisions, once more with `replace` and every listed
+     * face; never a loop. The flows of every family whose face was replaced need a publish.
      */
     describe('a collision', () => {
-        const POST = /\/media\/fonts\/$/;
         const replaced = { ...upload('replaced', [face(700), face(400)]), result: 'replaced' };
         const replacedAndAdded = { ...upload('added', [face(300)]), replaced_faces: [face(700), face(400)] };
         const nothingLeft = 'The file collides with no stored face now, so `choice` `replace` has nothing to replace.';
+        const retried = { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` };
+        const crossFamily = collisions(collision(FACE_ID, 700), collision(OTHER_FACE_ID, 700, { id: TARGET_ID, name: 'Inter' }));
+        const crossReplaced = { ...upload('replaced', [face(700), face(700, { familyId: TARGET_ID, id: OTHER_FACE_ID })]), family: null };
+        const firstOnly = { choices: ['replace', 'keep'], conflict: collision(FACE_ID, 700) };
+        const allTaken = 'Every face of this file is in the family already. Replace the file of a face with `adapty fonts faces replace`.';
 
         type Row = {
             answers: RouteAnswer[];
-            choice: string;
+            choice?: string;
             exit: number;
+            file?: string;
+            flows?: string[];
+            human?: string[];
             id: string;
-            report: Record<string, unknown>;
+            report?: Record<string, unknown>;
             sent: Record<string, string>[];
         };
 
         const rows: Row[] = [
             {
                 answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO)],
-                choice: '',
                 exit: exitCode.api,
                 id: 'no choice: refused with every colliding face',
                 report: { ...TWO, error_code: 'duplicate_custom_font_face', result: 'refused', status_code: 409 },
                 sent: [{ file: 'Bold.otf' }],
+            },
+            {
+                answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO)],
+                exit: exitCode.api,
+                file: 'Brand Bold.otf',
+                human: [
+                    `  collides with face ${FACE_ID} (700, iOS name Brand-700) of Brand`,
+                    `  collides with face ${OTHER_FACE_ID} (400, iOS name Brand-400) of Brand`,
+                    'to put the file on all 2 of those faces, or',
+                    '/Brand Bold.otf\' --choice keep` to skip it.',
+                ],
+                id: 'the human report: every colliding face, and a next step that quotes a file name with a space',
+                sent: [{ file: 'Brand Bold.otf' }],
             },
             {
                 answers: [{ body: upload('kept', []) }],
@@ -374,7 +519,7 @@ describe('fonts', () => {
                 exit: 0,
                 id: '--choice replace with two collisions replaces both (200)',
                 report: { replaced_faces: [face(700), face(400)], result: 'replaced' },
-                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+                sent: [{ file: 'Bold.otf' }, retried],
             },
             {
                 answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO), { body: replacedAndAdded, status: 201 }],
@@ -382,7 +527,24 @@ describe('fonts', () => {
                 exit: 0,
                 id: '--choice replace that also creates faces is a success too (201)',
                 report: { created_faces: [face(300)], replaced_faces: [face(700), face(400)], result: 'added' },
-                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+                sent: [{ file: 'Bold.otf' }, retried],
+            },
+            {
+                answers: [refusal('font_ios_alias_already_exists', 'Taken.', 409, crossFamily), { body: crossReplaced }],
+                choice: 'replace',
+                exit: 0,
+                flows: [FLOW_ID, TARGET_FLOW_ID],
+                id: '--choice replace across two families: the flows of both need a publish',
+                report: { family: null, result: 'replaced' },
+                sent: [{ file: 'Bold.otf' }, retried],
+            },
+            {
+                answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, firstOnly), { body: replaced }],
+                choice: 'replace',
+                exit: 0,
+                id: '--choice replace on a server that sends only the first conflict: retried with that face',
+                report: { result: 'replaced' },
+                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: FACE_ID }],
             },
             {
                 answers: [
@@ -393,7 +555,7 @@ describe('fonts', () => {
                 exit: exitCode.api,
                 id: '--choice replace whose collisions changed before the retry: refused with the new ones, no loop',
                 report: { ...collisions(collision(FACE_ID, 700)), message: 'Taken again.', result: 'refused' },
-                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+                sent: [{ file: 'Bold.otf' }, retried],
             },
             {
                 answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO), refusal('base_error', nothingLeft)],
@@ -401,7 +563,15 @@ describe('fonts', () => {
                 exit: exitCode.api,
                 id: '--choice replace with nothing left to replace: refused with the 400',
                 report: { error_code: 'base_error', message: nothingLeft, result: 'refused', status_code: 400 },
-                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+                sent: [{ file: 'Bold.otf' }, retried],
+            },
+            {
+                answers: [refusal('font_faces_already_exist', 'Every pair is taken.', 409)],
+                choice: 'replace',
+                exit: exitCode.api,
+                id: '--choice replace on a refusal with no face to replace: no retry, the next step is faces replace',
+                report: { error_code: 'font_faces_already_exist', next_step: allTaken, result: 'refused' },
+                sent: [{ file: 'Bold.otf' }],
             },
             {
                 answers: [{ body: upload('created', [face(700)]), status: 201 }],
@@ -415,45 +585,70 @@ describe('fonts', () => {
 
         for (const row of rows) {
             it(row.id, async () => {
-                const sent = use([{ answers: row.answers, method: 'POST', path: POST }, usageRoute(UNUSED)]);
-                const choice = row.choice === '' ? '' : ` --choice ${row.choice}`;
+                const sent = use([{ answers: row.answers, method: 'POST', path: POST_FONTS }, ...usageRoutes(BOTH_USED)]);
+                const path = await fontFile(row.file ?? 'Bold.otf');
+                const choice = row.choice === undefined ? [] : ['--choice', row.choice];
+                const json = row.human === undefined ? ['--json'] : [];
 
-                const { stdout } = await runCommand(`fonts upload ${await fontFile('Bold.otf')}${choice} --app ${TEST_APP_ID} --json`);
-                const [file] = (JSON.parse(stdout) as { files: Record<string, unknown>[] }).files;
+                const { stdout } = await runCommand(line(['fonts', 'upload', path, ...choice, '--app', TEST_APP_ID, ...json]));
 
-                expect(file, row.id).to.deep.include(row.report);
                 expect(writes(sent).map(request => formFields(request.body)), row.id).to.deep.equal(row.sent);
                 expect(process.exitCode ?? 0, row.id).to.equal(row.exit);
+
+                for (const line of row.human ?? []) {
+                    expect(stdout, row.id).to.include(line);
+                }
+
+                if (row.human === undefined) {
+                    const report = JSON.parse(stdout) as PackageJson;
+
+                    expect(report.files[0], row.id).to.deep.include(row.report ?? {});
+
+                    if (row.flows !== undefined) {
+                        expect(report.flows_to_publish, row.id).to.deep.equal(row.flows);
+                    }
+                }
             });
         }
-
-        it('the human report lists every colliding face and the --choice next step', async () => {
-            use([{ answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO)], method: 'POST', path: POST }]);
-            const bold = await fontFile('Bold.otf');
-
-            const { stdout } = await runCommand(`fonts upload ${bold} --app ${TEST_APP_ID}`);
-
-            expect(stdout).to.include(`  collides with face ${FACE_ID} (700, iOS name Brand-700) of Brand`);
-            expect(stdout).to.include(`  collides with face ${OTHER_FACE_ID} (400, iOS name Brand-400) of Brand`);
-
-            expect(stdout).to.include(`Run \`adapty fonts upload --app ${TEST_APP_ID} ${bold} --choice replace\` to put the file on all 2 `
-                + `of those faces, or \`adapty fonts upload --app ${TEST_APP_ID} ${bold} --choice keep\` to skip it.`);
-        });
     });
 
-    /** external: after a saved change, a failed read of the flows is `null` and a warning, not "no flows". */
-    it('a failed usage read after a change leaves flows_to_publish null', async () => {
-        use([
-            { answers: [{ body: FAMILY }], method: 'PATCH', path: /fonts\/[\w-]+\/$/ },
-            { answers: [refusal('font_family_not_found', 'Not found.', 404)], method: 'GET', path: /\/usage\/$/ },
-        ]);
+    /**
+     * external: after a saved change, a failed read of the flows is `null`, never "no flows"; the reason is
+     * in the answer under --json and on stderr. A usage answer without its lists exits 4.
+     */
+    describe('the flows of a saved change cannot be read', () => {
+        const notFound = refusal('font_family_not_found', 'Not found.', 404);
+        const noFlows: RouteAnswer = { body: { faces: [], family_id: FAMILY_ID, paywalls: [] } };
 
-        const json = await runCommand(`fonts rename ${FAMILY_ID} Brand --app ${TEST_APP_ID} --json`);
-        const human = await runCommand(`fonts rename ${FAMILY_ID} Brand --app ${TEST_APP_ID}`);
+        const rows: { answer: RouteAnswer; code: string; exit: number; id: string; json: boolean }[] = [
+            { answer: notFound, code: 'font_family_not_found', exit: 0, id: 'a refused read (human)', json: false },
+            { answer: notFound, code: 'font_family_not_found', exit: 0, id: 'a refused read (--json)', json: true },
+            { answer: noFlows, code: 'malformed_response', exit: exitCode.api, id: 'an answer without flows (--json): exit 4', json: true },
+        ];
 
-        expect((JSON.parse(json.stdout) as { flows_to_publish: unknown }).flows_to_publish).to.equal(null);
-        expect(human.stderr).to.include('The change is saved');
-        expect(human.error).to.equal(undefined);
-        expect(process.exitCode ?? 0).to.equal(0);
+        for (const row of rows) {
+            it(row.id, async () => {
+                use([
+                    { answers: [{ body: FAMILY }], method: 'PATCH', path: /fonts\/[\w-]+\/$/ },
+                    { answers: [row.answer], method: 'GET', path: /\/usage\/$/ },
+                ]);
+
+                const json = row.json ? ['--json'] : [];
+                const { error, stderr, stdout } = await runCommand(['fonts', 'rename', FAMILY_ID, 'Brand', '--app', TEST_APP_ID, ...json]);
+
+                expect(error, row.id).to.equal(undefined);
+                expect(stderr, row.id).to.include('The change is saved');
+                expect(process.exitCode ?? 0, row.id).to.equal(row.exit);
+
+                if (row.json) {
+                    type Answer = { flows_to_publish: unknown; flows_to_publish_error: { error_code: string } };
+
+                    const answer = JSON.parse(stdout) as Answer;
+
+                    expect(answer.flows_to_publish, row.id).to.equal(null);
+                    expect(answer.flows_to_publish_error.error_code, row.id).to.equal(row.code);
+                }
+            });
+        }
     });
 });

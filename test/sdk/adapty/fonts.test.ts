@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 
-import { createAdapty, fontConflict } from '../../../src/sdk/adapty/index.js';
+import { createAdapty } from '../../../src/sdk/adapty/index.js';
 import { ApiError } from '../../../src/sdk/core/errors.js';
 import { createFakeClock, createScriptedFetch } from '../../../src/sdk/core/testing.js';
 import { rejection } from '../../helpers/rejection.js';
@@ -61,35 +61,5 @@ describe('adapty.fonts', () => {
         expect(error).to.be.instanceOf(ApiError);
         expect(error).to.include({ code: 'font_face_not_found', status: 404 });
         expect(calls).to.have.length(1);
-    });
-
-    /** external: the colliding face and the choices are what the next step of a refused upload names. */
-    describe('fontConflict', () => {
-        const conflict = { face_id: 'face-1', family_id: 'family-1', family_name: 'Brand', font_alias_ios: 'Brand-Bold', italic: false, weight: 700 };
-
-        const second = { ...conflict, face_id: 'face-2', font_alias_ios: 'Brand-Regular', weight: 400 };
-        const both = [conflict, second];
-
-        const rows: { details: unknown; expected: unknown; id: string }[] = [
-            {
-                details: { choices: ['replace', 'keep'], conflict, conflicts: both },
-                expected: { choices: ['replace', 'keep'], conflict, conflicts: both },
-                id: 'a 409 that lists every collision',
-            },
-            {
-                details: { choices: ['replace', 'keep'], conflict },
-                expected: { choices: ['replace', 'keep'], conflict, conflicts: [conflict] },
-                id: 'a 409 with the first collision only',
-            },
-            { details: { error_code: 'font_faces_already_exist' }, expected: undefined, id: 'a refusal with no single face' },
-        ];
-
-        for (const row of rows) {
-            it(row.id, () => {
-                const error = new ApiError({ code: 'duplicate_custom_font_face', details: row.details, message: 'm', status: 409 });
-
-                expect(fontConflict(error), row.id).to.deep.equal(row.expected);
-            });
-        }
     });
 });

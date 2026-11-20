@@ -1,3 +1,4 @@
+import { faceRef } from '../../../../sdk/adapty/index.js';
 import { FontsCommand } from '../../../base/adapty/index.js';
 import { appIdFlag } from '../../../input/app.js';
 import { faceIdArg } from '../../../input/fonts.js';
@@ -14,13 +15,13 @@ export default class FontsFacesDefault extends FontsCommand {
 
     async run(): Promise<FlowsToPublish & FontFamilyWriteResult> {
         const { args, flags } = await this.parse(FontsFacesDefault);
-        const { family } = await this.adapty.fonts.findFace(flags.app, args.face_id);
-        const ref = { faceId: args.face_id, familyId: family.id };
+        const located = await this.adapty.fonts.findFace(flags.app, args.face_id);
+        const ref = faceRef(located);
         const result = await this.adapty.fonts.faces.update(flags.app, ref, { isDefault: true });
         const flows = await this.flowsToPublish(flags.app, [result.id]);
 
-        this.render(result, value => renderChangedFamily(value, flows, flags.app));
+        this.render(result, value => renderChangedFamily(value, flows.flows_to_publish, flags.app));
 
-        return { ...result, flows_to_publish: flows };
+        return { ...result, ...flows };
     }
 }

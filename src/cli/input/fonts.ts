@@ -12,10 +12,24 @@ import type { FontFile, UploadChoice } from '../../sdk/adapty/index.js';
 
 /** The arguments and flags of the `fonts` commands, and the files they send. */
 
+/** A font id in lowercase, as the server writes it and its routes take it; any case is accepted. */
+const fontIdParser = (hint: string) => {
+    const parse = uuidParser(hint);
+
+    return async (input: string): Promise<string> => (await parse(input)).toLowerCase();
+};
+
+const FAMILY_HINT = 'Invalid font family ID format. Run `adapty fonts list --app <app>` to find it.';
+
+/** The target family of a move. */
+export const familyIdFlag = (description: string) => ({
+    to: Flags.string({ description, parse: fontIdParser(FAMILY_HINT), required: true }),
+});
+
 export const familyIdArg = {
     family_id: Args.string({
         description: 'Font family ID (UUID), as `fonts list` shows it',
-        parse: uuidParser('Invalid font family ID format. Run `adapty fonts list --app <app>` to find it.'),
+        parse: fontIdParser(FAMILY_HINT),
         required: true,
     }),
 };
@@ -23,7 +37,7 @@ export const familyIdArg = {
 export const faceIdArg = {
     face_id: Args.string({
         description: 'Font face ID (UUID), as `fonts list` shows it',
-        parse: uuidParser('Invalid font face ID format. Run `adapty fonts list --app <app>` to find it.'),
+        parse: fontIdParser('Invalid font face ID format. Run `adapty fonts list --app <app>` to find it.'),
         required: true,
     }),
 };

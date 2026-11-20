@@ -1,5 +1,5 @@
 /** The door of the fonts resource: re-exports only. */
-export { validateUpdateFontFace } from './face.js';
+export { faceRef, familiesOfFile, validateUpdateFontFace } from './face.js';
 export { fontConflict, uploadChoices } from './upload.js';
 export { fonts } from './resource.js';
 

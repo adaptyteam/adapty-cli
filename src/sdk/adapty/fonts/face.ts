@@ -41,21 +41,43 @@ export const toReplaceFontFileFields = (input: ReplaceFontFileInput): Record<str
     weight: input.weight === undefined ? undefined : String(input.weight),
 });
 
-export type LocatedFontFace = { face: FontFace; family: FontFamily };
+/** The face, its family, and the font list it was found in (a file can back faces of several families). */
+export type LocatedFontFace = { face: FontFace; families: FontFamily[]; family: FontFamily };
 
 /** A face route names the family and the face. */
 export type FontFaceRef = { faceId: string; familyId: string };
+
+/** The ref of a located face, with the ids as the server wrote them. */
+export const faceRef = ({ face, family }: Pick<LocatedFontFace, 'face' | 'family'>): FontFaceRef =>
+    ({ faceId: face.id, familyId: family.id });
+
+/**
+ * The families whose faces read the file of this face: an Android name is set on the file, so it changes
+ * on every one of them. A face with no stored file is its family alone.
+ */
+export const familiesOfFile = ({ face, families, family }: LocatedFontFace): string[] => {
+    if (face.file_id === null) {
+        return [family.id];
+    }
+
+    const readsFile = (candidate: FontFamily): boolean => candidate.faces.some(other => other.file_id === face.file_id);
+
+    return families.filter(candidate => readsFile(candidate)).map(candidate => candidate.id);
+};
 
 /**
  * The family of a face, from the font list of its app: the face routes name both, a person knows the face.
  * A face that is not in the app is the server's own refusal, `font_face_not_found`, so it reads the same.
  */
 export const locateFace = (families: readonly FontFamily[], faceId: string): LocatedFontFace => {
+    // A UUID is the same in any case; the server sends it in lowercase
+    const wanted = faceId.toLowerCase();
+
     for (const family of families) {
-        const face = family.faces.find(candidate => candidate.id === faceId);
+        const face = family.faces.find(candidate => candidate.id.toLowerCase() === wanted);
 
         if (face !== undefined) {
-            return { face, family };
+            return { face, families: [...families], family };
         }
     }
 

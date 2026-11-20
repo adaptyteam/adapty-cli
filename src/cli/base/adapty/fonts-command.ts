@@ -24,8 +24,17 @@ export type FontFileReport
         | { error_code: string; file: string; message: string; result: 'failed' }
         | { file: string; result: 'not_sent' };
 
-/** `null`: the change is saved, but which flows use it could not be read (a warning says why). */
-export type FlowsToPublish = { flows_to_publish: null | string[] };
+/** Why the flows of a saved change could not be read, and how to read them. */
+export type FlowsToPublishError = { error_code: string; message: string; next_step: string };
+
+/**
+ * `null`: the change is saved, but which flows use it could not be read; `flows_to_publish_error` says
+ * why (also under --json, where a warning is not printed).
+ */
+export type FlowsToPublish = {
+    flows_to_publish: null | string[];
+    flows_to_publish_error?: FlowsToPublishError | undefined;
+};
 
 export type FontPackageReport = FlowsToPublish & { files: FontFileReport[] };
 
@@ -34,8 +43,20 @@ export type RetryCommand = (path: string) => string;
 
 type PackageFile = FontFile & { path: string };
 
-/** A file that went into a family that existed before: the flows of that family need a publish. */
-const CHANGED = new Set<string>(['added', 'partly_added', 'replaced']);
+/**
+ * The families a stored file changed: of every face it created or replaced, in any family (an iOS name
+ * collision can replace a face of another family). Kept faces did not change.
+ */
+const changedFamilies = (reports: readonly FontFileReport[]): string[] => [...new Set(reports.flatMap(report => ('family' in report
+    ? [...report.created_faces, ...report.replaced_faces].map(face => face.family_id)
+    : [])))];
+
+/** A path as one shell word: quoted when it has more than safe characters, and never read as a flag. */
+export const shellWord = (path: string): string => {
+    const safe = path.startsWith('-') ? `./${path}` : path;
+
+    return /^[\w./@%+=:,-]+$/.test(safe) ? safe : `'${safe.replaceAll('\'', String.raw`'\''`)}'`;
+};
 
 const nextStep = (error: ApiError, path: string, retry: RetryCommand): string | undefined => {
     const refusal = fontConflict(error);
@@ -43,8 +64,10 @@ const nextStep = (error: ApiError, path: string, retry: RetryCommand): string | 
     if (refusal !== undefined) {
         const faces = refusal.conflicts.length === 1 ? 'that face' : `all ${refusal.conflicts.length} of those faces`;
 
-        return `Run \`${retry(path)} --choice replace\` to put the file on ${faces}, `
-            + `or \`${retry(path)} --choice keep\` to skip it.`;
+        const command = retry(shellWord(path));
+
+        return `Run \`${command} --choice replace\` to put the file on ${faces}, `
+            + `or \`${command} --choice keep\` to skip it.`;
     }
 
     return error.code === 'font_faces_already_exist'
@@ -75,24 +98,39 @@ const refused = (error: ApiError, path: string, retry: RetryCommand): FontFileRe
 export abstract class FontsCommand extends AdaptyCommand {
     /**
      * The flows that use any of these families. The change is already saved, so a failed read is a
-     * warning and `null`, never an empty list.
+     * warning and `null`, never an empty list; under --json the reason is in the answer and on stderr. An
+     * answer without its lists exits 4, as every missing field does; another failure leaves the exit code.
      */
-    protected async flowsToPublish(appId: string, familyIds: readonly string[]): Promise<null | string[]> {
+    protected async flowsToPublish(appId: string, familyIds: readonly string[]): Promise<FlowsToPublish> {
         if (familyIds.length === 0) {
-            return [];
+            return { flows_to_publish: [] };
         }
 
         try {
-            return await this.adapty.fonts.flowsUsing(appId, familyIds);
+            return { flows_to_publish: await this.adapty.fonts.flowsUsing(appId, familyIds) };
         } catch (error) {
             if (isSdkError(error) && error.kind === 'cancelled') {
                 throw error;
             }
 
-            this.warn(`The change is saved, but the flows that use the family could not be read: ${toCliError(error).message}\n`
-                + `Run \`adapty fonts usage --app ${appId} FAMILY_ID\` to see them.`);
+            const mapped = toCliError(error);
+            const code = mapped instanceof CliError ? mapped.json.code ?? 'unknown_error' : 'unknown_error';
+            const nextStep = `Run \`adapty fonts usage --app ${appId} FAMILY_ID\` for each changed family to see them.`;
+            const text = `The change is saved, but the flows that use the family could not be read: ${mapped.message}\n${nextStep}`;
 
-            return null;
+            if (this.jsonEnabled()) {
+                process.stderr.write(`Warning: ${text}\n`);
+            } else {
+                this.warn(text);
+            }
+
+            if (code === 'malformed_response' && (process.exitCode ?? 0) === 0) {
+                process.exitCode = exitCode.api;
+            }
+
+            const reason = { error_code: code, message: mapped.message, next_step: nextStep };
+
+            return { flows_to_publish: null, flows_to_publish_error: reason };
         }
     }
 
@@ -123,32 +161,37 @@ export abstract class FontsCommand extends AdaptyCommand {
 
                 const code = stop.json.code ?? 'unknown_error';
 
-                reports.push({ error_code: code, file: file.path, message: stop.message, result: 'failed' });
+                // A success the CLI cannot read may have stored the file: say so, never call it refused
+                const message = code === 'malformed_response'
+                    ? `${stop.message} The file may be stored: check \`adapty fonts list --app ${context.appId}\` before sending it again.`
+                    : stop.message;
+
+                reports.push({ error_code: code, file: file.path, message, result: 'failed' });
                 reports.push(...files.slice(index + 1).map(rest => ({ file: rest.path, result: 'not_sent' as const })));
                 break;
             }
         }
-
-        const changed = reports.flatMap(report =>
-            ('family' in report && report.family !== null && CHANGED.has(report.result) ? [report.family.id] : []));
 
         const refusedAny = reports.some(report => report.result === 'refused');
 
         process.exitCode = stop?.exitCode ?? (refusedAny ? exitCode.api : undefined);
 
         // After an auth stop the usage read would be refused the same way: unknown, not read
-        const flows = stop?.exitCode === exitCode.auth ? null : await this.flowsToPublish(context.appId, changed);
+        const flows = stop?.exitCode === exitCode.auth
+            ? { flows_to_publish: null }
+            : await this.flowsToPublish(context.appId, changedFamilies(reports));
 
-        return { files: reports, flows_to_publish: flows };
+        return { files: reports, ...flows };
     }
 }
 
 /**
  * The failure that stops a package, as a CLI error with its exit code; undefined for a refusal of the
- * file itself. Anything else (a cancel, a bug) is thrown on.
+ * file itself. A success answer the CLI cannot read stops it too: the file may be stored. Anything else
+ * (a cancel, a bug) is thrown on.
  */
 const stopping = (error: unknown): CliError | undefined => {
-    if (error instanceof ApiError && error.status !== 403) {
+    if (error instanceof ApiError && error.status !== 403 && error.code !== 'malformed_response') {
         return undefined;
     }
 
