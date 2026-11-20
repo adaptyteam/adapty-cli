@@ -1,4 +1,5 @@
 import type {
+    FontConflict,
     FontFace,
     FontFamily,
     FontFamilyUsage,
@@ -103,6 +104,9 @@ const storedLines = (report: FontUploadResult & { file: string }): string[] => {
     ];
 };
 
+const conflictLabel = (conflict: FontConflict): string =>
+    `face ${conflict.face_id} (${faceLabel(conflict)}, iOS name ${conflict.font_alias_ios ?? NONE}) of ${conflict.family_name}`;
+
 const reportLines = (report: FontFileReport): string[] => {
     if (report.result === 'failed') {
         return [`${report.file}: failed — ${report.message}`];
@@ -114,8 +118,9 @@ const reportLines = (report: FontFileReport): string[] => {
 
     if (report.result === 'refused') {
         const next = report.next_step === undefined ? [] : [`  ${report.next_step}`];
+        const collisions = (report.conflicts ?? []).map(conflict => `  collides with ${conflictLabel(conflict)}`);
 
-        return [`${report.file}: refused — ${report.error_code}: ${report.message}`, ...next];
+        return [`${report.file}: refused — ${report.error_code}: ${report.message}`, ...collisions, ...next];
     }
 
     return storedLines(report);

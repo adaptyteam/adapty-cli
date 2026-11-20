@@ -26,21 +26,28 @@ export type FontConflict = {
     weight: null | number;
 };
 
-/** The conflict of a refused upload and the choices a repeat takes. */
+/** The collisions of a refused upload and the choices a repeat takes. */
 export type FontConflictRefusal = {
     choices: UploadChoice[];
+    /** The first collision, `conflicts[0]`. */
     conflict: FontConflict;
+    /** Every stored face the file collides with, in the order of the faces of the file. */
+    conflicts: FontConflict[];
 };
 
 /** The multipart form of one file: the server reads the format from the bytes, not from the type. */
-export const fontForm = (file: FontFile, fields: Record<string, string | undefined> = {}): FormData => {
+/** A form field: one value, a list (the field repeated) or nothing. */
+export type FormFields = Record<string, readonly string[] | string | undefined>;
+
+export const fontForm = (file: FontFile, fields: FormFields = {}): FormData => {
     const form = new FormData();
 
     form.append('file', new Blob([new Uint8Array(file.content)], { type: 'application/octet-stream' }), file.name);
 
     for (const [key, value] of Object.entries(fields)) {
-        if (value !== undefined) {
-            form.append(key, value);
+        // A list is the field repeated, one value each
+        for (const item of value === undefined ? [] : [value].flat()) {
+            form.append(key, item);
         }
     }
 
@@ -50,22 +57,27 @@ export const fontForm = (file: FontFile, fields: Record<string, string | undefin
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 /**
- * The colliding face of a refused upload, when the refusal offers the choice. A refusal raised while a
- * choice was already given, and `font_faces_already_exist` (a set of pairs, no single face), have none.
+ * The colliding faces of a refused upload, when the refusal offers the choice. `font_faces_already_exist`
+ * (a set of pairs, no single face), two faces of the file with one iOS name, and a refusal of the replace
+ * rules have none. An answer with `conflict` alone (an older server) is one collision.
  */
 export const fontConflict = (error: unknown): FontConflictRefusal | undefined => {
     if (!(error instanceof ApiError) || !isRecord(error.details)) {
         return undefined;
     }
 
-    const { choices, conflict } = error.details;
+    const { choices, conflict, conflicts } = error.details;
+    const listed = Array.isArray(conflicts) ? conflicts.filter(isRecord) as FontConflict[] : [];
+    const all = listed.length > 0 ? listed : [conflict].filter(isRecord) as FontConflict[];
+    const [first] = all;
 
-    if (!isRecord(conflict) || !Array.isArray(choices)) {
+    if (first === undefined || !Array.isArray(choices)) {
         return undefined;
     }
 
     return {
         choices: choices.filter((choice): choice is UploadChoice => uploadChoices.includes(choice as UploadChoice)),
-        conflict: conflict as FontConflict,
+        conflict: first,
+        conflicts: all,
     };
 };

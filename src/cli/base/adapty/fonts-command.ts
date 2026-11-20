@@ -12,6 +12,8 @@ export type FontFileReport
         | {
             choices?: UploadChoice[] | undefined;
             conflict?: FontConflict | undefined;
+            /** Every colliding stored face; `conflict` is the first. */
+            conflicts?: FontConflict[] | undefined;
             error_code: string;
             file: string;
             message: string;
@@ -39,9 +41,9 @@ const nextStep = (error: ApiError, path: string, retry: RetryCommand): string | 
     const refusal = fontConflict(error);
 
     if (refusal !== undefined) {
-        const { face_id: faceId, family_name: familyName } = refusal.conflict;
+        const faces = refusal.conflicts.length === 1 ? 'that face' : `all ${refusal.conflicts.length} of those faces`;
 
-        return `Run \`${retry(path)} --choice replace\` to put the file on face ${faceId} of ${familyName}, `
+        return `Run \`${retry(path)} --choice replace\` to put the file on ${faces}, `
             + `or \`${retry(path)} --choice keep\` to skip it.`;
     }
 
@@ -56,6 +58,7 @@ const refused = (error: ApiError, path: string, retry: RetryCommand): FontFileRe
     return {
         choices: refusal?.choices,
         conflict: refusal?.conflict,
+        conflicts: refusal?.conflicts,
         error_code: error.code ?? `http_${error.status}`,
         file: path,
         message: error.message,

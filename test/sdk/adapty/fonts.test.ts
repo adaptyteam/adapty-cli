@@ -67,8 +67,20 @@ describe('adapty.fonts', () => {
     describe('fontConflict', () => {
         const conflict = { face_id: 'face-1', family_id: 'family-1', family_name: 'Brand', font_alias_ios: 'Brand-Bold', italic: false, weight: 700 };
 
+        const second = { ...conflict, face_id: 'face-2', font_alias_ios: 'Brand-Regular', weight: 400 };
+        const both = [conflict, second];
+
         const rows: { details: unknown; expected: unknown; id: string }[] = [
-            { details: { choices: ['replace', 'keep'], conflict }, expected: { choices: ['replace', 'keep'], conflict }, id: 'a 409 with the choice' },
+            {
+                details: { choices: ['replace', 'keep'], conflict, conflicts: both },
+                expected: { choices: ['replace', 'keep'], conflict, conflicts: both },
+                id: 'a 409 that lists every collision',
+            },
+            {
+                details: { choices: ['replace', 'keep'], conflict },
+                expected: { choices: ['replace', 'keep'], conflict, conflicts: [conflict] },
+                id: 'a 409 with the first collision only',
+            },
             { details: { error_code: 'font_faces_already_exist' }, expected: undefined, id: 'a refusal with no single face' },
         ];
 

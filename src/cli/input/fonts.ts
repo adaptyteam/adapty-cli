@@ -30,7 +30,7 @@ export const faceIdArg = {
 
 export const choiceFlag = {
     choice: Flags.string({
-        description: 'When a file collides with a stored face: replace puts the file on that face, keep skips the file',
+        description: 'When a file collides with stored faces: replace puts the file on all of them, keep skips the file',
         options: [...uploadChoices],
     }),
 };

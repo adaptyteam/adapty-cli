@@ -54,22 +54,31 @@ const refusal = (code: string, message: string, status = 400, extra = {}) => ({
     status,
 });
 
-const CONFLICT = {
-    choices: ['replace', 'keep'],
-    conflict: { face_id: FACE_ID, family_id: FAMILY_ID, family_name: 'Brand', font_alias_ios: 'Brand-700', italic: false, weight: 700 },
-};
+const OTHER_FACE_ID = '55555555-5555-4555-8555-555555555555';
+
+const collision = (faceId: string, weight: number) =>
+    ({ face_id: faceId, family_id: FAMILY_ID, family_name: 'Brand', font_alias_ios: `Brand-${weight}`, italic: false, weight });
+
+/** A 409 of upload and add: every colliding face, the first one also as `conflict`. */
+const collisions = (...faces: ReturnType<typeof collision>[]) =>
+    ({ choices: ['replace', 'keep'], conflict: faces[0], conflicts: faces });
+
+const TWO = collisions(collision(FACE_ID, 700), collision(OTHER_FACE_ID, 400));
 
 const listRoute: Route = { answers: [{ body: { data: [FAMILY, TARGET] } }], method: 'GET', path: /\/media\/fonts\/$/ };
 const usageRoute = (body: unknown = USED): Route => ({ answers: [{ body }], method: 'GET', path: /\/usage\/$/ });
 
 const writes = (sent: readonly SentRequest[]): SentRequest[] => sent.filter(request => request.method !== 'GET');
 
+/** The form as field → value; a repeated field is its values joined with a comma. */
 const formFields = (body: unknown): Record<string, string> => {
     const form = body as FormData;
     const fields: Record<string, string> = {};
 
     form.forEach((value, key) => {
-        fields[key] = typeof value === 'string' ? value : value.name;
+        const text = typeof value === 'string' ? value : value.name;
+
+        fields[key] = fields[key] === undefined ? text : `${fields[key]},${text}`;
     });
 
     return fields;
@@ -322,27 +331,114 @@ describe('fonts', () => {
         });
     });
 
-    /** external: the next step of a refused upload names the flag that decides it. */
-    it('a conflict names the colliding face and the --choice that repeats the upload', async () => {
-        use([{ answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, CONFLICT)], method: 'POST', path: /\/media\/fonts\/$/ }]);
-        const bold = await fontFile('Bold.otf');
+    /**
+     * external: a collision as the agent meets it. The refusal lists every colliding face and names the
+     * --choice that decides it; `--choice replace` sends the file without a choice first and, on a 409 that
+     * lists the collisions, once more with `replace` and every listed face; never a loop.
+     */
+    describe('a collision', () => {
+        const POST = /\/media\/fonts\/$/;
+        const replaced = { ...upload('replaced', [face(700), face(400)]), result: 'replaced' };
+        const replacedAndAdded = { ...upload('added', [face(300)]), replaced_faces: [face(700), face(400)] };
+        const nothingLeft = 'The file collides with no stored face now, so `choice` `replace` has nothing to replace.';
 
-        const { stdout } = await runCommand(`fonts upload ${bold} --app ${TEST_APP_ID} --json`);
-        const [file] = (JSON.parse(stdout) as { files: Record<string, unknown>[] }).files;
+        type Row = {
+            answers: RouteAnswer[];
+            choice: string;
+            exit: number;
+            id: string;
+            report: Record<string, unknown>;
+            sent: Record<string, string>[];
+        };
 
-        expect(file).to.deep.include({ ...CONFLICT, error_code: 'duplicate_custom_font_face', result: 'refused', status_code: 409 });
+        const rows: Row[] = [
+            {
+                answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO)],
+                choice: '',
+                exit: exitCode.api,
+                id: 'no choice: refused with every colliding face',
+                report: { ...TWO, error_code: 'duplicate_custom_font_face', result: 'refused', status_code: 409 },
+                sent: [{ file: 'Bold.otf' }],
+            },
+            {
+                answers: [{ body: upload('kept', []) }],
+                choice: 'keep',
+                exit: 0,
+                id: '--choice keep goes in one request',
+                report: { result: 'kept' },
+                sent: [{ choice: 'keep', file: 'Bold.otf' }],
+            },
+            {
+                answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO), { body: replaced }],
+                choice: 'replace',
+                exit: 0,
+                id: '--choice replace with two collisions replaces both (200)',
+                report: { replaced_faces: [face(700), face(400)], result: 'replaced' },
+                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+            },
+            {
+                answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO), { body: replacedAndAdded, status: 201 }],
+                choice: 'replace',
+                exit: 0,
+                id: '--choice replace that also creates faces is a success too (201)',
+                report: { created_faces: [face(300)], replaced_faces: [face(700), face(400)], result: 'added' },
+                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+            },
+            {
+                answers: [
+                    refusal('duplicate_custom_font_face', 'Taken.', 409, TWO),
+                    refusal('duplicate_custom_font_face', 'Taken again.', 409, collisions(collision(FACE_ID, 700))),
+                ],
+                choice: 'replace',
+                exit: exitCode.api,
+                id: '--choice replace whose collisions changed before the retry: refused with the new ones, no loop',
+                report: { ...collisions(collision(FACE_ID, 700)), message: 'Taken again.', result: 'refused' },
+                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+            },
+            {
+                answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO), refusal('base_error', nothingLeft)],
+                choice: 'replace',
+                exit: exitCode.api,
+                id: '--choice replace with nothing left to replace: refused with the 400',
+                report: { error_code: 'base_error', message: nothingLeft, result: 'refused', status_code: 400 },
+                sent: [{ file: 'Bold.otf' }, { choice: 'replace', file: 'Bold.otf', replace_face_ids: `${FACE_ID},${OTHER_FACE_ID}` }],
+            },
+            {
+                answers: [{ body: upload('created', [face(700)]), status: 201 }],
+                choice: 'replace',
+                exit: 0,
+                id: '--choice replace with no collision: one request, no choice',
+                report: { result: 'created' },
+                sent: [{ file: 'Bold.otf' }],
+            },
+        ];
 
-        expect(file?.next_step).to.equal(`Run \`adapty fonts upload --app ${TEST_APP_ID} ${bold} --choice replace\` to put the file on face `
-            + `${FACE_ID} of Brand, or \`adapty fonts upload --app ${TEST_APP_ID} ${bold} --choice keep\` to skip it.`);
-    });
+        for (const row of rows) {
+            it(row.id, async () => {
+                const sent = use([{ answers: row.answers, method: 'POST', path: POST }, usageRoute(UNUSED)]);
+                const choice = row.choice === '' ? '' : ` --choice ${row.choice}`;
 
-    /** external: --choice goes to the server as the form field `choice`. */
-    it('--choice keep is sent with the file', async () => {
-        const sent = use([{ answers: [{ body: upload('kept', []) }], method: 'POST', path: /\/media\/fonts\/$/ }]);
+                const { stdout } = await runCommand(`fonts upload ${await fontFile('Bold.otf')}${choice} --app ${TEST_APP_ID} --json`);
+                const [file] = (JSON.parse(stdout) as { files: Record<string, unknown>[] }).files;
 
-        await runCommand(`fonts upload ${await fontFile('Bold.otf')} --choice keep --app ${TEST_APP_ID}`);
+                expect(file, row.id).to.deep.include(row.report);
+                expect(writes(sent).map(request => formFields(request.body)), row.id).to.deep.equal(row.sent);
+                expect(process.exitCode ?? 0, row.id).to.equal(row.exit);
+            });
+        }
 
-        expect(formFields(writes(sent)[0]?.body)).to.deep.equal({ choice: 'keep', file: 'Bold.otf' });
+        it('the human report lists every colliding face and the --choice next step', async () => {
+            use([{ answers: [refusal('duplicate_custom_font_face', 'Taken.', 409, TWO)], method: 'POST', path: POST }]);
+            const bold = await fontFile('Bold.otf');
+
+            const { stdout } = await runCommand(`fonts upload ${bold} --app ${TEST_APP_ID}`);
+
+            expect(stdout).to.include(`  collides with face ${FACE_ID} (700, iOS name Brand-700) of Brand`);
+            expect(stdout).to.include(`  collides with face ${OTHER_FACE_ID} (400, iOS name Brand-400) of Brand`);
+
+            expect(stdout).to.include(`Run \`adapty fonts upload --app ${TEST_APP_ID} ${bold} --choice replace\` to put the file on all 2 `
+                + `of those faces, or \`adapty fonts upload --app ${TEST_APP_ID} ${bold} --choice keep\` to skip it.`);
+        });
     });
 
     /** external: after a saved change, a failed read of the flows is `null` and a warning, not "no flows". */

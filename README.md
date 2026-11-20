@@ -424,9 +424,11 @@ adapty fonts faces replace FACE_ID FILE --app UUID [--weight N --italic true|fal
 static file gives one face, a variable file one face per named instance. `add` puts the faces of a file into the
 family you name, whatever the file says. Both send one file per request and print a report for each file at the end:
 created, added, partly added (with the kept pairs), replaced, kept (skipped) or refused with its code and the next
-step. A file that collides with a stored face (the same weight and italic, or an iOS name another face holds) is
-refused with that face; run it again with `--choice replace` to put the file on that face, or `--choice keep` to skip
-it. Exit 4 when a file was refused (after the whole report), 0 when every file was stored. A network failure (exit 5)
+step. A file that collides with stored faces (the same weight and italic, or an iOS name another face holds) is
+refused with every one of them; run it again with `--choice replace` to put the file on all of them, or `--choice keep`
+to skip it. With `--choice replace` the CLI sends the file without a choice first and, when it collides, once more to
+replace the faces the refusal lists; when the collisions changed in between, the file is refused again with the new
+ones. Exit 4 when a file was refused (after the whole report), 0 when every file was stored. A network failure (exit 5)
 or an auth failure (exit 3) stops the package; the files after it are reported as not sent.
 
 A face keeps its id when its file is replaced, and its default mark and Android name; the iOS name follows the new
