@@ -115,23 +115,30 @@ export abstract class FontsCommand extends AdaptyCommand {
 
             const mapped = toCliError(error);
             const code = mapped instanceof CliError ? mapped.json.code ?? 'unknown_error' : 'unknown_error';
-            const nextStep = `Run \`adapty fonts usage --app ${appId} FAMILY_ID\` for each changed family to see them.`;
-            const text = `The change is saved, but the flows that use the family could not be read: ${mapped.message}\n${nextStep}`;
-
-            if (this.jsonEnabled()) {
-                process.stderr.write(`Warning: ${text}\n`);
-            } else {
-                this.warn(text);
-            }
 
             if (code === 'malformed_response' && (process.exitCode ?? 0) === 0) {
                 process.exitCode = exitCode.api;
             }
 
-            const reason = { error_code: code, message: mapped.message, next_step: nextStep };
-
-            return { flows_to_publish: null, flows_to_publish_error: reason };
+            return this.unknownFlows({
+                error_code: code,
+                message: `The change is saved, but the flows that use the family could not be read: ${mapped.message}`,
+                next_step: `Run \`adapty fonts usage --app ${appId} FAMILY_ID\` for each changed family to see them.`,
+            });
         }
+    }
+
+    /** Which flows need a publish is not known: said once, on stderr (also under --json), and in the answer. */
+    protected unknownFlows(reason: FlowsToPublishError): FlowsToPublish {
+        const text = `${reason.message}\n${reason.next_step}`;
+
+        if (this.jsonEnabled()) {
+            process.stderr.write(`Warning: ${text}\n`);
+        } else {
+            this.warn(text);
+        }
+
+        return { flows_to_publish: null, flows_to_publish_error: reason };
     }
 
     /**
@@ -161,8 +168,8 @@ export abstract class FontsCommand extends AdaptyCommand {
 
                 const code = stop.json.code ?? 'unknown_error';
 
-                // A success the CLI cannot read may have stored the file: say so, never call it refused
-                const message = code === 'malformed_response'
+                // A lost or unreadable answer may follow a stored file: say so, never call it refused
+                const message = code === 'malformed_response' || code === 'network_error'
                     ? `${stop.message} The file may be stored: check \`adapty fonts list --app ${context.appId}\` before sending it again.`
                     : stop.message;
 
@@ -180,30 +187,24 @@ export abstract class FontsCommand extends AdaptyCommand {
     }
 
     /**
-     * After an auth stop the usage read would be refused the same way, and after a success answer the CLI
-     * could not read it is not known what the file changed: unknown in both cases, never a short list.
+     * After a stopped package it is not known what the stopped file changed (a lost or unreadable answer
+     * may follow a stored file, and an auth failure refuses the usage read too): unknown, never a short list.
      */
     private async packageFlows(
         stop: CliError | undefined,
         appId: string,
         reports: readonly FontFileReport[],
     ): Promise<FlowsToPublish> {
-        if (stop?.exitCode === exitCode.auth) {
-            return { flows_to_publish: null };
+        if (stop === undefined) {
+            return this.flowsToPublish(appId, changedFamilies(reports));
         }
 
-        if (stop?.json.code === 'malformed_response') {
-            return {
-                flows_to_publish: null,
-                flows_to_publish_error: {
-                    error_code: 'malformed_response',
-                    message: 'A file may be stored from an answer the CLI could not read, so the changed font families are not known.',
-                    next_step: `Run \`adapty fonts list --app ${appId}\` to see the families, then \`adapty fonts usage --app ${appId} FAMILY_ID\` for each changed one.`,
-                },
-            };
-        }
-
-        return this.flowsToPublish(appId, changedFamilies(reports));
+        return this.unknownFlows({
+            error_code: stop.json.code ?? 'unknown_error',
+            message: 'The package stopped, so the font families it changed, and the flows that need a publish, are not known.',
+            next_step: `Run \`adapty fonts list --app ${appId}\` to see the families, then `
+                + `\`adapty fonts usage --app ${appId} FAMILY_ID\` for each changed one.`,
+        });
     }
 }
 

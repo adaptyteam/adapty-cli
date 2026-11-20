@@ -1,7 +1,7 @@
 import * as sinon from 'sinon';
 
-/** One answer of a route: a JSON body with a status, or a thrown fetch error (no response at all). */
-export type RouteAnswer = { body: unknown; status?: number } | { network: true };
+/** One answer of a route: a JSON body with a status, a status whose body is lost on the way, or no response at all. */
+export type RouteAnswer = { body: unknown; status?: number } | { lostBody: true; status: number } | { network: true };
 
 export type Route = {
     /** The answers in order; the last one repeats. */
@@ -41,6 +41,16 @@ export const routeFetch = (routes: readonly Route[]): { sent: SentRequest[]; stu
 
         if (answer === undefined || 'network' in answer) {
             return Promise.reject(new TypeError('fetch failed'));
+        }
+
+        if ('lostBody' in answer) {
+            const body = new ReadableStream<Uint8Array>({
+                pull: (controller) => {
+                    controller.error(new TypeError('terminated'));
+                },
+            });
+
+            return Promise.resolve(new Response(body, { headers: { 'content-type': 'application/json' }, status: answer.status }));
         }
 
         return Promise.resolve(new Response(JSON.stringify(answer.body), {

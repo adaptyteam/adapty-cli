@@ -344,9 +344,11 @@ describe('fonts', () => {
             human?: string[];
             id: string;
             message?: string;
+            results?: [string, string | undefined][];
+            /** Lines of the warning on stderr. */
+            stderr?: string[];
             /** The flows to publish are unknown, with this error code. */
             unknownFlows?: string;
-            results?: [string, string | undefined][];
             writes: number;
         };
 
@@ -391,8 +393,20 @@ describe('fonts', () => {
                 answers: stopAfterOne({ network: true }),
                 exit: exitCode.network,
                 files: 5,
-                id: 'network: stops, exit 5',
+                id: 'network: stops, the file may be stored, the flows are unknown, exit 5',
+                message: 'The file may be stored',
                 results: stopped('network_error'),
+                unknownFlows: 'network_error',
+                writes: 2,
+            },
+            {
+                answers: stopAfterOne({ lostBody: true, status: 201 }),
+                exit: exitCode.network,
+                files: 5,
+                id: 'a 201 whose body is lost: stops, the file may be stored, the flows are unknown, exit 5',
+                message: 'The file may be stored',
+                results: stopped('network_error'),
+                unknownFlows: 'network_error',
                 writes: 2,
             },
             {
@@ -401,6 +415,7 @@ describe('fonts', () => {
                 files: 5,
                 id: '401: stops, exit 3',
                 results: stopped('auth_required'),
+                unknownFlows: 'auth_required',
                 writes: 2,
             },
             {
@@ -409,6 +424,7 @@ describe('fonts', () => {
                 files: 5,
                 id: '403: stops, exit 3',
                 results: stopped('permission_denied'),
+                unknownFlows: 'permission_denied',
                 writes: 2,
             },
             {
@@ -421,6 +437,15 @@ describe('fonts', () => {
                 unknownFlows: 'malformed_response',
                 writes: 2,
             },
+            {
+                answers: stopAfterOne({ body: unreadable, status: 201 }),
+                exit: exitCode.api,
+                files: 5,
+                human: ['Bold.otf: failed', 'The file may be stored', 'Bold.otf: failed'],
+                id: 'a success without warnings (human): the recovery step names fonts list, then fonts usage',
+                stderr: ['are not known', `adapty fonts list --app ${TEST_APP_ID}`, `adapty fonts usage --app ${TEST_APP_ID} FAMILY_ID`],
+                writes: 2,
+            },
         ];
 
         for (const row of rows) {
@@ -429,9 +454,14 @@ describe('fonts', () => {
                 const paths = await Promise.all(NAMES.slice(0, row.files).map(name => fontFile(name)));
                 const json = row.human === undefined ? ['--json'] : [];
 
-                const { stdout } = await runCommand(['fonts', 'upload', ...paths, '--app', TEST_APP_ID, ...json]);
+                const { stderr, stdout } = await runCommand(['fonts', 'upload', ...paths, '--app', TEST_APP_ID, ...json]);
 
                 expect(writes(sent), row.id).to.have.length(row.writes);
+
+                for (const line of row.stderr ?? []) {
+                    expect(stderr.replaceAll(/\s*\n\s*›?\s*/g, ' '), row.id).to.include(line);
+                }
+
                 expect(process.exitCode ?? 0, row.id).to.equal(row.exit);
 
                 for (const line of row.human ?? []) {
