@@ -326,7 +326,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
 | 5 | network — the server was never reached |
-| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`) |
+| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`, `fonts faces replace`) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
 ### The `--json` contract

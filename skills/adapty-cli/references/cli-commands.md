@@ -543,7 +543,7 @@ Custom fonts of an app, for flows. A family holds faces; a face is one weight an
 | `fonts faces update <face_id>` | `--app`; `--weight` with `--italic true\|false` (the pair is then confirmed), `--ios-name`, `--android-name` (lowercase letter, then lowercase letters, digits or `_`; set on every face of the same file) |
 | `fonts faces default <face_id>` | `--app` |
 | `fonts faces move <face_id>` | `--app`, `--to <family_id>`. The default face does not move; a known pair does not move into a family that has it |
-| `fonts faces replace <face_id> <file>` | `--app`; `--weight` with `--italic` for a face whose pair is not known and a variable file. Same face id, default mark and Android name; the iOS name follows the file; the old file is not kept |
+| `fonts faces replace <face_id> <file>` | `--app`; `--weight` with `--italic` for a face whose pair is not known and a variable file. Same face id, default mark and Android name; the iOS name follows the file; the old file is not kept and cannot be restored, so it asks first: `--yes` to replace without asking (with `--json`, a pipe or no terminal: exit 6 `confirm_required` without it, nothing sent) |
 
 ```sh
 adapty fonts upload --app APP_UUID Brand-Regular.otf Brand-Bold.otf Brand-Italic.otf --json

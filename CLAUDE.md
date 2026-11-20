@@ -51,7 +51,8 @@ src/
                      # in src/sdk/adapty/flow-fonts.ts
     fonts/           # list, get, upload, add, rename, usage; faces/ (update, default, move, replace) — custom fonts
                      # of an app; upload and add send a package file by file and report each file (exit 4 when one
-                     # was refused). Implementation in src/cli/commands/fonts, the shared steps in
+                     # was refused); faces replace asks first (cli/input/confirm.ts, --yes; exit 6 when nobody can
+                     # answer). Implementation in src/cli/commands/fonts, the shared steps in
                      # cli/base/adapty/fonts-command.ts, the resource in src/sdk/adapty/fonts
     migrations/      # create, list, use, current, unuse, status (--wait), steps, show, run, close — a thin client of the
                      # Wizard Service: the flow lives on the server, every answer is one envelope.

@@ -418,7 +418,7 @@ adapty fonts usage FAMILY_ID --app UUID
 adapty fonts faces update FACE_ID --app UUID [--weight N --italic true|false] [--ios-name NAME] [--android-name NAME]
 adapty fonts faces default FACE_ID --app UUID
 adapty fonts faces move FACE_ID --to FAMILY_ID --app UUID
-adapty fonts faces replace FACE_ID FILE --app UUID [--weight N --italic true|false]
+adapty fonts faces replace FACE_ID FILE --app UUID [--weight N --italic true|false] [--yes]
 ```
 
 `upload` reads the family name inside each file: the file joins the family of that name (any case) or creates it. A
@@ -433,7 +433,8 @@ ones. Exit 4 when a file was refused (after the whole report), 0 when every file
 or an auth failure (exit 3) stops the package; the files after it are reported as not sent.
 
 A face keeps its id when its file is replaced, and its default mark and Android name; the iOS name follows the new
-file. The Android name changes on every face of the same file. A write that leaves a face without an iOS or Android
+file. The old file cannot be restored, so `fonts faces replace` asks first; `--yes` replaces without asking, and with
+`--json`, a pipe or no terminal it does nothing without `--yes` (exit 6). The Android name changes on every face of the same file. A write that leaves a face without an iOS or Android
 name is saved with a warning. A command that changes a family that flows use lists those flows
 (`flows_to_publish` in `--json`): they need `adapty flows publish` to get the change. A flow names a font by family
 (id or name) and weight, as in the builder; publish draws the exact pair, else the nearest weight, the lighter one on a
