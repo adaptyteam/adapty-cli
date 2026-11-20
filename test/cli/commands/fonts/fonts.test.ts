@@ -14,7 +14,8 @@ import type * as sinon from 'sinon';
 
 const FAMILY_ID = '11111111-1111-4111-8111-111111111111';
 const TARGET_ID = '22222222-2222-4222-8222-222222222222';
-const FACE_ID = '33333333-3333-4333-8333-333333333333';
+// Hex letters in it, so the upper case of the id differs from the id
+const FACE_ID = '3c3c3c3c-3c3c-4c3c-8c3c-3c3c3c3c3c3c';
 const FLOW_ID = '44444444-4444-4444-8444-444444444444';
 const OTHER_FACE_ID = '55555555-5555-4555-8555-555555555555';
 const TARGET_FLOW_ID = '66666666-6666-4666-8666-666666666666';
@@ -22,12 +23,14 @@ const FONTS = `/api/v1/developer/apps/${TEST_APP_ID}/media/fonts/`;
 const POST_FONTS = /\/media\/fonts\/$/;
 
 type FaceOptions = {
+    android?: string;
     familyId?: string;
     fileId?: number;
     id?: string;
     ios?: string;
     isDefault?: boolean;
     italic?: boolean;
+    status?: string;
 };
 
 const face = (weight: number, options: FaceOptions = {}) => {
@@ -38,12 +41,12 @@ const face = (weight: number, options: FaceOptions = {}) => {
         file_format: 'otf',
         file_id: options.fileId ?? weight,
         file_url: 'https://cdn.example.com/brand.otf',
-        font_alias_android: null,
+        font_alias_android: options.android ?? null,
         font_alias_ios: options.ios ?? `Brand-${weight}${italic ? 'i' : ''}`,
         id: options.id ?? (weight === 700 ? FACE_ID : `face-${weight}${italic ? 'i' : ''}`),
         is_default: options.isDefault ?? (weight === 400 && !italic),
         italic,
-        metadata_status: 'detected',
+        metadata_status: options.status ?? 'detected',
         weight,
     };
 };
@@ -131,7 +134,7 @@ const line = (args: readonly string[]): string => args.map(arg => (arg.includes(
 const escaped = (text: string): RegExp => new RegExp(text.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`));
 
 type FileResult = Record<string, unknown> & { error_code?: string; message?: string; result: string };
-type PackageJson = { files: FileResult[]; flows_to_publish: unknown };
+type PackageJson = { files: FileResult[]; flows_to_publish: unknown; flows_to_publish_error?: { error_code: string } };
 
 describe('fonts', () => {
     let dir: string;
@@ -229,15 +232,15 @@ describe('fonts', () => {
             {
                 argv: () => ['fonts', 'faces', 'update', FACE_ID, '--weight', '600', '--italic', 'false'],
                 id: 'faces update',
-                out: [escaped(`${FACE_ID}  600`)],
-                routes: [listRoute, patchFace(written([face(400), face(600, { id: FACE_ID })])), ...usageRoutes()],
+                out: [new RegExp(`${FACE_ID} +600 +\\S+ +\\S+ +confirmed`)],
+                routes: [listRoute, patchFace(written([face(400), face(600, { id: FACE_ID, status: 'confirmed' })])), ...usageRoutes()],
                 write: { json: { italic: false, weight: 600 }, method: 'PATCH', path: facePath },
             },
             {
                 argv: () => ['fonts', 'faces', 'update', FACE_ID.toUpperCase(), '--android-name', 'brand_bold'],
                 id: 'faces update: a face id in upper case; an Android name reaches every family of the file',
-                out: [escaped(`  ${FLOW_ID}`), escaped(`  ${TARGET_FLOW_ID}`)],
-                routes: [sharedFile, patchFace(written([face(400), face(700)])), ...usageRoutes(BOTH_USED)],
+                out: [new RegExp(`${FACE_ID} +700 +Brand-700 +brand_bold`), escaped(`  ${FLOW_ID}`), escaped(`  ${TARGET_FLOW_ID}`)],
+                routes: [sharedFile, patchFace(written([face(400), face(700, { android: 'brand_bold' })])), ...usageRoutes(BOTH_USED)],
                 write: { json: { font_alias_android: 'brand_bold' }, method: 'PATCH', path: facePath },
             },
             {
@@ -251,7 +254,7 @@ describe('fonts', () => {
             {
                 argv: () => ['fonts', 'faces', 'move', FACE_ID, '--to', TARGET_ID],
                 id: 'faces move: the flows of the source and of the target family',
-                out: [escaped(`Inter (${TARGET_ID})`), escaped(`  ${FLOW_ID}`), escaped(`  ${TARGET_FLOW_ID}`)],
+                out: [new RegExp(`Inter \\(${TARGET_ID}\\)\\n[^\\n]*\\n(?:[^\\n]*\\n)*${FACE_ID} +700`), escaped(`  ${FLOW_ID}`), escaped(`  ${TARGET_FLOW_ID}`)],
                 routes: [listRoute, { answers: [{ body: movedInto }], method: 'POST', path: /\/move\/$/ }, ...usageRoutes(BOTH_USED)],
                 write: { json: { target_font_family_id: TARGET_ID }, method: 'POST', path: `${facePath}move/` },
             },
@@ -341,6 +344,8 @@ describe('fonts', () => {
             human?: string[];
             id: string;
             message?: string;
+            /** The flows to publish are unknown, with this error code. */
+            unknownFlows?: string;
             results?: [string, string | undefined][];
             writes: number;
         };
@@ -413,6 +418,7 @@ describe('fonts', () => {
                 id: 'a success without warnings: stops, says the file may be stored, exit 4',
                 message: 'The file may be stored',
                 results: stopped('malformed_response'),
+                unknownFlows: 'malformed_response',
                 writes: 2,
             },
         ];
@@ -433,12 +439,18 @@ describe('fonts', () => {
                 }
 
                 if (row.results !== undefined) {
-                    const { files } = JSON.parse(stdout) as PackageJson;
+                    const report = JSON.parse(stdout) as PackageJson;
+                    const { files } = report;
 
                     expect(files.map(file => [file.result, file.error_code]), row.id).to.deep.equal(row.results);
 
                     if (row.message !== undefined) {
                         expect(files.find(file => file.result === 'failed')?.message, row.id).to.include(row.message);
+                    }
+
+                    if (row.unknownFlows !== undefined) {
+                        expect(report.flows_to_publish, row.id).to.equal(null);
+                        expect(report.flows_to_publish_error?.error_code, row.id).to.equal(row.unknownFlows);
                     }
                 }
             });

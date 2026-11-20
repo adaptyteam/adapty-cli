@@ -176,12 +176,34 @@ export abstract class FontsCommand extends AdaptyCommand {
 
         process.exitCode = stop?.exitCode ?? (refusedAny ? exitCode.api : undefined);
 
-        // After an auth stop the usage read would be refused the same way: unknown, not read
-        const flows = stop?.exitCode === exitCode.auth
-            ? { flows_to_publish: null }
-            : await this.flowsToPublish(context.appId, changedFamilies(reports));
+        return { files: reports, ...(await this.packageFlows(stop, context.appId, reports)) };
+    }
 
-        return { files: reports, ...flows };
+    /**
+     * After an auth stop the usage read would be refused the same way, and after a success answer the CLI
+     * could not read it is not known what the file changed: unknown in both cases, never a short list.
+     */
+    private async packageFlows(
+        stop: CliError | undefined,
+        appId: string,
+        reports: readonly FontFileReport[],
+    ): Promise<FlowsToPublish> {
+        if (stop?.exitCode === exitCode.auth) {
+            return { flows_to_publish: null };
+        }
+
+        if (stop?.json.code === 'malformed_response') {
+            return {
+                flows_to_publish: null,
+                flows_to_publish_error: {
+                    error_code: 'malformed_response',
+                    message: 'A file may be stored from an answer the CLI could not read, so the changed font families are not known.',
+                    next_step: `Run \`adapty fonts list --app ${appId}\` to see the families, then \`adapty fonts usage --app ${appId} FAMILY_ID\` for each changed one.`,
+                },
+            };
+        }
+
+        return this.flowsToPublish(appId, changedFamilies(reports));
     }
 }
 
