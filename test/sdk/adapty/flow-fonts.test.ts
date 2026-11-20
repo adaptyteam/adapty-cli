@@ -107,6 +107,24 @@ const rows: Row[] = [
         id: 'a name two families share means none',
     },
     {
+        config: title('STRASSE'),
+        expected: { changed: true, meta: { fonts: [{ ...entry(), name: 'Straße' }] } },
+        families: [family('Straße')],
+        id: 'a name matches case-folded, as the server compares (Straße is STRASSE)',
+    },
+    {
+        config: title(INTER.toUpperCase()),
+        expected: { changed: true, meta: { fonts: [entry()] } },
+        families: [family('Inter')],
+        id: 'a family id matches in any case',
+    },
+    {
+        config: title(BOLD),
+        expected: { changed: false },
+        families: [{ ...family('Inter'), name: BOLD }],
+        id: 'a UUID-shaped reference is an id only, never the name of a family',
+    },
+    {
         config: { ...title('user-font-1'), _meta: { fonts: [BUNDLED] } },
         expected: { changed: false },
         families: [family('Inter')],

@@ -53,14 +53,31 @@ export const fontReferences = (config: Json): string[] => {
     return [...found];
 };
 
-const nameKey = (name: string): string => name.trim().toLowerCase();
+/**
+ * The server's name key: trimmed and case-folded. Upper then lower case folds as Python's `casefold` does
+ * for the letters that matter here (`Straße` and `STRASSE` meet at `strasse`).
+ */
+const nameKey = (name: string): string => name.trim().toUpperCase().toLowerCase();
 
-/** The family a reference means: by id, else by a name only one family of the app carries. */
+/**
+ * The 32 hex digits of a UUID as Python's `UUID()` reads one (any case, dashes anywhere, braces, a
+ * `urn:uuid:` prefix), else undefined: the server takes such a reference as a family id.
+ */
+const uuidKey = (value: string): string | undefined => {
+    const hex = value.replace(/^urn:uuid:/i, '').replaceAll(/[{}-]/g, '').toLowerCase();
+
+    return /^[\da-f]{32}$/.test(hex) ? hex : undefined;
+};
+
+/**
+ * The family a reference means, as the server reads it: a UUID-shaped reference is a family id and only
+ * that; any other is a name that exactly one family of the app carries.
+ */
 const resolve = (reference: string, families: readonly FontFamily[]): FontFamily | undefined => {
-    const byId = families.find(family => family.id === reference);
+    const id = uuidKey(reference);
 
-    if (byId !== undefined) {
-        return byId;
+    if (id !== undefined) {
+        return families.find(family => uuidKey(family.id) === id);
     }
 
     const byName = families.filter(family => nameKey(family.name) === nameKey(reference));

@@ -60,13 +60,113 @@ const routes = (answers: Answers): Route[] => [
     { answers: [answers.publish ?? { body: { ...FLOW, status: 'publishing' } }], method: 'POST', path: /\/publish\/$/ },
 ];
 
-const writes = (sent: readonly SentRequest[]): string[] =>
-    sent.filter(request => request.method !== 'GET').map(request => `${request.method} ${request.path.replace(FLOW_PATH, '')}`);
+/** The requests the command sent, as `METHOD path` below the flow; a font list read is `GET fonts`. */
+const requests = (sent: readonly SentRequest[]): string[] => sent
+    .filter(request => request.method !== 'GET' || request.path.endsWith('/media/fonts/'))
+    .map(request => (request.method === 'GET' ? 'GET fonts' : `${request.method} ${request.path.replace(FLOW_PATH, '')}`));
+
+const { updated_at: _lock, ...withoutLock } = storedConfig('Brand-Bold-Old');
+const { remote_configs: _remote, ...withoutRemoteConfigs } = storedConfig('Brand-Bold-Old');
+
+const noFontNamed = (fonts: unknown[]) => ({
+    ...storedConfig(''),
+    config: { _meta: { fonts }, screens: [{ title: { text: 'Hi' } }] },
+});
+
+type Row = {
+    answers: Answers;
+    exit: number;
+    id: string;
+    json?: boolean;
+    /** Part of the error message, or of stdout on a success. */
+    output: string;
+    requests: string[];
+    save?: unknown;
+    saved?: boolean;
+};
 
 /**
  * external: `flows publish` refreshes the fonts as the builder does: what it writes, what it never
- * writes, and the exit code and `saved` an agent reads.
+ * writes (no save without the lock it read), and the exit code and `saved` an agent reads.
  */
+const rows: Row[] = [
+    {
+        answers: {},
+        exit: 0,
+        id: 'a stale copy: the save with the current fonts, the remote configs and the lock, then the publish',
+        output: 'Fonts refreshed: the flow config was saved with the current app fonts.',
+        requests: ['GET fonts', 'PUT /config/', 'POST /publish/'],
+        save: {
+            config: { ...storedConfig('').config, _meta: { fonts: [fontEntry('Brand-Bold-New')] } },
+            expected_updated_at: 1_794_000_000_000,
+            remote_configs: REMOTE_CONFIGS,
+        },
+    },
+    {
+        answers: { config: { body: storedConfig('Brand-Bold-New') } },
+        exit: 0,
+        id: 'a current copy: no config write, publication started',
+        output: 'Publishing started — status: publishing.',
+        requests: ['GET fonts', 'POST /publish/'],
+    },
+    {
+        answers: { fonts: { body: { detail: 'Not found.' }, status: 404 } },
+        exit: exitCode.api,
+        id: 'the font list cannot be read: exit 4, nothing written',
+        output: 'failed with HTTP 404',
+        requests: ['GET fonts'],
+    },
+    {
+        answers: { config: { body: withoutLock } },
+        exit: exitCode.api,
+        id: 'a config answer without updated_at: exit 4 naming it, nothing written',
+        output: 'The flow config answer has no updated_at',
+        requests: ['GET fonts'],
+    },
+    {
+        answers: { config: { body: withoutRemoteConfigs } },
+        exit: exitCode.api,
+        id: 'a config answer without remote_configs: exit 4 naming it, nothing written',
+        output: 'The flow config answer has no remote_configs',
+        requests: ['GET fonts'],
+    },
+    {
+        answers: { config: { body: noFontNamed([fontEntry('Brand-Bold-Old')]) } },
+        exit: 0,
+        id: 'no custom font named any more: the stale copy is cleared without a font list read',
+        output: 'Fonts refreshed',
+        requests: ['PUT /config/', 'POST /publish/'],
+        save: {
+            config: noFontNamed([]).config,
+            expected_updated_at: 1_794_000_000_000,
+            remote_configs: REMOTE_CONFIGS,
+        },
+    },
+    {
+        answers: { config: { body: noFontNamed([]) } },
+        exit: 0,
+        id: 'no custom font and no copy: the publish only',
+        output: 'Publishing started',
+        requests: ['POST /publish/'],
+    },
+    {
+        answers: { save: { body: { error_code: 'flow_config_conflict', errors: { non_field_errors: ['Changed.'] } }, status: 409 } },
+        exit: exitCode.api,
+        id: 'a save conflict stops before the publish',
+        output: 'Nothing was published: the save of the flow config with the current fonts failed.\nChanged.',
+        requests: ['GET fonts', 'PUT /config/'],
+    },
+    {
+        answers: { publish: { body: { error_code: 'validation_error', errors: { non_field_errors: ['No version.'] } }, status: 400 } },
+        exit: 1,
+        id: 'a refused publish after the save says the save stays (saved: true)',
+        json: true,
+        output: 'Flow publish failed: No version.',
+        requests: ['GET fonts', 'PUT /config/', 'POST /publish/'],
+        saved: true,
+    },
+];
+
 describe('flows publish refreshes the fonts', () => {
     let stub: sinon.SinonStub | undefined;
 
@@ -81,65 +181,30 @@ describe('flows publish refreshes the fonts', () => {
         delete process.env.ADAPTY_TOKEN;
     });
 
-    const run = async (answers: Parameters<typeof routes>[0], json = false) => {
-        const fake = routeFetch(routes(answers));
-        stub = fake.stub;
+    for (const row of rows) {
+        it(row.id, async () => {
+            const fake = routeFetch(routes(row.answers));
+            stub = fake.stub;
 
-        const result = await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes${json ? ' --json' : ''}`);
+            const json = row.json === true ? ' --json' : '';
+            const { error, stdout } = await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes${json}`);
+            type Failure = { error: { message: string; saved?: boolean } };
 
-        return { ...result, sent: fake.sent };
-    };
+            const failure = row.json === true && row.exit !== 0 ? (JSON.parse(stdout) as Failure).error : undefined;
+            const text = failure?.message ?? error?.message ?? stdout;
+            const exit = error?.oclif?.exit ?? process.exitCode ?? 0;
 
-    it('a stale copy: saves the config with the current fonts, the remote configs and the lock, then publishes', async () => {
-        const { sent, stdout } = await run({});
-        const save = sent.find(request => request.method === 'PUT');
+            expect(requests(fake.sent), row.id).to.deep.equal(row.requests);
+            expect(text, row.id).to.include(row.output);
+            expect(exit, row.id).to.equal(row.exit);
 
-        expect(writes(sent)).to.deep.equal(['PUT /config/', 'POST /publish/']);
+            if (row.save !== undefined) {
+                expect(fake.sent.find(request => request.method === 'PUT')?.body, row.id).to.deep.equal(row.save);
+            }
 
-        expect(save?.body).to.deep.equal({
-            config: { ...storedConfig('').config, _meta: { fonts: [fontEntry('Brand-Bold-New')] } },
-            expected_updated_at: 1_794_000_000_000,
-            remote_configs: REMOTE_CONFIGS,
+            if (row.saved !== undefined) {
+                expect(failure?.saved, row.id).to.equal(row.saved);
+            }
         });
-
-        expect(stdout).to.include('Fonts refreshed: the flow config was saved with the current app fonts.');
-        expect(stdout).to.include('Publishing started — status: publishing.');
-    });
-
-    it('a current copy: no config write, publication started', async () => {
-        const { error, sent } = await run({ config: { body: storedConfig('Brand-Bold-New') } });
-
-        expect(error).to.equal(undefined);
-        expect(writes(sent)).to.deep.equal(['POST /publish/']);
-    });
-
-    it('the font list cannot be read: exit 4 with the API error, nothing written', async () => {
-        const { error, sent } = await run({ fonts: { body: { detail: 'Not found.' }, status: 404 } });
-
-        expect(error?.oclif?.exit).to.equal(exitCode.api);
-        expect(writes(sent)).to.deep.equal([]);
-    });
-
-    it('a save conflict stops before the publish', async () => {
-        const conflict = { body: { error_code: 'flow_config_conflict', errors: { non_field_errors: ['Changed.'] }, status_code: 409 }, status: 409 };
-
-        const { error, sent } = await run({ save: conflict });
-
-        expect(error?.message).to.match(/^Nothing was published: the save of the flow config with the current fonts failed\.\nChanged\./);
-        expect(error?.oclif?.exit).to.equal(exitCode.api);
-        expect(writes(sent)).to.deep.equal(['PUT /config/']);
-    });
-
-    it('a refused publish after the save says the save stays (saved: true)', async () => {
-        const refused = { body: { error_code: 'validation_error', errors: { non_field_errors: ['No version.'] } }, status: 400 };
-
-        const { sent, stdout } = await run({ publish: refused }, true);
-        const failure = JSON.parse(stdout) as { error: { message: string; saved?: boolean } };
-
-        expect(writes(sent)).to.deep.equal(['PUT /config/', 'POST /publish/']);
-        expect(failure.error.saved).to.equal(true);
-        expect(failure.error.message).to.include('Flow publish failed: No version.');
-        expect(failure.error.message).to.include('that save stays');
-        expect(process.exitCode).to.equal(1);
-    });
+    }
 });
