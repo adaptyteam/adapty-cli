@@ -518,7 +518,7 @@ Upload a file for the flow builder and reference the returned URL from a flow co
 
 | Command | Required flags / notes |
 |---------|------------------------|
-| `flows media upload <file>` | `--app`; an image: PNG, JPEG, WEBP or SVG. Prints `id`, `name` and `url` (`--json` adds `preview_base64`). GIF, HEIC and video files are refused before a send (exit 2) |
+| `flows media upload <file>` | `--app`; an image: PNG, JPEG, WEBP or SVG. Prints `id`, `name`, `url` and the size (`Size: 640 KB`); an image over 1 MB adds a warning line on stderr (exit 0). `--json` adds `preview_base64`, `size` (bytes) and `warnings`, with no warning line. GIF, HEIC and video files are refused before a send (exit 2) |
 | `flows media upload-video <file>` | `--app`; a video: mp4 or webm. Prints `video_url` (the HLS playlist, for `videoUrl`), `preview_url` (for `previewUrl`), `width` and `height` (`--json` adds `preview_base64`). A GIF, another extension or a file above the size cap is refused before a send (exit 2); the server checks the duration and the resolution and its text names the limit (exit 4) |
 
 ```sh
