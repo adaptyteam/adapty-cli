@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 
 import {
+    formatMediaSize,
     imageMimeType,
     isGif,
     mediaExtension,
@@ -141,4 +142,24 @@ describe('adapty.flows.media.uploadVideo', () => {
 
         expect(sent).to.have.length(1);
     });
+});
+
+describe('formatMediaSize', () => {
+    // The same rows as the server formatter: a person reads the same weight in both.
+    const rows: [number, string][] = [
+        [100, '1 KB'],
+        [2560, '3 KB'],
+        [655_360, '640 KB'],
+        [1_048_576, '1 MB'],
+        [1_048_577, '1 MB'],
+        [1_310_720, '1.3 MB'],
+        [2_097_152, '2 MB'],
+        [6_710_886, '6.4 MB'],
+    ];
+
+    for (const [bytes, text] of rows) {
+        it(`${bytes} bytes is ${text}`, () => {
+            expect(formatMediaSize(bytes)).to.equal(text);
+        });
+    }
 });

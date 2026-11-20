@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
 
-import { mockFetch, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
+import { mockFetch, mockFetchFailure, restoreFetch, TEST_APP_ID } from '../helpers/mock-fetch.js';
 
 import type * as sinon from 'sinon';
 
@@ -45,6 +45,90 @@ describe('flows media upload', () => {
         expect(error).to.equal(undefined);
         expect(fetchStub.callCount).to.equal(1);
         expect(stdout).to.equal(['Image uploaded!', 'ID: 42', 'Name: hero.png', `URL: ${IMAGE.url}`, ''].join('\n'));
+    });
+
+    const HEAVY_WARNING = {
+        code: 'heavy_image',
+        message: 'Large images slow the first load. Upload a smaller file.',
+        title: 'Large image — 1.5 MB',
+    };
+
+    const LIGHT = { ...IMAGE, size: 655_360, warnings: [] };
+    const HEAVY = { ...IMAGE, size: 1_572_864, warnings: [HEAVY_WARNING] };
+    const imageLines = ['Image uploaded!', 'ID: 42', 'Name: hero.png', `URL: ${IMAGE.url}`];
+
+    it('a light image prints its size and no warning', async () => {
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([LIGHT]);
+
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stdout).to.equal([...imageLines, 'Size: 640 KB', ''].join('\n'));
+        expect(stderr).to.equal('');
+    });
+
+    it('a heavy image prints its size and one warning line, exit 0', async () => {
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([HEAVY]);
+
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stdout).to.equal([...imageLines, 'Size: 1.5 MB', ''].join('\n'));
+
+        expect(stderr).to.equal('Warning: Large image — 1.5 MB. Large images slow the first load. Upload a smaller file.\n');
+    });
+
+    it('a long warning stays one line, with no wrap and no margin', async () => {
+        const message = `${'Large images slow the first load. '.repeat(6)}Upload a smaller file.`;
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([{ ...HEAVY, warnings: [{ ...HEAVY_WARNING, message }] }]);
+
+        const { error, stderr } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stderr).to.equal(`Warning: Large image — 1.5 MB. ${message}\n`);
+    });
+
+    it('--json returns the whole server body with size and warnings, and no warning line', async () => {
+        restoreFetch(fetchStub);
+        fetchStub = mockFetch([HEAVY]);
+        const path = join(dir, 'hero.png');
+        await writeFile(path, PNG);
+
+        const { error, stderr, stdout } = await runCommand(`flows media upload ${path} --app ${TEST_APP_ID} --json`);
+
+        expect(error).to.equal(undefined);
+        expect(JSON.parse(stdout)).to.deep.equal(HEAVY);
+        expect(stderr).to.equal('');
+        expect(process.exitCode).to.equal(undefined);
+    });
+
+    it('an older server without size and warnings: no Size line, no warning, exit 0', async () => {
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error).to.equal(undefined);
+        expect(stdout).to.equal([...imageLines, ''].join('\n'));
+        expect(stderr).to.equal('');
+    });
+
+    it('a server refusal keeps the error and exit 1, with no Size line and no warning', async () => {
+        restoreFetch(fetchStub);
+
+        fetchStub = mockFetchFailure(
+            { error_code: 'media_file_too_large', errors: { file: ['File size must not exceed 20 MiB.'] }, status_code: 413 },
+            { status: 413 },
+        );
+
+        const { error, stderr, stdout } = await upload('hero.png', PNG);
+
+        expect(error?.message).to.equal('file: File size must not exceed 20 MiB.');
+        // oclif exits 1 for an error that carries no exit code of its own.
+        expect(error?.oclif?.exit ?? 1).to.equal(1);
+        expect(stdout).to.not.include('Size:');
+        expect(stdout).to.not.include('Image uploaded!');
+        expect(stderr).to.not.include('Large image');
     });
 
     const refusals: { content: Buffer; message: string; name: string }[] = [
