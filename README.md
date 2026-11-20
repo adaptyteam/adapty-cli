@@ -575,6 +575,41 @@ When several agents are found, the command asks which to install into; with no o
 `npx skills add adaptyteam/adapty-skills --all --global`, which covers the other agents. Restart an agent to
 load the skills. Exit **1** means an install failed.
 
+### Retention Messaging
+
+Apple Retention Messaging: the message that Apple shows on the App Store cancel screen, with its setup and metrics.
+
+```sh
+adapty retention-messaging setup-status --app UUID
+adapty retention-messaging realtime-url get --app UUID
+adapty retention-messaging realtime-url configure --app UUID --mode sandbox|production [--replace-other-url] [--yes]
+adapty retention-messaging performance-test start --app UUID
+adapty retention-messaging messages list --app UUID --mode sandbox|production [--search TEXT] [--type default|promo]
+                                         [--state in_review|live|rejected|inactive] [--ordering FIELD] [--page N] [--page-size N]
+adapty retention-messaging messages get MESSAGE_ID --app UUID
+adapty retention-messaging messages create --app UUID --mode sandbox|production --file PATH|- [--image PNG] [--yes]
+adapty retention-messaging messages update MESSAGE_ID --app UUID [--name ...] [--title ...] [--body ...] [--alt-text ...]
+                                           [--image PNG | --remove-image] [--file PATH|-] [--yes]
+adapty retention-messaging messages set-status MESSAGE_ID --app UUID --action activate|deactivate [--yes]
+adapty retention-messaging products suggest --app UUID --mode sandbox|production --type default|promo [--message-id ID]
+adapty retention-messaging promo-offers suggest PRODUCT_ID --app UUID
+adapty retention-messaging plan-switches suggest PRODUCT_ID --app UUID
+```
+
+The setup status works for any app; the realtime URL and the performance test need the App Store key and the Apple
+access; Apple shows a message after the access, the URL and its own approval. `realtime-url configure`, `messages create`,
+`messages update` and `messages set-status` ask in both modes: in a terminal `Apply? [y/N]`, with `--json`, a pipe or no
+terminal exit 6 unless `--yes`. When Apple has the realtime URL of another server, `configure` warns that it replaces it:
+with no terminal it exits 6 also with `--yes`, unless `--replace-other-url` is given. `messages list` and `messages get`
+ask Apple for review results as the dashboard does, so they can start to show an approved message.
+
+`create` takes the message as a JSON file; a bullet point names its icon by `image_path`, relative to the file. `update`
+takes field flags and a change file with only what changes (`localizations` by `locale`, `bullet_points` by `bullet_id`,
+`products` by `store_id`, and `remove_localizations`, `remove_bullet_points`, `remove_products`, `remove_image`), reads the
+message and sends it back whole. A conflict in the input, or an object that the message does not have, exits 2 with nothing
+sent. Images are checked before anything is sent: a PNG with no transparency, of the size Apple requires. A create or an
+update is never sent twice: when its answer is lost (exit 5, or 4 on a 5xx) the result is unknown; read before you act.
+
 ### Feedback
 
 A short report to Adapty on how a task with the CLI or an Adapty skill went. Leave out secrets and personal
