@@ -50,6 +50,17 @@ const entry = (iosBold = 'Inter-Bold', urls = { bold: BOLD_URL, family: REGULAR_
 
 const BUNDLED = { faces: [{ id: 'user-font-1', url: '' }], id: 'user-font-1', name: 'Bundled', url: '' };
 
+/**
+ * A row for one reference and one family of the given name: when it matches, the entry of that family is
+ * written; else nothing is.
+ */
+const resolves = (reference: string, name: string, match: boolean, id: string): Row => ({
+    config: title(reference),
+    expected: match ? { changed: true, meta: { fonts: [{ ...entry(), name }] } } : { changed: false },
+    families: [family(name)],
+    id,
+});
+
 const title = (id: string) => ({ screens: [{ title: { textFamily: { id, type: 'user' }, weight: 700 } }] });
 
 type Row = {
@@ -123,6 +134,29 @@ const rows: Row[] = [
         expected: { changed: false },
         families: [{ ...family('Inter'), name: BOLD }],
         id: 'a UUID-shaped reference is an id only, never the name of a family',
+    },
+    // How the server resolves a reference (`FlowFontMetaApp.get_map`, `_name_key`, `uuid.UUID`): a match
+    // writes the family, anything else writes nothing
+    resolves('ıris', 'Iris', false, 'a dotless ı is not an I: names compare case-folded, not upper- then lower-cased'),
+    resolves('ΣΊΣΥΦΟΣ', 'σίσυφος', true, 'a final sigma folds as any sigma'),
+    resolves('\uFEFFInter', 'Inter', false, 'a byte order mark is not whitespace to the server'),
+    resolves('\u3000Inter\u2003', 'Inter', true, 'Unicode whitespace at the ends is stripped'),
+    resolves('Straße', 'STRASSE', true, 'ß folds to ss'),
+    resolves(`{${INTER}}`, 'Inter', true, 'a UUID in braces is the family id'),
+    resolves(`urn:uuid:${INTER}`, 'Inter', true, 'a urn:uuid: UUID is the family id'),
+    resolves(INTER.replaceAll('-', ''), 'Inter', true, 'a UUID without hyphens is the family id'),
+    resolves('a1b2c3d4{}-0000-4000-8000-000000000001', 'Inter', false, 'braces inside are no UUID: read as a name, which no family has'),
+    {
+        config: title('a1b2c3d4{}-0000-4000-8000-000000000001'),
+        expected: { changed: true, meta: { fonts: [{ ...entry(), id: BOLD, name: 'a1b2c3d4{}-0000-4000-8000-000000000001' }] } },
+        families: [{ ...family('a1b2c3d4{}-0000-4000-8000-000000000001'), id: BOLD }],
+        id: 'a reference that is no UUID is a name, also when its digits are a family id',
+    },
+    {
+        config: title('STRASSE'),
+        expected: { changed: false },
+        families: [family('Straße'), { ...family('strasse'), id: BOLD }],
+        id: 'a name two families share after case folding means none',
     },
     {
         config: { ...title('user-font-1'), _meta: { fonts: [BUNDLED] } },

@@ -1,3 +1,5 @@
+import { pyCasefold, pyStrip, pyUuidHex } from './server-text.js';
+
 import type { FontFace, FontFamily } from './fonts/index.js';
 
 /**
@@ -53,31 +55,19 @@ export const fontReferences = (config: Json): string[] => {
     return [...found];
 };
 
-/**
- * The server's name key: trimmed and case-folded. Upper then lower case folds as Python's `casefold` does
- * for the letters that matter here (`Straße` and `STRASSE` meet at `strasse`).
- */
-const nameKey = (name: string): string => name.trim().toUpperCase().toLowerCase();
+/** The server's name key (`flow_font_meta.py::_name_key`): `name.strip().casefold()`. */
+const nameKey = (name: string): string => pyCasefold(pyStrip(name));
 
 /**
- * The 32 hex digits of a UUID as Python's `UUID()` reads one (any case, dashes anywhere, braces, a
- * `urn:uuid:` prefix), else undefined: the server takes such a reference as a family id.
- */
-const uuidKey = (value: string): string | undefined => {
-    const hex = value.replace(/^urn:uuid:/i, '').replaceAll(/[{}-]/g, '').toLowerCase();
-
-    return /^[\da-f]{32}$/.test(hex) ? hex : undefined;
-};
-
-/**
- * The family a reference means, as the server reads it: a UUID-shaped reference is a family id and only
- * that; any other is a name that exactly one family of the app carries.
+ * The family a reference means, as the server reads it (`FlowFontMetaApp.get_map`): a reference that
+ * `uuid.UUID()` takes is a family id, compared by its value, and only that; any other is a name, and
+ * means the family when exactly one family of the app has that name key. Nothing or several: none.
  */
 const resolve = (reference: string, families: readonly FontFamily[]): FontFamily | undefined => {
-    const id = uuidKey(reference);
+    const id = pyUuidHex(reference);
 
     if (id !== undefined) {
-        return families.find(family => uuidKey(family.id) === id);
+        return families.find(family => pyUuidHex(family.id) === id);
     }
 
     const byName = families.filter(family => nameKey(family.name) === nameKey(reference));
