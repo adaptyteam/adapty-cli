@@ -294,7 +294,8 @@ adapty flows publish --app UUID FLOW_ID [--yes]
 `flows publish` starts the publish and returns `publishing`; poll `flows get` for `published` or
 `publication_failed`. When the config names a custom font family, it first reads the app fonts and, if the copy of
 the fonts in the config (`_meta.fonts`) is stale, saves the config with the current fonts (keeping the remote
-configs, with the `updated_at` it read as the lock), as the flow builder does. A failed font read stops before any
+configs, with the `updated_at` it read as the lock), as the flow builder does; a copy left from a font the config
+no longer names is cleared the same way. A failed font read, or a config answer without the lock, stops before any
 write; a failed save stops before the publish.
 
 `flows config update` writes the config and the remote configs together, and both are required: a write replaces the
@@ -435,7 +436,8 @@ A face keeps its id when its file is replaced, and its default mark and Android 
 file. The Android name changes on every face of the same file. A write that leaves a face without an iOS or Android
 name is saved with a warning. A command that changes a family that flows use lists those flows
 (`flows_to_publish` in `--json`): they need `adapty flows publish` to get the change. A flow names a font by family
-(id or name) and weight, as in the builder; publish draws the exact pair, else the nearest weight. The same font
+(id or name) and weight, as in the builder; publish draws the exact pair, else the nearest weight, the lighter one on a
+tie. The same font
 must be in the app bundle.
 
 ### Access Levels
