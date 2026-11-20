@@ -68,6 +68,10 @@ const requests = (sent: readonly SentRequest[]): string[] => sent
 const { updated_at: _lock, ...withoutLock } = storedConfig('Brand-Bold-Old');
 const { remote_configs: _remote, ...withoutRemoteConfigs } = storedConfig('Brand-Bold-Old');
 
+/** A config that names the family by its name, and an app where two families have that name. */
+const byName = { ...storedConfig('Brand-Bold-Old'), config: { screens: [{ title: { textFamily: { id: 'Brand', type: 'user' } } }] } };
+const twoBrands = { data: [FAMILY, { ...FAMILY, id: '77777777-7777-4777-8777-777777777777', name: 'BRAND' }] };
+
 const noFontNamed = (fonts: unknown[]) => ({
     ...storedConfig(''),
     config: { _meta: { fonts }, screens: [{ title: { text: 'Hi' } }] },
@@ -114,6 +118,13 @@ const rows: Row[] = [
         exit: exitCode.api,
         id: 'the font list cannot be read: exit 4, nothing written',
         output: 'failed with HTTP 404',
+        requests: ['GET fonts'],
+    },
+    {
+        answers: { config: { body: byName }, fonts: { body: twoBrands } },
+        exit: exitCode.usage,
+        id: 'a name that two families share: no guess, exit 2 naming it, nothing written',
+        output: 'The flow names the font family "Brand", which 2 font families of the app match',
         requests: ['GET fonts'],
     },
     {

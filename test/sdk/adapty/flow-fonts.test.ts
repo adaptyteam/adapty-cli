@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 
 import { refreshFlowFonts } from '../../../src/sdk/adapty/flow-fonts.js';
+import { ValidationError } from '../../../src/sdk/core/errors.js';
 
 import type { FontFace, FontFamily } from '../../../src/sdk/adapty/index.js';
 
@@ -48,6 +49,9 @@ const entry = (iosBold = 'Inter-Bold', urls = { bold: BOLD_URL, family: REGULAR_
     url: urls.family,
 });
 
+/** What `uuid.UUID('０x112233445546778899aabbccddeeff')` makes. */
+const PROBE_ID = '00112233-4455-4677-8899-aabbccddeeff';
+
 const BUNDLED = { faces: [{ id: 'user-font-1', url: '' }], id: 'user-font-1', name: 'Bundled', url: '' };
 
 /**
@@ -65,7 +69,8 @@ const title = (id: string) => ({ screens: [{ title: { textFamily: { id, type: 'u
 
 type Row = {
     config: Record<string, unknown>;
-    expected: { changed: boolean; meta?: Record<string, unknown> };
+    /** `error`: nothing is refreshed and nothing written; the message names the reference. */
+    expected: { changed: boolean; meta?: Record<string, unknown> } | { error: string };
     families: FontFamily[];
     id: string;
 };
@@ -113,9 +118,9 @@ const rows: Row[] = [
     },
     {
         config: title('Inter'),
-        expected: { changed: false },
-        families: [family('Inter'), { ...family('INTER'), id: 'other' }],
-        id: 'a name two families share means none',
+        expected: { error: 'The flow names the font family "Inter", which 2 font families of the app match' },
+        families: [family('Inter'), { ...family('INTER'), id: BOLD }],
+        id: 'a name two families share: no guess, the refresh stops',
     },
     {
         config: title('STRASSE'),
@@ -135,8 +140,9 @@ const rows: Row[] = [
         families: [{ ...family('Inter'), name: BOLD }],
         id: 'a UUID-shaped reference is an id only, never the name of a family',
     },
-    // How the server resolves a reference (`FlowFontMetaApp.get_map`, `_name_key`, `uuid.UUID`): a match
-    // writes the family, anything else writes nothing
+    // How the server resolves a reference: a reference that is a UUID (Python's uuid.UUID() rules) is a family
+    // id and only that, any other is a name compared trimmed and case-folded; a match writes the family, no
+    // match writes nothing, a match the CLI cannot make with certainty stops the refresh
     resolves('ıris', 'Iris', false, 'a dotless ı is not an I: names compare case-folded, not upper- then lower-cased'),
     resolves('ΣΊΣΥΦΟΣ', 'σίσυφος', true, 'a final sigma folds as any sigma'),
     resolves('\uFEFFInter', 'Inter', false, 'a byte order mark is not whitespace to the server'),
@@ -154,9 +160,27 @@ const rows: Row[] = [
     },
     {
         config: title('STRASSE'),
-        expected: { changed: false },
+        expected: { error: 'The flow names the font family "STRASSE", which 2 font families of the app match' },
         families: [family('Straße'), { ...family('strasse'), id: BOLD }],
-        id: 'a name two families share after case folding means none',
+        id: 'a name two families share after case folding: the refresh stops',
+    },
+    {
+        config: title('０x112233445546778899aabbccddeeff'),
+        expected: { changed: true, meta: { fonts: [{ ...entry(), id: PROBE_ID, name: 'Inter' }] } },
+        families: [{ ...family('Inter'), id: PROBE_ID }, { ...family('０x112233445546778899aabbccddeeff'), id: BOLD }],
+        id: 'a fullwidth zero before x is a 0x prefix: the reference is the id of the first family, not the name of the second',
+    },
+    {
+        config: title(INTER),
+        expected: { error: 'The font family id "not-a-uuid" of the app is not a UUID, so the reference' },
+        families: [{ ...family('Other'), id: 'not-a-uuid' }, family('Inter')],
+        id: 'an id compared with a family id that is not a UUID: no guess, the refresh stops',
+    },
+    {
+        config: title('x'.repeat(200_000)),
+        expected: { changed: false },
+        families: [family('Inter')],
+        id: 'a reference of 200,000 characters that matches no family: no entry, and no stack overflow',
     },
     {
         config: { ...title('user-font-1'), _meta: { fonts: [BUNDLED] } },
@@ -181,12 +205,22 @@ const rows: Row[] = [
 describe('refreshFlowFonts', () => {
     for (const row of rows) {
         it(row.id, () => {
+            const { expected } = row;
+
+            if ('error' in expected) {
+                const refresh = () => refreshFlowFonts(row.config, row.families);
+
+                expect(refresh, row.id).to.throw(ValidationError, expected.error);
+
+                return;
+            }
+
             const refresh = refreshFlowFonts(row.config, row.families);
 
-            expect(refresh.changed, `${row.id}: changed`).to.equal(row.expected.changed);
+            expect(refresh.changed, `${row.id}: changed`).to.equal(expected.changed);
 
-            if (row.expected.meta !== undefined) {
-                expect(refresh.config._meta, `${row.id}: _meta`).to.deep.equal(row.expected.meta);
+            if (expected.meta !== undefined) {
+                expect(refresh.config._meta, `${row.id}: _meta`).to.deep.equal(expected.meta);
                 expect(refresh.config.screens, `${row.id}: the references stay as written`).to.deep.equal(row.config.screens);
             }
         });

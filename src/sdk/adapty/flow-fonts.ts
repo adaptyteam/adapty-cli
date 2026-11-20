@@ -1,6 +1,9 @@
+import { assertValid } from '../core/validation.js';
+
 import { pyCasefold, pyStrip, pyUuidHex } from './server-text.js';
 
 import type { FontFace, FontFamily } from './fonts/index.js';
+import type { Issue } from '../core/errors.js';
 
 /**
  * The copy of the app fonts a flow config carries in `_meta.fonts`, refreshed as the flow builder does
@@ -9,7 +12,7 @@ import type { FontFace, FontFamily } from './fonts/index.js';
  *
  * A config names a custom family under a `family` key (or a key ending in it) as `{ type: 'user', id }`,
  * where `id` is the family id or, from the Developer API, its name. A name means the family whose name
- * equals it trimmed and in any case, when exactly one does; the server reads it the same way.
+ * equals it trimmed and case-folded, when exactly one does; the server reads it the same way.
  */
 
 type Json = Record<string, unknown>;
@@ -55,24 +58,48 @@ export const fontReferences = (config: Json): string[] => {
     return [...found];
 };
 
-/** The server's name key (`flow_font_meta.py::_name_key`): `name.strip().casefold()`. */
+/** The name key of the server: the name trimmed and case-folded. */
 const nameKey = (name: string): string => pyCasefold(pyStrip(name));
 
+type Resolution = { family?: FontFamily | undefined; issue?: Issue | undefined };
+
 /**
- * The family a reference means, as the server reads it (`FlowFontMetaApp.get_map`): a reference that
- * `uuid.UUID()` takes is a family id, compared by its value, and only that; any other is a name, and
- * means the family when exactly one family of the app has that name key. Nothing or several: none.
+ * The family a reference means, as the server reads it: a reference that is a UUID is a family id,
+ * compared by its value, and only that; any other is a name, and means the family when exactly one family
+ * of the app has that name key. Nothing matched: no family (the publish reports it). The CLI does not
+ * guess where the server could read it otherwise: a name that several families share, or an id compared
+ * with a family id that is not a UUID, is an issue, and nothing is written.
  */
-const resolve = (reference: string, families: readonly FontFamily[]): FontFamily | undefined => {
+const resolve = (reference: string, families: readonly FontFamily[]): Resolution => {
     const id = pyUuidHex(reference);
 
     if (id !== undefined) {
-        return families.find(family => pyUuidHex(family.id) === id);
+        const unreadable = families.find(family => pyUuidHex(family.id) === undefined);
+
+        if (unreadable !== undefined) {
+            const message = `The font family id "${unreadable.id}" of the app is not a UUID, so the reference `
+                + `"${reference}" `
+                + 'cannot be matched with certainty. Nothing was saved or published.';
+
+            return { issue: { message } };
+        }
+
+        return { family: families.find(family => pyUuidHex(family.id) === id) };
     }
 
     const byName = families.filter(family => nameKey(family.name) === nameKey(reference));
 
-    return byName.length === 1 ? byName[0] : undefined;
+    if (byName.length > 1) {
+        return {
+            issue: {
+                message: `The flow names the font family "${reference}", which ${byName.length} font families of the app match `
+                    + `(${byName.map(family => family.id).join(', ')}). Rename one of them, or name the family by its id in the flow. `
+                    + 'Nothing was saved or published.',
+            },
+        };
+    }
+
+    return { family: byName[0] };
 };
 
 /** Nulls are left out, as the server writes the copy. */
@@ -82,7 +109,7 @@ const compact = (entry: Json): Json =>
 const storedById = (entries: unknown): Map<string, Json> =>
     new Map((Array.isArray(entries) ? entries : []).filter(isRecord).map(entry => [String(entry.id), entry]));
 
-/** The prefix the paywall migration gives the entry of a face the app ships in its own bundle. */
+/** The id prefix of a stored entry for a face the app ships in its own bundle, which the device finds by name. */
 const BUNDLED_ID_PREFIX = 'user-font-';
 
 const hasUrl = (entry: Json): boolean => typeof entry.url === 'string' && entry.url !== '';
@@ -157,8 +184,13 @@ export const refreshFlowFonts = (config: Json, families: readonly FontFamily[]):
     const stored = storedById(meta.fonts);
     const entries = new Map<string, Json>();
 
-    for (const reference of fontReferences(config)) {
-        const family = resolve(reference, families);
+    const references = fontReferences(config);
+    const resolutions = references.map(reference => resolve(reference, families));
+
+    assertValid(resolutions.flatMap(resolution => (resolution.issue === undefined ? [] : [resolution.issue])));
+
+    for (const [index, reference] of references.entries()) {
+        const family = resolutions[index]?.family;
         const entry = family === undefined ? bundledEntry(stored.get(reference)) : familyEntry(family);
 
         if (entry !== undefined && !entries.has(String(entry.id))) {
