@@ -118,7 +118,12 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
   `cli/base/attribution/index.js`); files inside that module import each other directly
 - Auth token stored at `~/.config/adapty/config.json` (mode 0o600)
 - `ADAPTY_TOKEN` env overrides stored token
-- `ADAPTY_API_URL` env overrides default API base URL
+- Region of a command (`us` or `eu`): hidden `auth login --region`, then `ADAPTY_REGION`, then the `region`
+  saved in the session file (read also when `ADAPTY_TOKEN` is set), then `us`. It picks the developer API
+  host (EU: `https://api-eu-admin.adapty.io/api/v1/developer`) in both stacks, through `regionApiUrl` of
+  `cli/base/adapty/index.js`. A bad value is a usage error (exit 2); a damaged session file the region
+  must come from stops the command (exit 3). `auth status` shows the region of a saved EU session only
+- `ADAPTY_API_URL` env overrides the API base URL of any region (warning only when it differs from the US default)
 - `ADAPTY_APP_URL` env sets the dashboard base URL (default `https://app.adapty.io`), via `lib/app-url.ts`:
   `flows config preview` builds the fixed `/flow-preview` route on it, and `auth login` rehosts the
   API-issued verification link onto it (only when the env var is set — the API may serve that link from
@@ -132,10 +137,13 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 - API base: `https://api-admin.adapty.io/api/v1/developer`
 - `asa` topic talks to its own service: base `https://api-asa-admin.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ASA_API_URL`; same bearer token, but errors follow the ASA shape (per-item `errors[]`, FastAPI
-  `detail`, `Retry-After` on 429)
+  `detail`, `Retry-After` on 429); no EU host: with the region `eu` every `asa` command refuses before any
+  request (exit 2, `region_not_supported`)
 - `attribution` topic talks to the UA attribution service: base `https://api-ua.adapty.io/api/v1/cli`, overridden by
   `ADAPTY_ATTRIBUTION_API_URL`; same bearer token, no app header (`report` and `values` take `--app`, the catalogs
-  none), errors in the `errors[]` envelope with `error_code`; `report` and `values` are POSTs that are never retried
+  none), errors in the `errors[]` envelope with `error_code`; `report` and `values` are POSTs that are never retried;
+  no EU host: with the region `eu` every `attribution` command refuses before any request (exit 2,
+  `region_not_supported`)
 
 ## Key Patterns
 

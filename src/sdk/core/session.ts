@@ -9,6 +9,11 @@ export type SessionUser = {
 };
 
 export type Session = {
+    /**
+     * The adapter's name for where the account lives. The sdk keeps it as written and checks
+     * nothing: which names exist and what a missing one means is the adapter's knowledge.
+     */
+    region?: string | undefined;
     token: string;
     user?: SessionUser | undefined;
 };
@@ -19,26 +24,76 @@ export type Session = {
  */
 export type SessionStore = {
     clear(): Promise<void>;
+    /** The session, when the store holds a usable token. */
     load(): Promise<Session | undefined>;
     readonly path: string;
+    /**
+     * What the store holds, read once: the session when its token is usable, and the region either
+     * way, because a token may come from elsewhere while the region still has to come from here.
+     */
+    read(): Promise<StoredRecord | undefined>;
     save(session: Session): Promise<void>;
+};
+
+export type StoredRecord = {
+    region?: string | undefined;
+    session?: Session | undefined;
 };
 
 /**
  * The file and field names the published CLI already writes. A rename would log every existing
- * user out, so the on-disk contract stays `{ "access_token", "user": { "email", "name" } }`, where
- * only a file written before the server stopped sending the email still has one.
+ * user out, so the on-disk contract stays `{ "access_token", "user": { "email", "name" }, "region" }`,
+ * where only a file written before the server stopped sending the email still has one, and only a
+ * file written by a login that knows regions has `region`. An older reader ignores the field.
  */
 const FILE_NAME = 'config.json';
 
 type StoredSession = {
     access_token: string;
+    region?: string | undefined;
     user?: SessionUser | undefined;
 };
 
 /** A file under a directory the adapter picks: the sdk touches neither HOME nor process.env. */
 export const createFileSessionStore = (dir: string): SessionStore => {
     const path = join(dir, FILE_NAME);
+
+    const corrupted = (cause?: unknown): StorageError =>
+        new StorageError(`Session file is corrupted: ${path}`, path, cause === undefined ? undefined : { cause });
+
+    const read = async (): Promise<StoredRecord | undefined> => {
+        let raw: string;
+
+        try {
+            raw = await readFile(path, 'utf8');
+        } catch (error) {
+            if (isErrno(error, 'ENOENT')) {
+                return undefined;
+            }
+
+            // No permission, a broken disk: not ours to paper over as "not logged in"
+            throw error;
+        }
+
+        let parsed: unknown;
+
+        try {
+            parsed = JSON.parse(raw) as unknown;
+        } catch (error) {
+            throw corrupted(error);
+        }
+
+        const region = asRecord(parsed)?.region;
+
+        // A missing region is a file of an older version; a region of the wrong shape is damage
+        if (region !== undefined && typeof region !== 'string') {
+            throw corrupted();
+        }
+
+        // An unknown shape is most likely a file from another version: asking for a fresh
+        // login beats failing every command.
+        return { region, session: toSession(parsed) };
+    };
 
     return {
         path,
@@ -48,31 +103,12 @@ export const createFileSessionStore = (dir: string): SessionStore => {
         },
 
         load: async () => {
-            let raw: string;
+            const record = await read();
 
-            try {
-                raw = await readFile(path, 'utf8');
-            } catch (error) {
-                if (isErrno(error, 'ENOENT')) {
-                    return undefined;
-                }
-
-                // No permission, a broken disk: not ours to paper over as "not logged in"
-                throw error;
-            }
-
-            let parsed: unknown;
-
-            try {
-                parsed = JSON.parse(raw) as unknown;
-            } catch (error) {
-                throw new StorageError(`Session file is corrupted: ${path}`, path, { cause: error });
-            }
-
-            // An unknown shape is most likely a file from another version: asking for a fresh
-            // login beats failing every command.
-            return toSession(parsed);
+            return record?.session;
         },
+
+        read,
 
         save: async (session) => {
             await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -84,9 +120,11 @@ export const createFileSessionStore = (dir: string): SessionStore => {
     };
 };
 
-const toStored = (session: Session): StoredSession => (session.user === undefined
-    ? { access_token: session.token }
-    : { access_token: session.token, user: session.user });
+const toStored = (session: Session): StoredSession => ({
+    access_token: session.token,
+    ...(session.user === undefined ? {} : { user: session.user }),
+    ...(session.region === undefined ? {} : { region: session.region }),
+});
 
 /** Not a full schema check: only the minimum the rest of the code leans on. */
 const toSession = (parsed: unknown): Session | undefined => {
@@ -98,7 +136,11 @@ const toSession = (parsed: unknown): Session | undefined => {
 
     const user = toUser(record.user);
 
-    return user === undefined ? { token: record.access_token } : { token: record.access_token, user };
+    return {
+        token: record.access_token,
+        ...(user === undefined ? {} : { user }),
+        ...(typeof record.region === 'string' ? { region: record.region } : {}),
+    };
 };
 
 const toUser = (value: unknown): SessionUser | undefined => {

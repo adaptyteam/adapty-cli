@@ -153,15 +153,26 @@ text or JSON.
 - `base/base-command.ts` — output channel, `SIGINT` → abort signal, error mapping, `render()`.
   It owns no product SDK or session, so another product such as ASA can reuse it directly.
 - `base/session.ts` — what every product's session shares: picks the config dir from oclif, lets
-  `ADAPTY_TOKEN` win over the stored session, and returns the token, its source, the user and the
-  store to write through (`loadSession`). It also holds the `ResolvedSession` and
-  `AuthenticatedSession` types. A product adapter adds only where to talk.
+  `ADAPTY_TOKEN` win over the stored session, resolves the region of the command, and returns the
+  token, its source, the user, the region and the store to write through (`loadSession`). It also
+  holds the `ResolvedSession` and `AuthenticatedSession` types. A product adapter adds only where to
+  talk. The region is `us` or `eu` (parsed in `cli/input/region.ts`): `auth login --region` (hidden),
+  then `ADAPTY_REGION`, then the region saved in the session file, then `us`. Token and region are
+  resolved independently: the file is read for its region also when `ADAPTY_TOKEN` gives the token,
+  and is skipped only when both come from the environment. A file the region must come from but that
+  cannot be trusted — unreadable, not JSON, a region of the wrong shape or an unknown one — stops the
+  command with the damaged-file error (exit 3), in both stacks. `ResolvedSession.region` is the
+  effective region of the command; `storedRegion` is the saved one, which `auth status` describes
+  (`savedRegion()` reads it even when the command itself skipped the file).
 - `base/adapty/index.ts` — the public entry point: commands import `AdaptyCommand`,
   `MigrationCommand`, `build`, `openSession` and session types from here. Implementation files
   import each other directly.
-- `base/adapty/openSession.ts` — adds `ADAPTY_API_URL` (or the default) to the shared session and
-  returns where to talk, as whom, and the store to write through. `openSession(config)` also warns
-  about a non-default API URL.
+- `base/adapty/openSession.ts` — adds `ADAPTY_API_URL` (or the host of the region) to the shared
+  session and returns where to talk, as whom, and the store to write through. `regionApiUrl(region)`
+  is the one resolver of the developer API host, for both stacks: the old `ApiClient` takes it as
+  its own `regionBaseUrl` option through `lib/client-from-config.ts`. `ADAPTY_API_URL` wins over any
+  region; `openSession(config)` warns only when it is set and differs from the US default, and a host
+  that comes from the region prints no warning.
 - `base/adapty/build.ts` — `build(session, context)` assembles the SDK with cancellation,
   User-Agent and retry warnings. Both authenticated commands and auth commands use it.
 - `base/adapty/adapty-command.ts` — resolves an Adapty session and lazily builds its SDK. "Needs
@@ -173,7 +184,10 @@ text or JSON.
   `flags.ts`, and `metricsInput`, where they meet the sdk's field names. Commands import them through `index.ts`.
 - `base/attribution/` — the same four files for the attribution backend, plus its flags.
   `openSession.ts` adds `ADAPTY_ATTRIBUTION_API_URL` (or the default) to the shared session and warns
-  only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. `AttributionCommand`
+  only about a non-default attribution URL; `ADAPTY_API_URL` does not move it. The service has no EU
+  host: with the region `eu` it refuses before any request (`regionNotSupported` in `cli/errors.ts`,
+  exit 2, code `region_not_supported`), whatever the URL variable says; `createAsaClient` in
+  `lib/asa-client.ts` refuses the same way for Apple Search Ads. `AttributionCommand`
   mirrors `AdaptyCommand`. `flags.ts` holds the flags only attribution commands take: `periodFlags`
   for an inclusive `--date-from`/`--date-to` day range, `revenueBasisFlag`, and `periodParams`. The
   `--filter` parser of `report` (values trimmed, an empty one dropped) stays in that command.
@@ -339,7 +353,8 @@ object to stderr. Both halves, the streaming and the error, are plain functions 
 | New flag or argument | the command (or its `lib/flags.ts` for complex parsing); `cli/base/<product>/flags.ts` if shared within a product; `cli/input/<concern>.ts` if shared across products |
 | New error kind | `sdk/core/errors.ts` + `cli/errors.ts` (the compiler insists) |
 | Token and session file (`ADAPTY_TOKEN`, config dir) | `cli/base/session.ts` |
-| Adapty base URL environment variable | `cli/base/adapty/openSession.ts` |
+| Adapty base URL environment variable, region hosts | `cli/base/adapty/openSession.ts` |
+| Region values (`ADAPTY_REGION`, `auth login --region`) | `cli/input/region.ts` |
 | Attribution base URL environment variable | `cli/base/attribution/openSession.ts` |
 | `ADAPTY_MIGRATION`, or anything about the saved selection | `cli/context/migration/current.ts` |
 
@@ -358,8 +373,12 @@ and `skills`.
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.
 
-Both stacks read and write the same session file — `{ "access_token", "user" }`, mode 0600 — and
-`test/cli/legacy-compat.test.ts` holds that contract in both directions for as long as they coexist.
+Both stacks read and write the same session file — `{ "access_token", "user", "region" }`, mode
+0600 — and `test/cli/legacy-compat.test.ts` holds that contract in both directions for as long as they
+coexist. `region` (`us` or `eu`) is optional: `auth login` writes it, a file without it (written by an
+older CLI) is a US session, and an older CLI ignores it. The old stack reads the token and the region
+through the shared `loadSession` (`lib/auth.ts`), so both stacks resolve them, and fail on a damaged
+file, the same way.
 
 `auth revoke` now revokes the effective token (`ADAPTY_TOKEN` takes precedence), whereas the old
 command targeted only the token in the file. It removes the stored session only if its token matches

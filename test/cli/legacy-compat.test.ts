@@ -3,11 +3,14 @@ import { join } from 'node:path';
 
 import { Config } from '@oclif/core';
 import { expect } from 'chai';
+import * as sinon from 'sinon';
 
 import { resolveSession } from '../../src/cli/base/adapty/openSession.js';
+import { ApiClient } from '../../src/lib/api-client.js';
 import { resolveToken } from '../../src/lib/auth.js';
 import { readConfig, writeConfig } from '../../src/lib/config.js';
 import { createFileSessionStore } from '../../src/sdk/core/session.js';
+import { requestOf } from '../helpers/mock-fetch.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const posix = process.platform === 'win32' ? it.skip : it;
@@ -66,6 +69,28 @@ describe('session file, shared by both stacks', () => {
 
         expect(await resolveToken(config.configDir)).to.equal(null);
         expect(await readConfig(config.configDir)).to.deep.equal({});
+    });
+
+    /**
+     * Admission: external. tc_8tjzduo2: a CLI older than regions on the same machine reads the file a
+     * new login wrote; the reader and the client below are that CLI's code, which knows no region.
+     */
+    it('tc_8tjzduo2: lets a reader older than regions use a file with a region, and send to US', async () => {
+        await createFileSessionStore(config.configDir).save({ region: 'eu', token: 'new-stack-token', user: { name: 'Dev' } });
+
+        const token = await resolveToken(config.configDir);
+
+        expect(await readConfig(config.configDir)).to.deep.include({ access_token: 'new-stack-token', user: { name: 'Dev' } });
+
+        const stub = sinon.stub(globalThis, 'fetch').resolves(new Response('{}', { headers: { 'content-type': 'application/json' } }));
+
+        try {
+            await new ApiClient({ token }).get('/apps');
+
+            expect(requestOf(stub, 0).url).to.equal('https://api-admin.adapty.io/api/v1/developer/apps/');
+        } finally {
+            stub.restore();
+        }
     });
 
     posix('keeps the file private after either side rewrites it', async () => {

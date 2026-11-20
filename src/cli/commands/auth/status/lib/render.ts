@@ -18,6 +18,11 @@ export const renderStatus = (status: Result): string => {
 
     // A prefix, never the token: this output ends up in logs, screenshots and CI transcripts
     lines.push(`Token: ${status.token_prefix}****`);
+
+    if (status.region !== undefined) {
+        lines.push(`Region: ${status.region}`);
+    }
+
     lines.push(status.source === 'env' ? 'Source: ADAPTY_TOKEN (environment)' : `Config: ${status.config_path}`);
 
     return lines.join('\n');

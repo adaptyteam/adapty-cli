@@ -1,4 +1,5 @@
 import { DEFAULT_ATTRIBUTION_API_URL } from '../../../sdk/attribution/index.js';
+import { regionNotSupported } from '../../errors.js';
 import { loadSession } from '../session.js';
 
 import type { ResolvedSession } from '../session.js';
@@ -9,10 +10,16 @@ import type { Config } from '@oclif/core';
  * the user are the shared session as it is. Only the destination is this product's own:
  * ADAPTY_ATTRIBUTION_API_URL, independent of ADAPTY_API_URL.
  */
-export const resolveAttributionSession = async (config: Config): Promise<ResolvedSession> => ({
-    apiUrl: process.env.ADAPTY_ATTRIBUTION_API_URL ?? DEFAULT_ATTRIBUTION_API_URL,
-    ...await loadSession(config),
-});
+export const resolveAttributionSession = async (config: Config): Promise<ResolvedSession> => {
+    const shared = await loadSession(config);
+
+    // The service has no EU host: an EU token must never reach the US one, whatever the override says
+    if (shared.region === 'eu') {
+        throw regionNotSupported('Attribution');
+    }
+
+    return { apiUrl: process.env.ADAPTY_ATTRIBUTION_API_URL ?? DEFAULT_ATTRIBUTION_API_URL, ...shared };
+};
 
 export const openSession = async (config: Config): Promise<ResolvedSession> => {
     const session = await resolveAttributionSession(config);
