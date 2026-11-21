@@ -14,8 +14,19 @@ export type VendorProduct = {
     store_status: null | string;
 };
 
+/**
+ * The App Store plan that bills an annual product monthly with a 12-month commitment. `price_usd` is null when the plan
+ * came with a first purchase and has no price in Adapty yet.
+ */
+export type MonthlyPlan = {
+    price_usd: null | number;
+    vendor_product_id: string;
+};
+
 export type Product = {
     access_level_id: string;
+    /** Null when the product has no plan; absent when the server does not know the monthly plan. */
+    app_store_monthly_plan?: MonthlyPlan | null;
     id: string;
     offers_count: number;
     period: ProductPeriod;

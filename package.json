@@ -81,6 +81,9 @@
       "products": {
         "description": "Manage products"
       },
+      "products:monthly-plan": {
+        "description": "The App Store monthly plan of an annual product: its prices, and creating it or changing its price"
+      },
       "product-offers": {
         "description": "Manage product offers"
       },

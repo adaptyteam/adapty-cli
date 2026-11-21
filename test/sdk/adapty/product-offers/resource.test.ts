@@ -1,11 +1,12 @@
 import { expect } from 'chai';
 
 import { createAdapty } from '../../../../src/sdk/adapty/index.js';
+import { billingPlanApplied } from '../../../../src/sdk/adapty/product-offers/index.js';
 import { ValidationError } from '../../../../src/sdk/core/errors.js';
 import { createScriptedFetch } from '../../../../src/sdk/core/testing.js';
 import { rejection } from '../../../helpers/rejection.js';
 
-import type { ProductOffer, UpdateProductOfferInput } from '../../../../src/sdk/adapty/index.js';
+import type { BillingPlan, ProductOffer, UpdateProductOfferInput } from '../../../../src/sdk/adapty/index.js';
 
 type Script = Parameters<typeof createScriptedFetch>[0];
 
@@ -186,5 +187,60 @@ describe('adapty.productOffers', () => {
             expect((error as ValidationError).issues[0]).to.deep.include({ message: 'must not be empty', path: 'title' });
             expect(calls).to.have.length(0);
         });
+    });
+
+    // external: the plan key that a write sends decides the plan the server keeps
+    describe('billing plan in the write', () => {
+        type Row = { expectPlan: 'absent' | 'monthly' | null; id: string; run: (offers: ReturnType<typeof setup>['offers']) => Promise<unknown> };
+
+        const rows: Row[] = [
+            { expectPlan: 'absent', id: 'create-not-given', run: offers => offers.create('a1', 'p1', { iosOfferId: 'i', offerType: 'promotional', title: 'A' }) },
+            { expectPlan: null, id: 'create-upfront', run: offers => offers.create('a1', 'p1', { billingPlan: 'upfront', iosOfferId: 'i', offerType: 'promotional', title: 'A' }) },
+            { expectPlan: 'monthly', id: 'create-monthly', run: offers => offers.create('a1', 'p1', { billingPlan: 'monthly', iosOfferId: 'i', offerType: 'promotional', title: 'A' }) },
+            { expectPlan: null, id: 'create-upfront-play-only', run: offers => offers.create('a1', 'p1', { androidOfferId: 'a', billingPlan: 'upfront', offerType: 'promotional', title: 'A' }) },
+            { expectPlan: 'absent', id: 'update-not-given-keeps-stored', run: offers => offers.update('a1', 'o1', { title: 'B' }) },
+            { expectPlan: null, id: 'update-upfront', run: offers => offers.update('a1', 'o1', { billingPlan: 'upfront' }) },
+            { expectPlan: 'monthly', id: 'update-monthly', run: offers => offers.update('a1', 'o1', { billingPlan: 'monthly' }) },
+        ];
+
+        for (const row of rows) {
+            it(`${row.id}: billing_plan_type is ${String(row.expectPlan)}`, async () => {
+                const monthly = stored({ store_offers: { app_store: { billing_plan_type: 'monthly', offer_id: 'ios_1' } } });
+                const { calls, offers } = setup([{ body: monthly }, { body: monthly }]);
+
+                await row.run(offers);
+
+                const sent = JSON.parse(calls.at(-1)?.body ?? '') as Record<string, unknown>;
+
+                expect('billing_plan_type' in sent ? sent.billing_plan_type : 'absent', row.id).to.equal(row.expectPlan);
+            });
+        }
+
+        it('an update given the read offer sends only the PUT', async () => {
+            const { calls, offers } = setup([{ body: stored() }]);
+
+            await offers.update('a1', 'o1', { billingPlan: 'monthly' }, stored());
+
+            expect(calls.map(call => call.method)).to.deep.equal(['PUT']);
+        });
+    });
+
+    // external: a plan that did not come back is exit 4 with the saved offer id
+    describe('billingPlanApplied', () => {
+        const rows: { applied: boolean; id: string; offer: ProductOffer; plan: BillingPlan }[] = [
+            { applied: true, id: 'monthly-back', offer: stored({ store_offers: { app_store: { billing_plan_type: 'monthly', offer_id: 'i' } } }), plan: 'monthly' },
+            { applied: true, id: 'upfront-back', offer: stored({ store_offers: { app_store: { billing_plan_type: null, offer_id: 'i' } } }), plan: 'upfront' },
+            { applied: true, id: 'upfront-play-only', offer: stored({ store_offers: { play_store: { offer_id: 'a' } } }), plan: 'upfront' },
+            { applied: false, id: 'monthly-old-server', offer: stored({ store_offers: { app_store: { offer_id: 'i' } } }), plan: 'monthly' },
+            { applied: false, id: 'upfront-old-server', offer: stored({ store_offers: { app_store: { offer_id: 'i' } } }), plan: 'upfront' },
+            { applied: false, id: 'monthly-came-back-upfront', offer: stored({ store_offers: { app_store: { billing_plan_type: null, offer_id: 'i' } } }), plan: 'monthly' },
+            { applied: false, id: 'monthly-no-app-store-side', offer: stored({ store_offers: { play_store: { offer_id: 'a' } } }), plan: 'monthly' },
+        ];
+
+        for (const row of rows) {
+            it(`${row.id}: ${String(row.applied)}`, () => {
+                expect(billingPlanApplied(row.offer, row.plan), row.id).to.equal(row.applied);
+            });
+        }
     });
 });

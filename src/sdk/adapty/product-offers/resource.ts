@@ -30,11 +30,19 @@ export const productOffers = (http: Http) => ({
         return http.post<ProductOffer>(`/apps/${appId}/products/${productId}/offers`, toWriteRequest(input));
     },
 
-    /** A full replace on the server, so this reads the stored offer and sends it back merged. */
-    update: async (appId: string, offerId: string, input: UpdateProductOfferInput): Promise<ProductOffer> => {
+    /**
+     * A full replace on the server, so this reads the stored offer and sends it back merged. A caller that has read it
+     * already gives it as `read`, so that a failure of the write is told apart from a failure of the read.
+     */
+    update: async (
+        appId: string,
+        offerId: string,
+        input: UpdateProductOfferInput,
+        read?: ProductOffer,
+    ): Promise<ProductOffer> => {
         assertValid(validateUpdateProductOffer(input));
 
-        const stored = await http.get<ProductOffer>(`/apps/${appId}/offers/${offerId}`);
+        const stored = read ?? await http.get<ProductOffer>(`/apps/${appId}/offers/${offerId}`);
         const merged = mergeProductOffer(stored, input);
 
         assertValid(validateMergedProductOffer(stored, input, merged));

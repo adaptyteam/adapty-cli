@@ -1,12 +1,14 @@
 import { Flags } from '@oclif/core';
 
 import { offerTypes } from '../../../sdk/adapty/index.js';
-import { validateUpdateProductOffer } from '../../../sdk/adapty/product-offers/index.js';
+import { billingPlanApplied, validateUpdateProductOffer } from '../../../sdk/adapty/product-offers/index.js';
 import { assertValid } from '../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../base/adapty/index.js';
+import { planNotSavedError } from '../../errors/monthly-plan.js';
+import { withUnknownResult } from '../../errors/retention-messaging.js';
 import { appIdFlag } from '../../input/app.js';
-import { offerIdArg } from '../../input/offer.js';
-import { renderRecord } from '../../views/record.js';
+import { billingPlanFlag, offerIdArg } from '../../input/offer.js';
+import { renderOffer } from '../../views/product-offers.js';
 
 import type { ProductOffer, UpdateProductOfferInput } from '../../../sdk/adapty/index.js';
 
@@ -15,11 +17,14 @@ export default class ProductOffersUpdate extends AdaptyCommand {
 
     static override description
         = 'Reads the offer and writes it back whole: fields you leave out keep their stored value, a change made in the '
-            + 'dashboard in between is overwritten, and at least one store offer id must remain.';
+            + 'dashboard in between is overwritten, and at least one store offer id must remain. The write is sent once and '
+            + 'never repeated: if its answer is lost, the result is unknown, so read the offer with `product-offers get`. A '
+            + '--billing-plan that the answer does not carry exits 4 with the code `billing_plan_not_applied`.';
 
     static override examples = [
         '<%= config.bin %> product-offers update 770e8400-... --app 550e8400-... --title "Spring 2"',
         '<%= config.bin %> product-offers update 770e8400-... --app 550e8400-... --clear-android-offer-id',
+        '<%= config.bin %> product-offers update 770e8400-... --app 550e8400-... --billing-plan upfront',
     ];
 
     static override args = { ...offerIdArg };
@@ -32,6 +37,7 @@ export default class ProductOffersUpdate extends AdaptyCommand {
         'android-offer-id': Flags.string({ description: 'Google Play offer ID', exclusive: ['clear-android-offer-id'] }),
         'clear-ios-offer-id': Flags.boolean({ description: 'Remove the App Store side of the offer' }),
         'clear-android-offer-id': Flags.boolean({ description: 'Remove the Google Play side of the offer' }),
+        ...billingPlanFlag('The stored plan stays when not given.'),
     };
 
     async run(): Promise<ProductOffer> {
@@ -39,6 +45,7 @@ export default class ProductOffersUpdate extends AdaptyCommand {
 
         const input: UpdateProductOfferInput = {
             androidOfferId: flags['clear-android-offer-id'] ? null : flags['android-offer-id'],
+            billingPlan: flags['billing-plan'],
             iosOfferId: flags['clear-ios-offer-id'] ? null : flags['ios-offer-id'],
             offerType: flags.type,
             title: flags.title,
@@ -46,10 +53,20 @@ export default class ProductOffersUpdate extends AdaptyCommand {
 
         assertValid(validateUpdateProductOffer(input));
 
-        const offer = await this.adapty.productOffers.update(flags.app, args.offer_id, input);
+        const { productOffers } = this.adapty;
+        const stored = await productOffers.get(flags.app, args.offer_id);
+
+        const offer = await productOffers.update(flags.app, args.offer_id, input, stored).catch((error: unknown) => {
+            throw withUnknownResult(error, 'Do not repeat the update. Read the offer with '
+                + `\`adapty product-offers get ${args.offer_id} --app ${flags.app}\` and check its state.`);
+        });
+
+        if (input.billingPlan !== undefined && !billingPlanApplied(offer, input.billingPlan)) {
+            throw planNotSavedError(offer.id);
+        }
 
         this.log('Offer updated!');
-        this.render(offer, renderRecord);
+        this.render(offer, renderOffer);
 
         return offer;
     }

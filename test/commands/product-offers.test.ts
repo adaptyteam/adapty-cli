@@ -7,11 +7,13 @@ import {
     EMPTY_LIST_RESPONSE,
     mockFetch,
     mockFetchFailure,
+    mockFetchSteps,
     restoreFetch,
     TEST_APP_ID,
     TEST_RESOURCE_ID,
 } from '../helpers/mock-fetch.js';
 
+import type { FetchStep } from '../helpers/mock-fetch.js';
 import type * as sinon from 'sinon';
 
 const PRODUCT_ID = '770e8400-e29b-41d4-a716-446655440002';
@@ -256,4 +258,128 @@ describe('product-offers', () => {
         expect(update.error?.oclif?.exit).to.equal(exitCode.usage);
         expect(fetchStub.callCount).to.equal(0);
     });
+
+    const CREATE = `product-offers create --app ${TEST_APP_ID} --product ${PRODUCT_ID} --title Spring --type promotional --ios-offer-id spring_ios`;
+    const UPDATE = `product-offers update ${BASE_FLAGS}`;
+
+    const planned = (plan: 'monthly' | null) =>
+        ({ ...OFFER, store_offers: { ...OFFER.store_offers, app_store: { billing_plan_type: plan, offer_id: 'spring_ios' } } });
+
+    // external: the plan key that a write sends, and exit 4 with the saved offer id when the plan did not come back
+    const planRows: {
+        command: string;
+        expectCode?: string;
+        expectExit?: number;
+        expectPlan: 'absent' | 'monthly' | null;
+        id: string;
+        steps: FetchStep[];
+    }[] = [
+        { command: `${CREATE} --billing-plan monthly`, expectPlan: 'monthly', id: 'create-monthly', steps: [{ body: planned('monthly'), status: 201 }] },
+        { command: `${UPDATE} --billing-plan upfront`, expectPlan: null, id: 'update-upfront', steps: [{ body: planned('monthly') }, { body: planned(null) }] },
+        {
+            command: `${CREATE} --billing-plan monthly`,
+            expectCode: 'billing_plan_not_applied',
+            expectExit: exitCode.api,
+            expectPlan: 'monthly',
+            id: 'create-old-server-drops-plan',
+            steps: [{ body: OFFER, status: 201 }],
+        },
+        {
+            command: `${UPDATE} --billing-plan monthly`,
+            expectCode: 'billing_plan_not_applied',
+            expectExit: exitCode.api,
+            expectPlan: 'monthly',
+            id: 'update-old-server-drops-plan',
+            steps: [{ body: OFFER }, { body: OFFER }],
+        },
+    ];
+
+    for (const row of planRows) {
+        it(`billing plan: ${row.id}`, async () => {
+            fetchStub = mockFetchSteps(row.steps);
+
+            const { error } = await runCommand(row.command);
+            const sent = sentBody(fetchStub, fetchStub.callCount - 1);
+
+            expect('billing_plan_type' in sent ? sent.billing_plan_type : 'absent', `${row.id}: plan sent`).to.equal(row.expectPlan);
+            expect(error?.oclif?.exit, `${row.id}: exit`).to.equal(row.expectExit);
+            expect(error?.code, `${row.id}: code`).to.equal(row.expectCode);
+
+            if (row.expectCode !== undefined) {
+                expect(error?.message, row.id).to.contain(`Offer ${OFFER_ID} was saved, but its billing plan was not`);
+            }
+        });
+    }
+
+    it('a dropped plan --json says saved with the offer id, and the write is not repeated', async () => {
+        fetchStub = mockFetchSteps([{ body: OFFER, status: 201 }]);
+        process.exitCode = undefined;
+
+        const { stdout } = await runCommand(`${CREATE} --billing-plan monthly --json`);
+        const exit = process.exitCode;
+
+        process.exitCode = undefined;
+
+        expect(exit).to.equal(exitCode.api);
+        expect(JSON.parse(stdout)).to.deep.include({ error: { code: 'billing_plan_not_applied', message: `Offer ${OFFER_ID} was saved, but its billing plan was not: this server does not support the App Store monthly plan yet. Do not create the offer again.`, offer_id: OFFER_ID, saved: true } });
+        expect(fetchStub.callCount).to.equal(1);
+    });
+
+    it('an unknown --billing-plan word exits 2 and sends nothing', async () => {
+        fetchStub = mockFetch([OFFER]);
+
+        const { error } = await runCommand(`${CREATE} --billing-plan yearly`);
+
+        expect(error?.oclif?.exit).to.equal(exitCode.usage);
+        expect(fetchStub.callCount).to.equal(0);
+    });
+
+    // external: a lost answer is never repeated and says where to look
+    const lostRows = [
+        { command: `${CREATE} --billing-plan monthly`, hint: `adapty product-offers list --app ${TEST_APP_ID} --product ${PRODUCT_ID}`, id: 'create', methods: ['POST'], steps: [{ body: {}, status: 502 }] },
+        { command: `${UPDATE} --billing-plan monthly`, hint: `adapty product-offers get ${OFFER_ID} --app ${TEST_APP_ID}`, id: 'update', methods: ['GET', 'PUT'], steps: [{ body: OFFER }, { body: {}, status: 502 }] },
+    ];
+
+    for (const row of lostRows) {
+        it(`a lost answer of ${row.id} says the result is unknown and sends the write once`, async () => {
+            fetchStub = mockFetchSteps(row.steps);
+
+            const { error } = await runCommand(row.command);
+            const methods = fetchStub.getCalls().map(call => (call.args[1] as { method: string }).method);
+
+            expect(methods, row.id).to.deep.equal(row.methods);
+            expect(error?.message, row.id).to.contain('The result is unknown');
+            expect(error?.message, row.id).to.contain(row.hint);
+        });
+    }
+
+    // external: the plan label of the human view; a Play Store side and an old server get none
+    const labelRows = [
+        { expected: 'Plan: Monthly', id: 'monthly', offer: planned('monthly') },
+        { expected: 'Plan: Upfront', id: 'upfront', offer: planned(null) },
+        { expected: undefined, id: 'old-server', offer: OFFER },
+        { expected: undefined, id: 'play-store-only', offer: { ...OFFER, store_offers: { play_store: { offer_id: 'spring-android' } } } },
+    ];
+
+    for (const row of labelRows) {
+        it(`get and list label the ${row.id} App Store plan`, async () => {
+            fetchStub = mockFetch([row.offer, { ...EMPTY_LIST_RESPONSE, data: [row.offer] }, row.offer]);
+
+            const get = await runCommand(`product-offers get ${BASE_FLAGS}`);
+            const list = await runCommand(`product-offers list --app ${TEST_APP_ID} --product ${PRODUCT_ID}`);
+            const json = await runCommand(`product-offers get ${BASE_FLAGS} --json`);
+
+            for (const stdout of [get.stdout, list.stdout]) {
+                if (row.expected === undefined) {
+                    expect(stdout, row.id).not.to.contain('Plan:');
+                } else {
+                    expect(stdout, row.id).to.contain(row.expected);
+                }
+
+                expect(stdout, row.id).not.to.contain('Billing Plan Type');
+            }
+
+            expect(JSON.parse(json.stdout), row.id).to.deep.equal(row.offer);
+        });
+    }
 });

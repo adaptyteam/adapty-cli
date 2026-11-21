@@ -1,11 +1,13 @@
 import { hasStoreId, isOfferType, storeId, winBackIssues } from './model.js';
 
-import type { OfferDraft, OfferType, ProductOffer } from './model.js';
+import type { BillingPlan, OfferDraft, OfferType, ProductOffer } from './model.js';
 import type { Issue } from '../../core/errors.js';
 
 /** A store id is replaced by a string and removed by null; undefined or blank keeps what is stored. */
 export type UpdateProductOfferInput = {
     androidOfferId?: null | string | undefined;
+    /** Not given: the server keeps the stored plan while the App Store side stays. */
+    billingPlan?: BillingPlan | undefined;
     iosOfferId?: null | string | undefined;
     offerType?: OfferType | undefined;
     title?: string | undefined;
@@ -16,10 +18,11 @@ const given = (value: null | string | undefined): null | string | undefined =>
 
 /** Rules that need no stored offer, so they run before the first request. */
 export const validateUpdateProductOffer = (input: UpdateProductOfferInput): Issue[] => {
-    const fields = [input.title, input.offerType, given(input.iosOfferId), given(input.androidOfferId)];
+    const ids = [given(input.iosOfferId), given(input.androidOfferId)];
+    const fields = [input.title, input.offerType, input.billingPlan, ...ids];
 
     if (fields.every(value => value === undefined)) {
-        return [{ message: 'nothing to update: pass a title, a type or a store offer id' }];
+        return [{ message: 'nothing to update: pass a title, a type, a billing plan or a store offer id' }];
     }
 
     if (input.title?.trim() === '') {
@@ -35,6 +38,7 @@ const pick = (value: null | string | undefined, stored: string | undefined): str
 /** The offer after the update: the server replaces the whole offer, so untouched fields come from the stored one. */
 export const mergeProductOffer = (offer: ProductOffer, input: UpdateProductOfferInput): OfferDraft => ({
     androidOfferId: pick(given(input.androidOfferId), storeId(offer.store_offers.play_store?.offer_id)),
+    billingPlan: input.billingPlan,
     iosOfferId: pick(given(input.iosOfferId), storeId(offer.store_offers.app_store?.offer_id)),
     offerType: input.offerType ?? offer.offer_type,
     title: input.title ?? offer.title,

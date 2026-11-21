@@ -20,7 +20,8 @@ src/
     auth/            # login (device flow OAuth), logout, revoke, whoami, status
     apps/            # list, get, create, update
     products/        # list, get, create, update, push (to App Store Connect or Google Play, asks first);
-                     # create, get, update and push are in src/cli/commands/products
+                     # monthly-plan/ (prices, set — the App Store monthly plan of an annual product; creating one asks first);
+                     # all are in src/cli/commands/products
     product-groups/  # list, create (App Store subscription groups; Google Play lists only); implementation in src/cli/commands/product-groups
     product-prices/  # list (table or --csv), set (preview, then save; --file or --country; --dry-run, --wait, asks first);
                      # implementation in src/cli/commands/product-prices
