@@ -70,6 +70,8 @@ adapty products list --app UUID [--page N] [--page-size N]
 adapty products get --app UUID PRODUCT_ID
 adapty products create --app UUID --title ... --period monthly --access-level-id UUID [--price-usd 9.99] [store binding flags]
 adapty products update --app UUID PRODUCT_ID [--title ...] [--access-level-id UUID] [--price-usd 9.99]
+adapty products monthly-plan prices PRODUCT_ID --app UUID
+adapty products monthly-plan set PRODUCT_ID --app UUID --price-usd 5.99 [--yes]
 ```
 
 `products get` shows the USD price and the `store_status` of each store product. `update` reads the product and writes it
@@ -77,6 +79,10 @@ back whole. The USD price is set once, while the product has none; a set price s
 product exits 4 with the code `price_usd_not_applied`, after saving a title or access level given with it. To make a product in the stores,
 create it without a store binding and with `--price-usd`, then run `products push`; a store binding on `create` means
 the product already exists in that store.
+`products monthly-plan` is the App Store monthly plan of an annual product: monthly payments with a 12-month commitment.
+`prices` lists the price points where 12 payments add up to 1x to 1.5x the annual price, and `set` creates the plan or
+changes its price. A plan cannot be removed from Adapty, only by turning monthly payments off in App Store Connect, so a
+create asks first (`--yes`; exit 6 without a terminal). `products get` and `list` show the plan.
 
 ### Push to the stores, groups and prices
 

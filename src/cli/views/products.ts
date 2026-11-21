@@ -1,7 +1,7 @@
 import { renderFooter } from './list.js';
 import { renderRecord } from './record.js';
 
-import type { MonthlyPlan, Paginated, Product } from '../../sdk/adapty/index.js';
+import type { MonthlyPlan, MonthlyPlanPrices, Paginated, Product } from '../../sdk/adapty/index.js';
 
 const usd = (amount: number): string => `$${amount.toFixed(2)}`;
 
@@ -35,3 +35,9 @@ export const renderProductPage = (page: Paginated<Product>): string => {
 
     return `${blocks}\n${renderFooter(page.meta.pagination)}`;
 };
+
+export const renderMonthlyPlanPrices = (answer: MonthlyPlanPrices): string => [
+    `Annual price: ${usd(answer.annual_price_usd)}`,
+    'Monthly prices that fit (12 payments add up to 1x to 1.5x the annual price):',
+    ...answer.prices.map(price => price.toFixed(2)),
+].join('\n');

@@ -194,10 +194,14 @@ export type {
 export type {
     CreateProductInput,
     MonthlyPlan,
+    MonthlyPlanPrices,
+    MonthlyPlanRefusal,
+    PriceList,
     Product,
     ProductPeriod,
     ProductStore,
     PushProductInput,
+    SetMonthlyPlanInput,
     UpdateProductInput,
 } from './products/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
