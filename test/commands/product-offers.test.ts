@@ -266,7 +266,6 @@ describe('product-offers', () => {
         ({ ...OFFER, store_offers: { ...OFFER.store_offers, app_store: { billing_plan_type: plan, offer_id: 'spring_ios' } } });
 
     // external: the plan key that a write sends, and exit 4 with the saved offer id when the plan did not come back
-    // (UC-21 ... UC-23, UC-34)
     const planRows: {
         command: string;
         expectCode?: string;
@@ -335,7 +334,7 @@ describe('product-offers', () => {
         expect(fetchStub.callCount).to.equal(0);
     });
 
-    // external: a lost answer is never repeated and says where to look (UC-31a)
+    // external: a lost answer is never repeated and says where to look
     const lostRows = [
         { command: `${CREATE} --billing-plan monthly`, hint: `adapty product-offers list --app ${TEST_APP_ID} --product ${PRODUCT_ID}`, id: 'create', methods: ['POST'], steps: [{ body: {}, status: 502 }] },
         { command: `${UPDATE} --billing-plan monthly`, hint: `adapty product-offers get ${OFFER_ID} --app ${TEST_APP_ID}`, id: 'update', methods: ['GET', 'PUT'], steps: [{ body: OFFER }, { body: {}, status: 502 }] },
@@ -354,7 +353,7 @@ describe('product-offers', () => {
         });
     }
 
-    // external: the plan label of the human view; a Play Store side and an old server get none (UC-18, UC-19, UC-32)
+    // external: the plan label of the human view; a Play Store side and an old server get none
     const labelRows = [
         { expected: 'Plan: Monthly', id: 'monthly', offer: planned('monthly') },
         { expected: 'Plan: Upfront', id: 'upfront', offer: planned(null) },

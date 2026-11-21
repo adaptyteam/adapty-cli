@@ -189,7 +189,7 @@ describe('adapty.productOffers', () => {
         });
     });
 
-    // external: the plan key that a write sends decides the plan the server keeps (E-7, UC-21 ... UC-23, UC-28)
+    // external: the plan key that a write sends decides the plan the server keeps
     describe('billing plan in the write', () => {
         type Row = { expectPlan: 'absent' | 'monthly' | null; id: string; run: (offers: ReturnType<typeof setup>['offers']) => Promise<unknown> };
 
@@ -225,7 +225,7 @@ describe('adapty.productOffers', () => {
         });
     });
 
-    // external: a plan that did not come back is exit 4 with the saved offer id (UC-34)
+    // external: a plan that did not come back is exit 4 with the saved offer id
     describe('billingPlanApplied', () => {
         const rows: { applied: boolean; id: string; offer: ProductOffer; plan: BillingPlan }[] = [
             { applied: true, id: 'monthly-back', offer: stored({ store_offers: { app_store: { billing_plan_type: 'monthly', offer_id: 'i' } } }), plan: 'monthly' },

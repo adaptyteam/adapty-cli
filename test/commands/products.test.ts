@@ -212,7 +212,7 @@ describe('products', () => {
         expect(stdout).to.contain('Store Status: in_review');
     });
 
-    // external: the plan line an agent reads; an absent key is an old server, never "no plan" (UC-1 ... UC-3, UC-32)
+    // external: the plan line an agent reads; an absent key is an old server, never "no plan"
     const PLAN_STATES = [
         { expected: 'Monthly plan: $5.99 a month', id: 'priced', plan: { app_store_monthly_plan: { price_usd: 5.99, vendor_product_id: 'vp' } } },
         { expected: 'Monthly plan: price not set in Adapty', id: 'unpriced', plan: { app_store_monthly_plan: { price_usd: null, vendor_product_id: 'vp' } } },

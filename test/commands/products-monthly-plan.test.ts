@@ -64,7 +64,7 @@ describe('products monthly-plan', () => {
         delete process.env.ADAPTY_TOKEN;
     });
 
-    // external: the requests that set sends, the confirmation an agent reads and the exit codes (UC-8 ... UC-13, UC-33)
+    // external: the requests that set sends, the confirmation an agent reads and the exit codes
     const setRows: {
         args: string;
         expectCalls: string[];
@@ -183,7 +183,7 @@ describe('products monthly-plan', () => {
         expect(calls(fetchStub)).to.deep.equal([`GET ${PRODUCT_PATH}`]);
     });
 
-    // external: a missing or non-numeric price is a usage error before any request (UC-13)
+    // external: a missing or non-numeric price is a usage error before any request
     for (const { args, id } of [{ args: '', id: 'missing' }, { args: '--price-usd abc', id: 'not-a-number' }]) {
         it(`set: a ${id} price exits 2 and sends nothing`, async () => {
             fetchStub = mockFetchSteps([{ body: product() }]);
@@ -222,8 +222,8 @@ describe('products monthly-plan', () => {
         expect(JSON.parse(stdout)).to.deep.equal({ annual_price_usd: 59.99, prices: [5, 5.49, 5.99, 7.49] });
     });
 
-    // external: a product that cannot have a plan exits 4 with the code of a refused write (UC-7);
-    // an old server says so (UC-33)
+    // external: a product that cannot have a plan exits 4 with the code of a refused write;
+    // an old server says so
     const refusedPrices: { code: string; field?: string; id: string; steps: FetchStep[] }[] = [
         { code: 'monthly_plan_requires_annual_product', field: 'product_set', id: 'monthly-product', steps: [{ body: product({ period: 'monthly' }) }, { body: PRICE_LIST }] },
         { code: 'monthly_plan_requires_product_price', field: 'price_usd', id: 'no-annual-price', steps: [{ body: product({ price_usd: 0 }) }, { body: PRICE_LIST }] },

@@ -23,7 +23,7 @@ const annual = (overrides: Partial<Product> = {}): Product => ({
 });
 
 describe('adapty.products monthly plan', () => {
-    // external: the prices an agent is told to pick from; a point outside them is refused by the server (UC-6)
+    // external: the prices an agent is told to pick from; a point outside them is refused by the server
     const corridor: { annual: number; expected: number[]; id: string; points: number[] }[] = [
         { annual: 59.99, expected: [5, 5.49, 7.49], id: 'both-bounds-kept', points: [4.99, 5, 5.49, 7.49, 7.5] },
         { annual: 59.99, expected: [], id: 'just-outside-both-bounds', points: [4.99, 7.5] },
@@ -38,7 +38,7 @@ describe('adapty.products monthly plan', () => {
         });
     }
 
-    // external: the refusal code that the price list shows, in the order the server checks (UC-7)
+    // external: the refusal code that the price list shows, in the order the server checks
     const eligibility: { expected: unknown; id: string; product: Product }[] = [
         { expected: { refusal: 'monthly_plan_requires_annual_product' }, id: 'monthly-period', product: annual({ period: 'monthly', vendor_products: {} }) },
         { expected: { refusal: 'monthly_plan_requires_product_price' }, id: 'price-zero', product: annual({ price_usd: 0 }) },
