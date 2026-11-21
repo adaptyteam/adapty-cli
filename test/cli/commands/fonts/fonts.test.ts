@@ -1,6 +1,6 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { runCommand } from '@oclif/test';
 import { expect } from 'chai';
@@ -494,7 +494,7 @@ describe('fonts', () => {
                 expect(writes(sent), row.id).to.have.length(row.writes);
 
                 for (const line of row.stderr ?? []) {
-                    expect(stderr.replaceAll(/\s*\n\s*›?\s*/g, ' '), row.id).to.include(line);
+                    expect(stderr.replaceAll(/\s*\n\s*[›»]?\s*/g, ' '), row.id).to.include(line);
                 }
 
                 expect(process.exitCode ?? 0, row.id).to.equal(row.exit);
@@ -577,7 +577,7 @@ describe('fonts', () => {
                     `  collides with face ${FACE_ID} (700, iOS name Brand-700) of Brand`,
                     `  collides with face ${OTHER_FACE_ID} (400, iOS name Brand-400) of Brand`,
                     'to put the file on all 2 of those faces, or',
-                    '/Brand Bold.otf\' --choice keep` to skip it.',
+                    `${sep}Brand Bold.otf' --choice keep\` to skip it.`,
                 ],
                 id: 'the human report: every colliding face, and a next step that quotes a file name with a space',
                 sent: [{ file: 'Brand Bold.otf' }],
