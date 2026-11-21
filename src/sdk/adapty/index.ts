@@ -10,6 +10,7 @@ import { developerErrorParser } from './errors.js';
 import { fallbacks } from './fallbacks.js';
 import { feedback } from './feedback/index.js';
 import { flows } from './flows.js';
+import { fonts } from './fonts/index.js';
 import { hypotheses } from './hypotheses/index.js';
 import { migrations } from './migrations/index.js';
 import { paywalls } from './paywalls.js';
@@ -28,6 +29,7 @@ import type { AuthApi } from './auth/index.js';
 import type { FallbacksApi } from './fallbacks.js';
 import type { FeedbackApi } from './feedback/index.js';
 import type { FlowsApi } from './flows.js';
+import type { FontsApi } from './fonts/index.js';
 import type { HypothesesApi } from './hypotheses/index.js';
 import type { MigrationApi } from './migrations/index.js';
 import type { PaywallsApi } from './paywalls.js';
@@ -62,6 +64,8 @@ export { sentiments } from './feedback/index.js';
 export { validateMetricsInput } from './metrics.js';
 export { findDraft, hasPublishedHistory, versionDate, versionPublication } from './flow-versions.js';
 export { isNeverPublished } from './flows.js';
+export { fontReferences, refreshFlowFonts } from './flow-fonts.js';
+export { faceRef, familiesOfFile, fontConflict, uploadChoices, validateUpdateFontFace } from './fonts/index.js';
 export {
     dashboardOnlyActions,
     withHypothesisIds,
@@ -116,7 +120,27 @@ export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type { FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowFunnelAnswer, FlowFunnelScreen, FlowFunnelStep } from './flow-funnel.js';
-export type { Flow, FlowsApi } from './flows.js';
+export type { Flow, FlowConfig, FlowRemoteConfig, FlowsApi, WriteFlowConfigInput } from './flows.js';
+export type { FlowFontRefresh } from './flow-fonts.js';
+export type {
+    FontConflict,
+    FontConflictRefusal,
+    FontFace,
+    FontFaceRef,
+    FontFamily,
+    FontFamilyList,
+    FontFamilyUsage,
+    FontFamilyWriteResult,
+    FontFile,
+    FontsApi,
+    FontUploadResult,
+    FontUploadResultKind,
+    FontWarning,
+    LocatedFontFace,
+    ReplaceFontFileInput,
+    UpdateFontFaceInput,
+    UploadChoice,
+} from './fonts/index.js';
 export type {
     FlowVersionDetail,
     FlowVersionPreview,
@@ -233,6 +257,7 @@ export type Adapty = {
     fallbacks: FallbacksApi;
     feedback: FeedbackApi;
     flows: FlowsApi;
+    fonts: FontsApi;
     hypotheses: HypothesesApi;
     migrations: MigrationApi;
     paywalls: PaywallsApi;
@@ -293,6 +318,7 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         fallbacks: fallbacks(http),
         feedback: feedback(http),
         flows: flows(http),
+        fonts: fonts(http),
         hypotheses: hypotheses(http),
         // The clock is a dependency here too, not only in the transport: `waitFor` sleeps
         // between polls, and a test must be able to do that instantly.

@@ -528,6 +528,35 @@ adapty flows media upload-video ./intro.mp4 --app APP_UUID --json
 
 - **Video value.** In a flow config a video is `{videoUrl, previewUrl, width, height}`, from `video_url`, `preview_url`, `width` and `height`.
 
+## Fonts
+
+Custom fonts of an app, for flows. A family holds faces; a face is one weight and style of a `.ttf` or `.otf` file.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `fonts list` | `--app`. Every family with its faces: weight, italic, iOS and Android names, default face, `metadata_status` (`detected`, `confirmed`: the pair is known; `needs_review`, `legacy_unconfirmed`: not known), file format |
+| `fonts get <family_id>` | `--app` |
+| `fonts upload <file>...` | `--app`; `--choice replace\|keep` for a collision. The family is the one whose name (any case) is the family name inside the file, else a new one |
+| `fonts add <family_id> <file>...` | `--app`; `--choice replace\|keep`. The faces join that family whatever the file says |
+| `fonts rename <family_id> <name>` | `--app`. Another family may not have the exact name; a case variant is allowed |
+| `fonts usage <family_id>` | `--app`. Flows (drafts too) and paywalls of the family; paywalls per face, `null` when unknown. A flow is listed when its config names the family by id: a flow that names it only by name is not listed |
+| `fonts faces update <face_id>` | `--app`; `--weight` with `--italic true\|false` (the pair is then confirmed), `--ios-name`, `--android-name` (lowercase letter, then lowercase letters, digits or `_`; set on every face of the same file) |
+| `fonts faces default <face_id>` | `--app` |
+| `fonts faces move <face_id>` | `--app`, `--to <family_id>`. The default face does not move; a known pair does not move into a family that has it |
+| `fonts faces replace <face_id> <file>` | `--app`; `--weight` with `--italic` for a face whose pair is not known and a variable file. Same face id, default mark and Android name; the iOS name follows the file; the old file is not kept and cannot be restored, so it asks first: `--yes` to replace without asking (with `--json`, a pipe or no terminal: exit 6 `confirm_required` without it, nothing sent) |
+
+```sh
+adapty fonts upload --app APP_UUID Brand-Regular.otf Brand-Bold.otf Brand-Italic.otf --json
+adapty fonts upload --app APP_UUID Brand-Bold.otf --choice replace
+adapty fonts faces update FACE_UUID --app APP_UUID --ios-name BrandSans-Bold
+```
+
+- **Package report.** `upload` and `add` send one file per request and report each file (`files[]` in `--json`): `created`, `added`, `partly_added` (`kept_faces` are the pairs the family already had), `replaced`, `kept` (the file was skipped), `refused` (`error_code`, `message`, `next_step`; a collision adds `conflicts`, every colliding face, `conflict`, the first, and `choices`), `failed` and `not_sent` (a network or auth failure stopped the package). Exit 4 when a file was refused, after the whole report; 5 on a network failure; 3 on an auth failure; 0 when every file was stored.
+- **Collision.** A file whose weight and italic, or whose iOS name, stored faces hold is refused with every one of them: repeat with `--choice replace` (the file goes on all of them; `replaced_faces` lists them) or `--choice keep` (the file is skipped). With `--choice replace` the CLI sends the file without a choice first and, on a collision, once more to replace the listed faces; when the collisions changed in between, the file is refused again with the new `conflicts`, and when nothing collides any more the 400 says so. A variable file whose pairs are all taken is refused with no choice: replace faces one by one with `fonts faces replace`.
+- **Warnings.** A write that leaves a face without an iOS or an Android name is saved; `warnings` names the face.
+- **Publish.** A change of a family that flows use lists those flows (`flows_to_publish`; `null` when they could not be read, with `flows_to_publish_error` and a warning; a missing field exits 4): run `adapty flows publish` for each. `flows publish` refreshes the copy of the fonts in the flow config before it publishes; a font named by a name that several families share stops it before any write (exit 2): rename one, or name the family by id.
+- **In a flow config.** A text names a font by family (`{"type": "user", "id": <family id or name>}`) and weight (italic in rich text); publish draws the exact pair, else the nearest weight, the lighter one on a tie. The font must also be in the app bundle.
+
 ## Retention Messaging
 
 Apple Retention Messaging: the message that Apple shows on the App Store cancel screen. Every command takes `--app`.

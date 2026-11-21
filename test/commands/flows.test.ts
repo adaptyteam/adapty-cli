@@ -77,7 +77,7 @@ describe('flows', () => {
 
     it('publish GETs the flow then POSTs /apps/{app}/flows/{id}/publish with no body', async () => {
         process.env.ADAPTY_TOKEN = 'test-token';
-        fetchStub = mockFetch([FLOW_RESPONSE, { ...FLOW_RESPONSE, status: 'publishing' }]);
+        fetchStub = mockFetch([FLOW_RESPONSE, CONFIG_RESPONSE, { ...FLOW_RESPONSE, status: 'publishing' }]);
         await runCommand(`flows publish ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --yes`);
 
         assertFetch({
@@ -87,14 +87,24 @@ describe('flows', () => {
             stub: fetchStub,
         });
 
+        // A config that names no custom font: no font list read, no config write
         assertFetch({
             callIndex: 1,
+            method: 'GET',
+            path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/config/`,
+            stub: fetchStub,
+        });
+
+        assertFetch({
+            callIndex: 2,
             method: 'POST',
             path: `/apps/${TEST_APP_ID}/flows/${TEST_RESOURCE_ID}/publish/`,
             stub: fetchStub,
         });
 
-        const init = fetchStub.getCall(1).args[1] as { body?: unknown };
+        expect(fetchStub.callCount).to.equal(3);
+
+        const init = fetchStub.getCall(2).args[1] as { body?: unknown };
 
         // ApiClient spells "no body" as null, which fetch treats the same as omitting it
         if (init.body != null) {
