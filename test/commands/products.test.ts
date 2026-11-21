@@ -211,4 +211,55 @@ describe('products', () => {
         expect(stdout).to.contain('Price Usd: 9.99');
         expect(stdout).to.contain('Store Status: in_review');
     });
+
+    // external: the plan line an agent reads; an absent key is an old server, never "no plan" (UC-1 ... UC-3, UC-32)
+    const PLAN_STATES = [
+        { expected: 'Monthly plan: $5.99 a month', id: 'priced', plan: { app_store_monthly_plan: { price_usd: 5.99, vendor_product_id: 'vp' } } },
+        { expected: 'Monthly plan: price not set in Adapty', id: 'unpriced', plan: { app_store_monthly_plan: { price_usd: null, vendor_product_id: 'vp' } } },
+        { expected: 'Monthly plan: none', id: 'none', plan: { app_store_monthly_plan: null } },
+        { expected: 'Monthly plan: not available on this server', id: 'old-server', plan: {} },
+    ];
+
+    for (const { expected, id, plan } of PLAN_STATES) {
+        it(`get and list show the ${id} monthly plan in the human view and pass the field through in --json`, async () => {
+            process.env.ADAPTY_TOKEN = 'test-token';
+
+            const item = { ...PRODUCT_RESPONSE, period: 'annual', price_usd: 59.99, ...plan };
+            const page = { ...EMPTY_LIST_RESPONSE, data: [item, item] };
+
+            fetchStub = mockFetch([item, page, item, page]);
+
+            const get = await runCommand(`products get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID}`);
+            const list = await runCommand(`products list --app ${TEST_APP_ID}`);
+            const getJson = await runCommand(`products get ${TEST_RESOURCE_ID} --app ${TEST_APP_ID} --json`);
+            const listJson = await runCommand(`products list --app ${TEST_APP_ID} --json`);
+
+            expect(get.stdout, `${id}: get`).to.contain(expected);
+            expect(get.stdout, `${id}: get, no nested plan block`).not.to.contain('Vendor Product ID: vp');
+            expect(list.stdout.split(expected).length - 1, `${id}: list, one line per product`).to.equal(2);
+            expect(JSON.parse(getJson.stdout), `${id}: get --json`).to.deep.equal(item);
+            expect(JSON.parse(listJson.stdout), `${id}: list --json`).to.deep.equal(page);
+        });
+    }
+
+    // external: the ported list keeps the page query and the footer of the published one
+    it('list sends the page flags as the page query and prints the pagination footer', async () => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        const item = { ...PRODUCT_RESPONSE, app_store_monthly_plan: null };
+
+        fetchStub = mockFetch([{ ...EMPTY_LIST_RESPONSE, data: [item] }]);
+
+        const { stdout } = await runCommand(`products list --app ${TEST_APP_ID} --page 2 --page-size 5`);
+
+        assertFetch({
+            callIndex: 0,
+            method: 'GET',
+            path: `/apps/${TEST_APP_ID}/products/`,
+            query: { 'page[number]': '2', 'page[size]': '5' },
+            stub: fetchStub,
+        });
+
+        expect(stdout).to.contain('Title: Monthly');
+        expect(stdout).to.contain('\n\nPage 1 of 1 (0 total)');
+    });
 });

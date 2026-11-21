@@ -102,7 +102,6 @@ const FROZEN_COMMANDS = [
     'placements/get.ts',
     'placements/list.ts',
     'placements/update.ts',
-    'products/list.ts',
     'segments/create.ts',
     'segments/get.ts',
     'segments/list.ts',

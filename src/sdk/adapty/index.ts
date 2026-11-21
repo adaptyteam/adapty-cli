@@ -193,6 +193,7 @@ export type {
 } from './product-prices/index.js';
 export type {
     CreateProductInput,
+    MonthlyPlan,
     Product,
     ProductPeriod,
     ProductStore,

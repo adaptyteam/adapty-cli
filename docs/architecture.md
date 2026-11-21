@@ -352,7 +352,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
 most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows versions`, `hypotheses`, `migrations`,
-`paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`
+`paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products`
 and `skills`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
