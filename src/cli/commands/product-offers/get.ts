@@ -1,7 +1,7 @@
 import { AdaptyCommand } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
 import { offerIdArg } from '../../input/offer.js';
-import { renderRecord } from '../../views/record.js';
+import { renderOffer } from '../../views/product-offers.js';
 
 import type { ProductOffer } from '../../../sdk/adapty/index.js';
 
@@ -15,7 +15,7 @@ export default class ProductOffersGet extends AdaptyCommand {
         const { args, flags } = await this.parse(ProductOffersGet);
         const offer = await this.adapty.productOffers.get(flags.app, args.offer_id);
 
-        this.render(offer, renderRecord);
+        this.render(offer, renderOffer);
 
         return offer;
     }

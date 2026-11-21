@@ -63,3 +63,21 @@ export const withNotSupported = (error: unknown): unknown =>
 /** The answer to a write was lost: no response, or a 5xx. */
 export const isLostAnswer = (error: unknown): boolean =>
     isSdkError(error) && (error.kind === 'network' || (error.kind === 'api' && error.status >= 500));
+
+/**
+ * The offer was saved and the plan it asked for did not come back: a server without the plan drops it. Exit 4, as
+ * for a price that `products update` could not set; the write is not repeated.
+ */
+export const planNotSavedError = (offerId: string): CliError => {
+    const error = new CliError(
+        `Offer ${offerId} was saved, but its billing plan was not: this server does not support the App Store monthly `
+        + 'plan yet. Do not create the offer again.',
+        exitCode.api,
+        'billing_plan_not_applied',
+        { json: { saved: true } },
+    );
+
+    Object.assign(error.json, { offer_id: offerId });
+
+    return error;
+};

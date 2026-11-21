@@ -54,7 +54,7 @@ export {
     validateRetention,
 } from './analytics/index.js';
 export { platforms } from './apps/index.js';
-export { offerTypes } from './product-offers/index.js';
+export { billingPlans, offerTypes } from './product-offers/index.js';
 export { decideSave, isFailed, isPending, isSynced, storePrices, storesWritten } from './product-prices/index.js';
 export { productPeriods, productStores } from './products/index.js';
 export { developerErrorParser } from './errors.js';
@@ -172,6 +172,7 @@ export type {
     WizardError,
 } from './migrations/index.js';
 export type {
+    BillingPlan,
     CreateProductOfferInput,
     OfferType,
     ProductOffer,

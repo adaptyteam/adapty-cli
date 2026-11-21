@@ -1,7 +1,7 @@
 import { AdaptyCommand } from '../../base/adapty/index.js';
 import { appIdFlag } from '../../input/app.js';
 import { productFlag } from '../../input/product.js';
-import { renderPage } from '../../views/list.js';
+import { renderOfferPage } from '../../views/product-offers.js';
 
 import type { Paginated, ProductOffer } from '../../../sdk/adapty/index.js';
 
@@ -15,7 +15,7 @@ export default class ProductOffersList extends AdaptyCommand {
         const { flags } = await this.parse(ProductOffersList);
         const page = await this.adapty.productOffers.list(flags.app, flags.product);
 
-        this.render(page, renderPage);
+        this.render(page, renderOfferPage);
 
         return page;
     }
