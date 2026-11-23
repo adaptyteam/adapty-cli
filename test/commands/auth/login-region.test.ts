@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 
 import { mockFetch } from '../../helpers/mock-fetch.js';
-import { allOn, EU_HOST, sessionPath, urlsOf, US_HOST, writeSession } from '../../helpers/region.js';
+import { allOn, EU_HOST, sessionPath, urlsOf, US_HOST, writeSession, writeTruncatedSession } from '../../helpers/region.js';
 
 const deviceBody = {
     device_code: 'test-device-code',
@@ -122,6 +122,62 @@ describe('auth login, region', () => {
             await runCommand('auth login');
 
             expect(allOn(fetchStub, row.host), `${row.id}: calls went to ${urlsOf(fetchStub).join(', ')}`).to.equal(true);
+        });
+    }
+
+    // A login with a region named needs nothing from the file it replaces, so a damaged one does not stop
+    // it: the login is how the user repairs the file. With no region named, the region has to come from
+    // the file, so the login stops at it like any other command.
+    type Damaged = 'malformed-region' | 'truncated' | 'unknown-region';
+
+    const writeDamaged = async (kind: Damaged): Promise<void> => {
+        if (kind === 'truncated') {
+            await writeTruncatedSession();
+        } else {
+            await writeSession({ access_token: 'token-a', region: kind === 'unknown-region' ? 'ap' : 42 });
+        }
+    };
+
+    const repairs: { args: string; damage: Damaged; env: Env; host: string; id: string; region: string }[] = [
+        { args: '--region eu', damage: 'truncated', env: {}, host: EU_HOST, id: 'truncated-flag-eu', region: 'eu' },
+        { args: '--region us', damage: 'unknown-region', env: {}, host: US_HOST, id: 'unknown-region-flag-us', region: 'us' },
+        { args: '', damage: 'malformed-region', env: { ADAPTY_REGION: 'eu' }, host: EU_HOST, id: 'malformed-region-env-eu', region: 'eu' },
+    ];
+
+    for (const row of repairs) {
+        it(`${row.id}: the login goes to ${row.host} and replaces the damaged file`, async () => {
+            await writeDamaged(row.damage);
+            setEnv(row.env);
+
+            const { error } = await runCommand(`auth login ${row.args}`);
+
+            expect(error, `${row.id}: login failed`).to.equal(undefined);
+            expect(allOn(fetchStub, row.host), `${row.id}: calls went to ${urlsOf(fetchStub).join(', ')}`).to.equal(true);
+
+            expect(await readSession(), `${row.id}: saved session`).to.deep.equal({
+                access_token: 'token-b',
+                region: row.region,
+                user: { name: 'User B' },
+            });
+        });
+    }
+
+    for (const kind of ['truncated', 'unknown-region'] as const) {
+        it(`${kind}, no region named: the login stops at the damaged file, exit 3, no request`, async () => {
+            await writeDamaged(kind);
+            const before = await readFile(await sessionPath(), 'utf8');
+
+            const { error } = await runCommand('auth login');
+
+            expect(error?.oclif?.exit, `${kind}: exit code`).to.equal(3);
+
+            expect(error?.message.split('\n'), `${kind}: error text`).to.deep.equal([
+                `Session file is corrupted: ${await sessionPath()}`,
+                'Delete the file and run `adapty auth login` again.',
+            ]);
+
+            expect(urlsOf(fetchStub), `${kind}: requests sent`).to.deep.equal([]);
+            expect(await readFile(await sessionPath(), 'utf8'), `${kind}: file`).to.equal(before);
         });
     }
 

@@ -120,9 +120,11 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
 - `ADAPTY_TOKEN` env overrides stored token
 - Region of a command (`us` or `eu`): hidden `auth login --region`, then `ADAPTY_REGION`, then the `region`
   saved in the session file (read also when `ADAPTY_TOKEN` is set), then `us`. It picks the developer API
-  host (EU: `https://api-eu-admin.adapty.io/api/v1/developer`) in both stacks, through `regionApiUrl` of
-  `cli/base/adapty/index.js`. A bad value is a usage error (exit 2); a damaged session file the region
-  must come from stops the command (exit 3). `auth status` shows the region of a saved EU session only
+  host (EU: `https://api-eu-admin.adapty.io/api/v1/developer`) in both stacks: the table in
+  `cli/base/adapty/openSession.ts` and its legacy copy in `lib/api-client.ts` (a `lib` file must not import the
+  adapter: `build.ts` imports `lib/client-from-config.ts`). A bad value is a usage error (exit 2); a damaged or
+  unreadable session file the region must come from stops the command (exit 3), except `auth login` with a
+  region named, which replaces it. `auth status` shows the region of a saved EU session only
 - `ADAPTY_API_URL` env overrides the API base URL of any region (warning only when it differs from the US default)
 - `ADAPTY_APP_URL` env sets the dashboard base URL (default `https://app.adapty.io`), via `lib/app-url.ts`:
   `flows config preview` builds the fixed `/flow-preview` route on it, and `auth login` rehosts the

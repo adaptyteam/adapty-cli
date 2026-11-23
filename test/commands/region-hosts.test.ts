@@ -151,11 +151,20 @@ describe('region of a command', () => {
         expect(bearerOf(fetchStub, 0)).to.equal('Bearer old-token');
     });
 
-    // tc_jtg07xt5: a damaged file stops the command when the region has to come from it
-    type Damage = 'malformed-region' | 'truncated' | 'unreadable';
+    // tc_jtg07xt5: a damaged file stops the command when the region has to come from it. An unreadable
+    // file stops it too, with its own text: deleting it is not the cure for a permission
+    type Damage = 'malformed-region' | 'truncated' | 'unknown-region' | 'unreadable';
+
+    /** The read failure the unreadable fixture met: EACCES, or EISDIR where the OS ignores the mode. */
+    let unreadableHow: string | undefined;
 
     const damage = async (kind: Damage): Promise<string> => {
         switch (kind) {
+            case 'unknown-region': {
+                // A string region this CLI does not know, as a newer CLI could write: no host to send the token to
+                return writeSession({ access_token: 'file-token', region: 'ap' });
+            }
+
             case 'malformed-region': {
                 // A token the file could serve, next to a region of the wrong shape: damage, not "no region"
                 return writeSession({ access_token: 'file-token', region: 42 });
@@ -167,6 +176,8 @@ describe('region of a command', () => {
 
             case 'unreadable': {
                 const { how, path } = await writeUnreadableSession();
+
+                unreadableHow = how;
 
                 // Where the OS enforces the mode for this user, the fixture is the real permission denial
                 if (process.platform !== 'win32' && process.getuid?.() !== 0) {
@@ -183,14 +194,17 @@ describe('region of a command', () => {
         { command: SHARED, damage: 'truncated', envToken: true, id: 'shared-truncated-env-token' },
         { command: SHARED, damage: 'unreadable', envToken: true, id: 'shared-unreadable-env-token' },
         { command: SHARED, damage: 'malformed-region', envToken: true, id: 'shared-malformed-region-env-token' },
+        { command: SHARED, damage: 'unknown-region', envToken: false, id: 'shared-unknown-region' },
+        { command: SHARED, damage: 'unreadable', envToken: false, id: 'shared-unreadable' },
         { command: OLD, damage: 'truncated', envToken: false, id: 'old-truncated' },
         { command: OLD, damage: 'truncated', envToken: true, id: 'old-truncated-env-token' },
         { command: OLD, damage: 'unreadable', envToken: true, id: 'old-unreadable-env-token' },
         { command: OLD, damage: 'malformed-region', envToken: true, id: 'old-malformed-region-env-token' },
+        { command: OLD, damage: 'unknown-region', envToken: false, id: 'old-unknown-region' },
     ];
 
     for (const row of damaged) {
-        it(`tc_jtg07xt5 ${row.id}: exit 3 with the damaged file text, no region words, no request`, async () => {
+        it(`tc_jtg07xt5 ${row.id}: exit 3 with the ${row.damage === 'unreadable' ? 'unreadable' : 'damaged'} file text, no region words, no request`, async () => {
             const path = await damage(row.damage);
 
             if (row.envToken) {
@@ -201,10 +215,9 @@ describe('region of a command', () => {
 
             expect(error?.oclif?.exit, `${row.id}: exit code`).to.equal(3);
 
-            expect(error?.message.split('\n'), `${row.id}: error text`).to.deep.equal([
-                `Session file is corrupted: ${path}`,
-                'Delete the file and run `adapty auth login` again.',
-            ]);
+            expect(error?.message.split('\n'), `${row.id}: error text`).to.deep.equal(row.damage === 'unreadable'
+                ? [`Cannot read the session file: ${path} (${unreadableHow})`, 'Check the permissions of the file.']
+                : [`Session file is corrupted: ${path}`, 'Delete the file and run `adapty auth login` again.']);
 
             expect(error?.message, `${row.id}: region words`).to.not.match(REGION_WORDS);
             expect(fetchStub.callCount, `${row.id}: requests sent`).to.equal(0);

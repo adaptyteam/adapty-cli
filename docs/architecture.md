@@ -160,17 +160,22 @@ text or JSON.
   then `ADAPTY_REGION`, then the region saved in the session file, then `us`. Token and region are
   resolved independently: the file is read for its region also when `ADAPTY_TOKEN` gives the token,
   and is skipped only when both come from the environment. A file the region must come from but that
-  cannot be trusted — unreadable, not JSON, a region of the wrong shape or an unknown one — stops the
-  command with the damaged-file error (exit 3), in both stacks. `ResolvedSession.region` is the
+  cannot be trusted — not JSON, a region of the wrong shape or an unknown one — stops the command with
+  the damaged-file error (exit 3), in both stacks; a file the OS does not let the CLI read stops it
+  with its own text (exit 3), as deleting it is not the cure. `auth login` with a region named
+  (`--region` or `ADAPTY_REGION`) needs nothing from the file it replaces, so a damaged one does not
+  stop it (`SessionChoice.replacesFile`). `ResolvedSession.region` is the
   effective region of the command; `storedRegion` is the saved one, which `auth status` describes
   (`savedRegion()` reads it even when the command itself skipped the file).
 - `base/adapty/index.ts` — the public entry point: commands import `AdaptyCommand`,
   `MigrationCommand`, `build`, `openSession` and session types from here. Implementation files
   import each other directly.
 - `base/adapty/openSession.ts` — adds `ADAPTY_API_URL` (or the host of the region) to the shared
-  session and returns where to talk, as whom, and the store to write through. `regionApiUrl(region)`
-  is the one resolver of the developer API host, for both stacks: the old `ApiClient` takes it as
-  its own `regionBaseUrl` option through `lib/client-from-config.ts`. `ADAPTY_API_URL` wins over any
+  session and returns where to talk, as whom, and the store to write through. Its table holds the
+  developer API host of each region; the old `ApiClient` keeps a copy next to its US default
+  (`REGION_API_URLS` in `lib/api-client.ts`) and takes it as its `regionBaseUrl` option through
+  `lib/client-from-config.ts`. A `lib` file does not import the adapter: `build.ts` imports
+  `lib/client-from-config.ts`, so that import would be a cycle. `ADAPTY_API_URL` wins over any
   region; `openSession(config)` warns only when it is set and differs from the US default, and a host
   that comes from the region prints no warning.
 - `base/adapty/build.ts` — `build(session, context)` assembles the SDK with cancellation,

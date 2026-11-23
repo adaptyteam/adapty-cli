@@ -25,8 +25,9 @@ export default class AuthLogin extends BaseCommand {
     async run(): Promise<void> {
         const { flags } = await this.parse(AuthLogin);
 
-        // --region, then ADAPTY_REGION, then the region of the current session, then us
-        const session = await openSession(this.config, flags.region);
+        // --region, then ADAPTY_REGION, then the region of the current session, then us. With a region
+        // known, a damaged session file does not stop the login: the login replaces it.
+        const session = await openSession(this.config, { region: flags.region, replacesFile: true });
 
         if (session.user !== undefined) {
             this.log(`Already authenticated as ${session.user.name}. Re-authenticating...`);
