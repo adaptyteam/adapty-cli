@@ -164,9 +164,8 @@ text or JSON.
   the damaged-file error (exit 3), in both stacks; a file the OS does not let the CLI read stops it
   with its own text (exit 3), as deleting it is not the cure. `auth login` with a region named
   (`--region` or `ADAPTY_REGION`) needs nothing from the file it replaces, so a damaged one does not
-  stop it (`SessionChoice.replacesFile`). `ResolvedSession.region` is the
-  effective region of the command; `storedRegion` is the saved one, which `auth status` describes
-  (`savedRegion()` reads it even when the command itself skipped the file).
+  stop it (`SessionChoice.replacesFile`). `ResolvedSession.region` is the effective region of the
+  command, and `auth status` shows that one: what the next command will use, not what the file says.
 - `base/adapty/index.ts` — the public entry point: commands import `AdaptyCommand`,
   `MigrationCommand`, `build`, `openSession` and session types from here. Implementation files
   import each other directly.

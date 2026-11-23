@@ -124,7 +124,7 @@ eslint zones in `eslint.config.mjs` fail on a new import into `src/lib`. Layers 
   `cli/base/adapty/openSession.ts` and its legacy copy in `lib/api-client.ts` (a `lib` file must not import the
   adapter: `build.ts` imports `lib/client-from-config.ts`). A bad value is a usage error (exit 2); a damaged or
   unreadable session file the region must come from stops the command (exit 3), except `auth login` with a
-  region named, which replaces it. `auth status` shows the region of a saved EU session only
+  region named, which replaces it. `auth status` shows the region the commands go to, only when it is EU
 - `ADAPTY_API_URL` env overrides the API base URL of any region (warning only when it differs from the US default)
 - `ADAPTY_APP_URL` env sets the dashboard base URL (default `https://app.adapty.io`), via `lib/app-url.ts`:
   `flows config preview` builds the fixed `/flow-preview` route on it, and `auth login` rehosts the

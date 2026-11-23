@@ -33,6 +33,5 @@ export {
 } from './metrics-flags.js';
 export { MigrationCommand } from './migration-command.js';
 export { openSession, resolveSession } from './openSession.js';
-export { savedRegion } from '../session.js';
 
 export type { AuthenticatedSession, ResolvedSession } from '../session.js';

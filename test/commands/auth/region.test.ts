@@ -54,18 +54,20 @@ describe('auth commands and the region', () => {
         restoreFetch(fetchStub);
     });
 
-    // tc_3pt2gz9a: the region of a saved EU session, in the text and in the JSON; nothing else changes
+    // tc_3pt2gz9a: the region the next command goes to (ADAPTY_REGION, then the saved one, then us), in the
+    // text and in the JSON, only when it is EU; nothing else changes
     const statuses: { env: Env; eu: boolean; file?: Record<string, unknown>; id: string }[] = [
         { env: {}, eu: true, file: fileOf('file-token', 'eu'), id: 'eu-session' },
-        { env: { ADAPTY_REGION: 'us' }, eu: true, file: fileOf('file-token', 'eu'), id: 'eu-session-env-us' },
+        { env: { ADAPTY_REGION: 'us' }, eu: false, file: fileOf('file-token', 'eu'), id: 'eu-session-env-us' },
         { env: { ADAPTY_TOKEN: 'env-token' }, eu: true, file: fileOf('file-token', 'eu'), id: 'eu-session-env-token' },
         {
             env: { ADAPTY_REGION: 'us', ADAPTY_TOKEN: 'env-token' },
-            eu: true,
+            eu: false,
             file: fileOf('file-token', 'eu'),
             id: 'eu-session-env-token-env-us',
         },
-        { env: { ADAPTY_REGION: 'eu' }, eu: false, file: fileOf('file-token', 'us'), id: 'us-session-env-eu' },
+        { env: { ADAPTY_REGION: 'eu' }, eu: true, file: fileOf('file-token', 'us'), id: 'us-session-env-eu' },
+        { env: { ADAPTY_REGION: 'eu', ADAPTY_TOKEN: 'env-token' }, eu: true, id: 'env-token-env-eu-no-file' },
         { env: {}, eu: false, file: fileOf('file-token', undefined), id: 'old-file' },
         { env: {}, eu: false, id: 'no-file' },
     ];

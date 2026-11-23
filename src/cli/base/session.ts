@@ -23,8 +23,6 @@ export type ResolvedSession = {
     source: 'env' | 'file' | 'none';
     /** The store itself, not its path: `auth login`/`logout` write through it. */
     store: SessionStore;
-    /** The region of the saved session, when the file was read and names one. */
-    storedRegion?: Region | undefined;
     token?: string | undefined;
     user?: SessionUser | undefined;
 };
@@ -69,8 +67,7 @@ export const loadSession = async (
     const fileNeeded = !hasEnvToken || chosenRegion === undefined;
     const stored = fileNeeded ? await readStoredUnlessReplaced(store, fileIsReplaced) : undefined;
     // The region of the file counts even when its token does not: ADAPTY_TOKEN may stand in for it
-    const storedRegion = stored?.region;
-    const shared = { region: chosenRegion ?? storedRegion ?? 'us', store, storedRegion };
+    const shared = { region: chosenRegion ?? stored?.region ?? 'us', store };
 
     if (hasEnvToken) {
         return { ...shared, source: 'env', token: envToken };
@@ -81,23 +78,6 @@ export const loadSession = async (
     }
 
     return { ...shared, source: 'file', token: stored.session.token, user: stored.session.user };
-};
-
-/**
- * The region of the saved session for a command that describes it (`auth status`), also when the
- * command itself took both the token and the region from the environment and so never read the file.
- * Such a command does not depend on the file, so a damaged one here only means "no saved region".
- */
-export const savedRegion = async (session: Pick<ResolvedSession, 'store' | 'storedRegion'>): Promise<Region | undefined> => {
-    if (session.storedRegion !== undefined) {
-        return session.storedRegion;
-    }
-
-    try {
-        return (await readStored(session.store))?.region;
-    } catch {
-        return undefined;
-    }
 };
 
 type StoredRecord = { region?: Region | undefined; session?: Session | undefined };
