@@ -80,7 +80,7 @@ After collecting all answers, confirm the plan with the user in a summary table,
 
 Execution order (each step uses output from previous):
 1. `adapty auth login` (if not already authenticated, check with `adapty auth whoami`)
-   EU account: `adapty auth login --region eu` or `ADAPTY_REGION=eu`; after a damaged login file, run `adapty auth login --region us` or `--region eu` with the region of the account (with no region, the login stops at the damaged file too); if you do not know it, ask the user.
+   EU account: `adapty auth login --region eu` or `ADAPTY_REGION=eu`; after a damaged login file, run `adapty auth login --region us` or `--region eu` with the region of the account (with no region, the login stops at the damaged file too); if you do not know it, ask the user. A script with `ADAPTY_TOKEN` also sets `ADAPTY_REGION`: without it the command takes the region of the saved login, which can belong to another account.
 2. `adapty apps create --title "..." --platform ... --apple-bundle-id/--google-bundle-id ...` → save output: `id` (use as `--app`), `sdk_key` (use in SDK), plus the default access level `id` and `sdk_id` printed after creation
 3. For each product: `adapty products create --app <APP_ID> --title "..." --period ... --access-level-id <DEFAULT_AL_ID> --ios-product-id/--android-product-id ... [--android-base-plan-id ...]` → save product IDs. Android subscriptions (non-lifetime) require `--android-base-plan-id`. Web products bind Stripe/Paddle instead: `--stripe-product-id`+`--stripe-price-id` or `--paddle-product-id`+`--paddle-price-id` (each pair required together).
 4. `adapty paywalls create --app <APP_ID> --title "..." --products '[{"product_id":"<ID1>"},{"product_id":"<ID2>"}]'` → save paywall ID
