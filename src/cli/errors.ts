@@ -95,6 +95,13 @@ export class CliError extends Errors.CLIError {
  */
 export const usageError = (message: string): CliError => new CliError(message, exitCode.usage);
 
+/**
+ * A product with no service in the region of the command (Apple Search Ads, attribution for EU):
+ * the region is the user's own choice, so it is bad input, refused before any client or request.
+ */
+export const regionNotSupported = (product: string): CliError =>
+    new CliError(`${product} commands are not available for EU accounts.`, exitCode.usage, 'region_not_supported');
+
 const cliError = (message: string, exit: number, code?: string, json?: Partial<ErrorJson>): Error => {
     return new CliError(message, exit, code, { json });
 };

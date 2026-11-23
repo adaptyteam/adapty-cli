@@ -28,6 +28,8 @@ Override with `ADAPTY_TOKEN` environment variable:
 ADAPTY_TOKEN=your-token adapty apps list
 ```
 
+In a script, set `ADAPTY_REGION` (`us` or `eu`) together with `ADAPTY_TOKEN`: without it the command takes the region of the saved login, which can belong to another account.
+
 Other auth commands:
 
 ```sh

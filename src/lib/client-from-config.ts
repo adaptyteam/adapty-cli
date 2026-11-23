@@ -1,5 +1,5 @@
-import { ApiClient } from './api-client.js';
-import { resolveToken } from './auth.js';
+import { ApiClient, REGION_API_URLS } from './api-client.js';
+import { resolveLegacySession } from './auth.js';
 import { AuthRequiredError } from './errors.js';
 
 import type { Config } from '@oclif/core';
@@ -9,13 +9,15 @@ export function buildUserAgent(config: Config): string {
 }
 
 export async function createAuthenticatedClient(config: Config): Promise<ApiClient> {
-    const token = await resolveToken(config.configDir);
+    const { region, token } = await resolveLegacySession(config);
 
     if (!token) {
         throw new AuthRequiredError();
     }
 
     return new ApiClient({
+        // Apart from the override: ADAPTY_API_URL still wins, and its warning still compares with the US default
+        regionBaseUrl: REGION_API_URLS[region],
         token,
         userAgent: buildUserAgent(config),
     });

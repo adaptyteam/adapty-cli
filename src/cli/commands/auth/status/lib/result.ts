@@ -9,6 +9,8 @@ export type Result
             config_path: string;
             email: string | undefined;
             name: string | undefined;
+            /** The region the commands go to (flag, ADAPTY_REGION, the saved one, us), present only when it is EU. */
+            region?: 'eu';
             source: 'env' | 'file';
             token_prefix: string;
         };

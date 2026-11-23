@@ -3,6 +3,13 @@ import { ApiError, NetworkError, parseApiError } from './errors.js';
 import type { ApiErrorFormat, ApiErrorOptions } from './errors.js';
 
 const DEFAULT_API_URL = 'https://api-admin.adapty.io/api/v1/developer';
+
+/**
+ * The developer API of each region, a copy of the table in cli/base/adapty/openSession.ts as
+ * DEFAULT_API_URL is of the US host: importing the adapter from here would close an import cycle
+ * through its build.ts. test/commands/region-hosts.test.ts holds both stacks to the same hosts.
+ */
+export const REGION_API_URLS = { eu: 'https://api-eu-admin.adapty.io/api/v1/developer', us: DEFAULT_API_URL } as const;
 const MAX_RETRY_AFTER_SECONDS = 60;
 // 429 is the caller going too fast; 503 is a dependency being down. Both name a wait and clear up on their own.
 const RETRYABLE_STATUSES = new Set([429, 503]);
@@ -22,6 +29,8 @@ export type ApiClientOptions = {
     baseUrl?: string;
     defaultBaseUrl?: string;
     errorFormat?: ApiErrorFormat;
+    /** The host of the region of the command: used when neither `baseUrl` nor the env var says otherwise. */
+    regionBaseUrl?: string;
     token?: null | string;
     urlEnvVar?: string;
     userAgent?: string;
@@ -42,10 +51,11 @@ export class ApiClient {
 
     constructor(opts: ApiClientOptions = {}) {
         const defaultBaseUrl = opts.defaultBaseUrl ?? DEFAULT_API_URL;
-        const envBaseUrl = process.env[opts.urlEnvVar ?? 'ADAPTY_API_URL'];
-        this.baseUrl = (opts.baseUrl ?? envBaseUrl ?? defaultBaseUrl).replace(/\/$/, '');
+        const overrideUrl = opts.baseUrl ?? process.env[opts.urlEnvVar ?? 'ADAPTY_API_URL'];
+        this.baseUrl = (overrideUrl ?? opts.regionBaseUrl ?? defaultBaseUrl).replace(/\/$/, '');
 
-        if (this.baseUrl !== defaultBaseUrl) {
+        // A host that comes from the region is no surprise; only an override is compared with the default
+        if (overrideUrl !== undefined && this.baseUrl !== defaultBaseUrl) {
             process.stderr.write(`Warning: using non-default API URL: ${this.baseUrl}\n`);
         }
 
