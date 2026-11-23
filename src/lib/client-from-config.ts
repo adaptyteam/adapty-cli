@@ -1,6 +1,4 @@
-import { regionApiUrl } from '../cli/base/adapty/index.js';
-
-import { ApiClient } from './api-client.js';
+import { ApiClient, REGION_API_URLS } from './api-client.js';
 import { resolveLegacySession } from './auth.js';
 import { AuthRequiredError } from './errors.js';
 
@@ -19,7 +17,7 @@ export async function createAuthenticatedClient(config: Config): Promise<ApiClie
 
     return new ApiClient({
         // Apart from the override: ADAPTY_API_URL still wins, and its warning still compares with the US default
-        regionBaseUrl: regionApiUrl(region),
+        regionBaseUrl: REGION_API_URLS[region],
         token,
         userAgent: buildUserAgent(config),
     });
