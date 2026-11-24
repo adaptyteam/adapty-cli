@@ -50,6 +50,8 @@ src/
                      # Wizard Service: the flow lives on the server, every answer is one envelope.
                      # Implementation in src/cli/commands/migrations
     fallbacks/       # get. Implementation in src/cli/commands/fallbacks
+    refund-saver/    # get, on, off, update, readiness, requests, metrics, profile (get, update).
+                     # Implementation in src/cli/commands/refund-saver
     segments/        # list, get
     hypotheses/      # list, get, summary, by-ab-test, create (from a JSON file, always the batch route, client-minted
                      # hypothesis_id), accept, link, resolve, reresolve, unaccept, dismiss, restore, unlink — the backlog
