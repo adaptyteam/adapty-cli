@@ -563,6 +563,33 @@ adapty retention-messaging messages create --app APP_UUID --mode sandbox --file 
 adapty retention-messaging messages update MESSAGE_UUID --app APP_UUID --file changes.json --yes
 ```
 
+## Virtual currencies
+
+The currencies of an app, the coins that each purchase of a product gives (the mappings), and the coin ledger. Every command takes `--app`.
+
+| Command | Required flags / notes |
+|---------|------------------------|
+| `virtual-currencies list` | Optional `--page`, `--page-size`. Code, name and the number of mapped products |
+| `virtual-currencies get <virtual_currency_id>` | The currency with each mapping; its `updated_at` is the token of a mapping write |
+| `virtual-currencies create` | `--code`, `--name`; optional `--description`, `--file` (the mappings); asks each time (`--yes`): a currency cannot be deleted and its code cannot change |
+| `virtual-currencies update <virtual_currency_id>` | At least one of `--name`, `--description`, `--clear-description`; no question. Reads the currency: a field left out keeps its value |
+| `virtual-currencies mappings upsert <virtual_currency_id>` | `--file`; asks; `--yes` needs `--expected-updated-at`. Mappings that the file does not name stay |
+| `virtual-currencies mappings delete <virtual_currency_id>` | `--product`; asks; `--yes` needs `--expected-updated-at`. The purchases of the product then give no coins and leave no ledger record |
+| `virtual-currencies transactions list` | `--date-from`, `--date-to`; optional `--timezone`, `--currency-code`, `--operation`, `--feature`, `--sandbox`/`--no-sandbox`, `--page-size`, `--cursor`. One page, newest first |
+| `virtual-currencies profiles transactions list` | `--profile` or `--customer-user-id` (exactly one); optional `--date-from`, `--date-to` and the filters and page flags of `transactions list` |
+| `virtual-currencies profiles balances get` | `--profile` or `--customer-user-id` (exactly one). Balance, held, available and the coins that expire |
+
+- **Mapping file.** A JSON array of full items: `{"product_id": "...", "product_type": "one-time", "credit_per_purchase": 30}` or `{"product_id": "...", "product_type": "subscription", "credit_per_cycle": 20, "expiring": false, "credit_on_trial_start": null}` (null: no coins on a trial). A file that is not a list with at least one object exits 2 with nothing sent.
+- **Questions and the token.** `create`, `mappings upsert` and `mappings delete` ask; the mapping writes read the currency first and show each product as new or old → new. With no terminal they exit 6 with that text and the `updated_at` of the read: show the text to the user, wait for a clear yes, then re-run with `--yes --expected-updated-at <updated_at>`. `--yes` without `--expected-updated-at` exits 6 with nothing sent. A currency changed after the read fails with 409 `virtual_currency_conflict` (exit 4): read it again and ask again.
+- **Lost answer.** No write is sent twice. After a network error or a 5xx, read the currency before you repeat: a repeat can give 409, 404 or the 400 of a used code although the first write passed.
+- **Pages.** The transaction lists give one page for each call. A page with more rows ends with `More rows:` and the command of the next page (the same flags and `--cursor`); `--json` has `meta.pagination.next_cursor` and `has_more`. A next page needs the same filters and time zone. For totals and trends use the virtual currency charts (`analytics catalog`): a chart leaves out each profile with a sandbox row, the list does not.
+
+```sh
+adapty virtual-currencies get CURRENCY_UUID --app APP_UUID --json
+adapty virtual-currencies mappings upsert CURRENCY_UUID --app APP_UUID --file mappings.json --yes --expected-updated-at 1794219300000
+adapty virtual-currencies profiles balances get --app APP_UUID --customer-user-id user-42
+```
+
 ## Feedback
 
 | Command    | Flags |

@@ -56,7 +56,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`, `refundSaver`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`, `refundSaver`, `virtualCurrencies`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -108,6 +108,12 @@ image rules on its own PNG reader over `node:zlib`, no decoder dependency). The 
 command reads it and sends it back merged; the create and the update are never retried, and a lost answer says so.
 `realtime-url configure`, `messages create`, `messages update` and `messages set-status` ask first (exit 6 when nobody
 can answer).
+
+`virtual-currencies/` is the apps shape: `create.ts`, `update.ts` (the read and both fields: the server clears the
+description on null), `mappings.ts` (the form of a mapping file, and the upsert body), `transactions.ts` (the ledger
+query, the profile address: exactly one of the profile id and the customer user id) and `resource.ts`. Each write sends
+the `updated_at` of a read as `expected_updated_at`, so a change in between is a 409, and no write is retried. The ledger
+lists page by cursor (`cursorPageFlags` in `cli/input/pagination.ts`), one page for each call.
 
 `flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now (`flows` also holds `funnel`, below): the other operations of
 these entities still live in the old stack and move into the resource when their topic is ported. What the three
@@ -331,7 +337,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
 | 5 | network — the server was never reached |
-| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`) |
+| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`, `virtual-currencies create`, `mappings upsert`, `mappings delete`; the two mapping writes also with `--yes` and no `--expected-updated-at`) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
 ### The `--json` contract
@@ -371,8 +377,8 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
 most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows versions`, `hypotheses`, `migrations`,
-`paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`, `refund-saver`
-and `skills`.
+`paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`, `refund-saver`,
+`skills` and `virtual-currencies`.
 
 oclif discovers commands only under `src/commands`, so a migrated command keeps a one-line file
 there re-exporting the real class from `src/cli/commands`.

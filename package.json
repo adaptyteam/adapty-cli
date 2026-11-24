@@ -174,6 +174,24 @@
       "retention-messaging:plan-switches": {
         "description": "Plans to switch to from a product, for a promo retention message"
       },
+      "virtual-currencies": {
+        "description": "Virtual currencies of an app: the currencies, the coins that each product purchase gives, and the coin ledger"
+      },
+      "virtual-currencies:mappings": {
+        "description": "The product mappings of a currency: add or change them, and remove one"
+      },
+      "virtual-currencies:transactions": {
+        "description": "The coin transactions of an app, one page for each call"
+      },
+      "virtual-currencies:profiles": {
+        "description": "The coins of one profile: its transactions and its balances"
+      },
+      "virtual-currencies:profiles:transactions": {
+        "description": "The coin transactions of one profile, one page for each call"
+      },
+      "virtual-currencies:profiles:balances": {
+        "description": "The balances of one profile, with the coins that expire"
+      },
       "asa": {
         "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"
       },
