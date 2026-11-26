@@ -461,7 +461,8 @@ a different code from `cli_analytics_busy` (that other pool's concurrency cap) a
 out and retries the first 429 of any command on its own — the exact `Retry-After`, up to
 60 seconds, cool-downs excluded — so a 429 that reaches you means the retry also failed and
 the budget is genuinely exhausted; don't loop, wait for the window to reset or reduce the
-call. Twenty rejections within 5 minutes escalate any of these commands into
+call. A rejection counts as a strike only when the same command is refused again before its
+previous `Retry-After` has run out; twenty strikes within 5 minutes escalate into
 `429 cli_cooldown_active`, a cool-down scoped to the token (5m → 30m → 3h) that stops every
 `asa` command from that token, not just the one that tripped it.
 

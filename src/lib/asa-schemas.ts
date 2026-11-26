@@ -54,6 +54,7 @@ export type AsaMetricsResponse = {
 };
 
 export type AsaEffectiveLimitsDTO = {
+    keywords_read_burst_limit: number;
     keywords_read_limit_per_minute: number;
     max_breakdown_rows_per_page: number;
     metrics_burst_limit: number;

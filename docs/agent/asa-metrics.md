@@ -208,7 +208,9 @@ excluded) and retries once. So a 429 that reaches you is the *second* attempt fa
 budget is genuinely exhausted for now. Don't loop on it — cut the number of calls in the
 plan, or tell the user when to retry.
 
-20 rejections within 5 minutes put the token — not the whole company — into an escalating
+A rejection counts as a strike only when the same command is refused again before the
+`Retry-After` of its previous refusal has run out — waiting out the header never earns one.
+20 strikes within 5 minutes put the token — not the whole company — into an escalating
 cool-down: `cli_cooldown_active`, 5m → 30m → 3h. Retrying during the pause does not extend
 it; the fix is calling less, not retrying harder.
 

@@ -19,6 +19,11 @@ export type ConfirmOptions = {
     effect: string;
     /** `this.interactive` of the command: stdout is a terminal and there is no --json. */
     interactive: boolean;
+    /**
+     * What a command with a refusal of its own, published before this confirmation, says and throws when nobody
+     * can answer; it writes to the output it is given. Default: exit 6 `confirm_required`.
+     */
+    refuse?: ((output: NodeJS.WritableStream) => Error) | undefined;
     signal: AbortSignal;
     /** Tests give their own streams; a command never does. */
     streams?: PromptStreams | undefined;
@@ -46,18 +51,23 @@ export const canAsk = ({ interactive, streams }: Pick<ConfirmOptions, 'interacti
  *                                  is exit 1 ("Cancelled, nothing was sent."), Ctrl+C is exit 130
  *   --json, a pipe, no terminal    exit 6 `confirm_required` with the effect in the message: nobody
  *                                  can answer, so nothing is sent unless the caller says --yes
+ *                                  (`refuse`: the command's own published refusal instead)
  */
-export const confirmAction = async ({ effect, interactive, signal, streams, yes }: ConfirmOptions): Promise<void> => {
+export const confirmAction = async (options: ConfirmOptions): Promise<void> => {
+    const { effect, interactive, refuse, signal, streams, yes } = options;
+
     if (yes) {
         return;
     }
 
-    if (!canAsk({ interactive, streams })) {
-        throw new CliError(`${effect}\n\nRe-run with --yes to do it.`, exitCode.confirmRequired, 'confirm_required');
-    }
-
     const input = streams?.input ?? process.stdin;
     const output = streams?.output ?? process.stderr;
+
+    if (!canAsk({ interactive, streams })) {
+        throw refuse === undefined
+            ? new CliError(`${effect}\n\nRe-run with --yes to do it.`, exitCode.confirmRequired, 'confirm_required')
+            : refuse(output);
+    }
 
     output.write(`${effect}\n`);
 

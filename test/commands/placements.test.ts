@@ -257,10 +257,10 @@ describe('placements', () => {
 
         const { message } = error as Error;
 
+        // The same two link lines as the refused `flows publish`
         for (const needle of [
             `adapty flows publish --app ${TEST_APP_ID} ${FLOW_ID}`,
-            `https://app.adapty.io/flows/${FLOW_ID}/builder`,
-            'https://adapty.io/docs/flow-generator-skill',
+            `  • Builder UI: https://app.adapty.io/flows/${FLOW_ID}/builder\n  • Adapty flows agent skill: https://adapty.io/docs/flow-generator-skill`,
         ]) {
             if (!message.includes(needle)) {
                 throw new Error(`Expected "${needle}" in error, got: ${message}`);

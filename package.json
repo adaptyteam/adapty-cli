@@ -1,7 +1,7 @@
 {
   "name": "adapty",
   "description": "Adapty command line interface",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "author": "Adapty team <support@adapty.io>",
   "bin": {
     "adapty": "./bin/run.js"
@@ -122,6 +122,12 @@
       },
       "flows:versions": {
         "description": "The version history of a flow: list, view, name and restore versions, and open one on a test device"
+      },
+      "fonts": {
+        "description": "Custom fonts of an app for flows: list, upload, add faces, rename, and where a family is used"
+      },
+      "fonts:faces": {
+        "description": "The faces of a font family: weight and italic, iOS and Android names, the default face, move and file replace"
       },
       "paywalls:metrics": {
         "description": "Metrics of paywalls: lifetime rows, the metrics tree of one paywall and its filter values"

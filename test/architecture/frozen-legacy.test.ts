@@ -103,7 +103,6 @@ const FROZEN_COMMANDS = [
     'flows/get.ts',
     'flows/list.ts',
     'flows/media/upload.ts',
-    'flows/publish.ts',
     'flows/update.ts',
     'paywalls/create.ts',
     'paywalls/get.ts',
