@@ -231,6 +231,12 @@
       "asa:change-history": {
         "description": "Apple Ads change history, read live from Apple"
       },
+      "asa:budget-autopilot": {
+        "description": "Budget autopilot: status, mode, managed campaigns and its decisions"
+      },
+      "asa:keyword-autopilot": {
+        "description": "Keyword autopilot: enroll keywords, read its decisions and reports"
+      },
       "asa:metrics": {
         "description": "Metrics and overviews"
       }

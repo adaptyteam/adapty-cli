@@ -583,3 +583,298 @@ export type AsaKeywordDuplicatesDTO = {
     total_duplicate_groups: number;
     truncated: boolean;
 };
+
+export type AsaKeywordAutopilotStatus
+    = | 'dormant' | 'human_review' | 'learning' | 'paused' | 'provisional' | 'ramp' | 'working';
+
+export type AsaKeywordAutopilotDecisionSeverity = 'action' | 'alert' | 'info';
+
+export type AsaKeywordAutopilotDecisionDTO = {
+    bid_from: null | string;
+    bid_to: null | string;
+    check_code: string;
+    keyword_id: string;
+    kind: string;
+    occurred_at: string;
+    operation_id: null | string;
+    payload: Record<string, number>;
+    run_kind: string;
+    severity: AsaKeywordAutopilotDecisionSeverity;
+    status_from: AsaKeywordAutopilotStatus | null;
+    status_to: AsaKeywordAutopilotStatus | null;
+    text: { client_visible: boolean; decision: string; saw: string; title: string; why: string };
+    window: string;
+};
+
+export type AsaKeywordAutopilotKeywordDTO = {
+    ad_group_internal_id: string;
+    adam_id: number;
+    apple_bid: null | string;
+    apple_status: null | string;
+    campaign_internal_id: string;
+    cap: null | string;
+    country: string;
+    currency: null | string;
+    disabled_reason: null | string;
+    enabled: boolean;
+    enrolled_at: string;
+    internal_id: string;
+    last_daily_at: null | string;
+    last_decision: AsaKeywordAutopilotDecisionDTO | null;
+    last_tick_at: null | string;
+    match_type: null | string;
+    paused_at: null | string;
+    paused_code: null | string;
+    retry_eligible_at: null | string;
+    source: string;
+    status: AsaKeywordAutopilotStatus;
+    target_cpp: null | string;
+    targeting_keyword_internal_id: string;
+    text: null | string;
+    tier: null | string;
+    updated_at: string;
+};
+
+export type AsaKeywordAutopilotEpochDTO = {
+    bid: string;
+    changed_by: null | string;
+    ended_on: string;
+    installs: number;
+    mature_trials: number;
+    matured_paid: number;
+    operation_id: null | string;
+    spend: string;
+    started_on: string;
+    taps: number;
+    trials: number;
+};
+
+export type AsaKeywordAutopilotCardDTO = {
+    attempt_no: number;
+    cr1_prior: null | number;
+    cr2_prior: null | number;
+    cr3_country: null | number;
+    current_epoch: AsaKeywordAutopilotEpochDTO | null;
+    keyword: AsaKeywordAutopilotKeywordDTO;
+    maturity_days: null | number;
+    recent_decisions: AsaKeywordAutopilotDecisionDTO[];
+    stats_from: null | string;
+    test_days: null | number;
+    test_window_start: null | string;
+    window_until: null | string;
+};
+
+export type AsaKeywordAutopilotEnrollmentDTO = {
+    ad_group_internal_id: string;
+    adam_id: number;
+    asa_company_id: string;
+    campaign_internal_id: string;
+    cap: null | string;
+    country: string;
+    cr1_prior: null | number;
+    cr2_prior: null | number;
+    cr3_country: null | number;
+    currency: null | string;
+    disabled_reason: null | string;
+    enabled: boolean;
+    internal_id: string;
+    maturity_days: null | number;
+    source: string;
+    status: AsaKeywordAutopilotStatus;
+    target_cpp: null | string;
+    targeting_keyword_internal_id: string;
+    test_days: null | number;
+    tier: null | string;
+};
+
+export type AsaKeywordAutopilotDecisionFeedDTO = {
+    has_more: boolean;
+    items: AsaKeywordAutopilotDecisionDTO[];
+    limit: number;
+    offset: number;
+};
+
+export type AsaKeywordAutopilotReportDayDTO = {
+    bid: string;
+    cpt: null | string;
+    day: string;
+    direct_paid: number;
+    expected_cpp: null | string;
+    impressions: number;
+    installs: number;
+    spend: string;
+    taps: number;
+    trials: number;
+};
+
+export type AsaKeywordAutopilotReportKeywordDTO = {
+    apple: {
+        bid: null | string;
+        bid_currency: null | string;
+        data_fresh_through: null | string;
+        deleted: boolean | null;
+        external_id: null | number;
+        match_type: null | string;
+        status: null | string;
+        text: null | string;
+    };
+    cohort_daily: { day: string; mature_trials: number; matured_paid: number }[];
+    daily: AsaKeywordAutopilotReportDayDTO[];
+    decisions: AsaKeywordAutopilotDecisionDTO[];
+    epochs: AsaKeywordAutopilotEpochDTO[];
+    outcome: {
+        bid: null | string;
+        decisions: number;
+        last_decision_at: null | string;
+        paused_code: null | string;
+        status: AsaKeywordAutopilotStatus;
+        tier: null | string;
+        window_installs: number;
+        window_matured_paid: number;
+        window_spend: string;
+        window_taps: number;
+        window_trials: number;
+    };
+    state: {
+        ad_group_internal_id: string;
+        adam_id: number;
+        attempt_no: number;
+        campaign_internal_id: string;
+        cap: null | string;
+        confirmed_bid: null | string;
+        country: string;
+        cr1_prior: null | number;
+        cr2_prior: null | number;
+        cr3_country: null | number;
+        currency: null | string;
+        disabled_reason: null | string;
+        enabled: boolean;
+        enrolled_at: string;
+        enrolled_by: null | string;
+        internal_id: string;
+        last_daily_at: null | string;
+        last_tick_at: null | string;
+        maturity_days: null | number;
+        paused_at: null | string;
+        paused_code: null | string;
+        source: string;
+        stats_from: null | string;
+        status: AsaKeywordAutopilotStatus;
+        target_cpp: null | string;
+        targeting_keyword_internal_id: string;
+        test_days: null | number;
+        test_window_start: null | string;
+        tier: null | string;
+        window_until: null | string;
+    };
+};
+
+export type AsaKeywordAutopilotReportDTO = {
+    company: Record<string, unknown>;
+    keywords: AsaKeywordAutopilotReportKeywordDTO[];
+};
+
+export type AsaKeywordAutopilotUnenrolledDTO = {
+    keyword_id: string;
+    unenrolled: true;
+};
+
+export type AsaBudgetAutopilotMode = 'dry_run' | 'live';
+
+export type AsaBudgetAutopilotStatusDTO = {
+    dry_run: boolean;
+    effective_enabled: boolean;
+    enabled: boolean;
+    enrolled: boolean;
+    excluded_campaigns: number;
+    fronts_summary: Record<string, unknown> | null;
+    last_run: Record<string, unknown> | null;
+    live_available: boolean;
+    mode: AsaBudgetAutopilotMode;
+    next_guard_check_at: null | string;
+    next_run_at: null | string;
+    open_decisions: { planned: number; retry_wait: number; sending: number };
+    settings_updated_at: null | string;
+    settings_updated_by: null | string;
+    spend_guard_alert: Record<string, unknown> | null;
+};
+
+export type AsaBudgetAutopilotFrontDTO = {
+    adam_id: number;
+    campaign_group_id: null | string;
+    campaign_group_name: null | string;
+    campaign_id: string;
+    campaign_name: null | string;
+    country_or_region: null | string;
+    cpp: null | string;
+    currency: null | string;
+    daily_budget: null | string;
+    data_fresh_through: null | string;
+    epoch_started_at: null | string;
+    excluded: Record<string, unknown> | null;
+    front_type: string;
+    monthly_budget: null | string;
+    payers: null | number;
+    pending_change: Record<string, unknown> | null;
+    shrink_state: string;
+    skip_kind: null | string;
+    spend: null | string;
+    status: null | string;
+    target_cpp: null | string;
+    test_estimate: Record<string, unknown> | null;
+};
+
+export type AsaBudgetAutopilotFrontsDTO = {
+    items: AsaBudgetAutopilotFrontDTO[];
+};
+
+type AsaBudgetAutopilotCampaignRef = {
+    adam_id: null | number;
+    campaign_group_id: null | string;
+    campaign_id: string;
+    campaign_name: null | string;
+    country_or_region: null | string;
+};
+
+export type AsaBudgetAutopilotDecisionDTO = {
+    adam_id: null | number;
+    apply_status: null | string;
+    attempt_count: number;
+    budget_change: {
+        campaign_monthly_from: null | string;
+        campaign_monthly_to: null | string;
+        currency: null | string;
+        receiver_monthly_from: null | string;
+        receiver_monthly_to: null | string;
+    } | null;
+    campaign: AsaBudgetAutopilotCampaignRef | null;
+    created_at: string;
+    deadline_at: null | string;
+    decision_id: string;
+    decision_kind: string;
+    execution_status: string;
+    last_error_code: null | string;
+    max_attempts: number;
+    mode: AsaBudgetAutopilotMode;
+    needs_attention: boolean;
+    next_attempt_at: null | string;
+    receiver_campaign: AsaBudgetAutopilotCampaignRef | null;
+    run_id: null | string;
+    run_week: null | string;
+    scope: string;
+    severity: string;
+    spend_guard: Record<string, unknown> | null;
+    text: { decision: string; saw: string; title: string; why: string };
+};
+
+export type AsaBudgetAutopilotDecisionFeedDTO = {
+    has_more: boolean;
+    items: AsaBudgetAutopilotDecisionDTO[];
+    limit: number;
+    offset: number;
+};
+
+export type AsaBudgetAutopilotIncludedDTO = {
+    campaign_id: string;
+    included: true;
+};

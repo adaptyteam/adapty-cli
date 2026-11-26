@@ -9,6 +9,10 @@ import type { AsaLocInvoiceDetails, AsaMoney, AsaMutationError } from './asa-sch
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MONEY_REGEX = /^\d+(\.\d{1,6})?$/;
+const DATETIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/i;
+const MS_PER_DAY = 86_400_000;
+const FEED_DEFAULT_WINDOW_DAYS = 7;
+const FEED_MAX_OFFSET = 10_000;
 
 export const MAX_BULK_ITEMS = 100;
 export const MAX_BY_DAYS = 16;
@@ -43,6 +47,12 @@ export async function parseDate(input: string): Promise<string> {
     }
 
     return input;
+}
+
+export function isRealDay(day: string): boolean {
+    const parsed = new Date(`${day}T00:00:00Z`);
+
+    return DATE_REGEX.test(day) && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === day;
 }
 
 export const periodFlags = {
@@ -239,6 +249,131 @@ export const addKeywordActionFlags = {
         parse: parseId,
     }),
 };
+
+async function parsePositiveDecimal(input: string): Promise<string> {
+    await parseMoney(input);
+
+    if (!/[1-9]/.test(input)) {
+        throw new Error('Amounts must be positive, e.g. 50 or 12.50.');
+    }
+
+    return input;
+}
+
+export function positiveDecimalFlag(description: string, opts: { required?: boolean } = {}) {
+    return Flags.string({
+        description: `${description} (positive number, e.g. 50 or 12.50)`,
+        parse: parsePositiveDecimal,
+        ...(opts.required === undefined ? {} : { required: opts.required }),
+    });
+}
+
+export const feedWindowFlags = {
+    'date-from': Flags.string({
+        description:
+      'Start of the window: YYYY-MM-DD (start of that UTC day) or an ISO 8601 datetime with Z or a UTC offset; '
+      + `defaults to ${FEED_DEFAULT_WINDOW_DAYS} days before --date-to`,
+    }),
+    'date-to': Flags.string({
+        description:
+      'End of the window: YYYY-MM-DD (covers that whole UTC day) or an ISO 8601 datetime with Z or a UTC offset; '
+      + 'defaults to now',
+    }),
+};
+
+export function feedPageFlags(defaultLimit: number, maxLimit: number) {
+    return {
+        limit: Flags.integer({
+            default: defaultLimit,
+            description: `Decisions per call (max ${maxLimit})`,
+            max: maxLimit,
+            min: 1,
+        }),
+        offset: Flags.integer({ default: 0, description: 'Decisions to skip (max 10000)', max: FEED_MAX_OFFSET, min: 0 }),
+    };
+}
+
+export function feedPageParams(flags: { limit: number; offset: number }): Record<string, string> {
+    return { limit: String(flags.limit), offset: String(flags.offset) };
+}
+
+/** `pinnedDateTo`: the resolved end of a window whose --date-to was defaulted, so the next page matches. */
+export function logNextOffset(
+    feed: { has_more: boolean; limit: number; offset: number },
+    log: (msg: string) => void,
+    pinnedDateTo?: string,
+): void {
+    if (!feed.has_more) {
+        return;
+    }
+
+    const next = feed.offset + feed.limit;
+
+    log('');
+
+    if (next > FEED_MAX_OFFSET) {
+        log(`More decisions follow, but --offset cannot go past ${FEED_MAX_OFFSET}: narrow the window with --date-from / --date-to.`);
+    } else if (pinnedDateTo === undefined) {
+        log(`More decisions follow: use --offset ${next} for the next page.`);
+    } else {
+        log(`More decisions follow: use --date-to ${pinnedDateTo} --offset ${next} for the next page.`);
+    }
+}
+
+function wireInstant(ms: number): string {
+    return `${new Date(ms).toISOString().slice(0, 19)}Z`;
+}
+
+function windowBound(input: string, isEnd: boolean): { ms: number; wire: string } {
+    const isDate = DATE_REGEX.test(input);
+    const day = input.slice(0, 10);
+
+    if (
+        !(isDate || DATETIME_REGEX.test(input))
+        || !isRealDay(day)
+        || Number.isNaN(Date.parse(input))
+    ) {
+        throw new Error(`Invalid window bound "${input}": use YYYY-MM-DD or an ISO 8601 datetime with Z or a UTC offset.`);
+    }
+
+    if (!isDate) {
+        return { ms: Date.parse(input), wire: input };
+    }
+
+    // The server's date_to is exclusive, so a date as the end means the start of the next UTC day
+    const ms = Date.parse(`${input}T00:00:00Z`) + (isEnd ? MS_PER_DAY : 0);
+
+    return { ms, wire: wireInstant(ms) };
+}
+
+/** The date_from/date_to of a decision feed from the window flags; `now` is a parameter, not the clock. */
+export function resolveFeedWindow(
+    flags: { 'date-from'?: string | undefined; 'date-to'?: string | undefined },
+    now: Date,
+): { date_from: string; date_to: string } {
+    const dateTo = flags['date-to'];
+    const isToDefaulted = dateTo === undefined;
+
+    const to = dateTo === undefined
+        ? { ms: now.getTime(), wire: wireInstant(now.getTime()) }
+        : windowBound(dateTo, true);
+
+    const defaultFromMs = to.ms - FEED_DEFAULT_WINDOW_DAYS * MS_PER_DAY;
+
+    const from = flags['date-from'] === undefined
+        ? { ms: defaultFromMs, wire: wireInstant(defaultFromMs) }
+        : windowBound(flags['date-from'], false);
+
+    if (from.ms >= to.ms) {
+        throw new Error(
+            isToDefaulted
+                ? '--date-from must be earlier than --date-to, which defaults to now.'
+                : '--date-from must be earlier than --date-to.',
+        );
+    }
+
+    return { date_from: from.wire, date_to: to.wire };
+}
 
 export const idempotencyFlags = {
     'idempotency-key': Flags.string({
