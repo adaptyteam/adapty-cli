@@ -1,16 +1,9 @@
-// Shared "how to fix a flow" links, used by `flows publish` (config-error message)
-// and by `placements create`/`update` (draft-attach error). One source for both URLs.
+// The draft-flow refusal of `placements create`/`update`, with the "how to fix a flow" links: one view of the
+// new stack, shared with the refused `flows publish`.
+
+import { flowFixLinks } from '../cli/views/flow-links.js';
 
 import { ApiError } from './errors.js';
-
-export function builderUrl(flowId: string): string {
-    return `https://app.adapty.io/flows/${flowId}/builder`;
-}
-
-/** The two "• …" footer lines pointing at the Builder UI and the flows agent skill. */
-export function flowFixLinks(flowId: string): string {
-    return `  • Builder UI: ${builderUrl(flowId)}\n  • Adapty flows agent skill: https://adapty.io/docs/flow-generator-skill`;
-}
 
 // The backend message when a placement tries to attach an unpublished flow. There is no
 // distinct error_code (it comes back as generic validation_error), so match on the text.

@@ -2,7 +2,7 @@ import { usageError } from '../errors.js';
 
 const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
-const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
+export const isUuid = (value: string): boolean => value.length === 36 && UUID_PATTERN.test(value);
 
 /**
  * Checking the shape of a value is the parser's job, so a run() never starts with one. oclif turns
