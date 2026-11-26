@@ -839,7 +839,7 @@ adapty analytics chart --app APP_UUID --chart revenue --date-from 2026-07-01 --d
   total first; a compared period in `compare.*` columns, the answer's numbers in `data.*` and `meta.*` columns; no
   groups: the header only, and the summary on stderr).
 - **Errors**: bad input exits 2 before any request; a server refusal exits 4 with its error code; each analytics
-  route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute for all callers
+  route has its own rate limits: 25 requests per 10 seconds per app and 360 per minute for all callers
   together. Over a limit, the command exits 4 with the wait (`retry_after_seconds` in `--json`).
 
 ## Attribution (`attribution` topic)

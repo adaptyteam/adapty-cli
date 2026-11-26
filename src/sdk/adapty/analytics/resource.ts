@@ -53,7 +53,7 @@ const envelope = async <T>(pending: Promise<unknown>, isData: (data: unknown) =>
 /**
  * Every path of the analytics of an app in one place. The catalog and the values are GETs and keep the
  * transport's retry. The six operations are POSTs that run analytics queries under the rate limits of each route
- * (2 requests per second per app and 360 per minute for all callers together, as the Export API): sent once,
+ * (25 requests per 10 seconds per app and 360 per minute for all callers together): sent once,
  * never retried, and a 429 reaches the caller with the server's wait.
  *
  * The validating methods are async on purpose — a broken rule then arrives as a rejected promise, like a
