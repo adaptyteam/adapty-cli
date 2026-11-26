@@ -645,6 +645,43 @@ message and sends it back whole. A conflict in the input, or an object that the 
 sent. Images are checked before anything is sent: a PNG with no transparency, of the size Apple requires. A create or an
 update is never sent twice: when its answer is lost (exit 5, or 4 on a 5xx) the result is unknown; read before you act.
 
+### Virtual currencies
+
+The currencies of an app, the coins that each purchase of a product gives (the mappings), and the coin ledger.
+
+```sh
+adapty virtual-currencies list --app UUID [--page N] [--page-size N]
+adapty virtual-currencies get CURRENCY_ID --app UUID
+adapty virtual-currencies create --app UUID --code CODE --name NAME [--description TEXT] [--file PATH|-] [--yes]
+adapty virtual-currencies update CURRENCY_ID --app UUID [--name NAME] [--description TEXT | --clear-description]
+adapty virtual-currencies mappings upsert CURRENCY_ID --app UUID --file PATH|- [--yes --expected-updated-at UPDATED_AT]
+adapty virtual-currencies mappings delete CURRENCY_ID --app UUID --product UUID [--yes --expected-updated-at UPDATED_AT]
+adapty virtual-currencies transactions list --app UUID --date-from YYYY-MM-DD --date-to YYYY-MM-DD [--timezone ZONE]
+                                            [--currency-code CODE] [--operation OP] [--feature F] [--sandbox | --no-sandbox]
+                                            [--page-size N] [--cursor CURSOR]
+adapty virtual-currencies profiles transactions list --app UUID (--profile UUID | --customer-user-id ID)
+                                                     [--date-from YYYY-MM-DD] [--date-to YYYY-MM-DD] [filters as above]
+                                                     [--page-size N] [--cursor CURSOR]
+adapty virtual-currencies profiles balances get --app UUID (--profile UUID | --customer-user-id ID)
+```
+
+`--file` is a JSON array of full mapping items: `{product_id, product_type: "one-time", credit_per_purchase}` or
+`{product_id, product_type: "subscription", credit_per_cycle, expiring, credit_on_trial_start}`; a file that is not a
+list with at least one object exits 2 with nothing sent. `mappings upsert` never removes a mapping that the file does
+not name; `mappings delete` removes one, and the purchases of that product then give no coins and leave no ledger record.
+
+`create`, `mappings upsert` and `mappings delete` ask: in a terminal `Apply? [y/N]` after the change (a currency cannot be
+deleted and its code cannot change; each product as new or old → new), with `--json`, a pipe or no terminal exit 6. The
+mapping writes read the currency first and send its `updated_at` as the token of the write; with `--yes` they need
+`--expected-updated-at`, the `updated_at` that the user saw (exit 6 without it), and a currency changed after that read
+fails with 409 (exit 4). `update` does not ask: it reads the currency and sends a field you leave out as read. No write
+is sent twice: after a network error or a 5xx, read the currency before you repeat.
+
+The transaction lists give one page for each call, newest first. A page with more rows ends with `More rows:` and the
+command of the next page, with the same flags and `--cursor`; a next page needs the same filters and time zone. For
+totals and trends use the virtual currency charts of `adapty analytics`: a chart leaves out each profile with a sandbox
+row and the list does not.
+
 ### Feedback
 
 A short report to Adapty on how a task with the CLI or an Adapty skill went. Leave out secrets and personal

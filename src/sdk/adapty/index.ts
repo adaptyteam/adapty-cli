@@ -20,6 +20,7 @@ import { productPrices } from './product-prices/index.js';
 import { products } from './products/index.js';
 import { refundSaver } from './refund-saver/index.js';
 import { retentionMessaging } from './retention-messaging/index.js';
+import { virtualCurrencies } from './virtual-currencies/index.js';
 
 import type { AbTestsApi } from './ab-tests/index.js';
 import type { AccessLevelsApi } from './access-levels.js';
@@ -39,6 +40,7 @@ import type { ProductPricesApi } from './product-prices/index.js';
 import type { ProductsApi } from './products/index.js';
 import type { RefundSaverApi } from './refund-saver/index.js';
 import type { RetentionMessagingApi } from './retention-messaging/index.js';
+import type { VirtualCurrenciesApi } from './virtual-currencies/index.js';
 import type { Clock } from '../core/clock.js';
 import type { RetryAttempt } from '../core/http/index.js';
 
@@ -217,6 +219,23 @@ export type {
 } from './refund-saver/index.js';
 export type { PageParams, Paginated, Pagination } from './pagination.js';
 export type { PlacementsApi } from './placements.js';
+export type {
+    Balance,
+    Balances,
+    CreateVirtualCurrencyInput,
+    LedgerPage,
+    LedgerQuery,
+    LedgerRow,
+    MappingItem,
+    ProfileAddress,
+    UpdateVirtualCurrencyInput,
+    UpsertedMappings,
+    VirtualCurrenciesApi,
+    VirtualCurrency,
+    VirtualCurrencyDetail,
+    VirtualCurrencyList,
+    VirtualCurrencyMapping,
+} from './virtual-currencies/index.js';
 
 /** Exported because the adapter compares the resolved URL with it and warns when they differ. */
 export const DEFAULT_ADAPTY_API_URL = 'https://api-admin.adapty.io/api/v1/developer';
@@ -259,6 +278,7 @@ export type Adapty = {
     products: ProductsApi;
     refundSaver: RefundSaverApi;
     retentionMessaging: RetentionMessagingApi;
+    virtualCurrencies: VirtualCurrenciesApi;
 };
 
 /**
@@ -322,5 +342,6 @@ export const createAdapty = (options: AdaptyOptions = {}): Adapty => {
         products: products(http),
         refundSaver: refundSaver(http),
         retentionMessaging: retentionMessaging(http),
+        virtualCurrencies: virtualCurrencies(http),
     };
 };

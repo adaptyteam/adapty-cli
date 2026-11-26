@@ -13,7 +13,7 @@ import type { Issue } from '../sdk/core/errors.js';
  *   2  usage     — the input is wrong (oclif's own parse errors exit 2 as well)
  *   3  auth      — no token, an expired one, or a refused authorization
  *   4  api       — the server rejected a well-formed request
- *   5  network   — the server was never reached
+ *   5  network   — no whole answer came: not reached, or the connection broke in the answer (a write can be done)
  *   6  confirm   — nothing was done: the action changes production data and wants --yes
  * 130  cancelled — Ctrl+C, by the shell convention 128 + SIGINT
  */
