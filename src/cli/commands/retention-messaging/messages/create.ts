@@ -8,7 +8,7 @@ import {
 } from '../../../../sdk/adapty/retention-messaging/index.js';
 import { assertValid } from '../../../../sdk/core/validation.js';
 import { AdaptyCommand } from '../../../base/adapty/index.js';
-import { withUnknownResult } from '../../../errors/hints.js';
+import { withUnknownResult } from '../../../errors/unknown-result.js';
 import { appIdFlag } from '../../../input/app.js';
 import { confirmAction, yesFlag } from '../../../input/confirm.js';
 import { readJsonFile } from '../../../input/json.js';

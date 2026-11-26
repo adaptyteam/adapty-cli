@@ -1,7 +1,7 @@
 import { isSdkError } from '../../sdk/core/errors.js';
 import { CliError, toCliError } from '../errors.js';
 
-import { withUnknownResult } from './hints.js';
+import { withUnknownResult } from './unknown-result.js';
 
 /**
  * The failures of a currency write that need a next step: a 409 (the currency changed after its read) and a lost
