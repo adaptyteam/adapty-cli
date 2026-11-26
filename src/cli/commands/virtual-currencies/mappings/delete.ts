@@ -33,13 +33,13 @@ export default class VirtualCurrenciesMappingsDelete extends AdaptyCommand {
 
     async run(): Promise<VirtualCurrencyDetail> {
         const { args, flags } = await this.parse(VirtualCurrenciesMappingsDelete);
-        const currencies = this.adapty.virtualCurrencies;
         const currencyId = args.virtual_currency_id;
 
         const token = await confirmTokenWrite({
             interactive: this.interactive,
             question: currency => deleteQuestion(currency, flags.product),
-            read: () => currencies.get(flags.app, currencyId),
+            // the sdk only after the token rules: --yes with no --expected-updated-at is exit 6 even with no login
+            read: () => this.adapty.virtualCurrencies.get(flags.app, currencyId),
             refusal: currency => askWithToken(currency.updated_at),
             signal: this.signal,
             token: flags['expected-updated-at'],
@@ -48,7 +48,8 @@ export default class VirtualCurrenciesMappingsDelete extends AdaptyCommand {
 
         const written = { expectedUpdatedAt: token };
 
-        const currency = await currencies.mappings.delete(flags.app, currencyId, flags.product, written)
+        const currency = await this.adapty.virtualCurrencies.mappings
+            .delete(flags.app, currencyId, flags.product, written)
             .catch((error: unknown) => {
                 throw withWriteHints(error, `adapty virtual-currencies get ${currencyId} --app ${flags.app}`);
             });

@@ -41,20 +41,21 @@ export default class VirtualCurrenciesMappingsUpsert extends AdaptyCommand {
         assertValid(validateMappingItems(items));
 
         const mappings = items as MappingItem[];
-        const currencies = this.adapty.virtualCurrencies;
         const currencyId = args.virtual_currency_id;
 
         const token = await confirmTokenWrite({
             interactive: this.interactive,
             question: currency => upsertQuestion(currency, mappings),
-            read: () => currencies.get(flags.app, currencyId),
+            // the sdk only after the token rules: --yes with no --expected-updated-at is exit 6 even with no login
+            read: () => this.adapty.virtualCurrencies.get(flags.app, currencyId),
             refusal: currency => askWithToken(currency.updated_at),
             signal: this.signal,
             token: flags['expected-updated-at'],
             yes: flags.yes,
         });
 
-        const answer = await currencies.mappings.upsert(flags.app, currencyId, mappings, { expectedUpdatedAt: token })
+        const answer = await this.adapty.virtualCurrencies.mappings
+            .upsert(flags.app, currencyId, mappings, { expectedUpdatedAt: token })
             .catch((error: unknown) => {
                 throw withWriteHints(error, `adapty virtual-currencies get ${currencyId} --app ${flags.app}`);
             });

@@ -351,4 +351,99 @@ describe('virtual-currencies writes', () => {
             });
         }
     });
+
+    // external: what a confirmed create and delete send, and that --json is the answer of the server as it is
+    describe('the request of a confirmed write', () => {
+        const CREATED = currency({ description: null, mappings: [], products_count: 0 });
+        const CREATED_WITH = currency({ description: 'Soft coins', mappings: [oneTime(P1, 50)], products_count: 1 });
+
+        const rows: {
+            answer: Record<string, unknown>;
+            args: () => Promise<string[]>;
+            body?: Record<string, unknown>;
+            id: string;
+            query?: Record<string, string>;
+            request: string;
+            status: number;
+        }[] = [
+            {
+                answer: CREATED,
+                args: () => Promise.resolve(['create', '--code', 'gems', '--name', 'Gems', '--yes']),
+                body: { code: 'gems', name: 'Gems' },
+                id: 'create --yes with no file: the code and the name only',
+                request: `POST /apps/${APP}/virtual-currencies/`,
+                status: 201,
+            },
+            {
+                answer: CREATED_WITH,
+                args: async () => ['create', '--code', 'gems', '--name', 'Gems', '--description', 'Soft coins', '--yes',
+                    '--file', await mappingFile([oneTime(P1, 50)])],
+                body: { code: 'gems', description: 'Soft coins', mappings: [oneTime(P1, 50)], name: 'Gems' },
+                id: 'create --yes with a description and a file: the mappings as given',
+                request: `POST /apps/${APP}/virtual-currencies/`,
+                status: 201,
+            },
+            {
+                answer: currency({
+                    mappings: [oneTime(P1, 30), subscription(P3, null)],
+                    products_count: 2,
+                    updated_at: 8,
+                }),
+                args: () => Promise.resolve(['mappings', 'delete', CURRENCY, '--product', P2, '--yes',
+                    '--expected-updated-at', '7']),
+                id: 'mappings delete --yes --expected-updated-at 7: the product in the path, the token in the query',
+                query: { expected_updated_at: '7' },
+                request: `DELETE ${PATH}mappings/${P2}/`,
+                status: 200,
+            },
+        ];
+
+        for (const row of rows) {
+            it(row.id, async () => {
+                const args = await row.args();
+
+                fetchStub = serve([{ body: row.answer, status: row.status }]);
+
+                const { error, stdout } = await runCli(['virtual-currencies', ...args, '--app', APP, '--json']);
+                const [request] = sent(fetchStub);
+
+                expect(error, 'error').to.equal(undefined);
+                expect(sent(fetchStub).map(({ method, path }) => `${method} ${path}`), 'requests').to.deep.equal([row.request]);
+                const body = request?.body;
+
+                expect(typeof body === 'string' ? JSON.parse(body) : body, 'body').to.deep.equal(row.body);
+                expect(Object.fromEntries(request?.query ?? []), 'query').to.deep.equal(row.query ?? {});
+                expect(JSON.parse(stdout), '--json is the answer as it is').to.deep.equal(row.answer);
+            });
+        }
+    });
+
+    // external: the input rules come before the login: --yes with no --expected-updated-at is exit 6 with no token
+    describe('a mapping write with --yes, no token flag and no login', () => {
+        const rows: { args: () => Promise<string[]>; id: string }[] = [
+            {
+                args: async () => ['mappings', 'upsert', CURRENCY, '--yes', '--file', await mappingFile([oneTime(P1, 50)])],
+                id: 'mappings upsert: exit 6, no request',
+            },
+            {
+                args: () => Promise.resolve(['mappings', 'delete', CURRENCY, '--product', P2, '--yes']),
+                id: 'mappings delete: exit 6, no request',
+            },
+        ];
+
+        for (const row of rows) {
+            it(row.id, async () => {
+                const args = await row.args();
+
+                delete process.env.ADAPTY_TOKEN;
+                fetchStub = serve([READ, WRITTEN]);
+
+                const { error } = await runCli(['virtual-currencies', ...args, '--app', APP]);
+
+                expect(error?.oclif?.exit, 'exit').to.equal(exitCode.confirmRequired);
+                expect(error?.message, 'message').to.contain('--expected-updated-at is required with --yes');
+                expect(fetchStub.callCount, 'requests').to.equal(0);
+            });
+        }
+    });
 });

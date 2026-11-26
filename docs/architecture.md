@@ -111,9 +111,11 @@ can answer).
 
 `virtual-currencies/` is the apps shape: `create.ts`, `update.ts` (the read and both fields: the server clears the
 description on null), `mappings.ts` (the form of a mapping file, and the upsert body), `transactions.ts` (the ledger
-query, the profile address: exactly one of the profile id and the customer user id) and `resource.ts`. Each write sends
-the `updated_at` of a read as `expected_updated_at`, so a change in between is a 409, and no write is retried. The ledger
-lists page by cursor (`cursorPageFlags` in `cli/input/pagination.ts`), one page for each call.
+query, the profile address: exactly one of the profile id and the customer user id) and `resource.ts`. The update sends
+the `updated_at` of its read as `expected_updated_at`; the two mapping writes send `--expected-updated-at` when it is
+given (`--yes` needs it and then skips the read), else the `updated_at` of the read the user confirmed. A change in
+between is a 409. The create has no read and sends no token. No write is retried. The ledger lists page by cursor
+(`cursorPageFlags` in `cli/input/pagination.ts`), one page for each call.
 
 `flows`, `paywalls` and `placements` hold only `metrics` (`list`, `get` and `values`) for now (`flows` also holds `funnel`, below): the other operations of
 these entities still live in the old stack and move into the resource when their topic is ported. What the three
@@ -336,7 +338,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 2 | usage — bad input (oclif's own parse errors too) |
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
-| 5 | network — the server was never reached |
+| 5 | network — no whole answer came: the server was not reached, or the connection broke before the end of the answer body (a write can have gone through) |
 | 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`, `virtual-currencies create`, `mappings upsert`, `mappings delete`; the two mapping writes also with `--yes` and no `--expected-updated-at`) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
