@@ -290,7 +290,18 @@ adapty flows get --app UUID FLOW_ID
 adapty flows create --app UUID --name "Name"
 adapty flows config get --app UUID FLOW_ID
 adapty flows config update --app UUID FLOW_ID (--file PATH|- | (--config JSON | --config-file PATH|-) --remote-configs JSON) [--expected-updated-at MS]
+adapty flows publish --app UUID FLOW_ID [--yes]
 ```
+
+`flows publish` starts the publish and returns `publishing`; poll `flows get` for `published` or
+`publication_failed`. When the config names a custom font family, it first reads the app fonts and, if the copy of
+the fonts in the config (`_meta.fonts`) is stale, saves the config with the current fonts (keeping the remote
+configs, with the `updated_at` it read as the lock), as the flow builder does; a copy left from a font the config
+no longer names is cleared the same way. A failed font read, a config answer that is not the config with its lock
+(`updated_at`), or a font named by a name that several families share, stops before any write; a failed save stops
+before the publish, and so does a save whose answer cannot be read: that save may have gone through, so read the
+config with `adapty flows config get --app APP_ID FLOW_ID` before you publish again. A missing flow (HTTP 404) exits 4.
+Up to version 0.32.0, `flows publish` exited 1 for a missing flow.
 
 `flows config update` writes the config and the remote configs together, and both are required: a write replaces the
 whole remote config list. To keep it, send the stored list back; `[]` deletes all, so use it only on a flow that has
@@ -397,6 +408,46 @@ whole answer unchanged and `--csv` the CSV that the dashboard downloads, as the 
 `--date-to` and `--date-type` are required; there are no defaults. Read `values` first for the keys and values that
 `--filter key=value` takes. A flow with no published version, an unknown flow and a version of another flow answer
 with the route's text (exit 4).
+
+### Fonts
+
+Custom fonts of an app, for flows. A family holds faces; a face is one weight and style of a `.ttf` or `.otf` file.
+
+```sh
+adapty fonts list --app UUID
+adapty fonts get FAMILY_ID --app UUID
+adapty fonts upload FILE... --app UUID [--choice replace|keep] [--replace-face-id FACE_ID,...]
+adapty fonts add FAMILY_ID FILE... --app UUID [--choice replace|keep] [--replace-face-id FACE_ID,...]
+adapty fonts rename FAMILY_ID NAME --app UUID
+adapty fonts usage FAMILY_ID --app UUID
+adapty fonts faces update FACE_ID --app UUID [--weight N --italic true|false] [--ios-name NAME] [--android-name NAME]
+adapty fonts faces default FACE_ID --app UUID
+adapty fonts faces move FACE_ID --to FAMILY_ID --app UUID
+adapty fonts faces replace FACE_ID FILE --app UUID [--weight N --italic true|false] [--yes]
+```
+
+`upload` reads the family name inside each file: the file joins the family of that name (any case) or creates it. A
+static file gives one face, a variable file one face per named instance. `add` puts the faces of a file into the
+family you name, whatever the file says. Both send one file per request and print a report for each file at the end:
+created, added, partly added (with the kept pairs), replaced, kept (skipped) or refused with its code and the next
+step. A file that collides with stored faces (the same weight and italic, or an iOS name another face holds) is
+refused with every one of them. Use the printed retry with `--choice replace` and `--replace-face-id` to replace exactly
+the faces shown, or use `--choice keep` to skip the file. For one file, give the face IDs as a comma-separated list or
+repeat the flag. The bound replace goes in one request. If all named faces still exist but different faces now collide,
+the server returns 409 with the current faces. A missing face ID gives 404. If nothing collides, the server can refuse
+with 400. With `--choice replace` alone the CLI first sends the file without a choice and, on a collision, sends it
+once more to replace the faces that run found. Exit 4 when a file was refused (after the whole report), 0 when every
+file was stored. A network failure (exit 5) or an auth failure (exit 3) stops the package. The files after it are
+reported as not sent.
+
+A face keeps its id when its file is replaced, and its default mark and Android name; the iOS name follows the new
+file. The old file cannot be restored, so `fonts faces replace` asks first; `--yes` replaces without asking, and with
+`--json`, a pipe or no terminal it does nothing without `--yes` (exit 6). The Android name changes on every face of the same file. A write that leaves a face without an iOS or Android
+name is saved with a warning. A command that changes a family that flows use lists those flows
+(`flows_to_publish` in `--json`): they need `adapty flows publish` to get the change. A flow names a font by family
+(id or name) and weight, as in the builder; publish draws the exact pair, else the nearest weight, the lighter one on a
+tie. The same font
+must be in the app bundle.
 
 ### Access Levels
 

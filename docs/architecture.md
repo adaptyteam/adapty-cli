@@ -56,7 +56,7 @@ Everything here would be the same for any HTTP API.
 ## sdk/adapty
 
 The Developer API assembled on top of core. `createAdapty(options)` builds one transport and hangs
-resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`, `refundSaver`, `virtualCurrencies`).
+resources off it (`abTests`, `apps`, `auth`, `accessLevels`, `analytics`, `fallbacks`, `feedback`, `flows`, `fonts`, `hypotheses`, `migrations`, `placements`, `productGroups`, `productOffers`, `productPrices`, `products`, `refundSaver`, `virtualCurrencies`).
 
 A resource owns everything about its entity: paths, request/response shapes, and its business
 rules as pure functions returning `Issue[]`. Rules return lists instead of throwing, so a table
@@ -123,6 +123,20 @@ share sits beside them, like `pagination.ts`: `metrics.ts` has the input shape, 
 caller set), the timezone header and the answer types (27 metrics on a flow tree, 21 on a paywall tree, which has no `level` on its nodes). The server owns every value list (`based_on`, `period_unit`,
 `date_type`, `segmentation_by`, the placement `type`), so the sdk checks only that a day range has both ends. `--based-on` (every `get` command) and `--date-type` (`flows metrics get` and `paywalls metrics get`) are required flags, which oclif checks; the rest (a flow placement range needs `date_type`; a paywall or paywall placement needs a day range) is the server's 400. The two
 analytics POSTs are never retried, like `attribution report`.
+
+`flows` also holds the read and the write of the builder config and the publish of `flows publish`. A config answer,
+read or write, that is not an object with the config and an integer `updated_at` is a `malformed_response`, and
+`requireWritableConfig` refuses to write back a read without `remote_configs`. Before the publish, `flow-fonts.ts`
+rebuilds the `_meta.fonts` copy of a config from the app fonts, as the server's own refresh writes it
+(`refreshFlowFonts`); the command saves the config only when the copy changed (entries compare by family id, in any
+order). A reference it cannot match with certainty is a `FontReferenceIssue`: the reason, the reference and the family
+ids; the command adds the way out and what was written.
+
+`fonts/` is the apps shape: `model.ts` (families, faces, the upload result, the usage), `upload.ts` (the multipart form
+of one file and the conflict of a refused upload), `face.ts` (the face edit, the file replace, and finding the family
+of a face in the font list), `resource.ts` (the endpoint map). An answer without a list the caller acts on is a
+`malformed_response` that names the field (`FontAnswerError`, with `missing`), never read as empty; the CLI words for
+it are in `cli/errors/fonts.ts`. A file write is never retried.
 
 `flows.funnel` (`get`, `csv`, `values`) is the screen funnel of one flow version. Its input, request body and answer
 types are in `flow-funnel.ts`, beside `metrics.ts`; the time zone header is the one of `metrics.ts`. The request
@@ -191,6 +205,9 @@ text or JSON.
   authorization" is expressed in what a command extends, not re-checked inside `run()` bodies.
 - `base/adapty/migration-command.ts` — `AdaptyCommand` plus `this.currentMigration`. "Works on the
   saved migration" is the second thing a command says by what it extends.
+- `base/adapty/fonts-command.ts` — `FontsCommand`, `AdaptyCommand` plus what the `fonts` commands share: a package
+  sent file by file with its per-file report and exit code, and the flows that need a publish after a change of a
+  family they use. Commands import it through `index.ts`.
 - `base/adapty/metrics-flags.ts` — the flags and arguments only the metrics commands take (`--ids`, `--type`,
   `--csv`, `--depth` and the optional period flags), built on the shared `--filter` parser and `--timezone` of
   `flags.ts`, and `metricsInput`, where they meet the sdk's field names. Commands import them through `index.ts`.
@@ -279,6 +296,7 @@ base/
 ├── adapty/
 │   ├── index.ts
 │   ├── adapty-command.ts
+│   ├── fonts-command.ts
 │   ├── metrics-flags.ts
 │   ├── migration-command.ts
 │   ├── build.ts
@@ -339,7 +357,7 @@ resolve `../../base/adapty` to its index automatically. See
 | 3 | auth — no token, expired, or authorization refused |
 | 4 | api — the server rejected a well-formed request |
 | 5 | network — no whole answer came: the server was not reached, or the connection broke before the end of the answer body (a write can have gone through) |
-| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`, `virtual-currencies create`, `mappings upsert`, `mappings delete`; the two mapping writes also with `--yes` and no `--expected-updated-at`) |
+| 6 | confirm — nothing was done: the action cannot be undone and needs `--yes` (`migrations run`, `ab-tests start`, `stop`, `replace`, `archive`, `products push`, `product-prices set`, `flows versions restore` over a draft, `flows versions get --output` over a file, `hypotheses resolve`, `reresolve`, `fonts faces replace`, `virtual-currencies create`, `mappings upsert`, `mappings delete`; the two mapping writes also with `--yes` and no `--expected-updated-at`) |
 | 130 | cancelled — Ctrl+C (128 + SIGINT) |
 
 ### The `--json` contract
@@ -378,7 +396,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows versions`, `hypotheses`, `migrations`,
+most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows publish`, `flows versions`, `fonts`, `hypotheses`, `migrations`,
 `paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`, `refund-saver`,
 `skills` and `virtual-currencies`.
 

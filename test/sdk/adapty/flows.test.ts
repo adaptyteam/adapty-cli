@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 
 import { createAdapty } from '../../../src/sdk/adapty/index.js';
+import { ApiError } from '../../../src/sdk/core/errors.js';
 import { createFakeClock, createScriptedFetch } from '../../../src/sdk/core/testing.js';
 import { rejection } from '../../helpers/rejection.js';
 
@@ -68,4 +69,45 @@ describe('adapty.flows.funnel', () => {
 
         expect(calls.map(call => call.method)).to.deep.equal(['GET', 'GET']);
     });
+});
+
+/**
+ * external: `flows publish` saves the config it read and publishes after the save, so a success answer that is
+ * not the config envelope is an error. These rows cover validation of the envelope, config and lock.
+ */
+describe('adapty.flows.config', () => {
+    const CONFIG = { config: { screens: [] }, remote_configs: [{ data: '{}', locale: 'en' }], status: 'draft', updated_at: 1_794_000_000_000 };
+    const INPUT = { config: CONFIG.config, expectedUpdatedAt: CONFIG.updated_at, remoteConfigs: CONFIG.remote_configs };
+
+    const setup = (answer: Parameters<typeof createScriptedFetch>[0][number]) => {
+        const scripted = createScriptedFetch([answer]);
+
+        return createAdapty({ baseUrl: BASE, clock: createFakeClock(), fetch: scripted.fetch, token: 't' }).flows.config;
+    };
+
+    const rows: { answer: Parameters<typeof setup>[0]; call: 'get' | 'update'; id: string; message: string }[] = [
+        { answer: { body: [CONFIG] }, call: 'get', id: 'an envelope that is an array', message: 'not a JSON object' },
+        { answer: { body: { ...CONFIG, config: [] } }, call: 'update', id: 'a config that is an array', message: 'no config' },
+        { answer: { body: { ...CONFIG, updated_at: '1794000000000' } }, call: 'get', id: 'a string timestamp', message: 'no updated_at' },
+    ];
+
+    for (const row of rows) {
+        it(`${row.call}: ${row.id} is malformed_response`, async () => {
+            const config = setup(row.answer);
+            const error = await rejection(row.call === 'get' ? config.get(APP, 'flow-1') : config.update(APP, 'flow-1', INPUT));
+
+            expect(error, row.id).to.be.instanceOf(ApiError);
+            expect(error, row.id).to.include({ code: 'malformed_response', status: 200 });
+            expect((error as Error).message, row.id).to.include(row.message);
+        });
+    }
+
+    for (const call of ['get', 'update'] as const) {
+        it(`${call}: the config envelope is the answer`, async () => {
+            const config = setup({ body: CONFIG });
+            const answer = await (call === 'get' ? config.get(APP, 'flow-1') : config.update(APP, 'flow-1', INPUT));
+
+            expect(answer).to.deep.equal(CONFIG);
+        });
+    }
 });
