@@ -330,6 +330,7 @@ adapty flows versions preview FLOW_ID VERSION_ID --app UUID
 adapty flows versions rename FLOW_ID VERSION_ID --app UUID --name "Black Friday"
 adapty flows versions restore FLOW_ID VERSION_ID --app UUID [--yes --expected-updated-at MS]
 adapty flows duplicate FLOW_ID --app UUID [--version VERSION_ID]
+adapty flows copy FLOW_ID --app UUID --to-app TARGET_APP_UUID
 ```
 
 `list` shows every version in one answer (no pages): the title, the state (`draft`, `live` or `previous`), the date
@@ -350,6 +351,14 @@ duplicate it to a new flow first. `duplicate` makes a new flow "<name>_copy" wit
 content of `--version`, else of the current version. In the dashboard, "Duplicate as draft" is `restore` and
 "Duplicate as new flow" or "Duplicate flow" is `duplicate`. An archived flow can be listed and viewed only; restore
 it from the archive in the dashboard first.
+
+`copy --to-app` makes a new flow with the source name in another app of the same company ("Copy to app..." in the
+dashboard): one unpublished draft with the content of the current version (the draft, else the live one); the
+source flow does not change. It prints the new flow id, the target app and "not published", then each item to check
+before the publish (`kind` and text: removed products, replaced fonts, fonts to bundle); `--json` prints
+`{flow_id, name, target_app_id, checklist}`. An app the user cannot use, or an app of another company, gives "The
+target app is not available." (`target_app_not_available`, exit 4); the source app as the target gives
+`target_app_is_source_app`: use `duplicate` there.
 
 #### Flow, paywall and placement metrics
 

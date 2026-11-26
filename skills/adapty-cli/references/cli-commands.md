@@ -312,12 +312,14 @@ it is not published), the live version and the versions before them (`previous`)
 | `flows versions rename <flow_id> <version_id>` | `--app`, `--name` (`""` gives the "Version N" title again) |
 | `flows versions restore <flow_id> <version_id>` | `--app`; when the flow has a draft: a yes at the terminal, or `--yes` with `--expected-updated-at` |
 | `flows duplicate <flow_id>` | `--app`; optional `--version <version_id>` (the current version when omitted) |
+| `flows copy <flow_id>` | `--app` (the source app), `--to-app <app_id>` (another app of the same company); a new unpublished flow there, with the checklist |
 
 ```sh
 adapty flows versions list FLOW_UUID --app APP_UUID --json
 adapty flows versions get FLOW_UUID VERSION_UUID --app APP_UUID --output version.json
 adapty flows versions restore FLOW_UUID VERSION_UUID --app APP_UUID --yes --expected-updated-at 1794219300000
 adapty flows duplicate FLOW_UUID --app APP_UUID --version VERSION_UUID
+adapty flows copy FLOW_UUID --app SOURCE_APP_UUID --to-app TARGET_APP_UUID --json
 ```
 
 - **Rows.** `list` gives every version in one answer (no pages), newest first: `title`, `state` (`draft`, `live`, `previous`), `publication_status`,
@@ -337,8 +339,16 @@ adapty flows duplicate FLOW_UUID --app APP_UUID --version VERSION_UUID
   the server answers `flow_version_not_found`.
 - **Duplicate.** A new flow "<name>_copy" with one unpublished draft; the source flow does not change. It works
   while the source publishes.
+- **Copy to another app.** `flows copy --to-app` makes a new unpublished flow with the source name in another app
+  of the same company, from the current version; the source flow does not change. `--json` gives `flow_id`, `name`,
+  `target_app_id` and `checklist` (items with `kind` and `message`: `products_removed`, `font_replaced`,
+  `font_not_in_source_app`, `font_import_failed`, `fonts_to_bundle`): show each item to the user before a publish.
+  The copy registers the custom fonts of the flow in the target app (or reuses the ones there): no `fonts upload` is
+  needed; `fonts list --app <target app>` shows them.
+  Errors: `target_app_not_available` (no access to the app, or an app of another company), `target_app_is_source_app`
+  (use `flows duplicate`).
 - **Dashboard words.** "Duplicate as draft" is `restore`; "Duplicate as new flow" and "Duplicate flow" are
-  `duplicate`.
+  `duplicate`; "Copy to app..." is `copy --to-app`.
 - **Errors** (exit 4, the server text, then the next step): `flow_config_conflict` (somebody changed the draft:
   list the versions again and retry), `flow_publishing` (wait until the publish ends), `flow_archived` (restore the
   flow from the archive in the dashboard first; list and view still work), `flow_draft_exists`,

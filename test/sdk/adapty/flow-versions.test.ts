@@ -86,10 +86,17 @@ describe('adapty.flows.versions and adapty.flows.duplicate', () => {
         return { calls: scripted.calls, flows: adapty.flows };
     };
 
-    it('does not repeat a restore or a duplicate after a 503: a second one would write again', async () => {
-        for (const call of ['restore', 'duplicate'] as const) {
+    it('does not repeat a restore, a duplicate or a copy to another app after a 503: a second one would write again', async () => {
+        for (const call of ['restore', 'duplicate', 'copyToApp'] as const) {
             const { calls, flows } = setup([{ status: 503 }, { body: {} }]);
-            const write = call === 'restore' ? flows.versions.restore('a', 'f', 'v') : flows.duplicate('a', 'f');
+
+            const writes = {
+                copyToApp: () => flows.copyToApp('a', 'f', 'b'),
+                duplicate: () => flows.duplicate('a', 'f'),
+                restore: () => flows.versions.restore('a', 'f', 'v'),
+            };
+
+            const write = writes[call]();
 
             const error = await rejection(write);
 

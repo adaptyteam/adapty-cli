@@ -89,6 +89,20 @@ export const isMissingFlowConfig = (error: unknown): boolean => error instanceof
     && error.code === 'validation_error'
     && error.message === 'Flow version does not exist.';
 
+/** One thing to check in a copy before its publish: `kind` is the server code, `message` its text. */
+export type FlowCopyChecklistItem = {
+    kind: string;
+    message: string;
+};
+
+/** The answer of a copy of a flow to another app: the new flow lives in the target app and is not published. */
+export type FlowCopyToApp = {
+    checklist: FlowCopyChecklistItem[];
+    flow_id: string;
+    name: string;
+    target_app_id: string;
+};
+
 /** A flow that has no live version and never had one. An older server that does not send the field says nothing. */
 export const isNeverPublished = (flow: Flow): boolean => flow.published_flow_version_id === null;
 
@@ -157,6 +171,14 @@ export const flows = (http: Http) => ({
      */
     duplicate: (appId: string, flowId: string, versionId?: string) =>
         http.post<Flow>(`/apps/${appId}/flows/${flowId}/copy`, versionId === undefined ? {} : { flow_version_id: versionId }),
+
+    /**
+     * A new flow with the source name in another app of the same company, not published: the content
+     * of the current version (the draft, else the live one). The source flow does not change. Like
+     * `duplicate`, a write that is never retried: a second one would make a second flow.
+     */
+    copyToApp: (appId: string, flowId: string, targetAppId: string) =>
+        http.post<FlowCopyToApp>(`/apps/${appId}/flows/${flowId}/copy-to-app`, { target_app_id: targetAppId }),
 
     get: (appId: string, flowId: string) => http.get<Flow>(`/apps/${appId}/flows/${flowId}`),
 

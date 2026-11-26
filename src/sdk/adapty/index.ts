@@ -133,7 +133,15 @@ export type { AuthApi, AuthUser, IssuedToken } from './auth/index.js';
 export type { FallbackInput, FallbackPlatform, FallbacksApi } from './fallbacks.js';
 export type { FeedbackApi, SendFeedbackInput, Sentiment } from './feedback/index.js';
 export type { FlowFunnelAnswer, FlowFunnelScreen, FlowFunnelStep } from './flow-funnel.js';
-export type { Flow, FlowConfig, FlowRemoteConfig, FlowsApi, WriteFlowConfigInput } from './flows.js';
+export type {
+    Flow,
+    FlowConfig,
+    FlowCopyChecklistItem,
+    FlowCopyToApp,
+    FlowRemoteConfig,
+    FlowsApi,
+    WriteFlowConfigInput,
+} from './flows.js';
 export type { FlowFontRefresh, FontReferenceIssue } from './flow-fonts.js';
 export type {
     AmbiguousFontFamily,
