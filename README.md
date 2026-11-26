@@ -1025,10 +1025,11 @@ and share a pool of two concurrent queries with the search-terms list — a busy
 `429 cli_analytics_busy`, an exhausted window `429 cli_rate_limit_exceeded`, both with the exact wait in
 `Retry-After`. The CLI absorbs a single 429 on its own — it waits the announced `Retry-After` (up to 60
 seconds; cool-downs are never waited out) and retries once — so a 429 that reaches you means the retry failed
-too. A burst of 429s puts the token into an escalating cool-down (`cli_cooldown_active`, 5 minutes →
-30 minutes → 3 hours); retries during the pause don't extend it, but the cure is fixing the failing request,
-not waiting out the pause in a loop. An automation run is queued rather than awaited: `run` prints a run ID
-and the outcome shows up in `adapty asa automations runs`.
+too. A 429 counts against the token only when the same command is refused again before its previous
+`Retry-After` has run out; 20 of those within 5 minutes put the token into an escalating cool-down
+(`cli_cooldown_active`, 5 minutes → 30 minutes → 3 hours). Retries during the pause don't extend it, but the
+cure is fixing the failing request, not waiting out the pause in a loop. An automation run is queued rather
+than awaited: `run` prints a run ID and the outcome shows up in `adapty asa automations runs`.
 
 ### Analytics
 

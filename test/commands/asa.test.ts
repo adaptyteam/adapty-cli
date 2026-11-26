@@ -61,6 +61,7 @@ describe('asa', () => {
             {
                 ...ME_RESPONSE,
                 limits: {
+                    keywords_read_burst_limit: 15,
                     keywords_read_limit_per_minute: 90,
                     max_breakdown_rows_per_page: 10_000,
                     metrics_burst_limit: 5,
@@ -72,6 +73,7 @@ describe('asa', () => {
         ]);
 
         const { stdout } = await runCommand('asa whoami');
+        expect(stdout).to.contain('Keywords Read Burst Limit: 15');
         expect(stdout).to.contain('Metrics Limit Per Minute: 20');
         expect(stdout).to.contain('Max Breakdown Rows Per Page: 10000');
     });
