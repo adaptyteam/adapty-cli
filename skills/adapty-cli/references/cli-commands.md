@@ -755,10 +755,11 @@ Before running any of these:
   10s) and share a 2-concurrent pool with the search-terms list (`429 cli_analytics_busy`); search terms and
   competitors get 30/min; keyword lists 30/min on their own 2-concurrent pool; catalog reads 120/min; writes
   20/min. Every 429 carries the exact wait in `Retry-After`; the CLI waits it out and retries once by itself
-  (up to 60s, cool-downs excluded), so a surfaced 429 means the retry failed too. A burst of 429s (20 within 5 minutes) puts the
-  token into a cool-down (`429 cli_cooldown_active`, escalating 5m → 30m → 3h); retrying during the pause does
-  not extend it, but the cure is fixing the request, not hammering. Answer questions with the fewest calls —
-  recipes in `asa-agent-playbook.md`.
+  (up to 60s, cool-downs excluded), so a surfaced 429 means the retry failed too. A 429 is a strike only when
+  the same command is refused again before its previous `Retry-After` has run out; 20 strikes within 5 minutes
+  put the token into a cool-down (`429 cli_cooldown_active`, escalating 5m → 30m → 3h). Retrying during the
+  pause does not extend it, but the cure is fixing the request, not hammering. Answer questions with the
+  fewest calls — recipes in `asa-agent-playbook.md`.
 - **`--page-size` goes up to 1000 on asa commands** — one big page always beats a pagination loop, and
   `meta.pagination.count` answers "how many" without reading the rows.
 - **Money flags take a bare amount** (`--daily-budget 50`); `--currency` is optional: omitted, the CLI uses the currency of the campaign group (extra reads of the entity and `asa orgs list`; `keywords update` needs all groups to share one currency), and the server rejects a mismatch with 422 `cli_currency_mismatch`.

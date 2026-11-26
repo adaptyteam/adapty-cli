@@ -36,8 +36,9 @@ an agent that ignores them gets 429s, then a token cool-down, and then it cannot
    Plan the whole answer inside that. Sequential calls only. The CLI absorbs a single 429 by itself —
    it waits the exact `Retry-After` (up to 60s, cool-downs excluded) and retries once — so if a command
    still fails with 429, the budget is genuinely gone: do not loop, reduce the number of calls or tell
-   the user when to retry. 20 rejections within 5 minutes put the token into an escalating cool-down
-   (5m → 30m → 3h) that blocks everything.
+   the user when to retry. A rejection is a strike only when the same command is refused again before
+   its previous `Retry-After` has run out, and agents sharing one token share that wait. 20 strikes
+   within 5 minutes put the token into an escalating cool-down (5m → 30m → 3h) that blocks everything.
 6. **A too-wide date window is fixed by coarsening, not splitting.** Caps on `metrics`: 28 days when
    `day` is in `--group-by`, 90 with no period grouping, 180 by week, 365 by month/quarter/year
    (`metrics overview` keeps 90 at `--period-unit day`). Need a year of data? `--group-by month`
