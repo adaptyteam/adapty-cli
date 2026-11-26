@@ -44,3 +44,53 @@ export const withWriteHints = (error: unknown, read: string, again = ASK_AGAIN):
     `Do not repeat the write before you read the state with \`${read}\`: the write can have passed, and a repeat can `
     + 'then give 409, 404 or the 400 of a used code.',
 );
+
+/** The answer of an adjustment whose key still has a write in progress. */
+const IN_FLIGHT = 'idempotency_in_flight';
+
+/**
+ * Each failure of an adjustment after its send names the key it was sent with, also as `idempotency_key` in
+ * --json: a lost answer, a Ctrl+C during the send and an in-flight key say to repeat with that key, so that a repeat
+ * never writes twice; a refusal of the server wrote nothing, and its key is free again.
+ */
+export const withAdjustmentKey = (error: unknown, key: string): unknown => {
+    const repeat = `--idempotency-key ${key}`;
+
+    const again = `Repeat the same command with ${repeat} within one hour: the server then gives the answer of the first `
+        + 'write, or makes the write once. Never repeat with a new key: that can write the coins twice.';
+
+    const lost = withUnknownResult(error, again, { idempotency_key: key });
+
+    if (lost !== error || !isSdkError(error)) {
+        return lost;
+    }
+
+    const mapped = toCliError(error);
+
+    if (!(mapped instanceof CliError)) {
+        return error;
+    }
+
+    const inFlight = error.kind === 'api' && error.code === IN_FLIGHT;
+
+    // The send can be cancelled after the server got the write: its result is as unknown as a lost answer
+    const cancelled = error.kind === 'cancelled';
+
+    let next: string | undefined;
+
+    if (inFlight) {
+        next = `The first write with this key is still in progress. Wait a few seconds, then repeat the same command with ${repeat}.`;
+    } else if (cancelled) {
+        next = `The result is unknown: the write was cancelled during its send and can have passed. ${again}`;
+    }
+
+    const message = `${mapped.message}\n${next ?? `Idempotency key: ${key}.`}`;
+
+    const json = { ...mapped.json, ...(next === undefined ? {} : { hint: next }), message };
+
+    const named = new CliError(message, mapped.exitCode, mapped.code, { cause: error, json });
+
+    Object.assign(named.json, { idempotency_key: key });
+
+    return named;
+};

@@ -1,11 +1,13 @@
 import { assertValid } from '../../core/validation.js';
 import { pageQuery } from '../pagination.js';
 
+import { adjustmentBody, adjustmentHeaders } from './adjustment.js';
 import { createBody, validateCreateVirtualCurrency } from './create.js';
 import { upsertBody, validateMappingItems } from './mappings.js';
 import { ledgerQuery, profileRoute, validateProfileAddress } from './transactions.js';
 import { updateBody, validateUpdateVirtualCurrency } from './update.js';
 
+import type { Adjustment, AdjustmentInput } from './adjustment.js';
 import type { CreateVirtualCurrencyInput } from './create.js';
 import type {
     MappingItem,
@@ -99,6 +101,26 @@ export const virtualCurrencies = (http: Http) => {
                 const route = profileRoute(appId, address, 'balances');
 
                 return http.get<Balances>(route.path, { query: route.query });
+            },
+
+            /**
+             * A manual credit or debit of one profile, under the idempotency key of the caller. Never sent twice: the
+             * caller keeps the key, and a repeat with it after a lost answer gets the first answer, not a second write.
+             */
+            adjust: async (
+                appId: string,
+                address: ProfileAddress,
+                input: AdjustmentInput,
+                idempotencyKey: string,
+            ): Promise<Adjustment> => {
+                assertValid(validateProfileAddress(address));
+
+                const route = profileRoute(appId, address, 'transactions');
+
+                return http.post<Adjustment>(route.path, adjustmentBody(input), {
+                    headers: adjustmentHeaders(idempotencyKey),
+                    query: route.query,
+                });
             },
         },
     };

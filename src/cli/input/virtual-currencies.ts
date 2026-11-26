@@ -1,5 +1,7 @@
 import { Args, Flags } from '@oclif/core';
 
+import { usageError } from '../errors.js';
+
 import { dateParser } from './period.js';
 import { uuidParser } from './uuid.js';
 
@@ -91,3 +93,17 @@ export const profileAddressFlags = {
 
 export const profileAddress = (flags: { 'customer-user-id'?: string | undefined; 'profile'?: string | undefined }): ProfileAddress =>
     ({ customerUserId: flags['customer-user-id'], profile: flags.profile });
+
+/** A key that a header carries as it is: no space, no control and no non-ASCII character. The server checks UUID v4. */
+const HEADER_SAFE = /^[!-~]+$/;
+
+/** The key of an adjustment; a bad one is refused before the question and the send. */
+export const idempotencyKeyFlag = {
+    'idempotency-key': Flags.string({
+        description: 'UUID v4 of this write; a new one when omitted. Give the key of a write whose answer was lost',
+        parse: input => (HEADER_SAFE.test(input)
+            ? Promise.resolve(input)
+            : Promise.reject(usageError('Invalid idempotency key: give the UUID v4 that the first write named, or leave '
+                + 'out --idempotency-key for a new one.'))),
+    }),
+};

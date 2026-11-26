@@ -4,9 +4,13 @@ import { exitCode } from '../../src/cli/errors.js';
 import { restoreFetch } from '../helpers/mock-fetch.js';
 import { APP, runCli, sent, serve, useStreams } from '../helpers/retention-messaging.js';
 
+import type { Answer } from '../helpers/retention-messaging.js';
 import type * as sinon from 'sinon';
 
-/** The reads of the `virtual-currencies` topic: the currencies, the coin ledger and the balances. */
+/**
+ * The reads of the `virtual-currencies` topic (the currencies, the coin ledger and the balances), and the manual
+ * adjustment of the coins of one profile.
+ */
 
 const CURRENCY = '880e8400-e29b-41d4-a716-446655440003';
 const PROFILE = 'aa0e8400-e29b-41d4-a716-446655440021';
@@ -197,5 +201,290 @@ describe('virtual-currencies reads', () => {
                 }
             });
         }
+    });
+});
+
+const UUID_V4 = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/;
+const KEY = 'cc0e8400-e29b-41d4-a716-446655440041';
+
+const ADJUSTED = {
+    balance: { available: 50, balance: 50, code: 'GEMS', name: 'Gems' },
+    response_created_at: 1_795_687_200_000,
+    spendable: 50,
+    transaction_id: 'dd0e8400-e29b-41d4-a716-446655440051',
+};
+
+const CREDIT = ['--currency-code', 'GEMS', '--direction', 'credit', '--amount', '10', '--operation', 'adjustment',
+    '--feature', 'support'];
+
+const refusal = (status: number, code: string, detail: string): Answer =>
+    ({ body: { errors: [{ code, detail, status }] }, status });
+
+/** The fields of a failure that a script reads: the error, or its object under --json. */
+type JsonError = { code?: string; idempotency_key?: string; message: string };
+
+/** The idempotency key header of each request the command sent. */
+const keysSent = (stub: sinon.SinonStub): (null | string)[] =>
+    stub.getCalls().map(call => new Headers((call.args as [string, RequestInit])[1].headers).get('idempotency-key'));
+
+describe('virtual-currencies profiles transactions create', () => {
+    let fetchStub: sinon.SinonStub | undefined;
+    let restoreStreams: () => void;
+
+    beforeEach(() => {
+        process.env.ADAPTY_TOKEN = 'test-token';
+        restoreStreams = useStreams({ terminal: false });
+    });
+
+    afterEach(() => {
+        if (fetchStub) {
+            restoreFetch(fetchStub);
+            fetchStub = undefined;
+        }
+
+        restoreStreams();
+        delete process.env.ADAPTY_TOKEN;
+    });
+
+    // external: what a script gets: the exit code, the request and its key, and the key in the answer and each failure
+    describe('the address, the question, the key and the failures', () => {
+        type Row = {
+            /** cancel: Ctrl+C while the request is out. */
+            answer?: 'cancel' | Answer;
+            args: string[];
+            /** The error code; none: not checked. */
+            code?: string;
+            /** The exit code; none: the write passed. */
+            exit?: number;
+            id: string;
+            /** With --json: the error is the object on stdout, and it names the key. */
+            json?: true;
+            /** The key header that was sent; a pattern: a new key; none: no request. */
+            key?: RegExp | string;
+            /** The texts of the error message, `{key}` for the key that was sent. */
+            texts?: string[];
+        };
+
+        const rows: Row[] = [
+            { args: ['--profile', PROFILE, '--customer-user-id', 'U', ...CREDIT, '--yes'], exit: exitCode.usage, id: 'both: exit 2, no request' },
+            { args: [...CREDIT, '--yes'], exit: exitCode.usage, id: 'neither: exit 2, no request' },
+            {
+                args: ['--profile', PROFILE, ...CREDIT],
+                code: 'confirm_required',
+                exit: exitCode.confirmRequired,
+                id: 'no terminal and no --yes: exit 6 confirm_required, no request',
+                texts: ['Adjust the coins of the profile', 'Re-run with --yes to do it.'],
+            },
+            {
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', ''],
+                exit: exitCode.usage,
+                id: 'an empty key: exit 2, no request',
+                texts: ['Invalid idempotency key'],
+            },
+            {
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', 'ключ'],
+                exit: exitCode.usage,
+                id: 'a key that a header cannot carry: exit 2, no request',
+                texts: ['Invalid idempotency key'],
+            },
+            { args: ['--customer-user-id', 'user 42', ...CREDIT, '--yes'], id: '--yes with no key: a new UUID v4', key: UUID_V4 },
+            { args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY], id: '--yes --idempotency-key K: K', key: KEY },
+            {
+                answer: 'network',
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                exit: exitCode.network,
+                id: 'K and a network failure: exit 5, repeat with K within one hour',
+                key: KEY,
+                texts: ['The result is unknown', 'Repeat the same command with --idempotency-key {key} within one hour'],
+            },
+            {
+                answer: 'network',
+                args: ['--profile', PROFILE, ...CREDIT, '--yes'],
+                exit: exitCode.network,
+                id: 'no key and a network failure: the new key in the error',
+                key: UUID_V4,
+                texts: ['Repeat the same command with --idempotency-key {key} within one hour'],
+            },
+            {
+                answer: 'network',
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                exit: exitCode.network,
+                id: 'K and a network failure, --json: the error object names K and the repeat',
+                json: true,
+                key: KEY,
+                texts: ['Repeat the same command with --idempotency-key {key} within one hour'],
+            },
+            {
+                answer: 'cancel',
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                exit: exitCode.cancelled,
+                id: 'K and Ctrl+C during the send: exit 130, the result is unknown, repeat with K',
+                key: KEY,
+                texts: ['The result is unknown', 'Repeat the same command with --idempotency-key {key} within one hour'],
+            },
+            {
+                answer: { body: { errors: [{ detail: 'Bad gateway', status: 502 }] }, status: 502 },
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                exit: exitCode.api,
+                id: 'K and a 502: exit 4, repeat with K within one hour',
+                key: KEY,
+                texts: ['The result is unknown', 'Repeat the same command with --idempotency-key {key} within one hour'],
+            },
+            {
+                answer: refusal(409, 'idempotency_in_flight', 'A write with this key is in progress.'),
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                exit: exitCode.api,
+                id: 'K in flight: exit 4, wait and repeat with K',
+                key: KEY,
+                texts: ['Wait a few seconds, then repeat the same command with --idempotency-key {key}'],
+            },
+            {
+                answer: refusal(400, 'insufficient_balance', 'Insufficient balance for GEMS: 40 available.'),
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                exit: exitCode.api,
+                id: 'a refusal of the server: exit 4 with its text and the key',
+                key: KEY,
+                texts: ['Insufficient balance for GEMS: 40 available.', 'Idempotency key: {key}.'],
+            },
+            {
+                answer: refusal(400, 'insufficient_balance', 'Insufficient balance for GEMS: 40 available.'),
+                args: ['--profile', PROFILE, ...CREDIT, '--yes', '--idempotency-key', KEY],
+                code: 'insufficient_balance',
+                exit: exitCode.api,
+                id: 'a refusal of the server, --json: the error object names the key',
+                json: true,
+                key: KEY,
+                texts: ['Insufficient balance for GEMS: 40 available.'],
+            },
+        ];
+
+        for (const row of rows) {
+            it(row.id, async () => {
+                fetchStub = serve([row.answer === 'cancel' ? {} : row.answer ?? { body: ADJUSTED, status: 201 }]);
+
+                if (row.answer === 'cancel') {
+                    fetchStub.callsFake(() => {
+                        process.emit('SIGINT', 'SIGINT');
+
+                        return Promise.reject(new Error('aborted'));
+                    });
+                }
+
+                process.exitCode = undefined;
+
+                const { error, stderr, stdout } = await runCli(['virtual-currencies', 'profiles', 'transactions', 'create',
+                    '--app', APP, ...row.args, ...(row.json ? ['--json'] : [])]);
+
+                // Under --json oclif prints the error object and sets the exit code in place of a throw
+                const exit = row.json ? process.exitCode : error?.oclif?.exit;
+
+                const failure = row.json
+                    ? (JSON.parse(stdout) as { error: JsonError }).error
+                    : error as JsonError | undefined;
+
+                process.exitCode = undefined;
+
+                const [key, ...more] = keysSent(fetchStub);
+
+                expect(exit, `exit: ${failure?.message ?? ''}`).to.equal(row.exit);
+                expect(more, 'one request at most').to.deep.equal([]);
+
+                if (row.code !== undefined) {
+                    expect(failure?.code, 'code').to.equal(row.code);
+                }
+
+                for (const text of row.texts ?? []) {
+                    expect(failure?.message, text).to.contain(text.replace('{key}', String(key)));
+                }
+
+                if (row.key === undefined) {
+                    expect(fetchStub.callCount, 'requests').to.equal(0);
+                    expect(stderr, 'no key is announced').not.to.contain('Sending with');
+
+                    return;
+                }
+
+                expect(key ?? '', 'the key header').to.match(typeof row.key === 'string' ? new RegExp(`^${row.key}$`) : row.key);
+                expect(stderr, 'the key on stderr').to.contain(`Sending with the idempotency key ${String(key)}.`);
+
+                if (row.json) {
+                    expect(failure?.idempotency_key, 'idempotency_key in --json').to.equal(key);
+                }
+
+                if (row.exit === undefined) {
+                    expect(stdout, 'the answer names the key').to.contain(`Idempotency key: ${String(key)}`);
+                }
+            });
+        }
+    });
+
+    // external: the route by each profile form, the body as given, and --json: the answer of the server and the key
+    describe('the request of a confirmed write', () => {
+        type Row = {
+            args: string[];
+            body: Record<string, unknown>;
+            id: string;
+            path: string;
+            query: Record<string, string>;
+        };
+
+        const rows: Row[] = [
+            {
+                args: ['--customer-user-id', 'user 42', ...CREDIT],
+                body: { amount: 10, currency_code: 'GEMS', direction: 'credit', feature: 'support', operation: 'adjustment' },
+                id: 'by customer user id, no comment and no reference: neither key in the body',
+                path: `/apps/${APP}/profiles/virtual-currencies/transactions/`,
+                query: { customer_user_id: 'user 42' },
+            },
+            {
+                args: ['--profile', PROFILE, ...CREDIT, '--reference-id', 'ticket-7', '--comment', 'bug 12'],
+                body: {
+                    amount: 10,
+                    comment: 'bug 12',
+                    currency_code: 'GEMS',
+                    direction: 'credit',
+                    feature: 'support',
+                    operation: 'adjustment',
+                    reference_id: 'ticket-7',
+                },
+                id: 'by profile id with a comment and a reference',
+                path: `/apps/${APP}/profiles/${PROFILE}/virtual-currencies/transactions/`,
+                query: {},
+            },
+        ];
+
+        for (const row of rows) {
+            it(row.id, async () => {
+                fetchStub = serve([{ body: ADJUSTED, status: 201 }]);
+
+                const { error, stdout } = await runCli(['virtual-currencies', 'profiles', 'transactions', 'create', '--app', APP,
+                    ...row.args, '--yes', '--idempotency-key', KEY, '--json']);
+
+                const requests = sent(fetchStub);
+
+                expect(error, 'error').to.equal(undefined);
+                expect(requests.map(({ method, path }) => `${method} ${path}`)).to.deep.equal([`POST ${row.path}`]);
+                expect(Object.fromEntries(requests[0]?.query ?? []), 'query').to.deep.equal(row.query);
+                expect(JSON.parse(String(requests[0]?.body)), 'body').to.deep.equal(row.body);
+                expect(JSON.parse(stdout), '--json').to.deep.equal({ ...ADJUSTED, idempotency_key: KEY });
+            });
+        }
+    });
+
+    // external: the question that a person reads at a terminal, and no write after a no
+    it('the question at a terminal names the change; no sends nothing', async () => {
+        restoreStreams();
+        restoreStreams = useStreams({ terminal: true, typed: 'n' });
+        fetchStub = serve([{ body: ADJUSTED, status: 201 }]);
+
+        const { error, stderr } = await runCli(['virtual-currencies', 'profiles', 'transactions', 'create', '--app', APP,
+            '--profile', PROFILE, ...CREDIT]);
+
+        expect(error?.oclif?.exit, 'exit').to.equal(1);
+
+        expect(stderr, 'the question').to.contain(`Adjust the coins of the profile ${PROFILE}: credit 10 GEMS (operation `
+            + 'adjustment, feature support)');
+
+        expect(fetchStub.callCount, 'requests').to.equal(0);
     });
 });

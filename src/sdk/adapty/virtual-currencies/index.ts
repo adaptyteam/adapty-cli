@@ -5,6 +5,7 @@ export { virtualCurrencies } from './resource.js';
 export { validateProfileAddress } from './transactions.js';
 export { validateUpdateVirtualCurrency } from './update.js';
 
+export type { AdjustedBalance, Adjustment, AdjustmentInput } from './adjustment.js';
 export type { CreateVirtualCurrencyInput } from './create.js';
 export type {
     MappingChanges,

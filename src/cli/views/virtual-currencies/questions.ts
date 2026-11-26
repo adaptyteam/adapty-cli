@@ -1,6 +1,12 @@
 import { creditOf } from './currencies.js';
 
-import type { MappingItem, VirtualCurrencyDetail, VirtualCurrencyMapping } from '../../../sdk/adapty/index.js';
+import type {
+    AdjustmentInput,
+    MappingItem,
+    ProfileAddress,
+    VirtualCurrencyDetail,
+    VirtualCurrencyMapping,
+} from '../../../sdk/adapty/index.js';
 
 /**
  * The questions of the currency writes. Each shows what the write changes, so that a yes covers only a change
@@ -101,6 +107,25 @@ export const createQuestion = (code: string, items: readonly MappingItem[]): str
 
     return `Create the virtual currency ${code}. A currency cannot be deleted and its code cannot change; an app has a `
         + `limited number of currencies.\n${mapped}`;
+};
+
+/** The profile of a write, as the caller named it. */
+const profileText = (address: ProfileAddress): string => (address.profile === undefined
+    ? `the profile with the customer user ID ${String(address.customerUserId)}`
+    : `the profile ${address.profile}`);
+
+/** The question of an adjustment: the profile, the change of its coins and the fields that the ledger row keeps. */
+export const adjustmentQuestion = (address: ProfileAddress, input: AdjustmentInput): string => {
+    const extras = [
+        `operation ${input.operation}`,
+        `feature ${input.feature}`,
+        ...(input.referenceId === undefined ? [] : [`reference ${input.referenceId}`]),
+        ...(input.comment === undefined ? [] : [`comment ${JSON.stringify(input.comment)}`]),
+    ];
+
+    return `Adjust the coins of ${profileText(address)}: ${input.direction} ${input.amount} ${input.currencyCode} `
+        + `(${extras.join(', ')}). The balance changes at once; only an opposite adjustment undoes it, and the ledger keeps `
+        + 'both rows.';
 };
 
 /** The help sentence of each write. */
