@@ -149,7 +149,7 @@ or the dashboard, these are the differences.
   the API refuses a compared window (`compare_not_supported`). These commands have no `--compare-from` and
   `--compare-to` flags. Only `chart` and `conversion` compare (`can_compare` in the catalog).
 - `cohort` has no grouping: it has no `--group-by` flag, and the API refuses a grouping (400).
-- Each analytics route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute
+- Each analytics route has its own rate limits: 25 requests per 10 seconds per app and 360 per minute
   for all callers together. See "Errors and limits".
 
 ## Errors and limits
@@ -158,7 +158,7 @@ A server refusal exits 4 and prints the API's error code (`--json`: `error.code`
 not the API envelope (a proxy page) exits 4 with `malformed_response`, and nothing is printed. No token exits 3 with the hint
 "Not authenticated. Run `adapty auth login`." A 403 (a token without access to the app) also exits 3.
 
-Each analytics route has its own rate limits, as the Export API: 2 requests per second per app and 360 per minute
+Each analytics route has its own rate limits: 25 requests per 10 seconds per app and 360 per minute
 for all callers together. The data commands are sent once and never retried: over a limit, a `429` exits 4, and the
 `--json` error carries the wait as `retry_after_seconds`.
 
