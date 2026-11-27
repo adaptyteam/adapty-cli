@@ -8,10 +8,14 @@ matching list command; never invent one.
 All `list` commands paginate: `--page` (default `1`), `--page-size` (default `100`, max
 `1000`) — prefer one big page over a pagination loop. Counting entities costs nothing
 extra: every list response carries `meta.pagination.count`, so `--page-size 1` answers
-"how many X do I have" without walking pages.
+"how many X do I have" without walking pages. The exception is `asa keyword-autopilot list`, which pages
+by `50` (max `200`); the autopilot decision feeds page with `--limit` / `--offset`, and `asa budget-autopilot fronts`
+is not paginated — see [Keyword autopilot](#keyword-autopilot) and [Budget autopilot](#budget-autopilot).
 
 Every `list` and `get` command in this file returns metadata only, no metrics. Every number
-— spend, ROAS, or anything else — comes from `asa metrics`.
+— spend, ROAS, or anything else — comes from `asa metrics`. The exception is the autopilot: the keyword
+autopilot `report` and `get` carry spend and funnel numbers of the enrolled keywords, and `asa budget-autopilot
+fronts` those of the managed campaigns.
 
 ## Account and discovery
 
@@ -226,6 +230,174 @@ That is also how a rule with the wrong `params` shape is repaired: the params ar
 from scratch, only the keys that fit the expected shape are kept, and whatever is missing has
 to come from a flag. A dashboard edit made between the read and the write is overwritten.
 
+## Keyword autopilot
+
+Adapty's keyword autopilot manages the bid of the keywords you enroll and can pause them. These commands read its
+state and enroll or take off one keyword at a time.
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa keyword-autopilot list` | optional `--status` (repeatable), `--paused-code` (repeatable), `--enabled` / `--no-enabled`, `--page` (default `1`), `--page-size` (default `50`, max `200`) | Enrolled keywords, most recently updated first, with `status`, `tier`, `paused_code`, the Apple bid as last synced and the last decision. Each row's `internal_id` is the **autopilot keyword id** the other commands take. `--enabled` keeps the keywords the autopilot manages, `--no-enabled` the ones it does not manage: unenrolled, awaiting activation, or paused by you in Apple Ads; omit both for all. |
+| `asa keyword-autopilot get <keyword-id>` | positional autopilot keyword id | One keyword's card: enrollment, current epoch (the span since the last bid change, with its spend and funnel counts) and its recent decisions. |
+| `asa keyword-autopilot enroll` | `--targeting-keyword`, `--target-cpp`; optional `--cap`, `--country`, `--aggressiveness` | Enrolls one Apple Ads keyword. `--targeting-keyword` is the **targeting keyword id** (`internal_id`) from `asa keywords list`, not an autopilot keyword id. |
+| `asa keyword-autopilot unenroll <keyword-id>` | positional autopilot keyword id | Takes the keyword off the autopilot. |
+| `asa keyword-autopilot decisions` | optional `--date-from`, `--date-to`, `--keyword`, `--severity` (`action` / `alert`, repeatable), `--limit` (default `100`, max `500`), `--offset` (max `10000`) | The decisions the autopilot made (bid changes, pauses, alerts), newest first. Each carries `text.title`, `text.saw`, `text.why` and `text.decision`, plus `bid_from` / `bid_to` or `status_from` / `status_to` where they apply. `--keyword` takes an autopilot keyword id. |
+| `asa keyword-autopilot report` | optional `--date-from`, `--date-to` (`YYYY-MM-DD`) | Per keyword for a date window: the Apple text, status, tier and the outcome numbers. The table view is a summary; `--json` carries the whole report with the daily rows. Heavy, see below and [Request budgets](#request-budgets). |
+
+**Two ids.** `asa keyword-autopilot list` prints the autopilot keyword id (`internal_id`); `get`, `unenroll` and
+`decisions --keyword` take it. `asa keywords list` prints the targeting keyword id (`internal_id`, the Apple Ads
+keyword itself); only `enroll --targeting-keyword` takes it. Never pass one where the other is expected.
+
+**Enrolling.** `--target-cpp` is the target cost per paying user, a number in the currency of your Apple Ads account, which is
+the currency of the keyword's bid (`currency` in the answer); nothing is converted. It is the autopilot's `target_cpp`
+field, not a custom product page. `--cap` is the bid cap in the same currency, used as given instead of the cap the
+autopilot computes. It limits the autopilot's raises only while the keyword ramps and is tested: a `working` or
+`provisional` keyword may be bid above it, up to several times the cap, and a bid that is already above the cap at
+enrollment is not cut. `--aggressiveness` (positive, server default `1.0`) is a multiplier of the computed bid cap and
+has no effect when `--cap` is given. `--country` is two letters and is required when the keyword's campaign targets
+more than one country. `enroll` takes one keyword per call, so enroll several keywords with one call each. A keyword
+that is not `ACTIVE` in an `ENABLED` campaign is still enrolled, but waits (`enabled: false`,
+`disabled_reason: awaiting_activation`) until it is `ACTIVE` in Apple Ads in an `ENABLED` campaign, and a later daily
+run then starts managing it; the autopilot does not activate anything in Apple Ads. Enrolling itself makes no Apple Ads
+call and sets no bid; the autopilot acts at its next scheduled run (four times a day, plus one daily run) and counts
+only from the enrollment moment on. The server refuses an unknown keyword (404), one that is already enrolled (409), a missing `--country` for a
+multi-country campaign, an app without Adapty data and a country without enough funnel data (422).
+
+**What the autopilot writes to Apple Ads.** Only the keyword bid and the keyword status, and the status only as
+`PAUSED`. It never resumes a keyword, and never adds or removes keywords, changes match types, negative keywords,
+budgets or ad group bids. A bid or pause done by hand in Apple Ads is noticed at the next daily run: a new bid is
+adopted and the autopilot continues from it; a keyword you paused leaves the autopilot (`enabled: false`,
+`disabled_reason: external_pause`) and stays out after you resume it. The autopilot skips ad groups under a custom
+product page A/B test. You cannot read or switch whether the keyword autopilot runs live or in dry run. When it is
+live, bid changes can start at the next run after enrolling. Decisions of a dry run end with "(dry run: not sent to
+Apple)" and still change `status` in these commands, so `status` alone does not prove what happened in Apple Ads.
+
+**Status** (`status`, the keyword's stage):
+
+| Value | Meaning |
+|---|---|
+| `ramp` | Raising the bid step by step toward the cap to get first impressions. Every enrolled keyword starts here. |
+| `learning` | Test window: gathering taps, installs, trials and payments; a verdict comes at the end. |
+| `dormant` | Asleep: no auction at the cap, nothing to measure; wakes when impressions appear. |
+| `working` | Passed the test on confirmed payments; the autopilot steers the bid toward the target. |
+| `provisional` | Looks right on early signals, not yet confirmed by payments; the regular raises toward the target are held back until payments confirm it, though a keyword with very thin traffic can still be raised toward the cap. |
+| `paused` | The autopilot stopped managing the keyword and, when live, paused it in Apple Ads, bid unchanged; check `apple_status` in `list`. `paused_code` says why. A keyword you resume in Apple Ads stays `paused` here and is not managed again. |
+| `human_review` | Apple refused a change; the keyword is frozen until a person acts (unenroll, then enroll again). |
+
+`tier` is the evidence level since enrollment, from `t0` (nothing yet) through taps (`t1`) and installs (`t2`) to
+confirmed payments (`t3`). `enabled: false` means the autopilot does not manage the keyword; `disabled_reason` is `unenrolled`,
+`awaiting_activation` or `external_pause`.
+
+**Pause codes** (`paused_code`, on a `paused` keyword):
+
+| Code | Meaning |
+|---|---|
+| `no_download` | Spent on taps and got no installs. |
+| `spend_guard_no_trials` | Installs, but no trials after enough spend. |
+| `trials_dont_convert` | Trials, but no payments after enough spend. |
+| `weak_proxies` | Expected cost per paying user stayed far above the target. |
+| `no_volume` | Too little traffic to judge over the whole test, or a `provisional` keyword that got no confirmed payment in time. |
+| `no_auction` | No auction at the cap, so there was nothing to judge. |
+| `degraded` | A working keyword got worse and cutting the bid did not bring it back. |
+| `funnel_tap_to_install`, `funnel_install_to_trial`, `funnel_trial_to_paid` | That funnel step is confirmed broken. |
+
+**Unenroll.** It makes no Apple Ads call: the bid and the Apple status stay exactly as they are (a keyword the
+autopilot paused stays paused), the decision history stays, and the keyword stays in `list` with `enabled: false`.
+Repeating it is harmless. Enrolling the same keyword again is possible only after `unenroll`, with the targeting keyword
+id; it starts the test over (`ramp`, `t0`, counters and windows reset, target and cap recomputed from the new call).
+Enrolling a keyword that is still enrolled, even a `paused` or `human_review` one, answers 409 — unenroll it first.
+
+**Decisions window.** `--date-from` and `--date-to` take `YYYY-MM-DD` or an ISO 8601 datetime with `Z` or a UTC offset. A
+date as `--date-from` is the start of that UTC day; a date as `--date-to` covers that whole day. Defaults: `--date-to`
+is now, `--date-from` is 7 days before it. A window that is empty or reversed, or a date that is not a real calendar
+date, exits 2. The feed shows only `action` and `alert` decisions; quiet checks ("nothing to do") are not in it.
+When `has_more` is true the output ends with "More decisions follow". Feeds are newest first and the default end is
+"now" at every call, so page through a feed with a fixed `--date-to`; the hint prints the one to reuse
+(`use --date-to <date_to> --offset N for the next page`; when you passed `--date-to` it is just `use --offset N`). A
+pinned `--date-to` also fixes the default `--date-from`. Past `--offset` `10000` the hint says to narrow the window
+with `--date-from` / `--date-to`.
+
+**Report.** `--date-from` / `--date-to` are inclusive UTC dates, default the 7 days ending today; the window is at most
+60 days (longer, `--date-from` after `--date-to`, or a date that is not a real calendar date, exits 2 before the network). The server refuses rather than trims a
+report for a company with more than 500 keywords under the autopilot or more than 50000 journal entries in the window,
+hidden ones included (422). Narrowing the window helps only for the journal-entries limit: the 500-keyword limit counts
+every keyword of the company on the autopilot, unenrolled ones included, and the window does not change it. The daily rows end at the last complete day, never today.
+
+## Budget autopilot
+
+Adapty's budget autopilot moves daily budget between a company's campaigns toward the ones that bring paying users
+cheaply, and its spend guard pauses campaigns that spend without trials or payments. The commands read its state and
+switch it.
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa budget-autopilot status` | none | State of the company: `enrolled`, `enabled`, `dry_run` (the stored choice), `mode` (`dry_run` / `live`, the effective mode), `live_available`, last weekly run, next run and guard check, managed campaigns, open decisions and spend guard alerts of the last 7 days. |
+| `asa budget-autopilot update` | at least one of `--enable` / `--disable` (mutually exclusive), `--mode` (`dry_run` / `live`) | Turns it on or off and sets the mode. See below. |
+| `asa budget-autopilot fronts` | optional `--campaign-group`, `--adam-id` | The campaigns the autopilot manages or has excluded, with budgets, pending changes and exclusions. Not paginated. |
+| `asa budget-autopilot decisions` | optional `--date-from`, `--date-to`, `--campaign`, `--campaign-group`, `--adam-id`, `--severity`, `--decision-kind`, `--execution-status` (the last three repeatable), `--limit` (default `20`, max `200`), `--offset` (max `10000`) | Budget transfers, skips and spend guard pauses, newest first, for a time window. |
+| `asa budget-autopilot exclude <campaign-id>` | positional campaign UUID (`internal_id` from `asa campaigns list`) | Stops the autopilot managing that campaign. |
+| `asa budget-autopilot include <campaign-id>` | positional campaign UUID | Lifts the exclusion. |
+
+**Not connected.** A company that is not connected to the budget autopilot gets `enrolled: false` from `status` (and
+the line "The company is not connected to the budget autopilot."), with `enabled: false`, `mode: dry_run` and
+`live_available: false`. `update` then has nothing to update: it stops with an error (exit 1) and sends nothing.
+
+**Dry run and Live.** `dry_run` (the dashboard calls it Preview) plans the weekly run and records decisions, but
+writes nothing to Apple Ads and locks no campaign; its decisions end with "(dry run: not sent to Apple)" and have
+`execution_status: dry_run`. `live` writes to Apple Ads: the weekly run (Monday morning, UTC)
+changes campaign daily budgets, and the spend guard (checked every 6 hours) can pause a campaign that spends
+without any trial or payment. The exact time of the next run is `next_run_at` in `asa budget-autopilot status`, and
+`next_guard_check_at` is the next spend guard check. It never resumes a campaign it paused, never changes bids or
+keywords and never creates campaigns. Switching to Live changes no budget at once: the first budget change comes with
+the next weekly run, while the spend guard can pause a campaign at its next check, within 6 hours. Turning
+it off, or going back to `dry_run`, stops further writes but restores nothing: budgets stay where they are and campaigns
+it paused stay paused. A managed campaign whose daily budget or status you change in Apple Ads while Live is excluded
+(`excluded.reason: external_change`); budget amounts are in the campaign's own currency.
+
+**`update`.** Passing no flag exits 2. The settings are two values, on or off (`enabled`) and the mode. In the `status`
+answer `mode` is the effective mode: it reads `dry_run` while the autopilot is off or `live_available` is `false`,
+whatever is stored. The stored choice is the boolean `dry_run` field (`dry_run: false` means the stored mode is
+`live`). `--enable` and `--disable` keep the stored mode, and `--mode` alone keeps the stored on or off, so `--mode` is
+what switches between `dry_run` and `live`. Before `--enable`, read `dry_run`: if it is `false`, set `--mode dry_run`
+first unless Live is what the user wants. The command reads `status`, fills in the half you did not pass from `enabled`
+and `dry_run`, and works out the requested state:
+
+- the company is not connected: error, exit 1, nothing sent;
+- the requested state equals the current one: it says "Nothing to change: the budget autopilot is already set this way."
+  and sends nothing (exit 0);
+- the result would be Live (on and `live`) and `live_available` is `false`: error, exit 1, nothing sent;
+- the result is Live: it first lists on stderr the campaigns that go live (up to 20, then "and N more") with a warning
+  of what Live writes; then, like every write, it prints the request and asks for confirmation.
+
+On a company that is off, `--mode` only changes the stored mode (the `dry_run` field): the confirmation reads "Set the stored mode to
+`dry_run` / `live`: the budget autopilot stays off and writes nothing to Apple Ads", and neither the Live preview nor
+the `live_available` check happens. A later `--enable` on a company whose stored mode is `live` (`dry_run: false`, even
+though `mode` showed `dry_run`) goes Live, and that is
+when the preview and the Live confirmation appear.
+
+**Exclude and include.** `exclude` stops the autopilot managing the campaign: its budget stays as it is, changes
+already applied are not reverted and its open changes that are not yet being sent are cancelled; the spend guard skips
+it too. Excluding an excluded campaign returns the same row. A campaign that is neither managed nor excluded answers
+404. `include` lifts the exclusion whatever its reason, and answers success even when the campaign was not excluded. It
+does not make the campaign managed at once: the next weekly run decides, starting from the
+campaign's current budget.
+
+**Feed filters.** Same window rules as the keyword autopilot (see Decisions window above), default limit `20`.
+`--severity`: `routine`, `notable`, `critical` (`critical` is a spend guard trigger; `notable` an external-change
+exclusion, a reduction dialog or a change not sent because the budget moved). `--execution-status`: `planned`,
+`sending`, `retry_wait` (transient Apple errors are retried), `applied`, `failed`, `dry_run`,
+`observation`. `--decision-kind` takes the kinds the feed returns: `transfer`, `transfer_blocked`, `test_batch`,
+`test_giveback`, `shrink_step`, `shrink_exit`, `shrink_dialog`, `spend_guard_triggered`, `excluded_external_change`,
+`campaign_excluded`, `campaign_included` and the `skipped_*` kinds (`skipped_no_economics`, `skipped_locked`,
+`skipped_ab_test`, `skipped_data_stale`, `skipped_invalid_state`, `skipped_c_revised`, `skipped_budget_changed`,
+`skipped_metadata_stale`, `skipped_no_data`, `skipped_unsupported_type`, `skipped_multi_country`). `--campaign` takes the campaign's `internal_id`, `--campaign-group` an
+organization's `internal_id` from `asa orgs list`, `--adam-id` an Apple App Store ID from `asa apps list`.
+
+**Fronts.** Each row is one campaign: `front_type`, `status` (`active`, `closed_no_demand`, `building`, `shrinking`;
+`null` when skipped), the daily and monthly budget with `currency`, `pending_change`, `excluded`. `cpp`, `payers`,
+`spend` and `target_cpp` are as of the last weekly run, not live. The list is not paginated and is sorted by monthly
+budget, largest first.
+
 ## Scope filters
 
 Filters narrow the query itself, not the printed page: an unfiltered `asa keywords list`
@@ -274,7 +446,9 @@ Every `asa` command is rate limited per company, not per token:
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
 | `keywords recommend` | 10/min, one in-flight `brand`/`generic` rebuild at a time, `Retry-After: 5` on `cli_analytics_busy` |
 | `change-history list` / `get` | 30/min, burst 5 per 10 s, one request in flight per company (`Retry-After: 5` on `cli_analytics_busy`), 50s server timeout (`504 cli_read_timeout`); an Apple 429 comes back as `429 cli_upstream_rate_limited` with Apple's `Retry-After`; an ad account the CLI cannot read (revoked token, org no longer linked, Apple 403/404) is `403 cli_ad_account_unreadable` |
-| all writes | 20/min |
+| autopilot reads (`keyword-autopilot list` / `get` / `decisions`, `budget-autopilot status` / `fronts` / `decisions`) | 120/min, the same shared budget as the catalog reads |
+| `keyword-autopilot report` | 6/min, one report in flight per company (`429 cli_analytics_busy` with `Retry-After: 5`), cancelled after 50s (`504 cli_read_timeout`, `Retry-After: 5`) |
+| all writes | 20/min, the five autopilot writes (`keyword-autopilot enroll` / `unenroll`, `budget-autopilot update` / `exclude` / `include`) included |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
 
@@ -314,4 +488,8 @@ previous `Retry-After` has run out; twenty strikes within 5 minutes escalate int
   Apple is called; Apple may still reject individual items within an otherwise valid batch,
   each with its own reason.
 - Money flags take a bare amount (`--daily-budget 50`); `--currency` has no default: without it the CLI uses the campaign group's currency, and the backend rejects a different one with `cli_currency_mismatch`.
+- The autopilot writes act on one entity per call, never a batch. `keyword-autopilot unenroll` and
+  `budget-autopilot include` send no body and the server answer is empty; the CLI prints a short acknowledgement
+  and returns it under `--json` (`{"keyword_id": ..., "unenrolled": true}` and `{"campaign_id": ..., "included": true}`);
+  a replay of either prints the same line after "Already applied earlier".
 - There is no delete command in the `asa` topic.

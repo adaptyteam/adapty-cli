@@ -78,7 +78,7 @@ src/
                      # Implementation in src/cli/commands/virtual-currencies, rules in src/sdk/adapty/virtual-currencies
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend, duplicates),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,
-                     # competitors, change-history
+                     # competitors, change-history, keyword-autopilot, budget-autopilot
   lib/
     api-client.ts    # HTTP client (fetch-based, bearer auth)
     config.ts        # ~/.config/adapty/config.json read/write

@@ -1031,6 +1031,49 @@ replaces it wholesale. That also repairs a rule whose stored `params` carry the 
 the keys that fit are kept, the strays are dropped, and anything missing has to come from a flag. A
 dashboard edit made between the read and the write is overwritten.
 
+The keyword autopilot manages the bid of the keywords you enroll and can pause them; the budget autopilot moves
+daily budget between campaigns and pauses campaigns that spend without results. Both can write to Apple Ads, so
+their state is worth reading before a change:
+
+```sh
+adapty asa keyword-autopilot list [--status paused --paused-code no_volume] [--enabled]
+adapty asa keyword-autopilot get AUTOPILOT_KEYWORD_ID
+adapty asa keyword-autopilot enroll --targeting-keyword KEYWORD_UUID --target-cpp 12.50 [--cap 3] [--country US]
+adapty asa keyword-autopilot unenroll AUTOPILOT_KEYWORD_ID
+adapty asa keyword-autopilot decisions [--date-from 2026-09-01 --date-to 2026-09-07] [--keyword AUTOPILOT_KEYWORD_ID] [--severity alert]
+adapty asa keyword-autopilot report [--date-from 2026-09-01 --date-to 2026-09-14] --json
+
+adapty asa budget-autopilot status
+adapty asa budget-autopilot update --mode live | --mode dry_run | --enable | --disable
+adapty asa budget-autopilot fronts [--campaign-group UUID] [--adam-id 123456]
+adapty asa budget-autopilot decisions [--date-from 2026-09-01] [--severity critical] [--execution-status failed]
+adapty asa budget-autopilot exclude CAMPAIGN_UUID
+adapty asa budget-autopilot include CAMPAIGN_UUID
+```
+
+`asa keyword-autopilot list` prints the autopilot keyword id that `get`, `unenroll` and `decisions --keyword` take;
+`enroll --targeting-keyword` takes the keyword id from `asa keywords list` instead. `--target-cpp` is the target cost
+per paying user in the currency of your Apple Ads account (the keyword's bid currency, nothing converted), not a custom
+product page. `--cap` is used as given instead of the computed cap and limits the autopilot's raises only while the
+keyword ramps and is tested; a `working` or `provisional` keyword may be bid above it. `--aggressiveness` multiplies the
+computed cap and has no effect with `--cap`. You cannot read or switch whether the keyword autopilot runs live or in dry
+run, and dry-run decisions still change `status`. `enroll` takes one keyword per call; `unenroll` leaves the bid and the Apple status as they are, and enrolling again starts the test over.
+The decision feeds take a date or a datetime for `--date-from` / `--date-to` (default the last 7 days). Feeds are newest first and the
+default end is "now" at every call, so page with a fixed `--date-to` and `--offset` (the "More decisions follow" hint
+prints the `--date-to` to reuse). The report covers at most 60 days and is refused, not trimmed, above 500 keywords or
+50000 journal entries.
+
+The budget autopilot runs in `dry_run` (the dashboard's Preview: it plans and writes nothing to Apple Ads) or `live`
+(it changes campaign daily budgets and can pause campaigns). `update` stops with an error (exit 1) and sends nothing
+when the company is not connected or when the result would be Live while Live is not available, and says so (exit 0)
+without sending when the requested state is already the current one; a Live result lists the campaigns that go live
+before it asks. On a company that is off, `--mode` only changes the stored mode, and a later `--enable` with stored
+mode `live` goes Live, with that preview. In the `status` answer `mode` is the effective mode (`dry_run` while the
+autopilot is off or Live is unavailable) and the stored choice is the `dry_run` field, so read `dry_run` before
+`--enable` and set `--mode dry_run` first if it is `false` and Live is not what you want. `exclude` keeps a
+campaign out of the autopilot; `include` lifts the exclusion, and the next weekly run decides whether the campaign is
+managed again.
+
 
 Metrics take an entity level, a period and an optional metric selection. Rows come back one per entity,
 aggregated and sorted server-side, so a top-N or a breakdown is a single call — use `--order-by` with a small
