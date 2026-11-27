@@ -714,6 +714,10 @@ adapty virtual-currencies profiles transactions list --app UUID (--profile UUID 
                                                      [--date-from YYYY-MM-DD] [--date-to YYYY-MM-DD] [filters as above]
                                                      [--page-size N] [--cursor CURSOR]
 adapty virtual-currencies profiles balances get --app UUID (--profile UUID | --customer-user-id ID)
+adapty virtual-currencies profiles transactions create --app UUID (--profile UUID | --customer-user-id ID)
+                                                       --currency-code CODE --direction credit|debit --amount N
+                                                       --operation OP --feature F [--reference-id ID] [--comment TEXT]
+                                                       [--idempotency-key UUID] [--yes]
 ```
 
 `--file` is a JSON array of full mapping items: `{product_id, product_type: "one-time", credit_per_purchase}` or
@@ -727,6 +731,21 @@ mapping writes read the currency first and send its `updated_at` as the token of
 `--expected-updated-at`, the `updated_at` that the user saw (exit 6 without it), and a currency changed after that read
 fails with 409 (exit 4). `update` does not ask: it reads the currency and sends a field you leave out as read. No write
 is sent twice: after a network error or a 5xx, read the currency before you repeat.
+
+`profiles transactions create` credits or debits the coins of one profile, in one currency: a manual balance
+adjustment, for a support case or a correction. It asks each time: in a terminal `Apply? [y/N]` after the profile and
+the change, with `--json`, a pipe or no terminal exit 6 unless `--yes`. `--amount` must be a whole number (exit 2
+otherwise); the other values are sent as given and the server checks them, the amount range too: a credit takes the
+operation `reward`, `spend_reversal` or `adjustment`, a debit `reward_reversal`, `spend` or `adjustment`; a debit stops
+at the spendable balance (`insufficient_balance`, exit 4), and a currency code that the app does not have is
+`unknown_currency` (exit 4). The ledger row keeps `--comment` and `--reference-id`.
+
+Each adjustment is sent with an idempotency key: `--idempotency-key`, else a new UUID v4. The key goes to stderr before
+the send and is named in the answer (`idempotency_key` in `--json`) and in each failure. For one hour a repeat with the
+same key gives the answer of the first write and writes nothing, also when the other flags differ; after that hour the
+same key writes again. The adjustment is never sent twice by the CLI: when its answer is lost (exit 5, or 4 on a 5xx),
+repeat the same command with `--idempotency-key` and the key of the failure, never with a new key. `idempotency_in_flight`
+(exit 4) means that the first write with the key still runs: wait, then repeat with the same key.
 
 The transaction lists give one page for each call, newest first. A page with more rows ends with `More rows:` and the
 command of the next page, with the same flags and `--cursor`; a next page needs the same filters and time zone. For

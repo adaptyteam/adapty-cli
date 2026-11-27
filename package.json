@@ -190,10 +190,10 @@
         "description": "The coin transactions of an app, one page for each call"
       },
       "virtual-currencies:profiles": {
-        "description": "The coins of one profile: its transactions and its balances"
+        "description": "The coins of one profile: its transactions, its balances and a manual adjustment"
       },
       "virtual-currencies:profiles:transactions": {
-        "description": "The coin transactions of one profile, one page for each call"
+        "description": "The coin transactions of one profile: one page for each call, and a manual credit or debit"
       },
       "virtual-currencies:profiles:balances": {
         "description": "The balances of one profile, with the coins that expire"

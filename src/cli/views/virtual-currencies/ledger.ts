@@ -1,6 +1,6 @@
 import { leftTable } from './currencies.js';
 
-import type { Balance, Balances, LedgerPage, LedgerRow } from '../../../sdk/adapty/index.js';
+import type { Adjustment, Balance, Balances, LedgerPage, LedgerRow } from '../../../sdk/adapty/index.js';
 
 /**
  * The coin ledger as text: one page of rows, then the command of the next page; and the balances of one
@@ -86,4 +86,18 @@ export const renderBalances = (answer: Balances): string => {
 
     return `Profile ${answer.meta.profile_id}, as of ${answer.response_created_at}\n`
         + leftTable([['Code', 'Balance', 'Held', 'Available', 'Non-expiring', 'Expiring', 'Expired'], ...rows]);
+};
+
+/** The answer of an adjustment and the key that it was sent with: a repeat with this key writes nothing more. */
+export type AdjustmentResult = Adjustment & { idempotency_key: string };
+
+export const renderAdjustment = (result: AdjustmentResult): string => {
+    const { balance } = result;
+    const spendable = result.spendable === null ? '' : `, spendable ${result.spendable}`;
+
+    return [
+        `Transaction ${result.transaction_id} written.`,
+        `${balance.code} (${balance.name}): balance ${balance.balance}, available ${balance.available}${spendable}`,
+        `Idempotency key: ${result.idempotency_key}`,
+    ].join('\n');
 };

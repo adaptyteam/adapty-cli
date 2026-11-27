@@ -73,8 +73,10 @@ src/
                      # plugin or skills command. Implementation in src/cli/commands/skills
     access-levels/   # list, get, create, update
     virtual-currencies/ # list, get, create, update, mappings (upsert, delete), transactions list, profiles (transactions
-                     # list, balances get); create and the mapping writes ask (--yes; the mapping writes need
-                     # --expected-updated-at with --yes); the ledger lists page by --cursor, one page for each call.
+                     # list, transactions create, balances get); create, the mapping writes and the profile adjustment ask
+                     # (--yes; the mapping writes need --expected-updated-at with --yes); the adjustment sends an
+                     # idempotency key (--idempotency-key or a new one, on stderr before the send); the ledger lists page
+                     # by --cursor, one page for each call.
                      # Implementation in src/cli/commands/virtual-currencies, rules in src/sdk/adapty/virtual-currencies
     asa/             # Apple Search Ads: whoami, connect, orgs, apps, campaigns, ad-groups, keywords (incl. recommend, duplicates),
                      # negative-keywords, search-terms, ads, product-pages, creatives, automations, metrics,

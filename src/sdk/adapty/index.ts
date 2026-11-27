@@ -254,6 +254,8 @@ export type {
 export type { PageParams, Paginated, Pagination } from './pagination.js';
 export type { PlacementsApi } from './placements.js';
 export type {
+    Adjustment,
+    AdjustmentInput,
     Balance,
     Balances,
     CreateVirtualCurrencyInput,
