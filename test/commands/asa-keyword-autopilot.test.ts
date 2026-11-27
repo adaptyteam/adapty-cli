@@ -91,6 +91,27 @@ describe('asa keyword-autopilot', () => {
             expect(JSON.parse(stdout)).to.deep.equal(PAGE);
         });
 
+        it('tells when the page is empty, by filter and by page, and keeps --json unchanged', async () => {
+            const empty = { data: [], meta: { pagination: { count: 0, page: 1, pages: 0 } } };
+
+            fetchStub = mockFetch([empty]);
+            const plain = await runCommand('asa keyword-autopilot list');
+            restoreFetch(fetchStub);
+            fetchStub = mockFetch([empty]);
+            const filtered = await runCommand('asa keyword-autopilot list --status paused');
+            restoreFetch(fetchStub);
+            fetchStub = mockFetch([empty]);
+            const later = await runCommand('asa keyword-autopilot list --page 2');
+            restoreFetch(fetchStub);
+            fetchStub = mockFetch([empty]);
+            const json = await runCommand('asa keyword-autopilot list --json');
+
+            expect(plain.stdout).to.contain('No keywords are on the keyword autopilot yet.');
+            expect(filtered.stdout).to.contain('No keywords match these filters.');
+            expect(later.stdout).to.contain('No more rows.');
+            expect(JSON.parse(json.stdout)).to.deep.equal(empty);
+        });
+
         it('refuses --page-size 201, an unknown status and an unknown paused code before the network', async () => {
             fetchStub = mockFetch([PAGE]);
 
@@ -349,6 +370,20 @@ describe('asa keyword-autopilot', () => {
             expect(query.get('limit')).to.equal('100');
             expect(query.get('offset')).to.equal('0');
             expect(JSON.parse(stdout)).to.deep.equal({ ...FEED, has_more: false });
+        });
+
+        it('tells when the feed is empty and says no more rows past the first page', async () => {
+            const empty = { ...FEED, has_more: false, items: [] };
+
+            fetchStub = mockFetch([empty]);
+            const first = await runCommand('asa keyword-autopilot decisions');
+            restoreFetch(fetchStub);
+            fetchStub = mockFetch([{ ...empty, offset: 100 }]);
+            const later = await runCommand('asa keyword-autopilot decisions --offset 100');
+
+            expect(first.stdout).to.contain('No actions or alerts in this window. Routine checks are not listed.');
+            expect(later.stdout).to.contain('No more rows.');
+            expect(later.stdout).to.not.contain('No actions or alerts');
         });
 
         it('refuses bad input before the network', async () => {

@@ -66,6 +66,18 @@ export default class AsaKeywordAutopilotList extends Command {
             status: flags.status,
         });
 
+        if (result.data.length === 0) {
+            const filtered = enabled !== undefined || flags['paused-code'] !== undefined || flags.status !== undefined;
+
+            if (flags.page > 1) {
+                this.log('No more rows.');
+            } else {
+                this.log(filtered ? 'No keywords match these filters.' : 'No keywords are on the keyword autopilot yet.');
+            }
+
+            return result;
+        }
+
         printList(
             result.data.map(item => ({ ...item, last_decision: this.describeLastDecision(item) })),
             this.log.bind(this),

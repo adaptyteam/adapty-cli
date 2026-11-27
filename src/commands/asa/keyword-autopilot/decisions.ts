@@ -56,6 +56,10 @@ export default class AsaKeywordAutopilotDecisions extends Command {
 
         const log = this.log.bind(this);
 
+        if (result.items.length === 0) {
+            log(flags.offset > 0 ? 'No more rows.' : 'No actions or alerts in this window. Routine checks are not listed.');
+        }
+
         for (const [i, decision] of result.items.entries()) {
             if (i > 0) {
                 log('---');

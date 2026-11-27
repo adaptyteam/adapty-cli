@@ -355,6 +355,24 @@ describe('asa budget-autopilot', () => {
             expect(stdout).to.contain(`use --date-to ${queryOf(fetchStub, 0).get('date_to')} --offset 20 for the next page`);
         });
 
+        it('tells when the feed is empty, says no more rows past the first page, and keeps --json unchanged', async () => {
+            const empty = { has_more: false, items: [], limit: 20, offset: 0 };
+
+            fetchStub = mockFetch([empty]);
+            const first = await runCommand('asa budget-autopilot decisions');
+            restoreFetch(fetchStub);
+            fetchStub = mockFetch([{ ...empty, offset: 20 }]);
+            const later = await runCommand('asa budget-autopilot decisions --offset 20');
+            restoreFetch(fetchStub);
+            fetchStub = mockFetch([empty]);
+            const json = await runCommand('asa budget-autopilot decisions --json');
+
+            expect(first.stdout).to.contain('No decisions match in this window.');
+            expect(later.stdout).to.contain('No more rows.');
+            expect(later.stdout).to.not.contain('No decisions match');
+            expect(JSON.parse(json.stdout)).to.deep.equal(empty);
+        });
+
         it('defaults to 7 days, limit 20 and offset 0, and keeps --json unchanged', async () => {
             fetchStub = mockFetch([{ ...FEED, has_more: false }]);
 

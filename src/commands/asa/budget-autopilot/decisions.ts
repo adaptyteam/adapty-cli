@@ -102,6 +102,10 @@ export default class AsaBudgetAutopilotDecisions extends Command {
 
         const log = this.log.bind(this);
 
+        if (result.items.length === 0) {
+            log(flags.offset > 0 ? 'No more rows.' : 'No decisions match in this window.');
+        }
+
         for (const [i, decision] of result.items.entries()) {
             if (i > 0) {
                 log('---');
