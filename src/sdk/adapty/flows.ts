@@ -74,6 +74,30 @@ const configAnswer = async (pending: Promise<unknown>): Promise<FlowConfig> => {
 };
 
 /**
+ * A copy answer is an object with the new flow and its checklist list. Any other success body (a proxy page,
+ * a server that omits a field) is `malformed_response` that names the missing fields, never read as an empty
+ * checklist: the copy can exist in the target app all the same.
+ */
+const copyToAppAnswer = async (pending: Promise<unknown>): Promise<FlowCopyToApp> => {
+    const answer = await pending;
+
+    if (!isRecord(answer)) {
+        throw malformed(answer, 'The flow copy answer is not a JSON object.');
+    }
+
+    const missing = [
+        ...['flow_id', 'name', 'target_app_id'].filter(field => typeof answer[field] !== 'string'),
+        ...(Array.isArray(answer.checklist) ? [] : ['checklist']),
+    ];
+
+    if (missing.length > 0) {
+        throw malformed(answer, `The flow copy answer has no ${missing.join(', ')}.`);
+    }
+
+    return answer as FlowCopyToApp;
+};
+
+/**
  * A write replaces the whole remote config list, so a read without it cannot be written back: the write
  * would drop the remote configs.
  */
@@ -175,10 +199,11 @@ export const flows = (http: Http) => ({
     /**
      * A new flow with the source name in another app of the same company, not published: the content
      * of the current version (the draft, else the live one). The source flow does not change. Like
-     * `duplicate`, a write that is never retried: a second one would make a second flow.
+     * `duplicate`, a write that is never retried: a second one would make a second flow. An answer
+     * without the new flow or its checklist list is `malformed_response`.
      */
     copyToApp: (appId: string, flowId: string, targetAppId: string) =>
-        http.post<FlowCopyToApp>(`/apps/${appId}/flows/${flowId}/copy-to-app`, { target_app_id: targetAppId }),
+        copyToAppAnswer(http.post(`/apps/${appId}/flows/${flowId}/copy-to-app`, { target_app_id: targetAppId })),
 
     get: (appId: string, flowId: string) => http.get<Flow>(`/apps/${appId}/flows/${flowId}`),
 

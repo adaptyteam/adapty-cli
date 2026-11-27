@@ -528,8 +528,17 @@ describe('flows versions', () => {
         const answer = (checklist: { kind: string; message: string }[]) =>
             ({ checklist, flow_id: NEW_FLOW, name: 'Onboarding', target_app_id: TARGET });
 
-        const products = { kind: 'products_removed', message: 'Products were removed. Add products in the target app.' };
-        const fonts = { kind: 'fonts_to_bundle', message: 'Bundle the fonts Inter in the target app.' };
+        // The server texts of the checklist items, as the copy route words them
+        const products = {
+            kind: 'products_removed',
+            message: 'Products were removed from this flow: Annual. Bind products of this app in the builder before you publish.',
+        };
+
+        const fonts = {
+            kind: 'fonts_to_bundle',
+            message: 'Make sure fonts Inter are bundled in the Prod app build, and test the flow on a device.',
+        };
+
         const created = `New flow 'Onboarding' (${NEW_FLOW}) in app ${TARGET}, not published.`;
 
         const rows = [
@@ -562,14 +571,54 @@ describe('flows versions', () => {
             expect(JSON.parse(stdout)).to.deep.equal(answer([products]));
         });
 
-        it('an error prints the server text and exits non-zero', async () => {
-            fetchStub = mockFetchSteps([apiError(404, 'target_app_not_available', 'The target app is not available.')]);
+        const sourceAppText = 'Choose another app. To copy a flow inside this app, use Duplicate.';
+        const duplicateHint = 'To copy a flow inside its app, run `adapty flows duplicate FLOW_ID --app <app>`.';
 
-            const { error } = await runCommand(copy);
+        const errors = [
+            { code: 'target_app_not_available', hint: undefined, status: 404, text: 'The target app is not available.' },
+            { code: 'target_app_is_source_app', hint: duplicateHint, status: 400, text: sourceAppText },
+        ];
 
-            expect(error?.oclif?.exit).to.equal(exitCode.api);
-            expect(error?.message).to.equal('The target app is not available.');
-        });
+        for (const row of errors) {
+            it(`${row.code}: the server text with its hint, if any, and exit 4`, async () => {
+                fetchStub = mockFetchSteps([apiError(row.status, row.code, row.text)]);
+
+                const { error } = await runCommand(copy);
+
+                expect(error?.oclif?.exit).to.equal(exitCode.api);
+                expect(error?.message).to.equal(row.hint === undefined ? row.text : `${row.text}\n${row.hint}`);
+            });
+
+            it(`${row.code} in --json: error_code, the server text and the hint, exit 4`, async () => {
+                fetchStub = mockFetchSteps([apiError(row.status, row.code, row.text)]);
+
+                const { error, exit } = await runJson(`${copy} --json`);
+
+                expect(exit).to.equal(exitCode.api);
+                expect(error.error_code).to.equal(row.code);
+                expect(error.message).to.equal(row.text);
+                expect(error.hint).to.equal(row.hint);
+            });
+        }
+
+        const malformed = [
+            { answer: '<html>proxy</html>', message: 'The flow copy answer is not a JSON object.', name: 'a page' },
+            { answer: { flow_id: NEW_FLOW, name: 'Onboarding', target_app_id: TARGET }, message: 'The flow copy answer has no checklist.', name: 'no checklist' },
+            { answer: { checklist: [] }, message: 'The flow copy answer has no flow_id, name, target_app_id.', name: 'no new flow' },
+        ];
+
+        for (const row of malformed) {
+            it(`a success answer with ${row.name}: malformed_response that names it, exit 4`, async () => {
+                fetchStub = mockFetch([row.answer]);
+
+                const { error, exit } = await runJson(`${copy} --json`);
+
+                expect(exit).to.equal(exitCode.api);
+                expect(error.error_code).to.equal('malformed_response');
+                expect(error.message).to.equal(row.message);
+                expect(methods(fetchStub)).to.deep.equal(['POST']);
+            });
+        }
 
         const refused = [
             { line: `flows copy ${FLOW} ${APP}`, name: 'with no --to-app' },
