@@ -1068,7 +1068,9 @@ The budget autopilot runs in `dry_run` (the dashboard's Preview: it plans and wr
 when the company is not connected or when the result would be Live while Live is not available, and says so (exit 0)
 without sending when the requested state is already the current one; a Live result lists the campaigns that go live
 before it asks. On a company that is off, `--mode` only changes the stored mode, and a later `--enable` with stored
-mode `live` goes Live, with that preview. `exclude` keeps a
+mode `live` goes Live, with that preview. In the `status` answer `mode` is the effective mode (`dry_run` while the
+autopilot is off or Live is unavailable) and the stored choice is the `dry_run` field, so read `dry_run` before
+`--enable` and set `--mode dry_run` first if it is `false` and Live is not what you want. `exclude` keeps a
 campaign out of the autopilot; `include` lifts the exclusion, and the next weekly run decides whether the campaign is
 managed again.
 

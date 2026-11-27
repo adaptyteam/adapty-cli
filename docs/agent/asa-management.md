@@ -331,7 +331,7 @@ switch it.
 
 | Command | Flags | Notes |
 |---|---|---|
-| `asa budget-autopilot status` | none | State of the company: `enrolled`, `enabled`, `mode` (`dry_run` / `live`), `live_available`, last weekly run, next run and guard check, managed campaigns, open decisions and spend guard alerts of the last 7 days. |
+| `asa budget-autopilot status` | none | State of the company: `enrolled`, `enabled`, `dry_run` (the stored choice), `mode` (`dry_run` / `live`, the effective mode), `live_available`, last weekly run, next run and guard check, managed campaigns, open decisions and spend guard alerts of the last 7 days. |
 | `asa budget-autopilot update` | at least one of `--enable` / `--disable` (mutually exclusive), `--mode` (`dry_run` / `live`) | Turns it on or off and sets the mode. See below. |
 | `asa budget-autopilot fronts` | optional `--campaign-group`, `--adam-id` | The campaigns the autopilot manages or has excluded, with budgets, pending changes and exclusions. Not paginated. |
 | `asa budget-autopilot decisions` | optional `--date-from`, `--date-to`, `--campaign`, `--campaign-group`, `--adam-id`, `--severity`, `--decision-kind`, `--execution-status` (the last three repeatable), `--limit` (default `20`, max `200`), `--offset` (max `10000`) | Budget transfers, skips and spend guard pauses, newest first, for a time window. |
@@ -354,9 +354,13 @@ it off, or going back to `dry_run`, stops further writes but restores nothing: b
 it paused stay paused. A managed campaign whose daily budget or status you change in Apple Ads while Live is excluded
 (`excluded.reason: external_change`); budget amounts are in the campaign's own currency.
 
-**`update`.** Passing no flag exits 2. The settings are two values, on or off and the mode. `--enable` and `--disable`
-keep the stored mode, and `--mode` alone keeps the stored on or off, so `--mode` is what switches between `dry_run` and
-`live`. The command reads `status`, fills in the half you did not pass and works out the requested state:
+**`update`.** Passing no flag exits 2. The settings are two values, on or off (`enabled`) and the mode. In the `status`
+answer `mode` is the effective mode: it reads `dry_run` while the autopilot is off or `live_available` is `false`,
+whatever is stored. The stored choice is the boolean `dry_run` field (`dry_run: false` means the stored mode is
+`live`). `--enable` and `--disable` keep the stored mode, and `--mode` alone keeps the stored on or off, so `--mode` is
+what switches between `dry_run` and `live`. Before `--enable`, read `dry_run`: if it is `false`, set `--mode dry_run`
+first unless Live is what the user wants. The command reads `status`, fills in the half you did not pass from `enabled`
+and `dry_run`, and works out the requested state:
 
 - the company is not connected: error, exit 1, nothing sent;
 - the requested state equals the current one: it says "Nothing to change: the budget autopilot is already set this way."
@@ -365,9 +369,10 @@ keep the stored mode, and `--mode` alone keeps the stored on or off, so `--mode`
 - the result is Live: it first lists on stderr the campaigns that go live (up to 20, then "and N more") with a warning
   of what Live writes; then, like every write, it prints the request and asks for confirmation.
 
-On a company that is off, `--mode` only changes the stored mode: the confirmation reads "Set the stored mode to
+On a company that is off, `--mode` only changes the stored mode (the `dry_run` field): the confirmation reads "Set the stored mode to
 `dry_run` / `live`: the budget autopilot stays off and writes nothing to Apple Ads", and neither the Live preview nor
-the `live_available` check happens. A later `--enable` on a company whose stored mode is `live` goes Live, and that is
+the `live_available` check happens. A later `--enable` on a company whose stored mode is `live` (`dry_run: false`, even
+though `mode` showed `dry_run`) goes Live, and that is
 when the preview and the Live confirmation appear.
 
 **Exclude and include.** `exclude` stops the autopilot managing the campaign: its budget stays as it is, changes
