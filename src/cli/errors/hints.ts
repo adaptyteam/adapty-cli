@@ -13,6 +13,7 @@ const HINTS: Readonly<Record<string, string>> = {
     hypothesis_variant_mismatch: 'Check the arms with `adapty ab-tests get --app <app> <ab_test_id>`: they must be the flow of the '
         + 'hypothesis and its variant. To change the variant, unaccept and accept again with --variant-flow.',
     hypothesis_payload_conflict: 'Leave hypothesis_id out to create a new hypothesis, or resend the payload stored under it.',
+    target_app_is_source_app: 'To copy a flow inside its app, run `adapty flows duplicate FLOW_ID --app <app>`.',
 };
 
 const hintFor = (code: string | undefined): string | undefined => (code === undefined ? undefined : HINTS[code]);

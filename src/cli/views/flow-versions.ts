@@ -2,7 +2,7 @@ import { hasPublishedHistory, versionDate, versionPublication } from '../../sdk/
 
 import { renderRecord } from './record.js';
 
-import type { Flow, FlowVersionDetail, FlowVersionRow, Paginated } from '../../sdk/adapty/index.js';
+import type { Flow, FlowCopyToApp, FlowVersionDetail, FlowVersionRow, Paginated } from '../../sdk/adapty/index.js';
 
 /**
  * The version history of a flow as text, and the words of its actions. The table has the title,
@@ -104,3 +104,11 @@ export const neverPublishedLines = (flowIds: readonly string[]): string[] =>
     flowIds.map(flowId => `${flowId}: ${NEVER_PUBLISHED}`);
 
 export const duplicatedLine = (flow: Pick<Flow, 'id' | 'name'>): string => `New flow '${flow.name}' (${flow.id}), not published.`;
+
+/** The new flow in the target app, then each thing to check in it before its publish. */
+export const copiedToAppLines = (copy: FlowCopyToApp): string => [
+    `New flow '${copy.name}' (${copy.flow_id}) in app ${copy.target_app_id}, not published.`,
+    ...copy.checklist.length === 0
+        ? []
+        : ['Check before you publish:', ...copy.checklist.map(item => `- ${item.kind}: ${item.message}`)],
+].join('\n');

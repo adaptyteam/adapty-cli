@@ -45,7 +45,9 @@ src/
                      # implementation in src/cli/commands/flows/funnel);
                      # versions/ (list, get, preview, rename, restore — the version history; restore asks before it
                      # replaces a draft, --yes needs --expected-updated-at); duplicate (a copy as a new flow);
-                     # implementation in src/cli/commands/flows/versions and src/cli/commands/flows/duplicate.ts
+                     # copy (--to-app: a copy as a new unpublished flow in another app, with a checklist);
+                     # implementation in src/cli/commands/flows/versions, src/cli/commands/flows/duplicate.ts
+                     # and src/cli/commands/flows/copy.ts
                      # publish — refreshes the _meta.fonts copy of a config that names a custom font, saves it
                      # when it changed, then publishes; implementation in src/cli/commands/flows/publish, the rule
                      # in src/sdk/adapty/flow-fonts.ts

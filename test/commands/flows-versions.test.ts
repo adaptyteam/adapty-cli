@@ -521,6 +521,122 @@ describe('flows versions', () => {
         });
     });
 
+    describe('flows copy', () => {
+        const TARGET = 'c3c3c3c3-0000-4000-8000-000000000005';
+        const copy = `flows copy ${FLOW} ${APP} --to-app ${TARGET}`;
+
+        const answer = (checklist: { kind: string; message: string }[]) =>
+            ({ checklist, flow_id: NEW_FLOW, name: 'Onboarding', target_app_id: TARGET });
+
+        // The server texts of the checklist items, as the copy route words them
+        const products = {
+            kind: 'products_removed',
+            message: 'Products were removed from this flow: Annual. Bind products of this app in the builder before you publish.',
+        };
+
+        const fonts = {
+            kind: 'fonts_to_bundle',
+            message: 'Make sure fonts Inter are bundled in the Prod app build, and test the flow on a device.',
+        };
+
+        const created = `New flow 'Onboarding' (${NEW_FLOW}) in app ${TARGET}, not published.`;
+
+        const rows = [
+            {
+                answer: answer([products, fonts]),
+                name: 'an answer with a checklist prints the new flow, the target app and each item',
+                stdout: [created, 'Check before you publish:', `- products_removed: ${products.message}`, `- fonts_to_bundle: ${fonts.message}`].join('\n'),
+            },
+            { answer: answer([]), name: 'an answer with no checklist prints only the new flow line', stdout: created },
+        ];
+
+        for (const row of rows) {
+            it(row.name, async () => {
+                fetchStub = mockFetch([row.answer]);
+
+                const { stdout } = await runCommand(copy);
+
+                expect(methods(fetchStub)).to.deep.equal(['POST']);
+                expect(requestOf(fetchStub, 0).url).to.equal(`${BASE}${PATH}/copy-to-app/`);
+                expect(bodyOf(fetchStub, 0)).to.deep.equal({ target_app_id: TARGET });
+                expect(stdout.trim()).to.equal(row.stdout);
+            });
+        }
+
+        it('--json prints the answer of the server', async () => {
+            fetchStub = mockFetch([answer([products])]);
+
+            const { stdout } = await runCommand(`${copy} --json`);
+
+            expect(JSON.parse(stdout)).to.deep.equal(answer([products]));
+        });
+
+        const sourceAppText = 'Choose another app. To copy a flow inside this app, use Duplicate.';
+        const duplicateHint = 'To copy a flow inside its app, run `adapty flows duplicate FLOW_ID --app <app>`.';
+
+        const errors = [
+            { code: 'target_app_not_available', hint: undefined, status: 404, text: 'The target app is not available.' },
+            { code: 'target_app_is_source_app', hint: duplicateHint, status: 400, text: sourceAppText },
+        ];
+
+        for (const row of errors) {
+            it(`${row.code}: the server text with its hint, if any, and exit 4`, async () => {
+                fetchStub = mockFetchSteps([apiError(row.status, row.code, row.text)]);
+
+                const { error } = await runCommand(copy);
+
+                expect(error?.oclif?.exit).to.equal(exitCode.api);
+                expect(error?.message).to.equal(row.hint === undefined ? row.text : `${row.text}\n${row.hint}`);
+            });
+
+            it(`${row.code} in --json: error_code, the server text and the hint, exit 4`, async () => {
+                fetchStub = mockFetchSteps([apiError(row.status, row.code, row.text)]);
+
+                const { error, exit } = await runJson(`${copy} --json`);
+
+                expect(exit).to.equal(exitCode.api);
+                expect(error.error_code).to.equal(row.code);
+                expect(error.message).to.equal(row.text);
+                expect(error.hint).to.equal(row.hint);
+            });
+        }
+
+        const malformed = [
+            { answer: '<html>proxy</html>', message: 'The flow copy answer is not a JSON object.', name: 'a page' },
+            { answer: { flow_id: NEW_FLOW, name: 'Onboarding', target_app_id: TARGET }, message: 'The flow copy answer has no checklist.', name: 'no checklist' },
+            { answer: { checklist: [] }, message: 'The flow copy answer has no flow_id, name, target_app_id.', name: 'no new flow' },
+        ];
+
+        for (const row of malformed) {
+            it(`a success answer with ${row.name}: malformed_response that names it, exit 4`, async () => {
+                fetchStub = mockFetch([row.answer]);
+
+                const { error, exit } = await runJson(`${copy} --json`);
+
+                expect(exit).to.equal(exitCode.api);
+                expect(error.error_code).to.equal('malformed_response');
+                expect(error.message).to.equal(row.message);
+                expect(methods(fetchStub)).to.deep.equal(['POST']);
+            });
+        }
+
+        const refused = [
+            { line: `flows copy ${FLOW} ${APP}`, name: 'with no --to-app' },
+            { line: `flows copy ${FLOW} ${APP} --to-app prod`, name: 'with a --to-app that is not a UUID' },
+        ];
+
+        for (const row of refused) {
+            it(`${row.name}: a usage error and no request`, async () => {
+                fetchStub = mockFetch([answer([])]);
+
+                const { error } = await runCommand(row.line);
+
+                expect(error?.oclif?.exit).to.equal(exitCode.usage);
+                expect(methods(fetchStub)).to.deep.equal([]);
+            });
+        }
+    });
+
     describe('flows metrics of a never-published flow', () => {
         const tree = { data: { purchases: 0, revenue: 0, title: null, trials: 0, views: 0 } };
         const get = `flows metrics get ${FLOW} ${APP} --date-type purchase_date --based-on placement`;
