@@ -232,6 +232,11 @@ to come from a flag. A dashboard edit made between the read and the write is ove
 
 ## Keyword autopilot
 
+**Beta.** Both autopilots, keyword and budget, are in beta, and the CLI prints a short notice about it on stderr
+once a day after an ordinary `asa` command (silence it with `ADAPTY_NO_AUTOPILOT_NOTICE=1`). When the notice
+appears, or the user asks about the autopilot, tell them it is a beta they can try, that the budget autopilot starts
+in Preview, and that to join they write to their Adapty manager. Promise no results.
+
 Adapty's keyword autopilot manages the bid of the keywords you enroll and can pause them. These commands read its
 state and enroll or take off one keyword at a time.
 
