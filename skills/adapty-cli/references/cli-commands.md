@@ -343,17 +343,20 @@ adapty flows copy FLOW_UUID --app SOURCE_APP_UUID --to-app TARGET_APP_UUID --jso
   of the same company, from the current version; the source flow does not change. `--json` gives `flow_id`, `name`,
   `target_app_id` and `checklist` (items with `kind` and `message`: `products_removed`, `font_replaced`,
   `font_not_in_source_app`, `font_import_failed`, `fonts_to_bundle`): show each item to the user before a publish.
-  The copy registers the custom fonts of the flow in the target app (or reuses the ones there): no `fonts upload` is
-  needed; `fonts list --app <target app>` shows them.
+  The copy registers the custom fonts of the flow in the target app or reuses the ones there (`fonts list --app <target
+  app>` shows them); a font named by a `font_replaced`, `font_not_in_source_app` or `font_import_failed` item uses the
+  system font in the copy: upload that font to the target app or select another one.
+  Each call makes one more flow. After a network error (exit 5) the copy can exist: check
+  `flows list --app <target app>` before you run it again.
   Errors: `target_app_not_available` (no access to the app, or an app of another company), `target_app_is_source_app`
-  (use `flows duplicate`).
+  (use `flows duplicate`; the `hint` says so).
 - **Dashboard words.** "Duplicate as draft" is `restore`; "Duplicate as new flow" and "Duplicate flow" are
   `duplicate`; "Copy to app..." is `copy --to-app`.
 - **Errors** (exit 4, the server text, then the next step): `flow_config_conflict` (somebody changed the draft:
   list the versions again and retry), `flow_publishing` (wait until the publish ends), `flow_archived` (restore the
   flow from the archive in the dashboard first; list and view still work), `flow_draft_exists`,
   `flow_version_already_draft`, `flow_version_products_deleted`, `flow_version_not_found`, `flow_not_found`. In
-  `--json` the error has `error_code` and, for the first three, `hint`.
+  `--json` the error has `error_code` and, for the first three and `target_app_is_source_app`, `hint`.
 
 ## Segments
 

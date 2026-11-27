@@ -126,7 +126,8 @@ analytics POSTs are never retried, like `attribution report`.
 
 `flows` also holds the read and the write of the builder config and the publish of `flows publish`. A config answer,
 read or write, that is not an object with the config and an integer `updated_at` is a `malformed_response`, and
-`requireWritableConfig` refuses to write back a read without `remote_configs`. Before the publish, `flow-fonts.ts`
+`requireWritableConfig` refuses to write back a read without `remote_configs`. A copy-to-app answer
+without the new flow or its `checklist` list is a `malformed_response` too, never an empty checklist. Before the publish, `flow-fonts.ts`
 rebuilds the `_meta.fonts` copy of a config from the app fonts, as the server's own refresh writes it
 (`refreshFlowFonts`); the command saves the config only when the copy changed (entries compare by family id, in any
 order). A reference it cannot match with certainty is a `FontReferenceIssue`: the reason, the reference and the family
@@ -396,7 +397,7 @@ use. Global flags belong to the base command; shared subsets stay composable obj
 ## Migration state
 
 The pre-sdk stack (`src/lib` + the commands written against it) is still there and still serves
-most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows publish`, `flows versions`, `fonts`, `hypotheses`, `migrations`,
+most topics. The new stack serves `ab-tests`, `analytics`, `apps`, `attribution`, `auth`, `fallbacks`, `feedback`, `flows copy`, `flows duplicate`, `flows funnel`, `flows metrics`, `flows publish`, `flows versions`, `fonts`, `hypotheses`, `migrations`,
 `paywalls metrics`, `placements metrics`, `product-groups`, `product-offers`, `product-prices`, `products create|get|update|push`, `refund-saver`,
 `skills` and `virtual-currencies`.
 

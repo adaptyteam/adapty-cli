@@ -358,7 +358,8 @@ source flow does not change. It prints the new flow id, the target app and "not 
 before the publish (`kind` and text: removed products, replaced fonts, fonts to bundle); `--json` prints
 `{flow_id, name, target_app_id, checklist}`. An app the user cannot use, or an app of another company, gives "The
 target app is not available." (`target_app_not_available`, exit 4); the source app as the target gives
-`target_app_is_source_app`: use `duplicate` there.
+`target_app_is_source_app`: use `duplicate` there. Each call makes one more flow. After a network error (exit 5)
+the copy can exist: check `flows list --app TARGET_APP_UUID` before you run it again.
 
 #### Flow, paywall and placement metrics
 
