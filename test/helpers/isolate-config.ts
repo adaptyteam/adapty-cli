@@ -6,7 +6,8 @@ import { Config } from '@oclif/core';
 
 let sessionFile: string;
 let contextFile: string;
-const environmentKeys = ['XDG_CONFIG_HOME', 'ADAPTY_TOKEN', 'ADAPTY_API_URL', 'ADAPTY_MIGRATION', 'ADAPTY_REGION'] as const;
+let noticeFile: string;
+const environmentKeys = ['XDG_CONFIG_HOME', 'ADAPTY_TOKEN', 'ADAPTY_API_URL', 'ADAPTY_MIGRATION', 'ADAPTY_REGION', 'ADAPTY_NO_AUTOPILOT_NOTICE'] as const;
 const originalEnvironment = new Map(environmentKeys.map(key => [key, process.env[key]]));
 
 export const mochaHooks = {
@@ -18,6 +19,7 @@ export const mochaHooks = {
 
         sessionFile = join(config.configDir, 'config.json');
         contextFile = join(config.configDir, 'context.json');
+        noticeFile = join(config.configDir, 'autopilot-notice.json');
     },
 
     /**
@@ -30,8 +32,11 @@ export const mochaHooks = {
         delete process.env.ADAPTY_API_URL;
         delete process.env.ADAPTY_MIGRATION;
         delete process.env.ADAPTY_REGION;
+        // The beta notice is off unless its own tests switch it on
+        process.env.ADAPTY_NO_AUTOPILOT_NOTICE = '1';
         await rm(sessionFile, { force: true });
         await rm(contextFile, { force: true });
+        await rm(noticeFile, { force: true });
     },
 
     afterAll() {

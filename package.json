@@ -67,6 +67,9 @@
         "!**/lib/**"
       ]
     },
+    "hooks": {
+      "postrun": "./dist/cli/hooks/postrun/autopilot-beta-notice"
+    },
     "plugins": [
       "@oclif/plugin-help"
     ],
@@ -199,7 +202,7 @@
         "description": "The balances of one profile, with the coins that expire"
       },
       "asa": {
-        "description": "Apple Search Ads: campaigns, keywords, metrics and automations (scoped by the token's company, no --app)"
+        "description": "Apple Search Ads: campaigns, keywords, metrics, automations and the Autopilot beta (scoped by the token's company, no --app)"
       },
       "asa:apps": {
         "description": "Apps promoted in Apple Search Ads"
@@ -238,10 +241,10 @@
         "description": "Apple Ads change history, read live from Apple"
       },
       "asa:budget-autopilot": {
-        "description": "Budget autopilot: status, mode, managed campaigns and its decisions"
+        "description": "Budget autopilot (beta): status, mode, managed campaigns and its decisions"
       },
       "asa:keyword-autopilot": {
-        "description": "Keyword autopilot: enroll keywords, read its decisions and reports"
+        "description": "Keyword autopilot (beta): enroll keywords, read its decisions and reports"
       },
       "asa:metrics": {
         "description": "Metrics and overviews"
